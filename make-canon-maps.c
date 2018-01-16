@@ -63,7 +63,7 @@ void CheckGraph(int Gint)
 	if(TinyGraphsIsomorphic(perm, G, _canonicalGraph[i]))
 #endif
 	{
-	    printf("%d ", _canonicalSig[i]); // the line number is the implicit Gint value
+	    printf("%d\t%d\t", Gint, _canonicalSig[i]); // We found its canonical, print both
 	    for(j=0; j<k; j++) printf("%d", perm[j]);
 	    puts("");
 	    break;
@@ -71,8 +71,8 @@ void CheckGraph(int Gint)
     }
     if(i == _numCanonicals) // it is a new canonical
     {
-	printf("%d ", Gint); // remember line number is implicint Gint value so this is its own canonical
-	    for(j=0; j<k; j++) printf("%d", j);
+	printf("%d\t%d\t", Gint, Gint); // It's a new canonical, so print its own value twice.
+	    for(j=0; j<k; j++) printf("%d", j);	// and its permutation is the identity.
 	int nodeArray[k], distArray[k];
 	if(TinyGraphBFS(G, 0, k, nodeArray, distArray) == k)
 	    puts(" 1"); // connected, thus graphlet
@@ -103,9 +103,7 @@ int main(int argc, char *argv[])
     int Gmin = coreID*numPerCore;
     int Gmax = (coreID+1)*numPerCore;
     for(Gint=Gmin; Gint < Gmax; Gint++)
-    {
 	CheckGraph(Gint);
-    }
 
     return 0;
 }

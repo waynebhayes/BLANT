@@ -108,14 +108,16 @@ int main(int argc, char *argv[])
     for(i=0; i<MAX_CANONICALS; i++)
 	_canonicalGraph[i] = TinyGraphAlloc(k);
     int Gint, Gcanon; // maxGint = (1<<(k*(k-1)/2));
-
+    int isGraphlet, numRead; // isGraphlet is ignored for now and just echo'd through.
+    char line[BUFSIZ];
 
     // STEP 1: read first file
     
     while(!feof(fp1))
     {
 	char cPerm[MAX_TSET+1];
-	fscanf(fp1, "%d%d%s ", &Gint, &Gcanon, cPerm);
+	fgets(line, sizeof(line), fp1);
+	numRead = sscanf(line, "%d%d%s%d", &Gint, &Gcanon, cPerm, &isGraphlet);
 	assert(strlen(cPerm) <= MAX_TSET && strlen(cPerm)==k);
 	if(Gint == Gcanon) // it's a true canonical
 	{
@@ -124,15 +126,20 @@ int main(int argc, char *argv[])
 	    TinyGraphCopy(_canonicalGraph[_numCanonicals], G);
 	    ++_numCanonicals;
 	}
-	printf("%d\t%d\t%s\n",Gint, Gcanon, cPerm);
+	printf("%d\t%d\t%s",Gint, Gcanon, cPerm);
+	if(numRead == 4) printf(" %d\n", isGraphlet);
+	else puts("");
+	fscanf(fp1, " ");
     }
+    fclose(fp1);
 
     // STEP 2: read the second file
     while(!feof(fp2))
     {
 	int j;
 	char cPerm[MAX_TSET+1];
-	fscanf(fp2, "%d%d%s ", &Gint, &Gcanon, cPerm);
+	fgets(line, sizeof(line), fp2);
+	numRead = sscanf(line, "%d%d%s%d", &Gint, &Gcanon, cPerm, &isGraphlet);
 	assert(strlen(cPerm) <= MAX_TSET && strlen(cPerm)==k);
 	if(Gint == Gcanon) // "new" canonical, possibly faux
 	{
@@ -153,7 +160,8 @@ int main(int argc, char *argv[])
 			_fauxCanonPerm[_numFauxCanon][j] = perm[j];
 			printf("%d", perm[j]);
 		    }
-		    puts("");
+		    if(numRead == 4) printf(" %d\n", isGraphlet);
+		    else puts("");
 		    ++_numFauxCanon;
 		    break;
 		}
@@ -162,7 +170,8 @@ int main(int argc, char *argv[])
 	    {
 		printf("%d\t%d\t", Gint, Gint);
 		    for(j=0; j<k; j++) printf("%d", j);
-		puts("");
+		if(numRead == 4) printf(" %d\n", isGraphlet);
+		else puts("");
 		_canonicalSig[_numCanonicals] = Gint;
 		TinyGraphCopy(_canonicalGraph[_numCanonicals], G);
 		++_numCanonicals;
@@ -180,14 +189,19 @@ int main(int argc, char *argv[])
 		printf("%d\t%d\t", Gint, _fauxCanonTrueSig[i]);
 		//for(j=0; j<k; j++) printf("%d", _fauxCanonPerm[i][cPerm[j]-'0']);
 		for(j=0; j<k; j++) printf("%c", cPerm[_fauxCanonPerm[i][j]]);
-		puts("");
+		if(numRead == 4) printf(" %d\n", isGraphlet);
+		else puts("");
 	    }
 	    else // it's equiv to the NEW canoical that was in the second file, so just echo
 	    {
-		printf("%d\t%d\t%s\n", Gint, Gcanon, cPerm);
+		printf("%d\t%d\t%s", Gint, Gcanon, cPerm);
+		if(numRead == 4) printf(" %d\n", isGraphlet);
+		else puts("");
 	    }
 	}
+	fscanf(fp2, " ");
     }
+    fclose(fp2);
 
     return 0;
 }
