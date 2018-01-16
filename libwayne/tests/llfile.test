@@ -1,0 +1,33 @@
+#include "misc.h"
+#include "llfile.h"
+
+#define BUF_SIZE 87
+/*
+ * Test llfile: take a regular file as argument.
+ * llwrite,
+ * then read it back using llread and copy it to a regular file
+ * called "copy2-of-%s".
+ */
+int main(int argc, char *argv[])
+{
+    FILE *fp = fopen(argv[1], "r");
+    char buf[BUF_SIZE];
+    LLFILE *llfp;
+    int num;
+    sprintf(buf, "copy1-of-%s", argv[1]);
+
+    llfp = llfopen(buf, "w");
+    while((num=fread(buf, 1, BUF_SIZE, fp)))
+	llfwrite(buf, 1, BUF_SIZE, llfp);
+    fclose(fp);
+    llfclose(llfp);
+
+    sprintf(buf, "copy1-of-%s", argv[1]);
+    llfp=llfopen(buf, "r");
+    sprintf(buf, "copy2-of-%s", argv[1]);
+    fp = fopen(buf, "w");
+    while((num=llfread(buf, 1, BUF_SIZE, llfp)))
+	fwrite(buf, 1, num, fp);
+    fclose(fp);
+    llfclose(llfp);
+}
