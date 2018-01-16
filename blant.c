@@ -99,7 +99,16 @@ static SET *SampleGraphlet(GRAPH *G, int k)
     }
     for(i=2; i<k; i++)
     {
-	int j = nOut * drand48();
+	int j;
+	if(nOut == 0) // the graphlet has saturated it's connected component
+	{
+	    while(SetIn(V, (j = G->n*drand48())))
+		; // must terminate since k < G->n
+	    outbound[nOut++] = j;
+	    j = 0;
+	}
+	else
+	    j = nOut * drand48();
 	v1 = outbound[j];
 	SetDelete(outSet, v1);
 	SetAdd(V, v1);
