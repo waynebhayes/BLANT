@@ -8,7 +8,7 @@ test_blant:
 	# Need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -4 also tests parallelism, attemting to run 4 threads simultaneously.
-	./blant -4 6 10000000 syeast.el | awk '{print $$1}' | sort | uniq -c | sort -nr | head | awk '{print $$2}' | sort -n | diff - blant.k6.syeast.out
+	nice -19 ./blant -4 6 10000000 syeast.el | awk '{print $$1}' | sort | uniq -c | sort -nr | head | awk '{print $$2}' | sort -n | diff - blant.k6.syeast.out
 
 canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps
 
