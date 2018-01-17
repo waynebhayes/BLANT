@@ -187,6 +187,7 @@ int blant(int argc, char *argv[])
     int numSamples = atoi(argv[2]);
     FILE *fp = fopen(argv[3], "r");
     GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
+    assert(G->n >= k);
     fclose(fp);
     srand48(time(0)+getpid());
 
