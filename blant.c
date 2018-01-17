@@ -65,11 +65,11 @@ static int TinyGraph2Int(TINY_GRAPH *G, int k)
 
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
-static TINY_GRAPH *TinyGraphInducedFromGraph(GRAPH *G, SET *V)
+static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, SET *V)
 {
     unsigned array[MAX_TSET], nV = SetToArray(array, V), i, j;
+    TinyGraphEdgesAllDelete(Gv);
     assert(nV <= MAX_TSET);
-    TINY_GRAPH *Gv = TinyGraphAlloc(nV);
     for(i=0; i < nV; i++) for(j=i+1; j < nV; j++)
         if(GraphAreConnected(G, array[i], array[j]))
             TinyGraphConnect(Gv, i, j);
@@ -77,16 +77,27 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(GRAPH *G, SET *V)
 }
 
 // Given the big graph G and an integer k, return a k-graphlet from G.
-// Caller is responsible for freeing the SET that is returned.
-static SET *SampleGraphlet(GRAPH *G, int k)
+// Caller is responsible for allocating the set V.
+static SET *SampleGraphlet(SET *V, GRAPH *G, int k)
 {
+    static SET *outSet;
+    if(!outSet)
+       outSet = SetAlloc(G->n);
+    else if(G->n > outSet->n)
+	SetResize(outSet, G->n);
+    else
+	SetEmpty(outSet);
     int edge = G->numEdges * drand48(), i, v1, v2;
-    SET *V = SetAlloc(G->n), *outSet = SetAlloc(G->n);
+    assert(V && V->n >= G->n);
+    SetEmpty(V);
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
     v1 = G->edgeList[2*edge];
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1);
     SetAdd(V, v2);
+
+    // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
+    // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
     for(i=0; i < G->degree[v1]; i++)
     {
 	int nv1 =  G->neighbor[v1][i];
@@ -113,7 +124,7 @@ static SET *SampleGraphlet(GRAPH *G, int k)
 	SetDelete(outSet, v1);
 	SetAdd(V, v1);
 	outbound[j] = outbound[--nOut];	// nuke v1 from the list of outbound by moving the last one to its place
-	for(j=0; j<G->degree[v1];j++)
+	for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
 	{
 	    v2 = G->neighbor[v1][j];
 	    if(!SetIn(outSet, v2) && !SetIn(V, v2))
@@ -121,7 +132,7 @@ static SET *SampleGraphlet(GRAPH *G, int k)
 	}
     }
     assert(SetCardinality(V) == k);
-    SetFree(outSet);
+    // SetFree(outSet); do not free it since it's static
     return V;
 }
 
@@ -211,11 +222,13 @@ int blant(int argc, char *argv[])
     assert(Kf == K);
     assert(Pf == Permutations);
 
+    SET *V = SetAlloc(G->n);
+    TINY_GRAPH *g = TinyGraphAlloc(k);
     for(i=0; i<numSamples; i++)
     {
-	SET *V = SampleGraphlet(G, k);
-	//SET *V = SampleGraphletUnbiased(G, k);
-	TINY_GRAPH *g = TinyGraphInducedFromGraph(G, V);
+	SampleGraphlet(V, G, k);
+	//SampleGraphletUnbiased(V, G, k);
+	TinyGraphInducedFromGraph(g, G, V);
 	int Gint = TinyGraph2Int(g,k);
 	for(j=0;j<k;j++) perm[j]=0;
 	ExtractPerm(perm, Gint);
@@ -225,9 +238,9 @@ int blant(int argc, char *argv[])
 	printf("%d", K[Gint]); // Note this is the ordinal of the canonical, not its bit representation
 	for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
 	puts("");
-	TinyGraphFree(g);
-	SetFree(V);
     }
+    TinyGraphFree(g);
+    SetFree(V);
     GraphFree(G);
     return 0;
 }
