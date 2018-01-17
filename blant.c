@@ -65,20 +65,19 @@ static int TinyGraph2Int(TINY_GRAPH *G, int k)
 
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
-static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, SET *V)
+static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
 {
-    unsigned array[MAX_TSET], nV = SetToArray(array, V), i, j;
+    unsigned i, j;
     TinyGraphEdgesAllDelete(Gv);
-    assert(nV <= MAX_TSET);
-    for(i=0; i < nV; i++) for(j=i+1; j < nV; j++)
-        if(GraphAreConnected(G, array[i], array[j]))
+    for(i=0; i < _k; i++) for(j=i+1; j < _k; j++)
+        if(GraphAreConnected(G, Varray[i], Varray[j]))
             TinyGraphConnect(Gv, i, j);
     return Gv;
 }
 
 // Given the big graph G and an integer k, return a k-graphlet from G.
-// Caller is responsible for allocating the set V.
-static SET *SampleGraphlet(SET *V, GRAPH *G, int k)
+// Caller is responsible for allocating the set V and its array Varray.
+static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 {
     static SET *outSet;
     if(!outSet)
@@ -93,8 +92,8 @@ static SET *SampleGraphlet(SET *V, GRAPH *G, int k)
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
     v1 = G->edgeList[2*edge];
     v2 = G->edgeList[2*edge+1];
-    SetAdd(V, v1);
-    SetAdd(V, v2);
+    SetAdd(V, v1); Varray[0] = v1;
+    SetAdd(V, v2); Varray[1] = v2;
 
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
@@ -114,7 +113,7 @@ static SET *SampleGraphlet(SET *V, GRAPH *G, int k)
 	if(nOut == 0) // the graphlet has saturated it's connected component
 	{
 	    while(SetIn(V, (j = G->n*drand48())))
-		; // must terminate since k < G->n
+		; // must terminate since k <= G->n
 	    outbound[nOut++] = j;
 	    j = 0;
 	}
@@ -122,7 +121,7 @@ static SET *SampleGraphlet(SET *V, GRAPH *G, int k)
 	    j = nOut * drand48();
 	v1 = outbound[j];
 	SetDelete(outSet, v1);
-	SetAdd(V, v1);
+	SetAdd(V, v1); Varray[i] = v1;
 	outbound[j] = outbound[--nOut];	// nuke v1 from the list of outbound by moving the last one to its place
 	for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
 	{
@@ -131,12 +130,62 @@ static SET *SampleGraphlet(SET *V, GRAPH *G, int k)
 		SetAdd(outSet, (outbound[nOut++] = v2));
 	}
     }
+    assert(i==k);
     assert(SetCardinality(V) == k);
     // SetFree(outSet); do not free it since it's static
     return V;
 }
 
-static SET *SampleGraphletUnbiased(GRAPH *G, int k)
+
+/* Basic idea: in order to avoid actually building the outSet as we do
+** above, we instead simply keep a *estimated* count C[v] of separate
+** outSets of each node v in the accumulating graphlet. Then we pick
+** an integer in the range [0,..sum(C)), go find out what node that is,
+** and if it turns out to be a node already in V, then we simply try again.
+*/
+static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
+{
+    int edge = G->numEdges * drand48(), v1, v2;
+    assert(V && V->n >= G->n);
+    SetEmpty(V);
+    int nOut = 0;
+    v1 = G->edgeList[2*edge];
+    v2 = G->edgeList[2*edge+1];
+    SetAdd(V, v1); Varray[0] = v1;
+    SetAdd(V, v2); Varray[1] = v2;
+    int vCount = 2;
+
+    int outDegree = G->degree[v1] + G->degree[v2];
+    static int cumulative[maxK];
+    cumulative[0] = G->degree[v1]; // where v1 = Varray[0]
+    cumulative[1] = G->degree[v2] + cumulative[0];
+
+    while(vCount < k)
+    {
+	int i, whichNeigh = outDegree * drand48(); // which of the list of all neighbors of nodes in V so far?
+	for(i=0; cumulative[i] <= whichNeigh; i++)
+	    ;
+	assert(i < vCount);
+	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]);
+	assert(0 <= localNeigh && localNeigh < G->degree[Varray[i]]);
+	int newNode = G->neighbor[Varray[i]][localNeigh];
+	assert(0 <= newNode && newNode < G->n);
+	if(!SetIn(V, newNode)) // yipee! Found a new node!
+	{
+	    SetAdd(V, newNode);
+	    cumulative[vCount] = G->degree[newNode] + cumulative[vCount-1];
+	    Varray[vCount++] = newNode;
+	    assert(SetCardinality(V) == vCount);
+	    outDegree += G->degree[newNode];
+	    assert(outDegree == cumulative[vCount-1]);
+	}
+    }
+    assert(SetCardinality(V) == k);
+    assert(vCount == k);
+    return V;
+}
+
+static SET *SampleGraphletUnbiasedMaybe(GRAPH *G, int k)
 {
     SET *V = SetAlloc(G->n);
     int arrayV[k], i;
@@ -170,7 +219,7 @@ static SET *SampleGraphletUnbiased(GRAPH *G, int k)
     {
 	GraphFree(graphette);
 	SetFree(V);
-	return SampleGraphletUnbiased(G, k);
+	return SampleGraphletUnbiasedMaybe(G, k);
     }
     GraphFree(graphette);
     return V;
@@ -187,6 +236,12 @@ void *Mmap(void *p, size_t n, int fd)
 	if(read(fd, p, n) != n)
 	    Fatal("cannot mmap, or cannot read the file, or both");
     return p;
+}
+
+static int IntCmp(const void *a, const void *b)
+{
+    int *i = (int*)a, *j = (int*)b;
+    return (*i)-(*j);
 }
 
 // This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
@@ -224,24 +279,28 @@ int blant(int argc, char *argv[])
 
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
+    unsigned Varray[maxK+1];
     for(i=0; i<numSamples; i++)
     {
-	SampleGraphlet(V, G, k);
-	//SampleGraphletUnbiased(V, G, k);
-	TinyGraphInducedFromGraph(g, G, V);
+	SampleGraphletUniformOutSet(V, Varray, G, k); // This seems the fastest one.
+	//SampleGraphletCumulativeDist(V, Varray, G, k);
+	//SampleGraphletUnbiasedMaybe(V, G, k);
+	// We should probably figure out a faster sort?
+	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
+	TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g,k);
 	for(j=0;j<k;j++) perm[j]=0;
 	ExtractPerm(perm, Gint);
-	unsigned Varray[maxK+1];
-	SetToArray(Varray, V);
 	//printf("K[%d]=%d [%d];", Gint, K[Gint], canon_list[K[Gint]]);
 	printf("%d", K[Gint]); // Note this is the ordinal of the canonical, not its bit representation
 	for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
 	puts("");
     }
+#if 0 // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     TinyGraphFree(g);
     SetFree(V);
     GraphFree(G);
+#endif
     return 0;
 }
 
