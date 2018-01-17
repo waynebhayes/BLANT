@@ -10,6 +10,8 @@
 #include "rand48.h"
 #include "blant.h"
 
+#define PARANOID 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
+
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
@@ -81,7 +83,7 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 {
     static SET *outSet;
     if(!outSet)
-       outSet = SetAlloc(G->n);
+       outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
     else if(G->n > outSet->n)
 	SetResize(outSet, G->n);
     else
@@ -131,8 +133,9 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 	}
     }
     assert(i==k);
+#if PARANOID
     assert(SetCardinality(V) == k);
-    // SetFree(outSet); do not free it since it's static
+#endif
     return V;
 }
 
@@ -175,12 +178,16 @@ static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
 	    SetAdd(V, newNode);
 	    cumulative[vCount] = G->degree[newNode] + cumulative[vCount-1];
 	    Varray[vCount++] = newNode;
+#if PARANOID
 	    assert(SetCardinality(V) == vCount);
+#endif
 	    outDegree += G->degree[newNode];
 	    assert(outDegree == cumulative[vCount-1]);
 	}
     }
+#if PARANOID
     assert(SetCardinality(V) == k);
+#endif
     assert(vCount == k);
     return V;
 }
@@ -212,7 +219,9 @@ static SET *SampleGraphletUnbiasedMaybe(GRAPH *G, int k)
 	nodeArray[element] = nodeArray[--numBFS];
 	SetAdd(V, arrayV[i]);
     }
+#if PARANOID
     assert(SetCardinality(V) == k);
+#endif
     // Now check that it's connected
     GRAPH *graphette = GraphInduced(NULL, G, V);
     if(GraphBFS(graphette, 0, k, nodeArray, distArray) < k)
@@ -282,8 +291,11 @@ int blant(int argc, char *argv[])
     unsigned Varray[maxK+1];
     for(i=0; i<numSamples; i++)
     {
-	SampleGraphletUniformOutSet(V, Varray, G, k); // This seems the fastest one.
-	//SampleGraphletCumulativeDist(V, Varray, G, k);
+#if PARANOID
+	SampleGraphletUniformOutSet(V, Varray, G, k);
+#else
+	SampleGraphletCumulativeDist(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#endif
 	//SampleGraphletUnbiasedMaybe(V, G, k);
 	// We should probably figure out a faster sort?
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
@@ -296,7 +308,7 @@ int blant(int argc, char *argv[])
 	for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
 	puts("");
     }
-#if 0 // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
+#if PARANOID // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     TinyGraphFree(g);
     SetFree(V);
     GraphFree(G);
