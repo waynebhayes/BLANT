@@ -2,6 +2,7 @@
 # Whatever you use to run things in parallel.  Maybe SGE?  Up to you. I run them in parallel on a machine with 8-64 cores.
 CORES=8
 P="parallel $CORES"
+#P="distrib_stdin.new -f ../machines.89" # Wayne's personal SGE replacement
 
 # Choose your value of k. For testing use k=7.
 # For k=8, it's 1-2 months of single-core CPU time.
@@ -9,7 +10,11 @@ k=7
 
 MC=../make-canon-maps
 SIFT=../canon-sift # the executable used to do the sifting.
-TMP=/tmp/canon-sift # You should create this directory manually and remove it when done
+
+# You should create this directory manually and remove it when done
+TMP=/tmp/canon-sift  # use this one if you're running all on one machine
+#TMP=canon-sift # use this one if you need to run things across a network, eg using SGE
+
 if [ ! -d $TMP ]; then
     echo "You need to read the source code of this file and set parameters appropriately," >&2
     echo "and then create the directory $TMP and remove it yourself when you're done" >&2
