@@ -84,9 +84,13 @@ SET *SetResize(SET *set, unsigned new_n)
 */
 SET *SetEmpty(SET *set)
 {
-    int i;
-    for(i=0; i<SIZE(set->n); i++)
+    int i, arrayElem=SIZE(set->n);
+#if 1
+    memset(set->array, 0, arrayElem * sizeof(set->array[0]));
+#else
+    for(i=0; i<arrayElem; i++)
 	set->array[i] = 0;
+#endif
     return set;
 }
 
@@ -108,13 +112,13 @@ void SetFree(SET *set)
 */
 SET *SetCopy(SET *dst, SET *src)
 {
-    int i;
+    int i, numSrc = SIZE(src->n);
 
     if(!dst)
 	dst = SetAlloc(src->n);
     assert(dst->n == src->n);
 
-    for(i=0; i < SIZE(src->n); i++)
+    for(i=0; i < numSrc; i++)
 	dst->array[i] = src->array[i];
     return dst;
 }
