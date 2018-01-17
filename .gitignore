@@ -1,7 +1,6 @@
 *.o
 *.a
 *~
-k8/canon-sift/
 blant
 canon-sift
 holding
@@ -17,5 +16,5 @@ ignore/
 core*
 
 #Vi/vim swp files
-**.swp
+*.swp
 .un~
