@@ -1,6 +1,7 @@
 *.o
 *.a
 *~
+k8/canon-sift/
 blant
 canon-sift
 holding
