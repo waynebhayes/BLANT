@@ -253,7 +253,7 @@ unsigned SetCardinality(SET *A)
 {
     unsigned n = 0, i, loop = SIZE(A->n);
     for(i=0; i < loop; i++)
-	n += SetCountBits(A->array[i]);
+	if(A->array[i]) n += SetCountBits(A->array[i]);
     return n;
 }
 
