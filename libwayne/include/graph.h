@@ -6,6 +6,8 @@
 #include "combin.h"
 #include <stdio.h>
 
+#define SORT_NEIGHBORS 0 // Thought this might speed things up but it appears not to.
+
 /* Constructs for simple graphs, no self-loops: edge (i,i) never exists.
 */
 
@@ -15,7 +17,10 @@ typedef struct _Graph {
     SET **A;   /* Adjacency Matrix, as a dynamically allocated array[G->n] of SETs */
     Boolean sparse; // true=only neighbors and degree, no matrix; false=only matrix + degree, no neighbors
     int *degree;   /* degree of each v[i] == cardinality of A[i] == length of neighbor array */
-    int **neighbor; /* adjacency list: UNSORTED list of neighbors */
+    int **neighbor; /* adjacency list: possibly sorted list of neighbors, sorted if SORTED below is true. */
+#if SORT_NEIGHBORS
+    SET *sorted; // Boolean array: when sparse, is the neighbor list of node[i] sorted or not?
+#endif
     int maxEdges, numEdges, *edgeList; /* UNSORTED list of all edges in the graph, edgeList[0,..2*numEdges] */
 } GRAPH;
 

@@ -32,7 +32,12 @@ GRAPH *GraphAlloc(unsigned int n, Boolean sparse)
     G->edgeList = Malloc(2*G->maxEdges*sizeof(int));
     G->numEdges = 0;
     if(sparse)
+    {
 	G->neighbor = Calloc(n, sizeof(G->neighbor[0]));
+#if SORT_NEIGHBORS
+	G->sorted = SetAlloc(G->n);
+#endif
+    }
     else
     {
 	G->A = Calloc(n, sizeof(G->A[0]));
@@ -115,6 +120,31 @@ GRAPH *GraphCopy(GRAPH *Gc, GRAPH *G)
     return Gc;
 }
 
+#if SORT_NEIGHBORS
+// Used when qsort'ing the neighbors when graph is sparse.
+static int IntCmp(const void *a, const void *b)
+{
+    const int *i = (const int*)a, *j = (const int*)b;
+    return (*i)-(*j);
+}
+
+static GRAPH *GraphSort(GRAPH *G)
+{
+    if(G->sparse)
+    {
+	int v;
+	for(v=0; v<G->n; v++) if(!SetIn(G->sorted, v))
+	{
+	    qsort(G->neighbor[v], G->degree[v], sizeof(G->degree[0]), IntCmp);
+	    SetAdd(G->sorted, v);
+	}
+    }
+    return G;
+}
+#else
+#define GraphSort(x)
+#endif
+
 GRAPH *GraphConnect(GRAPH *G, int i, int j)
 {
     assert(0 <= i && i < G->n && 0 <= j && j < G->n && i!=j);
@@ -131,6 +161,10 @@ GRAPH *GraphConnect(GRAPH *G, int i, int j)
 	assert(G->neighbor[j]);
 	G->neighbor[i][G->degree[i]] = j;
 	G->neighbor[j][G->degree[j]] = i;
+#if SORT_NEIGHBORS
+	SetDelete(G->sorted, i);
+	SetDelete(G->sorted, j);
+#endif
     }
     else
     {
@@ -159,6 +193,9 @@ GRAPH *GraphEdgesAllDelete(GRAPH *G)
     {
 	if(!G->sparse) SetEmpty(G->A[i]);
 	G->degree[i] = 0;
+#if SORT_NEIGHBORS
+	SetDelete(G->sorted, i);
+#endif
 	/* Don't need to realloc/free neighbors, it'll happen automatically once we start re-adding edges */
     }
     G->numEdges = 0;
@@ -214,7 +251,10 @@ GRAPH *GraphDisconnect(GRAPH *G, int i, int j)
 	k++;
     assert(k <= G->degree[j] && G->neighbor[j][k] == i);
     memmove(&(G->neighbor[j][k]), &(G->neighbor[j][k+1]), (G->degree[j]-k)*sizeof(G->neighbor[j][0]));
-
+#if SORT_NEIGHBORS
+    SetDelete(G->sorted, i);
+    SetDelete(G->sorted, j);
+#endif
     return G;
 }
 
@@ -224,22 +264,31 @@ Boolean GraphAreConnected(GRAPH *G, int i, int j)
     assert(0 <= i && i < G->n && 0 <= j && j < G->n);
     if(G->sparse)
     {
-	int k, n, *neighbors, me, other;
-	// Check through the shorter list
-	if(G->degree[i] < G->degree[j])
-	{
-	    me = i; other = j;
-	}
+#if SORT_NEIGHBORS
+	if(SetIn(G->sorted, i))
+	    return !!bsearch(&j, G->neighbor[i], G->degree[i], sizeof(G->neighbor[0]), IntCmp);
+	else if(SetIn(G->sorted, j))
+	    return !!bsearch(&i, G->neighbor[j], G->degree[j], sizeof(G->neighbor[0]), IntCmp);
 	else
+#endif
 	{
-	    me = j; other = i;
+	    int k, n, *neighbors, me, other;
+	    // Check through the shorter list
+	    if(G->degree[i] < G->degree[j])
+	    {
+		me = i; other = j;
+	    }
+	    else
+	    {
+		me = j; other = i;
+	    }
+	    n = G->degree[me];
+	    neighbors = G->neighbor[me];
+	    for(k=0; k<n; k++)
+		if(neighbors[k] == other)
+		    return true;
+	    return false;
 	}
-	n = G->degree[me];
-	neighbors = G->neighbor[me];
-	for(k=0; k<n; k++)
-	    if(neighbors[k] == other)
-		return true;
-	return false;
     }
     else
     {
@@ -295,6 +344,7 @@ GRAPH *GraphReadAdjMatrix(FILE *fp, Boolean sparse)
 	if(connected)
 	    GraphConnect(G,i,j);
     }
+    GraphSort(G);
     return G;
 }
 
@@ -339,6 +389,7 @@ GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse)
 	    }
 	}
     }
+    GraphSort(G);
     return G;
 }
 
@@ -380,7 +431,11 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
     Free(pairs);
     assert(G->maxEdges <= maxEdges);
     assert(G->numEdges <= numEdges);
-    if(sparse) assert(G->neighbor);
+    if(sparse)
+    {
+	assert(G->neighbor);
+	GraphSort(G);
+    }
     return G;
 }
 
@@ -416,6 +471,7 @@ GRAPH *GraphReadConnections(FILE *fp, Boolean sparse)
     }
     if(d > 0)
 	Fatal("expecting no more integers, but got %d integers", d);
+    GraphSort(G);
     return G;
 }
 
@@ -432,6 +488,7 @@ GRAPH *GraphComplement(GRAPH *Gbar, GRAPH *G)
     for(i=0; i < G->n; i++) for(j=i+1; j < G->n; j++)
 	if(!GraphAreConnected(G, i, j))
 	    GraphConnect(Gbar, i, j);
+    GraphSort(Gbar);
     return Gbar;
 }
 
@@ -453,7 +510,7 @@ GRAPH *GraphUnion(GRAPH *dest, GRAPH *G1, GRAPH *G2)
     for(i=0; i < n; i++) for(j=i+1; j < n; j++)
 	if(GraphAreConnected(G1, i, j) || GraphAreConnected(G2, i, j))
 	    GraphConnect(dest, i ,j);
-
+    GraphSort(dest);
     return dest;
 }
 
@@ -539,6 +596,7 @@ GRAPH *GraphInduced(GRAPH *Gv, GRAPH *G, SET *V)
     for(i=0; i < nV; i++) for(j=i+1; j < nV; j++)
 	if(GraphAreConnected(G, array[i], array[j]))
 	    GraphConnect(Gv, i, j);
+    GraphSort(Gv);
     return Gv;
 }
 
@@ -553,6 +611,7 @@ GRAPH *GraphInduced_NoVertexDelete(GRAPH *Gv, GRAPH *G, SET *V)
 	    GraphConnect(GGv, array[i], array[j]);
     GraphCopy(Gv, GGv);
     GraphFree(GGv);
+    GraphSort(Gv);
     return Gv;
 }
 
