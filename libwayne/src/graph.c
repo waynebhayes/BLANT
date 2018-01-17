@@ -348,6 +348,7 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
     int *pairs = Malloc(2*maxEdges*sizeof(int)), n = 0, i;
     while(!feof(fp))
     {
+	assert(numEdges <= maxEdges);
 	if(numEdges >= maxEdges)
 	{
 	    maxEdges *=2;
@@ -377,8 +378,8 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
     for(i=0; i<numEdges; i++)
 	GraphConnect(G, pairs[2*i], pairs[2*i+1]);
     Free(pairs);
-    assert(G->maxEdges == maxEdges);
-    assert(G->numEdges == numEdges);
+    assert(G->maxEdges <= maxEdges);
+    assert(G->numEdges <= numEdges);
     if(sparse) assert(G->neighbor);
     return G;
 }
