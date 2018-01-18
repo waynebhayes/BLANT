@@ -17,24 +17,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include "misc.h"
-#include "tinygraph.h"
 #include "graph.h"
 
 static int _k;
 
-// Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
-static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
-{
-    unsigned i, j;
-    TinyGraphEdgesAllDelete(Gv);
-    for(i=0; i < _k; i++) for(j=i+1; j < _k; j++)
-        if(GraphAreConnected(G, Varray[i], Varray[j]))
-            TinyGraphConnect(Gv, i, j);
-    return Gv;
-}
-
-// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
-// Now it simply gets called once for each core we use when run with multiple cores.
+// Get k and the filename of G on the command line. Then read lines on stdin that should be
+// sorted lines from the output of BLANT for that value of k. Ensure that adjacent lines that
+// are the same canonical graphette are indeed the exact same graph.
 int main(int argc, char *argv[])
 {
     int k=atoi(argv[1]), i, j;
