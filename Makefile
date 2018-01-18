@@ -4,14 +4,14 @@ LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne -lm # for debugging
 all: canon_maps blant test_blant
 
 test_blant:
+	# First run blant-sanity for various values of k
+	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo running sanity check for k=$$k; ./blant $$k 100000 syeast.el | sort -n | ./blant-sanity $$k syeast.el; fi; done
 	# Test to see that for k=6, the most frequent 10 graphlets in syeast appear in the expected order in frequency
 	# Need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -4 also tests parallelism, attemting to run 4 threads simultaneously.
 	# NOTE THIS WILL FAIL UNLESS YOU SET BOTH LOWER_TRIANGLE AND PERMS_CAN2NON TO 1 IN blant.h.
-	nice -19 ./blant -4 6 10000000 syeast.el | awk '{print $$1}' | sort | uniq -c | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k6.syeast.out
-	if [ -f canon_maps/canon_map7.bin ]; then nice -19 ./blant -4 7 10000000 syeast.el | awk '{print $$1}' | sort | uniq -c | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k7.syeast.out; fi
-	if [ -f canon_maps/canon_map8.bin ]; then nice -19 ./blant -4 8 10000000 syeast.el | awk '{print $$1}' | sort | uniq -c | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k8.syeast.out; fi
+	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo checking frequency of graphlets in syeast.el for "k=$$k"; ./blant -4 $$k 10000000 syeast.el | awk '{print $$1}' | sort | uniq -c | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k$$k.syeast.out; fi; done
 
 canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps
 
@@ -42,6 +42,7 @@ make-canon-maps: make-canon-maps.c blant.h canon-sift.c
 
 blant: libwayne blant.c blant.h
 	gcc -O2 -o blant blant.c $(LIBWAYNE)
+	gcc -O2 -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
 libwayne: libwayne/libwayne.a
 
