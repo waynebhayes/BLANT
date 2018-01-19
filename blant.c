@@ -16,7 +16,7 @@
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
-// For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes a *bit* of memory but
+// For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
 // makes the coding much simpler.
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
@@ -24,13 +24,20 @@ static unsigned int Bk, _k; // _k is the global variable storing k; Bk=actual nu
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
-// So we're allocating 800MB even if we need much less.  I figure anything less than 1GB isn't a big deal these days.
-// It needs to be aligned to a page boundary since we're going to mmap the binary file into this array.
+// So we're allocating 256MBx3=768MB even if we need much less.  I figure anything less than 1GB isn't a big deal
+// these days. It needs to be aligned to a page boundary since we're going to mmap the binary file into this array.
 static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
+// So here we are allocating 256MB x sizeof(short int) = 512MB.
+// Grand total statically allocated memory is exactly 1.25GB.
 static short int K[maxBk] __attribute__ ((aligned (8192)));
 
-// you provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
+
+/* AND NOW THE CODE */
+
+
+// You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
+// There is the inverse transformation, called "EncodePerm", in createBinData.c.
 static void ExtractPerm(char perm[_k], int i)
 {
     int j, i32 = 0;
@@ -44,11 +51,11 @@ static int TinyGraph2Int(TINY_GRAPH *G, int k)
 {
     int i, j, bitPos=0, Gint = 0, bit;
     
-#if LOWER_TRIANGLE
+#if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
     for(i=k-1;i>0;i--)
     {
         for(j=i-1;j>=0;j--)
-#else   // UPPER_TRIANGLE
+#else   // UPPER_TRIANGLE // this is what we used in the original faye code and paper with Adib Hasan and Po-Chien Chung.
     for(i=k-2;i>=0;i--)
     {
         for(j=k-1;j>i;j--)
@@ -77,8 +84,16 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
     return Gv;
 }
 
-// Given the big graph G and an integer k, return a k-graphlet from G.
+// Given the big graph G and an integer k, return a k-graphlet from G
+// in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
+// The algorithm works by maintaining the exact set of edges that are
+// emanating out of the graphlet-in-construction. Then we pick one of
+// these edges uniformly at random, add the node at the endpoint of that
+// edge to the graphlet, and then add all the outbound edges from that
+// new node (ie., edges that are not going back inside the graphlet).
+// So the "outset" is the set of edges going to nodes exactly distance
+// one from the set V, as V is being built.
 static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 {
     static SET *outSet;
@@ -140,11 +155,40 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 }
 
 
-/* Basic idea: in order to avoid actually building the outSet as we do
-** above, we instead simply keep a *estimated* count C[v] of separate
+/*
+** This is a faster graphlet sampling routine, although it may produce a
+** distribution of graphlets that is further from "ideal" than the above.
+** The difference is that in the above method we explicitly build and maintain
+** the "outset" (the set of nodes one step outside V), but this can expensive
+** when the mean degree of the graph G is high, since we have to add all the
+** new edges emanating from each new node that we add to V.  Instead, here we
+** are not going to explicitly maintain this outset.  Instead, we're simply
+** going to remember the total number of edges emanating from every node in
+** V *including* edges heading back into V, which are techically useless to us.
+** This sum is just the sum of all the degrees of all the nodes in V.  Call this
+** number "outDegree".  Then, among all the edges emanating out of every node in
+** V, we pick a random node from V where the probablity of picking any node v is
+** proportional to its degree.  Then we pick one of the edges emanating out of v
+** uniformly at random.  Thus, every edge leaving every node in V has equal
+** probability of being chosen---even though some of them lead back into V. If
+** that is the case, then we throw away that edge and try the whole process again.
+** The advantage here is that for graphs G with high mean degree M, the probability
+** of picking an edge leading back into V is bounded by (k-1)/M, which becomes small
+** as M gets large, and so we're very unlikely to "waste" samples.  Thus, unlike the
+** above algorithm that gets *more* expensive with increasing density of G, this
+** algorithm actually get cheaper with increasing density.
+** Another way of saying this is that we avoid actually building the outSet
+** as we do above, we instead simply keep a *estimated* count C[v] of separate
 ** outSets of each node v in the accumulating graphlet. Then we pick
 ** an integer in the range [0,..sum(C)), go find out what node that is,
 ** and if it turns out to be a node already in V, then we simply try again.
+** It turns out that even if the mean degree is small, this method is *still*
+** faster.  In other words, it's *always* faster than the above method.  The
+** only reason we may prefer the above method is because it's theoretically cleaner
+** to describe the distribution of graphlets that comes from it---although
+** empirically this one does reasonably well too.  However, if the only goal
+** is blinding speed at graphlet sampling, eg for building a graphlet database
+** index, then this is the preferred method.
 */
 static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
 {
@@ -191,6 +235,13 @@ static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
     assert(vCount == k);
     return V;
 }
+
+
+/*
+** This method may eventually go the way of the dodo. It may not actually be any
+** better at producing an unbiased sample and is quite a bit more expensive than
+** either of the above.
+*/
 
 static SET *SampleGraphletUnbiasedMaybe(GRAPH *G, int k)
 {
@@ -297,7 +348,7 @@ int blant(int argc, char *argv[])
 	SampleGraphletCumulativeDist(V, Varray, G, k); // This one is faster but less well tested and less well understood.
 #endif
 	//SampleGraphletUnbiasedMaybe(V, G, k);
-	// We should probably figure out a faster sort?
+	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g,k);
