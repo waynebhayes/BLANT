@@ -55,6 +55,7 @@ typedef union _voidInt {
     float f, f2;
     double d;
     void *v, *v2;
+    char *s, *s2;
 } foint;
 
 /* The comparison function type: used by heaps, binary trees and sorts.

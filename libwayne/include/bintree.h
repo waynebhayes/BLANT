@@ -33,8 +33,8 @@ BINTREE *BinTreeAlloc(enum _treeType type, pCmpFcn cmpKey,
 
 void BinTreeInsert(BINTREE *, foint key, foint info);
 
-/* returns ABSTRACT_ERROR if failure; O(log n) */
-foint BinTreeLookup(BINTREE *, foint key);
+/* O(log n); returns false if failure, and true if found and then sets returnInfo to the pointer to foint; */
+Boolean BinTreeLookup(BINTREE *, foint key, foint *pInfo);
 
 #if 0
 foint BinTreeLookupKey(BINTREE *p, foint info); /* O(n), full traversal. */

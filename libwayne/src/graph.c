@@ -44,6 +44,9 @@ GRAPH *GraphAlloc(unsigned int n, Boolean sparse)
 	for(i=0; i<n; i++)
 	    G->A[i] = SetAlloc(n);
     }
+#if SUPPORT_NODE_NAMES
+    G->nameDict = NULL;
+#endif
     return G;
 }
 
@@ -395,18 +398,55 @@ GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse)
 
 GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
 {
-    int numEdges=0, maxEdges=MIN_EDGELIST; // will be increased as necessary during reading
-    int *pairs = Malloc(2*maxEdges*sizeof(int)), n = 0, i;
+    int numNodes=0;
+    int numEdges=0, maxEdges=MIN_EDGELIST; // these will be increased as necessary during reading
+    int *pairs = Malloc(2*maxEdges*sizeof(int)), i;
+#if SUPPORT_NODE_NAMES
+    int maxNodes=MIN_EDGELIST;
+    char **names = Malloc(maxNodes*sizeof(char*));
+    BINTREE *nameDict = BinTreeAlloc(unbalanced, strcmp, strdup, free, NULL, NULL);
+#endif
     while(!feof(fp))
     {
+	int v1, v2;
 	assert(numEdges <= maxEdges);
 	if(numEdges >= maxEdges)
 	{
 	    maxEdges *=2;
 	    pairs = Realloc(pairs, 2*maxEdges*sizeof(int));
 	}
-	if(fscanf(fp, "%d%d ", pairs+2*numEdges, pairs+2*numEdges+1) != 2)
-	    Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 ints\n", numEdges);
+#if SUPPORT_NODE_NAMES
+	assert(numNodes <= maxNodes);
+	if(numNodes+2 >= maxNodes) // -2 for a bit of extra space
+	{
+	    maxNodes *=2;
+	    names = Realloc(names, maxNodes*sizeof(char*));
+	}
+	char name1[BUFSIZ], name2[BUFSIZ];
+	if(fscanf(fp, "%s%s ", name1, name2) != 2)
+	    Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 strings\n", numEdges);
+	foint f1, f2;
+	if(!BinTreeLookup(nameDict, (foint)name1, &f1))
+	{
+	    names[numNodes] = strdup(name1);
+	    f1.i = numNodes++;
+	    BinTreeInsert(nameDict, (foint)name1, f1);
+	}
+	if(!BinTreeLookup(nameDict, (foint)name2, &f2))
+	{
+	    names[numNodes] = strdup(name2);
+	    f2.i = numNodes++;
+	    BinTreeInsert(nameDict, (foint)name2, f2);
+	}
+	v1 = f1.i; v2 = f2.i;
+#else
+	if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
+	    Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 strings\n", numEdges);
+	numNodes = MAX(numNodes, v1);
+	numNodes = MAX(numNodes, v2);
+#endif
+	pairs[2*numEdges] = v1;
+	pairs[2*numEdges+1] = v2;
 	if(pairs[2*numEdges] == pairs[2*numEdges+1])
 	    Fatal("GraphReadEdgeList: edge %d has equal nodes; cannot have self-loops\n", numEdges);
 	if(pairs[2*numEdges] > pairs[2*numEdges+1])
@@ -416,10 +456,21 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
 	    pairs[2*numEdges+1] = tmp;
 	}
 	assert(pairs[2*numEdges] < pairs[2*numEdges+1]);
-	n = MAX(n,1+pairs[2*numEdges+1]);
 	numEdges++;
     }
-    GRAPH *G = GraphAlloc(n, sparse);
+#if SUPPORT_NODE_NAMES
+    //printf("BINTREE Dictionary Dump\n");
+    for(i=0; i<numNodes;i++)
+    {
+	foint info;
+	assert(BinTreeLookup(nameDict, (foint)names[i], &info));
+	assert(i == info.i);
+	//printf("%d is %s which in turn is %d\n", i, names[i], info.i);
+    }
+#else
+    numNodes++;	// increase it by one since so far it's been the biggest number seen.
+#endif
+    GRAPH *G = GraphAlloc(numNodes, sparse);
     assert(G->degree);
     assert(sparse);
     assert(G->sparse);

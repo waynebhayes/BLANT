@@ -8,6 +8,11 @@
 
 #define SORT_NEIGHBORS 0 // Thought this might speed things up but it appears not to.
 
+#define SUPPORT_NODE_NAMES 0 // allows node names to be strings but slows things down alot for big graphs
+#if SUPPORT_NODE_NAMES
+#include "bintree.h"
+#endif
+
 /* Constructs for simple graphs, no self-loops: edge (i,i) never exists.
 */
 
@@ -22,6 +27,10 @@ typedef struct _Graph {
     SET *sorted; // Boolean array: when sparse, is the neighbor list of node[i] sorted or not?
 #endif
     int maxEdges, numEdges, *edgeList; /* UNSORTED list of all edges in the graph, edgeList[0,..2*numEdges] */
+#if SUPPORT_NODE_NAMES
+    BINTREE *nameDict;	// string to int map
+    char **name;	// int to string map (inverse of the above)
+#endif
 } GRAPH;
 
 GRAPH *GraphAlloc(unsigned int n, Boolean sparse);

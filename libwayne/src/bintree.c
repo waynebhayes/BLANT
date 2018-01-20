@@ -72,20 +72,23 @@ void BinTreeInsert(BINTREE *tree, foint key, foint info)
 }
 
 
-foint BinTreeLookup(BINTREE *tree, foint key)
+Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
 {
     BINTREENODE *p = tree->root;
     while(p)
     {
 	int cmp = tree->cmpKey(key, p->key);
 	if(cmp == 0)
-	    return p->info;
+	{
+	    *pInfo = p->info;
+	    return true;
+	}
 	if(cmp < 0)
 	    p = p->left;
 	else
 	    p = p->right;
     }
-    return ABSTRACT_ERROR;
+    return false;
 }
 
 
