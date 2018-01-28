@@ -101,7 +101,7 @@ void Fatal(const char *fmt, ...)
 
 /* A malloc that exits if system calloc fails.
 */
-void *Malloc(int n)
+void *Malloc(size_t n)
 {
     void *p;
     assert(n>=0);
@@ -110,7 +110,7 @@ void *Malloc(int n)
 	Fatal("malloc failed");
     return p;
 }
-void *Calloc(int n, int m)
+void *Calloc(size_t n, size_t m)
 {
     void *p;
     assert(n>=0 && m>=0);
@@ -120,7 +120,7 @@ void *Calloc(int n, int m)
     return p;
 }
 
-void *Realloc(void *ptr, int newSize)
+void *Realloc(void *ptr, size_t newSize)
 {
     void *p;
     assert(newSize>=0);
@@ -130,7 +130,7 @@ void *Realloc(void *ptr, int newSize)
     return p;
 }
 
-void *Memdup(void *v, int n)
+void *Memdup(void *v, size_t n)
 {
     void *r = Malloc(n);
     memcpy(r, v, n);
