@@ -10,7 +10,7 @@
 #include "rand48.h"
 #include "blant.h"
 
-#define PARANOID_ASSERTS 0	// turn on paranoid checking --- slows down execution by a factor of 2-3
+#define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 #define USAGE "USAGE: blant [-numCores] {k} {nSamples} {graphInputFile}\n" \
     "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
@@ -22,7 +22,7 @@
 #define SAMPLE_CUMULATIVE 0	// Fastest, up to a million samples per second
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 #if (SAMPLE_UNBIASED + SAMPLE_UNIF_OUTSET + SAMPLE_CUMULATIVE) != 1
-//#error "must choose exactly one of the SAMPLE_XXX choices"
+#error "must choose exactly one of the SAMPLE_XXX choices"
 #endif
 
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
@@ -220,21 +220,36 @@ static SET *SampleGraphletCumulative(SET *V, int *Varray, GRAPH *G, int k)
     cumulative[0] = G->degree[v1]; // where v1 = Varray[0]
     cumulative[1] = G->degree[v2] + cumulative[0];
 
+    static SET *internal;	// mark choices of whichNeigh that are discovered to be internal
+    static int Gn;
+    if(!internal) {internal = SetAlloc(G->n); Gn = G->n;}
+    else if(Gn != G->n) {SetFree(internal); internal = SetAlloc(G->n); Gn=G->n;}
+    else SetEmpty(internal);
+
     int numTries = 0;
     while(vCount < k)
     {
-	int i, whichNeigh = outDegree * drand48(); // which of the list of all neighbors of nodes in V so far?
+	int i, whichNeigh;
+	while(SetIn(internal, (whichNeigh = outDegree * drand48())))
+	    ; // which edge to choose among all edges leaving all nodes in V so far?
 	for(i=0; cumulative[i] <= whichNeigh; i++)
-	    ;
-	assert(i < vCount);
-	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]);
-	assert(0 <= localNeigh && localNeigh < G->degree[Varray[i]]);
+	    ; // figure out whose neighbor it is
+	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]); // which neighbor of node i?
 	int newNode = G->neighbor[Varray[i]][localNeigh];
+#if PARANOID_ASSERTS
+	// really should check some of these a few lines higher but let's group all the paranoia in one place.
+	assert(i < vCount);
+	assert(0 <= localNeigh && localNeigh < G->degree[Varray[i]]);
 	assert(0 <= newNode && newNode < G->n);
+#endif
 	if(SetIn(V, newNode))
 	{
-	    if(++numTries > MAX_TRIES) {
-		// Hmm, we are probably in a connected component with fewer than k nodes.
+	    SetAdd(internal, whichNeigh);
+	    if(++numTries < MAX_TRIES)
+		continue;
+	    else
+	    {
+		// We are probably in a connected component with fewer than k nodes.
 		// Test that hypothesis.
 		int nodeArray[G->n], distArray[G->n];
 		int sizeOfCC = GraphBFS(G, v1, G->n, nodeArray, distArray);
@@ -246,23 +261,25 @@ static SET *SampleGraphletCumulative(SET *V, int *Varray, GRAPH *G, int k)
 		    ; // must terminate since k <= G->n
 		numTries = 0;
 		outDegree = 0;
-		for(i=0; i<vCount; i++)	// avoid picking these nodes ever again.
-		    cumulative[i] = 0;
+		int j;
+		for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
+		    cumulative[j] = 0;
+		SetEmpty(internal);
 	    }
 	}
 	SetAdd(V, newNode);
-	cumulative[vCount] = G->degree[newNode] + cumulative[vCount-1];
+	cumulative[vCount] = cumulative[vCount-1] + G->degree[newNode];
 	Varray[vCount++] = newNode;
+	outDegree += G->degree[newNode];
 #if PARANOID_ASSERTS
 	assert(SetCardinality(V) == vCount);
-#endif
-	outDegree += G->degree[newNode];
 	assert(outDegree == cumulative[vCount-1]);
+#endif
     }
 #if PARANOID_ASSERTS
     assert(SetCardinality(V) == k);
-#endif
     assert(vCount == k);
+#endif
     return V;
 }
 
@@ -361,7 +378,7 @@ int blant(int argc, char *argv[])
     {
 #if SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
-#elsif SAMPLE_UNIF_OUTSET
+#elif SAMPLE_UNIF_OUTSET
 	SampleGraphletUniformOutSet(V, Varray, G, k);
 #else
 #assert SAMPLE_CUMULATIVE(1)
