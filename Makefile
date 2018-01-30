@@ -1,4 +1,4 @@
- LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne    -lm # OPTIMIZED
+ LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
