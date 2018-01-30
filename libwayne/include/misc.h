@@ -85,10 +85,10 @@ extern void Warning(const char *fmt, ...);
 extern void Apology(const char *fmt, ...);
 extern void Fatal(const char *fmt, ...);  /* generates an assertion failure */
 
-extern void *Malloc(int);
-extern void *Calloc(int, int);
-extern void *Realloc(void *ptr, int newSize);
-void *Memdup(void *v, int n);
+extern void *Malloc(size_t);
+extern void *Calloc(size_t, size_t);
+extern void *Realloc(void *ptr, size_t newSize);
+void *Memdup(void *v, size_t n);
 #define Free free
 
 
