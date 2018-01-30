@@ -10,7 +10,20 @@
 #include "rand48.h"
 #include "blant.h"
 
-#define PARANOID 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
+#define PARANOID_ASSERTS 0	// turn on paranoid checking --- slows down execution by a factor of 2-3
+#define USAGE "USAGE: blant [-numCores] {k} {nSamples} {graphInputFile}\n" \
+    "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
+    "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
+    "Duplicates and self-loops should be removed before calling BLANT."
+
+// These are mutually exclusive
+#define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
+#define SAMPLE_UNIF_OUTSET 1	// sample using uniform outset; about 100,000 samples per second
+#define SAMPLE_CUMULATIVE 0	// Fastest, up to a million samples per second
+#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
+#if (SAMPLE_UNBIASED + SAMPLE_UNIF_OUTSET + SAMPLE_CUMULATIVE) != 1
+//#error "must choose exactly one of the SAMPLE_XXX choices"
+#endif
 
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
 
@@ -127,7 +140,7 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
     for(i=2; i<k; i++)
     {
 	int j;
-	if(nOut == 0) // the graphlet has saturated it's connected component
+	if(nOut == 0) // the graphlet has saturated it's connected component, return a disconnected graphette.
 	{
 	    while(SetIn(V, (j = G->n*drand48())))
 		; // must terminate since k <= G->n
@@ -148,7 +161,7 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 	}
     }
     assert(i==k);
-#if PARANOID
+#if PARANOID_ASSERTS
     assert(SetCardinality(V) == k);
 #endif
     return V;
@@ -190,7 +203,7 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 ** is blinding speed at graphlet sampling, eg for building a graphlet database
 ** index, then this is the preferred method.
 */
-static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
+static SET *SampleGraphletCumulative(SET *V, int *Varray, GRAPH *G, int k)
 {
     int edge = G->numEdges * drand48(), v1, v2;
     assert(V && V->n >= G->n);
@@ -207,6 +220,7 @@ static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
     cumulative[0] = G->degree[v1]; // where v1 = Varray[0]
     cumulative[1] = G->degree[v2] + cumulative[0];
 
+    int numTries = 0;
     while(vCount < k)
     {
 	int i, whichNeigh = outDegree * drand48(); // which of the list of all neighbors of nodes in V so far?
@@ -217,19 +231,35 @@ static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
 	assert(0 <= localNeigh && localNeigh < G->degree[Varray[i]]);
 	int newNode = G->neighbor[Varray[i]][localNeigh];
 	assert(0 <= newNode && newNode < G->n);
-	if(!SetIn(V, newNode)) // yipee! Found a new node!
+	if(SetIn(V, newNode))
 	{
-	    SetAdd(V, newNode);
-	    cumulative[vCount] = G->degree[newNode] + cumulative[vCount-1];
-	    Varray[vCount++] = newNode;
-#if PARANOID
-	    assert(SetCardinality(V) == vCount);
-#endif
-	    outDegree += G->degree[newNode];
-	    assert(outDegree == cumulative[vCount-1]);
+	    if(++numTries > MAX_TRIES) {
+		// Hmm, we are probably in a connected component with fewer than k nodes.
+		// Test that hypothesis.
+		int nodeArray[G->n], distArray[G->n];
+		int sizeOfCC = GraphBFS(G, v1, G->n, nodeArray, distArray);
+		assert(sizeOfCC < k);
+
+		// get a new node outside this connected component.
+		// Note this will return a disconnected graphlet.
+		while(SetIn(V, (newNode = G->n*drand48())))
+		    ; // must terminate since k <= G->n
+		numTries = 0;
+		outDegree = 0;
+		for(i=0; i<vCount; i++)	// avoid picking these nodes ever again.
+		    cumulative[i] = 0;
+	    }
 	}
+	SetAdd(V, newNode);
+	cumulative[vCount] = G->degree[newNode] + cumulative[vCount-1];
+	Varray[vCount++] = newNode;
+#if PARANOID_ASSERTS
+	assert(SetCardinality(V) == vCount);
+#endif
+	outDegree += G->degree[newNode];
+	assert(outDegree == cumulative[vCount-1]);
     }
-#if PARANOID
+#if PARANOID_ASSERTS
     assert(SetCardinality(V) == k);
 #endif
     assert(vCount == k);
@@ -238,50 +268,34 @@ static SET *SampleGraphletCumulativeDist(SET *V, int *Varray, GRAPH *G, int k)
 
 
 /*
-** This method may eventually go the way of the dodo. It may not actually be any
-** better at producing an unbiased sample and is quite a bit more expensive than
-** either of the above.
+* Very slow: sample k nodes uniformly at random and throw away ones that are disconnected.
 */
 
-static SET *SampleGraphletUnbiasedMaybe(GRAPH *G, int k)
+static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 {
-    SET *V = SetAlloc(G->n);
     int arrayV[k], i;
     int nodeArray[G->n], distArray[G->n];
-    arrayV[0] = G->n * drand48();
-#define MAX_TRIES 100
-    int numBFS, tries=0;
-    
-    while((numBFS = GraphBFS(G, arrayV[0], k-1, nodeArray, distArray)) < k) {
-	if(++tries > MAX_TRIES)
-	    Fatal("can't find enough nodes in BFS after %d tries", MAX_TRIES);
-	arrayV[0] = G->n * drand48(); // try another seed
-	// NOTE: can speed this up by initializing an array with *which* nodes actually have k-1 nodes within dist k-1,
-	// and then only picking from that array.  We could also fail immediately at start time if we find no such nodes.
-    }
-    SetAdd(V, arrayV[0]);
-    
-    // Now pick the rest from the nodeArray
-    for(i=1; i<k; i++)
+    TINY_GRAPH *g = TinyGraphAlloc(k);
+    int graphetteArray[k];
+
+    do
     {
-	int element = 1+(numBFS-1)*drand48();
-	arrayV[i] = nodeArray[element];
-	assert(numBFS>0);
-	nodeArray[element] = nodeArray[--numBFS];
-	SetAdd(V, arrayV[i]);
-    }
-#if PARANOID
-    assert(SetCardinality(V) == k);
+	SetEmpty(V);
+	// select k nodes uniformly at random from G without regard to connectivity
+	for(i=0; i<k; i++)
+	{
+	    do
+		Varray[i] = G->n * drand48();
+	    while(SetIn(V, Varray[i]));
+	    SetAdd(V, Varray[i]);
+	}
+#if PARANOID_ASSERTS
+	assert(SetCardinality(V)==k);
 #endif
-    // Now check that it's connected
-    GRAPH *graphette = GraphInduced(NULL, G, V);
-    if(GraphBFS(graphette, 0, k, nodeArray, distArray) < k)
-    {
-	GraphFree(graphette);
-	SetFree(V);
-	return SampleGraphletUnbiasedMaybe(G, k);
-    }
-    GraphFree(graphette);
+	TinyGraphEdgesAllDelete(g);
+	TinyGraphInducedFromGraph(g, G, Varray);
+    } while(TinyGraphBFS(g, 0, k, graphetteArray, distArray) < k);
+
     return V;
 }
 
@@ -293,8 +307,11 @@ void *Mmap(void *p, size_t n, int fd)
     void *newPointer = mmap(p, n, PROT_READ, MAP_PRIVATE|MAP_FIXED, fd, 0);
     if(newPointer == MAP_FAILED)
 #endif
+    {
+	Warning("mmap failed");
 	if(read(fd, p, n) != n)
 	    Fatal("cannot mmap, or cannot read the file, or both");
+    }
     return p;
 }
 
@@ -342,12 +359,14 @@ int blant(int argc, char *argv[])
     unsigned Varray[maxK+1];
     for(i=0; i<numSamples; i++)
     {
-#if PARANOID
+#if SAMPLE_UNBIASED
+	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
+#elsif SAMPLE_UNIF_OUTSET
 	SampleGraphletUniformOutSet(V, Varray, G, k);
 #else
-	SampleGraphletCumulativeDist(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#assert SAMPLE_CUMULATIVE(1)
+	SampleGraphletCumulative(V, Varray, G, k); // This one is faster but less well tested and less well understood.
 #endif
-	//SampleGraphletUnbiasedMaybe(V, G, k);
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -359,7 +378,7 @@ int blant(int argc, char *argv[])
 	for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
 	puts("");
     }
-#if PARANOID // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
+#if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     TinyGraphFree(g);
     SetFree(V);
     GraphFree(G);
@@ -373,13 +392,12 @@ int blant(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
     int i, CORES;
-    if(argc != 4 && argc != 5) Fatal("USAGE: blant [-numCores] {k} {nSamples} {graph.el}. Graph can only have integers as node labels");
+    if(argc != 4 && argc != 5) Apology(USAGE);
     if(argc == 5) // only way to get 5 args is if the user specified "-cores" as the first argument.
     {
 	CORES = atoi(argv[1]);
 	if(CORES >= 0)
-	    Fatal("You specified 5 arguments but the first argument must be specified as -nCores\n"
-		"USAGE: blant [-numCores] {k} {nSamples} {graph.el}. Graph can only have integers as node labels");
+	    Apology("You specified 5 arguments but the first argument must be specified as -nCores\n" USAGE);
 	CORES = -CORES;
 	for(i=1;i<argc;i++) // nuke the numCores argument
 	    argv[i]=argv[i+1];
