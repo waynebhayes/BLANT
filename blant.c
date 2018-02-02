@@ -345,9 +345,12 @@ static int IntCmp(const void *a, const void *b)
 int blant(int argc, char *argv[])
 {
     int k=atoi(argv[1]), i, j;
+    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
     _k = k;
     int numSamples = atoi(argv[2]);
+    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
     FILE *fp = fopen(argv[3], "r");
+    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
     GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
     assert(G->n >= k);
     fclose(fp);
@@ -357,7 +360,7 @@ int blant(int argc, char *argv[])
     char BUF[BUFSIZ];
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
     FILE *fp_ord=fopen(BUF, "r");
-    assert(fp_ord);
+    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
     int numCanon;
     fscanf(fp_ord, "%d",&numCanon);
     int canon_list[numCanon];
