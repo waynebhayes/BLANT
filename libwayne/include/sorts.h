@@ -22,6 +22,7 @@ extern SortFcn
     HeapSort,	    /* nlogn, in-place. */
     MergeSort,	    /* nlogn, but requires n*w extra space. */
     InsertionSort,  /* n^2 insertion sort, in-place. */
+    PileSort,       /* Wayne's sorting method... HayesSort? */
     FredSort;       /* Fredrickson's O(n^2 log n) space*time algorithm */
 
 /*

@@ -13,6 +13,7 @@
 #include "heap.h"	/* for heapsort */
 #include "sets.h"
 #include <math.h>
+#include <string.h>
 
 #define TEST_SORTS 0
 #if TEST_SORTS
@@ -22,6 +23,200 @@ int _compareCount;
 int QuickSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 {
     qsort(a, n, w, compare);
+    return 0;
+}
+
+/* Pile Sort
+** Inspired by physically sorting a few hundred shipping labels in my garage
+** because I had to look for duplicates.  It's inspired by MergeSort, which
+** I've used before: the goal is to build up a small set of lists, each of
+** which is already sorted, so you can perform a final mergesort on them
+** once they contain everything in your list. The unique, novel part of the
+** sort was that when I was physically doing it, I noticed that there were
+** some O(1) operations I could do with each new elements: given a bunch
+** of piles of existing labels, each pile already sorted smallest-at-top,
+** I could take a new label in hand and see if there was a place I could
+** put it on top of an existing pile: if this new element was smaller than
+** the existing top element in some pile P, then we can place it on top
+** of P in O(1) time. Or, if the item was larger than the bottom element
+** in some pile Q, then it can be placed in Q. The problem is that finding
+** which pile satisfies one of these properties can take awhile if there's
+** too many piles already.  So we want to minimize the number of piles.
+** Finally, if there is no pile onto which we can place it either or top,
+** or append to the bottom, then it has to be put is the lone item in a
+** new pile all by itself.
+** 
+** In an effort to keep the number of piles small, we also want to find
+** the top or bottom element that is closest to the new element in hand;
+** that results in the fewest "holes" in the ordering in the piles.  If the
+** number of piles is q, then this takes exactly 2*q computations, as we
+** look for the optimal place to put the new element.
+** 
+** To implement the piles, we'd basically keep a pointer top and bottom for
+** each pile.  Each pile is implemented as a fixed-size array (not sure
+** what size to use here...), and we put the first element in the middle
+** of the array---or perhaps at a position proportional to its value,
+** like interpolation search, to maximize the probability of being able to
+** "fill up" the array before we have to give up using it.  Once decide
+** to give up using a pile, we throw it into the MergeQueue, which is the
+** collection of piles that will be later merged in one final sweep---or
+** alternately we can merge them more frequently to minimize the number of
+** piles that are in the MergeQueue.
+*/
+typedef struct {int top, bottom, *a;} PILE;
+
+// Merge a bunch of piles into destination; you must ensure it has space
+// Returns the number of things merged.
+int PileMerge(int *dest, int numPiles, PILE *pile)
+{
+    Boolean done = false;
+    int n=0;
+    while(!done)
+    {
+	done = true;
+	int smallest = -1, p;
+	for(p=0; p < numPiles; p++)
+	{
+	    int top = pile[p].top, bottom = pile[p].bottom;
+	    if(top <= bottom)
+	    {
+		done = false;
+		if(smallest == -1 || pile[p].a[top] < pile[smallest].a[pile[smallest].top])
+		    smallest = p;
+	    }
+	}
+	assert(done || smallest != -1);
+	if(!done) dest[n++] = pile[smallest].a[pile[smallest].top++];
+    }
+    return n;
+}
+
+// A tempMerge list is one big long array containing subarrays that are each sorted.
+// The subarrays start at mergeSeparator[i] for i going from 0 to numMerges
+// Returns the number of things merged.
+int PileMergeTemps(int *dest, int nMerge, int mergeSeparator[nMerge+1], int *tempMerge)
+{
+    Boolean done = false;
+    int mergePosition[nMerge];
+    int i, n=0;
+    for(i=0; i<nMerge; i++) mergePosition[i]=mergeSeparator[i];
+
+    while(!done)
+    {
+	done = true;
+	int smallest = -1;
+	for(i=0; i < nMerge; i++)
+	{
+	    if(mergePosition[i] < mergeSeparator[i+1])
+	    {
+		done = false;
+		if(smallest == -1 || tempMerge[mergePosition[i]] < tempMerge[mergePosition[smallest]])
+		    smallest = i;
+	    }
+	}
+	assert(done || smallest != -1);
+	if(!done) dest[n++] = tempMerge[mergePosition[smallest]++];
+    }
+    return n;
+}
+
+#if 0
+int PileSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
+#else
+int PileSortInts(int *a, size_t n)	// for now only sort ints, because you need a "distance" metric
+#endif
+{
+    int p, i, j;
+    int numPiles = (log(n)/log(2))+1, pileSize=numPiles, nextFreePile=0;
+    //int numPiles = log(n)/log(2)+1, pileSize=numPiles, nextFreePile=0;
+    int tempMerge[n], mergeSeparator[n], nMerge=0; // probably way too many merge separators
+    PILE pile[numPiles];
+    mergeSeparator[0]=0;
+
+    // initialize the piles
+    for(p=0; p<numPiles; p++)
+    {
+	pile[p].a = alloca(pileSize * sizeof(pile[0].a[0])); // it's OK not to initialize bottom and top.
+    }
+#define UINT_INFINITY ((unsigned int)(-1))
+#define INT_INFINITY (UINT_INFINITY/2)
+    // STEP 1: build piles
+    // top and bottom point to the *actual* element and will be equal if there's only one element in the pile.
+    // Thus the number of elements in a pile is bottom-top+1.
+    for(i=0; i < n; i++)
+    {
+	unsigned int minDistance = UINT_INFINITY;
+	int bestPile = INT_INFINITY;  //
+	Boolean useTop = maybe;
+	for(p=0;p<nextFreePile;p++)
+	{
+	    int top = pile[p].top, bottom = pile[p].bottom;
+	    assert(0 <= top && top <= bottom && bottom < pileSize);
+	    if(a[i] <= pile[p].a[top] && pile[p].a[top]-a[i] < minDistance)
+	    {
+		minDistance = pile[p].a[top]-a[i]; bestPile=p; useTop=true;
+	    }
+	    if(a[i] >= pile[p].a[bottom] && a[i]-pile[p].a[bottom] < minDistance)
+	    {
+		minDistance = a[i]-pile[p].a[bottom]; bestPile=p; useTop=false;
+	    }
+	}
+
+	// need to put it in a new pile?
+	if(bestPile == INT_INFINITY || (useTop && pile[bestPile].top == 0) || (!useTop && pile[bestPile].bottom == pileSize-1))
+	{
+	    assert(p == nextFreePile);
+	    assert(0 <= nextFreePile && nextFreePile < numPiles);
+	    int interpolant = pileSize*(a[i]/(double)(INT_INFINITY));
+	    pile[nextFreePile].top = pile[nextFreePile].bottom = interpolant;
+	    pile[nextFreePile].a[pile[nextFreePile].top] = a[i];
+	    nextFreePile++;
+	    if(nextFreePile >= numPiles)
+	    {
+		int nItems = PileMerge(tempMerge + mergeSeparator[nMerge], numPiles, pile);
+		mergeSeparator[nMerge+1] = mergeSeparator[nMerge] + nItems;
+		nMerge++;
+		nextFreePile = 0;
+	    }
+	}
+	else
+	{
+	    assert(0 <= bestPile && bestPile < nextFreePile);
+	    if(useTop)
+	    {
+		assert(pile[bestPile].top > 0);
+		pile[bestPile].a[--pile[bestPile].top] = a[i];
+	    }
+	    else
+	    {
+		assert(pile[bestPile].bottom < pileSize-1);
+		pile[bestPile].a[++pile[bestPile].bottom] = a[i];
+	    }
+#if 0
+	    // Check to see if the pile is getting too full
+	    double topSpace = (pile[bestPile].a[pile[bestPile].top]/(double)(INT_INFINITY));
+	    double bottomSpace = 1-(pile[bestPile].a[pile[bestPile].bottom]/(double)(INT_INFINITY));
+	    if(topSpace < 1/(double)pileSize || bottomSpace < 1/(double)pileSize) // end elements are too close to 0 or infinity, move to mergeQueue
+	    {
+		PILE tmp = pile[bestPile];
+		assert(nextFreePile > 0);
+		pile[bestPile] = pile[--nextFreePile];
+		assert(firstMerge > 0);
+		pile[--firstMerge] = tmp;
+	    }
+#endif
+	}
+    }
+    int nItems = PileMerge(tempMerge + mergeSeparator[nMerge], numPiles, pile);
+    mergeSeparator[nMerge+1] = mergeSeparator[nMerge] + nItems;
+    nMerge++;
+    printf("Done with piles!  nMerge %d\n", nMerge); fflush(stdout);
+    //for(i=0; i<=nMerge; i++) printf(" %d", mergeSeparator[i]);
+    //printf("\n");
+    //assert(false);
+    // At this point, all the piles should be sorted, now it's time to merge them all together.
+    nItems = PileMergeTemps(a, nMerge, mergeSeparator, tempMerge);
+    assert(nItems == n);
     return 0;
 }
 
@@ -498,6 +693,7 @@ int main(void)
 do
 {
     ELEMENT a[NUM], b[NUM], c[NUM], d[NUM], e[NUM], f[NUM], g[NUM];
+    int ints[NUM];
     int i, cpCnt;
     double t;
     Boolean stable;
@@ -507,7 +703,8 @@ do
     for(i=0; i<NUM; i++)
     {
 	int j;
-	a[i].i = lrand48();
+	ints[i] = lrand48() % INT_INFINITY;
+	a[i].i = ints[i];
 	a[i].j = lrand48();
 	for(j=0; j<ElementSize; j += 4)
 	{
@@ -528,6 +725,18 @@ do
     memcpy(g, a, sizeof(ELEMENT)*NUM);
 
     printf("Starting sorts\n");
+
+    printf("Pile Sort: "); fflush(stdout);
+    _compareCount = 0;
+    t = uTime();
+    cpCnt = PileSortInts(ints, NUM);
+    stable = true;
+    for(i=0; i<NUM-1; i++)
+    {
+	assert(ints[i]<= ints[i+1]);
+    }
+    printf("cm: %9d cp: %9d (%gs) %sstable\n", _compareCount, cpCnt, uTime()-t,
+	stable?"":"un");
 
     printf("qsort: "); fflush(stdout);
     _compareCount = 0;
