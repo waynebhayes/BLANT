@@ -14,6 +14,8 @@
 #include "sets.h"
 #include <math.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #define TEST_SORTS 0
 #if TEST_SORTS
@@ -91,32 +93,39 @@ int PileMerge(int *dest, int numPiles, PILE *pile)
     return n;
 }
 
+
+static int *_tempMerge, *_mergePosition;
+int TempMergeCmp(const foint X, const foint Y)
+{
+    const int tm1 = X.i, tm2 = Y.i;
+    return _tempMerge[_mergePosition[tm1]] - _tempMerge[_mergePosition[tm2]];
+}
+
 // A tempMerge list is one big long array containing subarrays that are each sorted.
 // The subarrays start at mergeSeparator[i] for i going from 0 to numMerges
 // Returns the number of things merged.
 int PileMergeTemps(int *dest, int nMerge, int mergeSeparator[nMerge+1], int *tempMerge)
 {
-    Boolean done = false;
     int mergePosition[nMerge];
     int i, n=0;
-    for(i=0; i<nMerge; i++) mergePosition[i]=mergeSeparator[i];
 
-    while(!done)
+    _tempMerge = tempMerge;
+    _mergePosition = mergePosition;
+    HEAP *heap = HeapAlloc(nMerge, (pCmpFcn)TempMergeCmp);
+    for(i=0; i<nMerge; i++)
     {
-	done = true;
-	int smallest = -1;
-	for(i=0; i < nMerge; i++)
-	{
-	    if(mergePosition[i] < mergeSeparator[i+1])
-	    {
-		done = false;
-		if(smallest == -1 || tempMerge[mergePosition[i]] < tempMerge[mergePosition[smallest]])
-		    smallest = i;
-	    }
-	}
-	assert(done || smallest != -1);
-	if(!done) dest[n++] = tempMerge[mergePosition[smallest]++];
+	mergePosition[i]=mergeSeparator[i];
+	HeapInsert(heap, (foint)i);
     }
+
+    while(HeapSize(heap) > 0)
+    {
+	int which = HeapNext(heap).i;
+	assert(0 <= which && which < nMerge && mergePosition[which] < mergeSeparator[which+1]);
+	dest[n++] = tempMerge[mergePosition[which]++];
+	if(mergePosition[which] < mergeSeparator[which+1]) HeapInsert(heap, (foint)which);
+    }
+    HeapFree(heap);
     return n;
 }
 
@@ -126,8 +135,8 @@ int PileSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 int PileSortInts(int *a, size_t n)	// for now only sort ints, because you need a "distance" metric
 #endif
 {
-    int p, i, j;
-    int numPiles = (log(n)/log(2))+1, pileSize=numPiles, nextFreePile=0;
+    int p, i;
+    int numPiles = (log(n))+1, pileSize=(n/numPiles), nextFreePile=0;
     //int numPiles = log(n)/log(2)+1, pileSize=numPiles, nextFreePile=0;
     int tempMerge[n], mergeSeparator[n], nMerge=0; // probably way too many merge separators
     PILE pile[numPiles];
@@ -146,7 +155,7 @@ int PileSortInts(int *a, size_t n)	// for now only sort ints, because you need a
     for(i=0; i < n; i++)
     {
 	unsigned int minDistance = UINT_INFINITY;
-	int bestPile = INT_INFINITY;  //
+	int bestPile = INT_INFINITY;
 	Boolean useTop = maybe;
 	for(p=0;p<nextFreePile;p++)
 	{
@@ -161,6 +170,7 @@ int PileSortInts(int *a, size_t n)	// for now only sort ints, because you need a
 		minDistance = a[i]-pile[p].a[bottom]; bestPile=p; useTop=false;
 	    }
 	}
+	//assert(useTop != maybe);
 
 	// need to put it in a new pile?
 	if(bestPile == INT_INFINITY || (useTop && pile[bestPile].top == 0) || (!useTop && pile[bestPile].bottom == pileSize-1))
@@ -196,13 +206,12 @@ int PileSortInts(int *a, size_t n)	// for now only sort ints, because you need a
 	    // Check to see if the pile is getting too full
 	    double topSpace = (pile[bestPile].a[pile[bestPile].top]/(double)(INT_INFINITY));
 	    double bottomSpace = 1-(pile[bestPile].a[pile[bestPile].bottom]/(double)(INT_INFINITY));
-	    if(topSpace < 1/(double)pileSize || bottomSpace < 1/(double)pileSize) // end elements are too close to 0 or infinity, move to mergeQueue
+	    if(topSpace < 1/(double)pileSize && bottomSpace < 1/(double)pileSize) // end elements are too close to 0 or infinity, move to mergeQueue
 	    {
-		PILE tmp = pile[bestPile];
-		assert(nextFreePile > 0);
-		pile[bestPile] = pile[--nextFreePile];
-		assert(firstMerge > 0);
-		pile[--firstMerge] = tmp;
+		int nItems = PileMerge(tempMerge + mergeSeparator[nMerge], numPiles, pile);
+		mergeSeparator[nMerge+1] = mergeSeparator[nMerge] + nItems;
+		nMerge++;
+		nextFreePile = 0;
 	    }
 #endif
 	}
@@ -639,7 +648,7 @@ int FredSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 #if TEST_SORTS
 #include <stdio.h>
 
-#define TOTBYTES (1*1024*1024)
+#define TOTBYTES (4*1024*1024)
 #define ElementSize (1)
 #define NUM (TOTBYTES/ElementSize)
 
@@ -689,7 +698,7 @@ int main(void)
 {
     /*assert(NUM*ElementSize <= 16384*1024);*/
     srand48(time(0) + getpid());
-    printf("NUM %d, ElementSize %d\n", NUM, sizeof(ELEMENT));
+    printf("NUM %d, ElementSize %lud\n", NUM, sizeof(ELEMENT));
 do
 {
     ELEMENT a[NUM], b[NUM], c[NUM], d[NUM], e[NUM], f[NUM], g[NUM];
