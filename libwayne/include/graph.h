@@ -68,6 +68,7 @@ void GraphPrintAdjMatrix(FILE *fp, GRAPH *G);
 GRAPH *GraphReadAdjMatrix(FILE *fp, Boolean sparse);
 void GraphPrintAdjList(FILE *fp, GRAPH *G);
 GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse);
+GRAPH *GraphFromEdgeList(int numNodes, int numEdges, int *pairs, Boolean sparse);
 GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse);
 void GraphPrintConnections(FILE *fp, GRAPH *G);
 GRAPH *GraphReadConnections(FILE *fp, Boolean sparse);

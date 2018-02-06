@@ -396,11 +396,29 @@ GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse)
     return G;
 }
 
+GRAPH *GraphFromEdgeList(int n, int m, int *pairs, Boolean sparse)
+{
+    int i;
+    GRAPH *G = GraphAlloc(n, sparse);
+    assert(n == G->n);
+    assert(G->degree);
+    for(i=0;i<n;i++)
+	assert(!G->neighbor[i]);
+    for(i=0; i<m; i++)
+	GraphConnect(G, pairs[2*i], pairs[2*i+1]);
+    if(sparse)
+    {
+	assert(G->neighbor);
+	GraphSort(G);
+    }
+    return G;
+}
+
 GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
 {
     int numNodes=0;
     int numEdges=0, maxEdges=MIN_EDGELIST; // these will be increased as necessary during reading
-    int *pairs = Malloc(2*maxEdges*sizeof(int)), i;
+    int *pairs = Malloc(2*maxEdges*sizeof(int));
 #if SUPPORT_NODE_NAMES
     int maxNodes=MIN_EDGELIST;
     char **names = Malloc(maxNodes*sizeof(char*));
@@ -470,15 +488,7 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
 #else
     numNodes++;	// increase it by one since so far it's been the biggest number seen.
 #endif
-    GRAPH *G = GraphAlloc(numNodes, sparse);
-    assert(G->degree);
-    assert(sparse);
-    assert(G->sparse);
-    assert(G->neighbor);
-    for(i=0;i<G->n;i++)
-	assert(!G->neighbor[i]);
-    for(i=0; i<numEdges; i++)
-	GraphConnect(G, pairs[2*i], pairs[2*i+1]);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, sparse);
     Free(pairs);
     assert(G->maxEdges <= maxEdges);
     assert(G->numEdges <= numEdges);
