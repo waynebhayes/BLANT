@@ -98,6 +98,7 @@ static int *_tempMerge, *_mergePosition;
 int TempMergeCmp(const foint X, const foint Y)
 {
     const int tm1 = X.i, tm2 = Y.i;
+    _compareCount++;
     return _tempMerge[_mergePosition[tm1]] - _tempMerge[_mergePosition[tm2]];
 }
 
@@ -169,6 +170,7 @@ int PileSortInts(int *a, size_t n)	// for now only sort ints, because you need a
 	    {
 		minDistance = a[i]-pile[p].a[bottom]; bestPile=p; useTop=false;
 	    }
+	    _compareCount += 2;
 	}
 	//assert(useTop != maybe);
 
