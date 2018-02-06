@@ -18,9 +18,7 @@
 #include <unistd.h>
 
 #define TEST_SORTS 0
-#if TEST_SORTS
 int _compareCount;
-#endif
 
 int QuickSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 {
