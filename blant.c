@@ -8,6 +8,7 @@
 #include "tinygraph.h"
 #include "graph.h"
 #include "rand48.h"
+#include "heap.h"
 #include "blant.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
@@ -20,6 +21,9 @@
 #define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
 #define SAMPLE_UNIF_OUTSET 1	// sample using uniform outset; about 100,000 samples per second
 #define SAMPLE_CUMULATIVE 0	// Fastest, up to a million samples per second
+
+#define FORCE_UNIFORM 1
+#define FORCE_UNIFORM_WITH_HEAP 1
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 #if (SAMPLE_UNBIASED + SAMPLE_UNIF_OUTSET + SAMPLE_CUMULATIVE) != 1
 #error "must choose exactly one of the SAMPLE_XXX choices"
@@ -107,21 +111,55 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
 // new node (ie., edges that are not going back inside the graphlet).
 // So the "outset" is the set of edges going to nodes exactly distance
 // one from the set V, as V is being built.
+
+#if FORCE_UNIFORM
+static int *visitCount; // keep count of how many times each node has been visited.
+ #if FORCE_UNIFORM_WITH_HEAP
+ static HEAP *globalHeap; // heap of all nodes ordered by visitCount, smallest-at-top
+ int VisitCmp(foint node1, foint node2) { return visitCount[node1.i] - visitCount[node2.i]; }
+ #endif
+#endif
+
 static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 {
     static SET *outSet;
+    static int numIsolatedNodes;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
     else if(G->n > outSet->n)
 	SetResize(outSet, G->n);
     else
 	SetEmpty(outSet);
-    int edge = G->numEdges * drand48(), i, v1, v2;
+    int v1, v2, i;
+    int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
     assert(V && V->n >= G->n);
     SetEmpty(V);
-    int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
+#if (FORCE_UNIFORM && FORCE_UNIFORM_WITH_HEAP)
+    // This method picks the least sampled node so far (not edge!), and then its least sampled neighbor.
+    // These two form the first edge.
+    // NOTE: the only thing that separates this from a completely deterministic list of samples (which
+    // would be bad!!!) is that we have arranged below for the *initial* HeapInsert of all the nodes
+    // to occur in a random order. This assures randomness even though they initially all have visitCount zero.
+#if PARANOID_ASSERTS
+    assert(HeapSize(globalHeap) + numIsolatedNodes == G->n);
+#endif
+    {
+        do {
+            v1 = HeapNext(globalHeap).i;
+        } while(G->degree[v1] == 0 && ++numIsolatedNodes);
+        // Find the neighbor node with the smallest visit count.
+        v2 = 0;
+        int k;
+        for(k=1; k<G->degree[v1]; k++)
+            if(visitCount[G->neighbor[v1][k]] < visitCount[G->neighbor[v1][v2]])
+                v2=k;
+        v2 = G->neighbor[v1][v2];
+    }
+#else
+    int edge = G->numEdges * drand48();
     v1 = G->edgeList[2*edge];
     v2 = G->edgeList[2*edge+1];
+#endif
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
 
@@ -148,7 +186,18 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 	    j = 0;
 	}
 	else
+#if FORCE_UNIFORM
+	{
+	    // Find the neighbor node with the smallest visit count.
+	    j=0;
+	    int k;
+	    for(k=1; k<nOut; k++)
+		if(visitCount[outbound[k]] < visitCount[outbound[j]])
+		    j=k;
+	}
+#else
 	    j = nOut * drand48();
+#endif
 	v1 = outbound[j];
 	SetDelete(outSet, v1);
 	SetAdd(V, v1); Varray[i] = v1;
@@ -164,9 +213,28 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
 #if PARANOID_ASSERTS
     assert(SetCardinality(V) == k);
 #endif
+#if FORCE_UNIFORM
+    for(i=0; i<k; i++)
+	++visitCount[Varray[i]];
+    // Note this is not quite correct: we have modified *all* k of the visitCounts but are only
+    // re-inserting Varray[0]; so the heap will not be perfectly sorted but hopefully not too badly
+    // messed up.
+ #if FORCE_UNIFORM_WITH_HEAP
+    HeapInsert(globalHeap, (foint) Varray[0]); // adding the original v1 back into the heap.
+ #endif
+#endif
     return V;
 }
 
+
+// From the paper: ``Sampling Connected Induced Subgraphs Uniformly at Random''
+// Xuesong Lu and Stephane Bressan
+// School of Computing, National University of Singapore
+// {xuesong,steph}@nus.edu.sg
+// 24th International Conference on Scientific and Statistical Database Management, 2012
+static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k) { }
+static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // slower
+static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // faster!
 
 /*
 ** This is a faster graphlet sampling routine, although it may produce a
@@ -375,6 +443,25 @@ int blant(int argc, char *argv[])
     kperm *Pf = Mmap(Permutations, Bk*sizeof(Permutations[0]), pfd);
     assert(Kf == K);
     assert(Pf == Permutations);
+
+#if FORCE_UNIFORM
+    visitCount = Calloc(G->n, sizeof(int));
+ #if FORCE_UNIFORM_WITH_HEAP
+    globalHeap = HeapAlloc(G->n, VisitCmp);
+    {
+	int inserted[G->n], numLeft = G->n;
+	for(i=0; i<G->n; i++) inserted[i] = i;
+	for(i=0; i<G->n; i++)
+	{
+	    assert(i + numLeft == G->n);
+	    int next = numLeft * drand48();
+	    HeapInsert(globalHeap, (foint)inserted[next]); // insert them all with frequency zero but in random order
+	    inserted[next] = inserted[--numLeft]; // nuke it with the last one in the list
+	}
+	assert(numLeft == 0);
+    }
+ #endif
+#endif
 
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
