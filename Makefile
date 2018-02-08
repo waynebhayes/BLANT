@@ -53,7 +53,7 @@ libwayne/libwayne.a:
 subcanon_maps: libwayne make-subcanon-maps.c blant.h
 	mkdir -p canon_maps
 	gcc -o2 -o make-subcanon-maps make-subcanon-maps.c $(LIBWAYNE)
-	for i in  4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
+	for i in  4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
 	/bin/rm -f make-subcanon-maps # it's not useful after this
 
 
