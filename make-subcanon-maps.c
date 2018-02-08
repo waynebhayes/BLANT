@@ -9,8 +9,8 @@
 
 //needed for blant stuff
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
-//#define CANON_DIR "canon_maps"
-#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
+#define CANON_DIR "canon_maps"
+//#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
