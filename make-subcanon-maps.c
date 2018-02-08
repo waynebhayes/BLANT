@@ -131,6 +131,7 @@ int main(int argc, char* argv[]) {
     TINY_GRAPH *g;
     TSET induceTSET = TSET_NULLSET;
     int Gint = 0;
+    int tsetBit;
     for (i = 0; i < numCanon; i++) {
         int canonical = canon_list[i];
         BuildGraph(canonical);
@@ -139,7 +140,7 @@ int main(int argc, char* argv[]) {
         //Reset induceTSET
         for (j = 0; j < k; j++) {
             induceTSET = TSET_NULLSET;
-            for (int tsetBit = 0; tsetBit < k; tsetBit++) {
+            for (tsetBit = 0; tsetBit < k; tsetBit++) {
                 induceTSET <<= 1;
                 if (tsetBit != j)
                     induceTSET |= 1;
