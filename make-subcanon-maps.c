@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
     fclose(fp_ord);
 
     //Getting and filling canon maps
-    sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
+    sprintf(BUF, CANON_DIR "/canon_map%d.bin", k-1);
     int Kfd = open(BUF, 0*O_RDONLY);
     short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
     assert(Kf == K);
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
                     induceTSET |= 1;
             }
             g = TinyGraphInduced(g, G, induceTSET);
-            Gint = TinyGraph2Int(g, k);
+            Gint = TinyGraph2Int(g, k-1);
             printf("%d ", K[Gint]);
         }
         printf("\n");
