@@ -12,20 +12,8 @@
 #define CANON_DIR "canon_maps"
 //#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
-
-// The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
-// when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
-// For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
-// makes the coding much simpler.
-typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
-
 static unsigned int Bk, _k; // _k is the global variable storing k; Bk=actual number of entries in the canon_map for given k.
 
-// Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
-// that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
-// So we're allocating 256MBx3=768MB even if we need much less.  I figure anything less than 1GB isn't a big deal
-// these days. It needs to be aligned to a page boundary since we're going to mmap the binary file into this array.
-static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
@@ -125,15 +113,10 @@ int main(int argc, char* argv[]) {
     fclose(fp_ord);
 
     //Getting and filling canon maps
-    char perm[maxK+1];
     sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
     int Kfd = open(BUF, 0*O_RDONLY);
-    sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
-    int pfd = open(BUF, 0*O_RDONLY);
     short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
-    kperm *Pf = Mmap(Permutations, Bk*sizeof(Permutations[0]), pfd);
     assert(Kf == K);
-    assert(Pf == Permutations);
 
     /*
         For every canonical in canonical_list
