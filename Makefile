@@ -14,7 +14,7 @@ test_blant:
 	# NOTE THIS WILL FAIL UNLESS YOU SET BOTH LOWER_TRIANGLE AND PERMS_CAN2NON TO 1 IN blant.h.
 	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo checking frequency of graphlets in syeast.el for "k=$$k"; ./blant -2 $$k 10000000 syeast.el | awk '{++count[$$1]}END{for(i in count) print count[i],i}' | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k$$k.syeast.out; fi; done
 
-canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps
+canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps subcanon_maps
 
 test_maps:
 	ls canon_maps.3-6 | fgrep -v README | awk '{printf "cmp canon_maps.3-6/%s canon_maps/%s\n",$$1,$$1}' | sh
@@ -49,6 +49,13 @@ libwayne: libwayne/libwayne.a
 
 libwayne/libwayne.a:
 	cd libwayne; make opt
+
+subcanon_maps: libwayne make-subcanon-maps.c blant.h
+	mkdir -p canon_maps
+	gcc -o2 -o -Wall make-subcanon-maps make-subcanon-maps.c $(LIBWAYNE)
+	for i in  4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
+	/bin/rm -f make-subcanon-maps # it's not useful after this
+
 
 clean:
 	/bin/rm -f *.[oa] blant make-canon-maps canon-sift
