@@ -14,6 +14,7 @@
 #include <stdarg.h>
 #include <assert.h>
 #include <memory.h>
+#include <sys/mman.h>
 #include <sys/time.h>   /*getrusage doesn't seem to work.*/
 #include <sys/resource.h>
 #include <unistd.h>
@@ -98,6 +99,24 @@ void Fatal(const char *fmt, ...)
     assert(false);
     exit(1);
 }
+
+// Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
+void *Mmap(void *p, size_t n, int fd)
+{
+#if MMAP
+    void *newPointer = mmap(p, n, PROT_READ, MAP_PRIVATE|MAP_FIXED, fd, 0);
+    if(newPointer == MAP_FAILED)
+#endif
+    {
+#if !__WIN32__ && !__CYGWIN__ // it will always fail on Windoze so don't bother with a warning
+        Warning("mmap failed");
+#endif
+        if(read(fd, p, n) != n)
+            Fatal("cannot mmap, or cannot read the file, or both");
+    }
+    return p;
+}
+
 
 /* A malloc that exits if system calloc fails.
 */

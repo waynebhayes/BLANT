@@ -85,6 +85,10 @@ extern void Warning(const char *fmt, ...);
 extern void Apology(const char *fmt, ...);
 extern void Fatal(const char *fmt, ...);  /* generates an assertion failure */
 
+// Try to use mmap? As long as mmap is supported, even if it doesn't work blant will still work
+// because it'll revert to simply loading the entire binary mapping if the mmap fails.
+#define MMAP 1
+extern void *Mmap(void *p, size_t n, int fd);
 extern void *Malloc(size_t);
 extern void *Calloc(size_t, size_t);
 extern void *Realloc(void *ptr, size_t newSize);

@@ -16,9 +16,5 @@
 // local alignment between the nodes listed.  Listing them in the other direction doesn't seem to have much use.
 #define PERMS_CAN2NON	1
 
-// Try to use mmap? As long as mmap is supported, even if it doesn't work blant will still work 
-// because it'll revert to simply loading the entire binary mapping if the mmap fails.
-#define MMAP 1
-
-#define CANON_DIR "canon_maps"
-//#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
+//#define CANON_DIR "canon_maps"
+#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
