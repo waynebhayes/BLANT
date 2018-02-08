@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
 
     */
     TINY_GRAPH *g;
-    TSET induceTSET;
+    TSET induceTSET = TSET_NULLSET;
     int Gint = 0;
     for (i = 0; i < numCanon; i++) {
         int canonical = canon_list[i];
@@ -144,12 +144,15 @@ int main(int argc, char* argv[]) {
                 if (tsetBit != j)
                     induceTSET |= 1;
             }
-            g = TinyGraphInduced(NULL, G, induceTSET);
+            g = TinyGraphInduced(g, G, induceTSET);
             Gint = TinyGraph2Int(g, k);
             printf("%d ", K[Gint]);
         }
         printf("\n");
     }
+
+    free(g);
+    free(G);
 
     return 0;
 }
