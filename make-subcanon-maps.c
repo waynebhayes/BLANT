@@ -20,7 +20,7 @@ static unsigned int Bk, _k; // _k is the global variable storing k; Bk=actual nu
 static short int K[maxBk] __attribute__ ((aligned (8192)));
 
 //Needed for BuildGraph
-static TINY_GRAPH *G;
+static TINY_GRAPH *G; 	// G is reused for each canonical
 static int k;
 
 #define MMAP 1 
@@ -41,6 +41,11 @@ void *Mmap(void *p, size_t n, int fd)
     return p;
 }
 
+
+/*
+** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
+** Handles either upper or lower triangle representation depending upon compile-time option below.
+*/
 static void BuildGraph(int Gint)
 {
     int i, j, bitPos=0;
