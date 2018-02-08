@@ -107,13 +107,6 @@ static int TinyGraph2Int(TINY_GRAPH *g, int numNodes)
 }
 
 int main(int argc, char* argv[]) {
-    /*
-    read from canon list files
-    for each: 
-        build the G canonical (tinyGraph)
-        remove nodes 1 a a time. and then call tinygraph->whatcanonicalami
-            use induced function called k times. call canon map on induced .
-    */
     int i, j;
     k=atoi(argv[1]);
     _k = k;
@@ -131,16 +124,6 @@ int main(int argc, char* argv[]) {
     for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
 
-    // //Create canon list for k-1
-    // sprintf(BUF, CANON_DIR "/canon_list%d.txt", k-1);
-    // FILE *fp_ord=fopen(BUF, "r");
-    // assert(fp_ord);
-    // int numCanon2;
-    // fscanf(fp_ord, "%d",&numCanon);
-    // int canon_list2[numCanon];
-    // for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
-    // fclose(fp_ord);
-
     //Getting and filling canon maps
     char perm[maxK+1];
     sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
@@ -152,22 +135,10 @@ int main(int argc, char* argv[]) {
     assert(Kf == K);
     assert(Pf == Permutations);
 
-    //How to access element from canonmap
-    // TINY_GRAPH *g = TinyGraphAlloc(k-1);
-    // int Gint = TinyGraph2Int(g,k);
-    // int j;
-	// for(j=0;j<k;j++) perm[j]=0;
-	// ExtractPerm(perm, Gint);
-	// //printf("K[%d]=%d [%d];", Gint, K[Gint], canon_list[K[Gint]]);
-	// printf("%d", K[Gint]); // Note this is the ordinal of the canonical, not its bit representation
-	// for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
-	// puts("");
-
     /*
         For every canonical in canonical_list
             create tinygraph
             print canonical
-            
             For every induced subgraph of size k-1
                 get canonical from k-1
                 print decimal for canonical
@@ -184,16 +155,12 @@ int main(int argc, char* argv[]) {
 
         //Reset induceTSET
         for (j = 0; j < k; j++) {
-            //g = TinyGraphCopy(g, G);              
-
-            //get induced, print canonical + " "
             induceTSET = TSET_NULLSET;
             for (int tsetBit = 0; tsetBit < k; tsetBit++) {
                 induceTSET <<= 1;
                 if (tsetBit != j)
                     induceTSET |= 1;
             }
-
             g = TinyGraphInduced(NULL, G, induceTSET);
             Gint = TinyGraph2Int(g, k);
             printf("%d ", K[Gint]);
