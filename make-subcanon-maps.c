@@ -192,13 +192,13 @@ int main(int argc, char* argv[]) {
     TINY_GRAPH *g;
     TSET induceTSET;
     int Gint = 0;
-    for (int i = 0; i < numCanon; i++) {
+    for (i = 0; i < numCanon; i++) {
         int canonical = canon_list[i];
         BuildGraph(canonical);
         printf("%d ", canonical); 
 
         //Reset induceTSET
-        for (int j = 0; j < k; j++) {
+        for (j = 0; j < k; j++) {
             //g = TinyGraphCopy(g, G);              
 
             //get induced, print canonical + " "
