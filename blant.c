@@ -453,30 +453,18 @@ static int IntCmp(const void *a, const void *b)
     return (*i)-(*j);
 }
 
-// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
-// Now it simply gets called once for each core we use when run with multiple cores.
-int blant(int argc, char *argv[])
+void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
-    int k=atoi(argv[1]), i, j;
-    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
-    _k = k;
-    int numSamples = atoi(argv[2]);
-    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
-    FILE *fp = fopen(argv[3], "r");
-    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
-    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
-    assert(G->n >= k);
-    fclose(fp);
+    assert(k <= G->n);
     srand48(time(0)+getpid());
-
     Bk = (1 <<(k*(k-1)/2));
     char BUF[BUFSIZ];
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
+    if(!fp_ord) Fatal("RunBlant: cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
     int numCanon;
     fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon];
+    int canon_list[numCanon], i;
     for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
     char perm[maxK+1];
@@ -506,7 +494,7 @@ int blant(int argc, char *argv[])
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int Gint = TinyGraph2Int(g,k);
+	int Gint = TinyGraph2Int(g,k), j;
 	for(j=0;j<k;j++) perm[j]=0;
 	ExtractPerm(perm, Gint);
 	//printf("K[%d]=%d [%d];", Gint, K[Gint], canon_list[K[Gint]]);
@@ -519,6 +507,35 @@ int blant(int argc, char *argv[])
     SetFree(V);
     GraphFree(G);
 #endif
+    return;
+}
+
+// Initialize the graph G from an edgelist; the user must allocate the pairs array
+// to have 2*numEdges elements (all integers), and each entry must be between 0 and
+// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
+// we are going to free it right after creating G (ie., before returning to the caller.)
+void RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
+{
+    assert(numNodes >= k);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
+    Free(pairs);
+    RunBlantFromGraph(k, numSamples, G);
+}
+
+
+// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
+// Now it simply gets called once for each core we use when run with multiple cores.
+int blant(int argc, char *argv[])
+{
+    int k=atoi(argv[1]), i, j;
+    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
+    _k = k;
+    int numSamples = atoi(argv[2]);
+    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
+    FILE *fp = fopen(argv[3], "r");
+    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
+    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
+    RunBlantFromGraph(k, numSamples, G);
     return 0;
 }
 
