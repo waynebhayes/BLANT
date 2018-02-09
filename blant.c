@@ -510,6 +510,38 @@ void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     return;
 }
 
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+void BlantAddEdge(int v1, int v2)
+{
+    if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
+    assert(_numEdges <= _maxEdges);
+    if(_numEdges >= _maxEdges)
+    {
+	_maxEdges *=2;
+	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(int));
+    }
+    _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
+    _numNodes = MAX(_numNodes, v2+1);
+    _pairs[2*_numEdges] = v1;
+    _pairs[2*_numEdges+1] = v2;
+    if(_pairs[2*_numEdges] == _pairs[2*_numEdges+1])
+	Fatal("BlantAddEdge: edge %d (%d,%d) has equal nodes; cannot have self-loops\n", _numEdges, v1, v2);
+    if(_pairs[2*_numEdges] > _pairs[2*_numEdges+1])
+    {
+	int tmp = _pairs[2*_numEdges];
+	_pairs[2*_numEdges] = _pairs[2*_numEdges+1];
+	_pairs[2*_numEdges+1] = tmp;
+    }
+    assert(_pairs[2*_numEdges] < _pairs[2*_numEdges+1]);
+    _numEdges++;
+}
+void RunBlantEdgesFinished(int k, int numSamples)
+{
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
+    Free(_pairs);
+    RunBlantFromGraph(k, numSamples, G);
+}
+
 // Initialize the graph G from an edgelist; the user must allocate the pairs array
 // to have 2*numEdges elements (all integers), and each entry must be between 0 and
 // numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
@@ -534,8 +566,25 @@ int blant(int argc, char *argv[])
     if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
     FILE *fp = fopen(argv[3], "r");
     if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
+#if 0
+    // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
+    fclose(fp);
     RunBlantFromGraph(k, numSamples, G);
+#else
+    // Test the functions that will be called from C++
+    while(!feof(fp))
+    {
+	static int line;
+	int v1, v2;
+	++line;
+	if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
+	    Fatal("can't find 2 ints on line %d\n", line);
+	BlantAddEdge(v1, v2);
+    }
+    fclose(fp);
+    RunBlantEdgesFinished(k, numSamples);
+#endif
     return 0;
 }
 
