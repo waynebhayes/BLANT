@@ -99,6 +99,7 @@ int main(int argc, char* argv[]) {
     //Getting and filling canon maps
     sprintf(BUF, CANON_DIR "/canon_map%d.bin", k-1);
     int Kfd = open(BUF, 0*O_RDONLY);
+    assert(Kfd > 0);
     short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
     assert(Kf == K);
 
