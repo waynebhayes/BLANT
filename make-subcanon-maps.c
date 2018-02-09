@@ -9,8 +9,6 @@
 
 //needed for blant stuff
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
-#define CANON_DIR "canon_maps"
-//#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
 static unsigned int Bk, _k; // _k is the global variable storing k; Bk=actual number of entries in the canon_map for given k.
 
@@ -22,25 +20,6 @@ static short int K[maxBk] __attribute__ ((aligned (8192)));
 //Needed for BuildGraph
 static TINY_GRAPH *G; 	// G is reused for each canonical
 static int k;
-
-#define MMAP 1 
-// Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
-void *Mmap(void *p, size_t n, int fd)
-{
-#if MMAP
-    void *newPointer = mmap(p, n, PROT_READ, MAP_PRIVATE|MAP_FIXED, fd, 0);
-    if(newPointer == MAP_FAILED)
-#endif
-    {
-#if !__WIN32__ && !__CYGWIN__ // it will always fail on Windoze so don't bother with a warning
-	Warning("mmap failed");
-#endif
-	if(read(fd, p, n) != n)
-	    Fatal("cannot mmap, or cannot read the file, or both");
-    }
-    return p;
-}
-
 
 /*
 ** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
@@ -133,7 +112,7 @@ int main(int argc, char* argv[]) {
             print newline
 
     */
-    TINY_GRAPH *g;
+    TINY_GRAPH *g = NULL;
     TSET induceTSET = TSET_NULLSET;
     int Gint = 0;
     int tsetBit;
@@ -157,8 +136,9 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
 
-    free(g);
-    free(G);
+    assert(g && G);
+    TinyGraphFree(g);
+    TinyGraphFree(G);
 
     return 0;
 }
