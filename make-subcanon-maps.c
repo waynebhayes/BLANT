@@ -7,9 +7,6 @@
 #include "blant.h"
 
 
-//needed for blant stuff
-#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
-
 static unsigned int Bk, _k; // _k is the global variable storing k; Bk=actual number of entries in the canon_map for given k.
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
@@ -51,7 +48,6 @@ static void BuildGraph(int Gint)
     }
 }
 
-#define LOWER_TRIANGLE 1
 // Given a TINY_GRAPH and k, return the integer ID cretaed from one triangle (upper or lower) of the adjacency matrix.
 static int TinyGraph2Int(TINY_GRAPH *g, int numNodes)
 {

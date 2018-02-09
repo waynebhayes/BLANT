@@ -25,8 +25,6 @@
 #error "must choose exactly one of the SAMPLE_XXX choices"
 #endif
 
-#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
-
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
 // For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but

@@ -2,6 +2,8 @@
 // Currently only used to determine the amount of static memory to allocate.
 #define maxK 8
 
+#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
+
 #define MAX_CANONICALS 12346	// This is the number of canonical graphettes for k=8
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
@@ -18,3 +20,4 @@
 
 //#define CANON_DIR "canon_maps"
 #define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
+
