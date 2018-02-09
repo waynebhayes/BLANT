@@ -1,5 +1,4 @@
 #include <sys/file.h>
-#include <sys/mman.h>
 #include <unistd.h>
 #include <time.h>
 #include <stdio.h>
@@ -19,10 +18,10 @@
 
 // These are mutually exclusive
 #define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
-#define SAMPLE_UNIF_OUTSET 1	// sample using uniform outset; about 100,000 samples per second
-#define SAMPLE_CUMULATIVE 0	// Fastest, up to a million samples per second
+#define SAMPLE_NODE_EXPANSION 1	// sample using uniform outset; about 100,000 samples per second
+#define SAMPLE_EDGE_EXPANSION 0	// Fastest, up to a million samples per second
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
-#if (SAMPLE_UNBIASED + SAMPLE_UNIF_OUTSET + SAMPLE_CUMULATIVE) != 1
+#if (SAMPLE_UNBIASED + SAMPLE_NODE_EXPANSION + SAMPLE_EDGE_EXPANSION) != 1
 #error "must choose exactly one of the SAMPLE_XXX choices"
 #endif
 
@@ -109,7 +108,7 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
 // So the "outset" is the set of edges going to nodes exactly distance
 // one from the set V, as V is being built.
 
-static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
+static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k)
 {
     static SET *outSet;
     static int numIsolatedNodes;
@@ -167,19 +166,11 @@ static SET *SampleGraphletUniformOutSet(SET *V, int *Varray, GRAPH *G, int k)
     assert(i==k);
 #if PARANOID_ASSERTS
     assert(SetCardinality(V) == k);
+    assert(nOut == SetCardinality(outSet));
 #endif
     return V;
 }
 
-
-// From the paper: ``Sampling Connected Induced Subgraphs Uniformly at Random''
-// Xuesong Lu and Stephane Bressan
-// School of Computing, National University of Singapore
-// {xuesong,steph}@nus.edu.sg
-// 24th International Conference on Scientific and Statistical Database Management, 2012
-static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k) { }
-static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // slower
-static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // faster!
 
 /*
 ** This is a faster graphlet sampling routine, although it may produce a
@@ -216,7 +207,7 @@ static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAP
 ** is blinding speed at graphlet sampling, eg for building a graphlet database
 ** index, then this is the preferred method.
 */
-static SET *SampleGraphletCumulative(SET *V, int *Varray, GRAPH *G, int k)
+static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k)
 {
     int edge = G->numEdges * drand48(), v1, v2;
     assert(V && V->n >= G->n);
@@ -296,6 +287,132 @@ static SET *SampleGraphletCumulative(SET *V, int *Varray, GRAPH *G, int k)
     return V;
 }
 
+// From the paper: ``Sampling Connected Induced Subgraphs Uniformly at Random''
+// Xuesong Lu and Stephane Bressan, School of Computing, National University of Singapore
+// {xuesong,steph}@nus.edu.sg
+// 24th International Conference on Scientific and Statistical Database Management, 2012
+// Note that they suggest *edge* based expansion to select the first k nodes, and then
+// use reservoir sampling for the rest. But we know edge-based expansion sucks, so we'll
+// start with a better starting guess, which is node-based expansion.
+static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k)
+{
+    // Start by getting the first k nodes using a previous method. Once you figure out which is
+    // better, it's probably best to share variables so you don't have to recompute the outset here.
+#if 1  // the following is copied almost verbatim from NodeEdgeExpasion, just changing for loop to while loop.
+    static SET *outSet;
+    static int numIsolatedNodes;
+    if(!outSet)
+       outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
+    else if(G->n > outSet->n)
+	SetResize(outSet, G->n);
+    else
+	SetEmpty(outSet);
+    int v1, v2, i;
+    int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
+    assert(V && V->n >= G->n);
+    SetEmpty(V);
+    int edge = G->numEdges * drand48();
+    v1 = G->edgeList[2*edge];
+    v2 = G->edgeList[2*edge+1];
+    SetAdd(V, v1); Varray[0] = v1;
+    SetAdd(V, v2); Varray[1] = v2;
+
+    // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
+    // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
+    for(i=0; i < G->degree[v1]; i++)
+    {
+	int nv1 =  G->neighbor[v1][i];
+	if(nv1 != v2) SetAdd(outSet, (outbound[nOut++] = nv1));
+    }
+    for(i=0; i < G->degree[v2]; i++)
+    {
+	int nv2 =  G->neighbor[v2][i];
+	if(nv2 != v1 && !SetIn(outSet, nv2)) SetAdd(outSet, (outbound[nOut++] = nv2));
+    }
+    i=2;
+    while(i<k || nOut > 0) // always do the loop at least k times, but i>=k is the reservoir phase.
+    {
+	int candidate;
+	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
+	{
+	    if(i < k)
+	    {
+		int tries=0;
+		while(SetIn(V, (v1 = G->n*drand48())))
+		    assert(tries++<MAX_TRIES); // must terminate since k <= G->n
+		outbound[nOut++] = v1; // recall that nOut was 0 to enter this block, so now it's 1
+		candidate = 0; // representing v1 as the 0'th entry in the outbound array
+	    }
+	    else
+		assert(false); // we're done because i >= k and nOut == 0... but we shouldn't get here.
+	}
+	else
+	{
+	    candidate = nOut * drand48();
+	    v1 = outbound[candidate];
+	}
+	assert(v1 == outbound[candidate]);
+	SetDelete(outSet, v1);
+	outbound[candidate] = outbound[--nOut];// nuke v1 by moving the last one to its place
+	if(i < k)
+	{
+	    Varray[i] = v1;
+	    SetAdd(V, v1);
+	    int j;
+	    for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
+	    {
+		v2 = G->neighbor[v1][j];
+		if(!SetIn(outSet, v2) && !SetIn(V, v2))
+		    SetAdd(outSet, (outbound[nOut++] = v2));
+	    }
+	}
+	else
+	{
+	    double reservoir_alpha = drand48();
+	    if(reservoir_alpha < k/(double)i)
+	    {
+		static TINY_GRAPH *T;
+		if(!T) T = TinyGraphAlloc(k);
+		static int graphetteArray[maxK], distArray[maxK];
+#if PARANOID_ASSERTS
+		TinyGraphEdgesAllDelete(T);
+		TinyGraphInducedFromGraph(T, G, Varray);
+		// ensure it's connected before we do the replacement
+		assert(TinyGraphBFS(T, 0, k, graphetteArray, distArray) == k);
+#endif
+		int memberToDelete = k*drand48();
+		v2 = Varray[memberToDelete]; // remember the node delated from V in case we need to revert
+		Varray[memberToDelete] = v1; // v1 is the outbound candidate.
+		TinyGraphEdgesAllDelete(T);
+		TinyGraphInducedFromGraph(T, G, Varray);
+		if(TinyGraphBFS(T, 0, k, graphetteArray, distArray) < k)
+		    Varray[memberToDelete] = v2; // revert the change because the graph is not connected
+		else // add the new guy and delete the old
+		{
+		    assert(SetCardinality(V) == k);
+		    SetDelete(V, v2);
+		    SetAdd(V, v1);
+		    assert(SetCardinality(V) == k);
+		    int j;
+		    for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
+		    {
+			v2 = G->neighbor[v1][j];
+			if(!SetIn(outSet, v2) && !SetIn(V, v2))
+			    SetAdd(outSet, (outbound[nOut++] = v2));
+		    }
+		}
+	    }
+	}
+	i++;
+    }
+#else
+    SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+#endif
+}
+
+static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // slower
+static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // faster!
+
 
 /*
 * Very slow: sample k nodes uniformly at random and throw away ones that are disconnected.
@@ -330,53 +447,24 @@ static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 }
 
 
-// Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
-void *Mmap(void *p, size_t n, int fd)
-{
-#if MMAP
-    void *newPointer = mmap(p, n, PROT_READ, MAP_PRIVATE|MAP_FIXED, fd, 0);
-    if(newPointer == MAP_FAILED)
-#endif
-    {
-#if !__WIN32__ && !__CYGWIN__ // it will always fail on Windoze so don't bother with a warning
-	Warning("mmap failed");
-#endif
-	if(read(fd, p, n) != n)
-	    Fatal("cannot mmap, or cannot read the file, or both");
-    }
-    return p;
-}
-
 static int IntCmp(const void *a, const void *b)
 {
     int *i = (int*)a, *j = (int*)b;
     return (*i)-(*j);
 }
 
-// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
-// Now it simply gets called once for each core we use when run with multiple cores.
-int blant(int argc, char *argv[])
+void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
-    int k=atoi(argv[1]), i, j;
-    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
-    _k = k;
-    int numSamples = atoi(argv[2]);
-    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
-    FILE *fp = fopen(argv[3], "r");
-    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
-    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
-    assert(G->n >= k);
-    fclose(fp);
+    assert(k <= G->n);
     srand48(time(0)+getpid());
-
     Bk = (1 <<(k*(k-1)/2));
     char BUF[BUFSIZ];
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
+    if(!fp_ord) Fatal("RunBlant: cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
     int numCanon;
     fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon];
+    int canon_list[numCanon], i;
     for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
     char perm[maxK+1];
@@ -396,16 +484,17 @@ int blant(int argc, char *argv[])
     {
 #if SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
-#elif SAMPLE_UNIF_OUTSET
-	SampleGraphletUniformOutSet(V, Varray, G, k);
+#elif SAMPLE_NODE_EXPANSION
+	//SampleGraphletLuBressanReservoir(V, Varray, G, k);
+	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
 #else
-#assert SAMPLE_CUMULATIVE(1)
-	SampleGraphletCumulative(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#assert SAMPLE_EDGE_EXPANSION(1)
+	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
 #endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int Gint = TinyGraph2Int(g,k);
+	int Gint = TinyGraph2Int(g,k), j;
 	for(j=0;j<k;j++) perm[j]=0;
 	ExtractPerm(perm, Gint);
 	//printf("K[%d]=%d [%d];", Gint, K[Gint], canon_list[K[Gint]]);
@@ -417,6 +506,84 @@ int blant(int argc, char *argv[])
     TinyGraphFree(g);
     SetFree(V);
     GraphFree(G);
+#endif
+    return;
+}
+
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+void BlantAddEdge(int v1, int v2)
+{
+    if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
+    assert(_numEdges <= _maxEdges);
+    if(_numEdges >= _maxEdges)
+    {
+	_maxEdges *=2;
+	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(int));
+    }
+    _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
+    _numNodes = MAX(_numNodes, v2+1);
+    _pairs[2*_numEdges] = v1;
+    _pairs[2*_numEdges+1] = v2;
+    if(_pairs[2*_numEdges] == _pairs[2*_numEdges+1])
+	Fatal("BlantAddEdge: edge %d (%d,%d) has equal nodes; cannot have self-loops\n", _numEdges, v1, v2);
+    if(_pairs[2*_numEdges] > _pairs[2*_numEdges+1])
+    {
+	int tmp = _pairs[2*_numEdges];
+	_pairs[2*_numEdges] = _pairs[2*_numEdges+1];
+	_pairs[2*_numEdges+1] = tmp;
+    }
+    assert(_pairs[2*_numEdges] < _pairs[2*_numEdges+1]);
+    _numEdges++;
+}
+void RunBlantEdgesFinished(int k, int numSamples)
+{
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
+    Free(_pairs);
+    RunBlantFromGraph(k, numSamples, G);
+}
+
+// Initialize the graph G from an edgelist; the user must allocate the pairs array
+// to have 2*numEdges elements (all integers), and each entry must be between 0 and
+// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
+// we are going to free it right after creating G (ie., before returning to the caller.)
+void RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
+{
+    assert(numNodes >= k);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
+    Free(pairs);
+    RunBlantFromGraph(k, numSamples, G);
+}
+
+
+// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
+// Now it simply gets called once for each core we use when run with multiple cores.
+int blant(int argc, char *argv[])
+{
+    int k=atoi(argv[1]), i, j;
+    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
+    _k = k;
+    int numSamples = atoi(argv[2]);
+    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
+    FILE *fp = fopen(argv[3], "r");
+    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
+#if 0
+    // Read it in using native Graph routine.
+    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
+    fclose(fp);
+    RunBlantFromGraph(k, numSamples, G);
+#else
+    // Test the functions that will be called from C++
+    while(!feof(fp))
+    {
+	static int line;
+	int v1, v2;
+	++line;
+	if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
+	    Fatal("can't find 2 ints on line %d\n", line);
+	BlantAddEdge(v1, v2);
+    }
+    fclose(fp);
+    RunBlantEdgesFinished(k, numSamples);
 #endif
     return 0;
 }
