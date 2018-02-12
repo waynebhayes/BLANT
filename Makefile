@@ -19,12 +19,11 @@ canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps subcanon_maps
 test_maps:
 	ls canon_maps.3-6 | fgrep -v README | awk '{printf "cmp canon_maps.3-6/%s canon_maps/%s\n",$$1,$$1}' | sh
 
-canon_map7: libwayne canon_maps/canon_map7.txt blant.h
-
-canon_map8:
-	echo "Making the k=8 canon_map takes many months of CPU time."
-	echo "See the k8 directory for instructions on how to do it using parallelism."
-	echo "Or see http://www.ics.uci.edu/~wayne/blant to just download the files."
+canon_map7 canon_map8:
+	@echo "Making the k=7 canon_map takes a few hours"
+	@echo "Making the k=8 canon_map takes many months of CPU time."
+	@echo "See the k8 directory for instructions on how to do it using parallelism."
+	@echo "Or see http://www.ics.uci.edu/~wayne/blant to just download the files."
 
 canon_maps/canon_map6.txt: blant.h make-canon-maps
 	mkdir -p canon_maps
@@ -54,8 +53,7 @@ subcanon_maps: libwayne make-subcanon-maps.c blant.h
 	mkdir -p canon_maps
 	gcc -O2 -Wall -o make-subcanon-maps make-subcanon-maps.c $(LIBWAYNE)
 	for i in  4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
-	/bin/rm -f make-subcanon-maps # it's not useful after this
-
+	#/bin/rm -f make-subcanon-maps # it's not useful after this
 
 clean:
 	/bin/rm -f *.[oa] blant make-canon-maps canon-sift
