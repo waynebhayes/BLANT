@@ -57,33 +57,6 @@ static void ExtractPerm(char perm[_k], int i)
 	perm[j] = (i32 >> 3*j) & 7;
 }
 
-// Given a TINY_GRAPH and k, return the integer ID cretaed from one triangle (upper or lower) of the adjacency matrix.
-static int TinyGraph2Int(TINY_GRAPH *G, int k)
-{
-    int i, j, bitPos=0, Gint = 0, bit;
-    
-#if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
-    for(i=k-1;i>0;i--)
-    {
-        for(j=i-1;j>=0;j--)
-#else   // UPPER_TRIANGLE // this is what we used in the original faye code and paper with Adib Hasan and Po-Chien Chung.
-    for(i=k-2;i>=0;i--)
-    {
-        for(j=k-1;j>i;j--)
-#endif
-        {
-	    if(TinyGraphAreConnected(G,i,j))
-	    {
-		bit = (1 << bitPos);
-		Gint |= bit;
-	    }
-            bitPos++;
-        }
-    }
-    return Gint;
-}
-
-
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
 static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
 {

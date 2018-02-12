@@ -6,79 +6,17 @@
 #include "tinygraph.h"
 #include "blant.h"
 
-
-static unsigned int Bk, _k; // _k is the global variable storing k; Bk=actual number of entries in the canon_map for given k.
+static unsigned int Bk;//Bk=actual number of entries in the canon_map for given k.  
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int K[maxBk] __attribute__ ((aligned (8192)));
 
-//Needed for BuildGraph
-static TINY_GRAPH *G; 	// G is reused for each canonical
-static int k;
-
-/*
-** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
-** Handles either upper or lower triangle representation depending upon compile-time option below.
-*/
-static void BuildGraph(int Gint)
-{
-    int i, j, bitPos=0;
-    int Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
-    TinyGraphEdgesAllDelete(G);
-#if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
-    {
-	for(j=i-1;j>=0;j--)
-#else	// UPPER_TRIANGLE
-    for(i=k-2;i>=0;i--)
-    {
-	for(j=k-1;j>i;j--)
-#endif
-	{
-	    if(!Gint2) break;
-	    int bit = (1 << bitPos);
-	    if(Gint & bit)
-		TinyGraphConnect(G,i,j);
-	    Gint2 &= ~bit;
-	    bitPos++;
-	}
-	if(!Gint2) break;
-    }
-}
-
-// Given a TINY_GRAPH and k, return the integer ID cretaed from one triangle (upper or lower) of the adjacency matrix.
-static int TinyGraph2Int(TINY_GRAPH *g, int numNodes)
-{
-    int i, j, bitPos=0, Gint = 0, bit;
-    
-#if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
-    for(i=numNodes-1;i>0;i--)
-    {
-        for(j=i-1;j>=0;j--)
-#else   // UPPER_TRIANGLE // this is what we used in the original faye code and paper with Adib Hasan and Po-Chien Chung.
-    for(i=numNodes-2;i>=0;i--)
-    {
-        for(j=numNodes-1;j>i;j--)
-#endif
-        {
-	    if(TinyGraphAreConnected(g,i,j))
-	    {
-		bit = (1 << bitPos);
-		Gint |= bit;
-	    }
-            bitPos++;
-        }
-    }
-    return Gint;
-}
-
 int main(int argc, char* argv[]) {
-    int i, j;
+    int i, j, k;
     k=atoi(argv[1]);
-    _k = k;
-    G = TinyGraphAlloc(k);
+    TINY_GRAPH* G = TinyGraphAlloc(k);
 
     Bk = (1 <<(k*(k-1)/2));
     char BUF[BUFSIZ];
@@ -114,7 +52,7 @@ int main(int argc, char* argv[]) {
     int tsetBit;
     for (i = 0; i < numCanon; i++) {
         int canonical = canon_list[i];
-        BuildGraph(canonical);
+        BuildGraph(canonical, G);
         printf("%d ", canonical); 
 
         //Reset induceTSET
