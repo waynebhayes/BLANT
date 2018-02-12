@@ -6,7 +6,7 @@
 #include "tinygraph.h"
 #include "blant.h"
 
-static unsigned int Bk;//Bk=actual number of entries in the canon_map for given k.  
+static unsigned int Bk;//Bk=actual number of entries in the canon_map for given k - 1.
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     k=atoi(argv[1]);
     TINY_GRAPH* G = TinyGraphAlloc(k);
 
-    Bk = (1 <<(k*(k-1)/2));
+    Bk = (1 <<((k-1)*(k-2)/2));
     char BUF[BUFSIZ];
     //Create canon list for k
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
 
-    //Getting and filling canon maps
+    //Create canon map for k-1
     sprintf(BUF, CANON_DIR "/canon_map%d.bin", k-1);
     int Kfd = open(BUF, 0*O_RDONLY);
     short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
