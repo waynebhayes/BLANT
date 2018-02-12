@@ -330,7 +330,10 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	if(nv2 != v1 && !SetIn(outSet, nv2)) SetAdd(outSet, (outbound[nOut++] = nv2));
     }
     i=2;
-    while(i<k || nOut > 0) // always do the loop at least k times, but i>=k is the reservoir phase.
+
+    // always do the loop at least k times, but i>=k is the reservoir phase.
+    while(i<k || nOut > 0)
+    // while(i < 64*k) // this one doesn't seem to work as well.
     {
 	int candidate;
 	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
@@ -344,7 +347,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		candidate = 0; // representing v1 as the 0'th entry in the outbound array
 	    }
 	    else
-		assert(false); // we're done because i >= k and nOut == 0... but we shouldn't get here.
+		break; // assert(false); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 	}
 	else
 	{
