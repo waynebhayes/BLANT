@@ -111,8 +111,11 @@ void *Mmap(void *p, size_t n, int fd)
 #if !__WIN32__ && !__CYGWIN__ // it will always fail on Windoze so don't bother with a warning
         Warning("mmap failed");
 #endif
-        if(read(fd, p, n) != n)
-            Fatal("cannot mmap, or cannot read the file, or both");
+	int status;
+	size_t numRead = 0;
+        while(numRead < n && (status = read(fd, (char*)p + numRead, n-numRead)) > 0)
+	    numRead += status;
+        if(numRead < n) Fatal("cannot mmap, or cannot read the file, or both");
     }
     return p;
 }

@@ -1,4 +1,4 @@
- LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
+LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
@@ -12,19 +12,18 @@ test_blant:
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -2 also tests parallelism, attemting to run 2 threads simultaneously.
 	# NOTE THIS WILL FAIL UNLESS YOU SET BOTH LOWER_TRIANGLE AND PERMS_CAN2NON TO 1 IN blant.h.
-	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo checking frequency of graphlets in syeast.el for "k=$$k"; ./blant -2 $$k 10000000 syeast.el | awk '{++count[$$1]}END{for(i in count) print count[i],i}' | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k$$k.syeast.out; fi; done
+	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo checking frequency of graphlets in syeast.el for "k=$$k"; ./blant -4 $$k 10000000 syeast.el | awk '{++count[$$1]}END{for(i in count) print count[i],i}' | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k$$k.syeast.out; fi; done
 
-canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps subcanon_maps
+canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps #subcanon_maps
 
 test_maps:
 	ls canon_maps.3-6 | fgrep -v README | awk '{printf "cmp canon_maps.3-6/%s canon_maps/%s\n",$$1,$$1}' | sh
 
-canon_map7: libwayne canon_maps/canon_map7.txt blant.h
-
-canon_map8:
-	echo "Making the k=8 canon_map takes many months of CPU time."
-	echo "See the k8 directory for instructions on how to do it using parallelism."
-	echo "Or see http://www.ics.uci.edu/~wayne/blant to just download the files."
+canon_map7 canon_map8:
+	@echo "Making the k=7 canon_map takes a few hours"
+	@echo "Making the k=8 canon_map takes many months of CPU time."
+	@echo "See the k8 directory for instructions on how to do it using parallelism."
+	@echo "Or see http://www.ics.uci.edu/~wayne/blant to just download the files."
 
 canon_maps/canon_map6.txt: blant.h make-canon-maps
 	mkdir -p canon_maps
@@ -54,8 +53,7 @@ subcanon_maps: libwayne make-subcanon-maps.c blant.h
 	mkdir -p canon_maps
 	gcc -O2 -Wall -o make-subcanon-maps make-subcanon-maps.c $(LIBWAYNE)
 	for i in  4 5 6 7 8; do if [ -f canon_maps/canon_map$$((i-1)).bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
-	/bin/rm -f make-subcanon-maps # it's not useful after this
-
+	#/bin/rm -f make-subcanon-maps # it's not useful after this
 
 clean:
 	/bin/rm -f *.[oa] blant make-canon-maps canon-sift

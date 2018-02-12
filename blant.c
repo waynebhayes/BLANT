@@ -31,7 +31,7 @@
 // makes the coding much simpler.
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
-static unsigned int Bk, _k; // _k is the global variable storing k; Bk=actual number of entries in the canon_map for given k.
+static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
@@ -41,7 +41,7 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
-static short int K[maxBk] __attribute__ ((aligned (8192)));
+static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
 
 /* AND NOW THE CODE */
@@ -301,7 +301,10 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	if(nv2 != v1 && !SetIn(outSet, nv2)) SetAdd(outSet, (outbound[nOut++] = nv2));
     }
     i=2;
-    while(i<k || nOut > 0) // always do the loop at least k times, but i>=k is the reservoir phase.
+
+    // always do the loop at least k times, but i>=k is the reservoir phase.
+    while(i<k || nOut > 0)
+    // while(i < 64*k) // this one doesn't seem to work as well.
     {
 	int candidate;
 	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
@@ -315,7 +318,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		candidate = 0; // representing v1 as the 0'th entry in the outbound array
 	    }
 	    else
-		assert(false); // we're done because i >= k and nOut == 0... but we shouldn't get here.
+		break; // assert(false); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 	}
 	else
 	{
@@ -424,42 +427,39 @@ static int IntCmp(const void *a, const void *b)
     return (*i)-(*j);
 }
 
-// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
-// Now it simply gets called once for each core we use when run with multiple cores.
-int blant(int argc, char *argv[])
-{
-    int k=atoi(argv[1]), i, j;
-    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
-    _k = k;
-    int numSamples = atoi(argv[2]);
-    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
-    FILE *fp = fopen(argv[3], "r");
-    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
-    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
-    assert(G->n >= k);
-    fclose(fp);
-    srand48(time(0)+getpid());
 
-    Bk = (1 <<(k*(k-1)/2));
+// Assuming the global variable _k is set properly, go read in and/or mmap the big global
+// arrays related to canonical mappings and permutations.
+void SetGlobalCanonMaps(void)
+{
+    assert(3 <= _k && _k <= 8);
+    _Bk = (1 <<(_k*(_k-1)/2));
     char BUF[BUFSIZ];
-    sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
+    sprintf(BUF, CANON_DIR "/canon_list%d.txt", _k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
+    if(!fp_ord) Fatal("RunBlant: cannot find %s/canon_list%d.txt\n", CANON_DIR, _k);
     int numCanon;
     fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon];
+    int canon_list[numCanon], i;
     for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
-    char perm[maxK+1];
-    sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
+    sprintf(BUF, CANON_DIR "/canon_map%d.bin", _k);
     int Kfd = open(BUF, 0*O_RDONLY);
-    sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
+    sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
-    short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
-    kperm *Pf = Mmap(Permutations, Bk*sizeof(Permutations[0]), pfd);
-    assert(Kf == K);
+    short int *Kf = Mmap(_K, _Bk*sizeof(_K[0]), Kfd);
+    kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
+    assert(Kf == _K);
     assert(Pf == Permutations);
+}
 
+void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+{
+    int i;
+    char perm[maxK+1];
+    assert(k <= G->n);
+    srand48(time(0)+getpid());
+    SetGlobalCanonMaps();
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
@@ -477,11 +477,11 @@ int blant(int argc, char *argv[])
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int Gint = TinyGraph2Int(g,k);
+	int Gint = TinyGraph2Int(g,k), j;
 	for(j=0;j<k;j++) perm[j]=0;
 	ExtractPerm(perm, Gint);
-	//printf("K[%d]=%d [%d];", Gint, K[Gint], canon_list[K[Gint]]);
-	printf("%d", K[Gint]); // Note this is the ordinal of the canonical, not its bit representation
+	//printf("K[%d]=%d [%d];", Gint, _K[Gint], canon_list[_K[Gint]]);
+	printf("%d", _K[Gint]); // Note this is the ordinal of the canonical, not its bit representation
 	for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
 	puts("");
     }
@@ -489,6 +489,84 @@ int blant(int argc, char *argv[])
     TinyGraphFree(g);
     SetFree(V);
     GraphFree(G);
+#endif
+    return;
+}
+
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+void BlantAddEdge(int v1, int v2)
+{
+    if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
+    assert(_numEdges <= _maxEdges);
+    if(_numEdges >= _maxEdges)
+    {
+	_maxEdges *=2;
+	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(int));
+    }
+    _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
+    _numNodes = MAX(_numNodes, v2+1);
+    _pairs[2*_numEdges] = v1;
+    _pairs[2*_numEdges+1] = v2;
+    if(_pairs[2*_numEdges] == _pairs[2*_numEdges+1])
+	Fatal("BlantAddEdge: edge %d (%d,%d) has equal nodes; cannot have self-loops\n", _numEdges, v1, v2);
+    if(_pairs[2*_numEdges] > _pairs[2*_numEdges+1])
+    {
+	int tmp = _pairs[2*_numEdges];
+	_pairs[2*_numEdges] = _pairs[2*_numEdges+1];
+	_pairs[2*_numEdges+1] = tmp;
+    }
+    assert(_pairs[2*_numEdges] < _pairs[2*_numEdges+1]);
+    _numEdges++;
+}
+void RunBlantEdgesFinished(int k, int numSamples)
+{
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
+    Free(_pairs);
+    RunBlantFromGraph(k, numSamples, G);
+}
+
+// Initialize the graph G from an edgelist; the user must allocate the pairs array
+// to have 2*numEdges elements (all integers), and each entry must be between 0 and
+// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
+// we are going to free it right after creating G (ie., before returning to the caller.)
+void RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
+{
+    assert(numNodes >= k);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
+    Free(pairs);
+    RunBlantFromGraph(k, numSamples, G);
+}
+
+
+// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
+// Now it simply gets called once for each core we use when run with multiple cores.
+int blant(int argc, char *argv[])
+{
+    int k=atoi(argv[1]), i, j;
+    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
+    _k = k;
+    int numSamples = atoi(argv[2]);
+    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
+    FILE *fp = fopen(argv[3], "r");
+    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
+#if 1
+    // Read it in using native Graph routine.
+    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
+    fclose(fp);
+    RunBlantFromGraph(k, numSamples, G);
+#else
+    // Test the functions that will be called from C++
+    while(!feof(fp))
+    {
+	static int line;
+	int v1, v2;
+	++line;
+	if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
+	    Fatal("can't find 2 ints on line %d\n", line);
+	BlantAddEdge(v1, v2);
+    }
+    fclose(fp);
+    RunBlantEdgesFinished(k, numSamples);
 #endif
     return 0;
 }
@@ -515,6 +593,12 @@ int main(int argc, char *argv[])
 
     char cmd[BUFSIZ]; // buffer to hold the command line of the core-wise BLANT processes.
     // create the command that calls ourself CORES times, generating numSamples/CORES samples each.
+    // NOTE that this is terrible in terms of I/O; each of the processes will independently read both
+    // the input graph, and all the canonical information. It would be much better to read all that
+    // stuff first, create the GRAPH, and then and only then perform the fork.  It would be fine to
+    // use pipes to correlate the info but we shouldn't use popen to fork command-line processes, we
+    // should instead manually create the pipes and do the forking after all the inputs have been
+    // read in, and the GRAPH already created, otherwise we're doing massive duplication of effort.
     int numSamples = atoi(argv[2]);  // will handle leftovers later
     int samplesPerCore = numSamples/CORES;  // will handle leftovers later if numSamples is not divisible by CORES
     sprintf(cmd, "%s %s %d %s", argv[0], argv[1], samplesPerCore, argv[3]);
