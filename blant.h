@@ -1,4 +1,4 @@
-#include "tinygraph.h"
+//#include "tinygraph.h"
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
@@ -20,8 +20,8 @@
 // local alignment between the nodes listed.  Listing them in the other direction doesn't seem to have much use.
 #define PERMS_CAN2NON	1
 
-//#define CANON_DIR "canon_maps"
-#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
+#define CANON_DIR "canon_maps"
+//#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
-void BuildGraph(int Gint, TINY_GRAPH* G);
-int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
+//void BuildGraph(int Gint, TINY_GRAPH* G);
+//int TinyGraph2Int(TINY_GRAPH *g, int numNodes);

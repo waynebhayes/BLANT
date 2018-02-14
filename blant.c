@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "misc.h"
+#include "tinygraph.h"
 #include "graph.h"
 #include "rand48.h"
 #include "heap.h"
@@ -458,7 +459,6 @@ void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     char perm[maxK+1];
     assert(k <= G->n);
     srand48(time(0)+getpid());
-    SetGlobalCanonMaps();
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
@@ -467,7 +467,7 @@ void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #if SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
 #elif SAMPLE_NODE_EXPANSION
-	//SampleGraphletLuBressanReservoir(V, Varray, G, k);
+	//SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
 	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
 #else
 #assert SAMPLE_EDGE_EXPANSION(1)
@@ -548,6 +548,7 @@ int blant(int argc, char *argv[])
     if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
     FILE *fp = fopen(argv[3], "r");
     if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
+    SetGlobalCanonMaps();
 #if 1
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
@@ -576,12 +577,12 @@ int blant(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
     int i, CORES;
-    if(argc != 4 && argc != 5) Apology(USAGE);
+    if(argc != 4 && argc != 5) Fatal(USAGE);
     if(argc == 5) // only way to get 5 args is if the user specified "-cores" as the first argument.
     {
 	CORES = atoi(argv[1]);
 	if(CORES >= 0)
-	    Apology("You specified 5 arguments but the first argument must be specified as -nCores\n" USAGE);
+	    Fatal("You specified 5 arguments but the first argument must be specified as -nCores\n" USAGE);
 	CORES = -CORES;
 	for(i=1;i<argc;i++) // nuke the numCores argument
 	    argv[i]=argv[i+1];
