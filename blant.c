@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "misc.h"
-#include "tinygraph.h"
 #include "graph.h"
 #include "rand48.h"
 #include "heap.h"

@@ -1,3 +1,5 @@
+#include "tinygraph.h"
+
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
 #define maxK 8
