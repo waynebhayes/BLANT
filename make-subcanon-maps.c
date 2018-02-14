@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
     _k = k;
     G = TinyGraphAlloc(k);
 
-    Bk = (1 <<(k*(k-1)/2));
+    Bk = (1 <<((k-1)*(k-2)/2));
     char BUF[BUFSIZ];
     //Create canon list for k
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
