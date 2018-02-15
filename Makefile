@@ -27,7 +27,7 @@ canon_map7 canon_map8:
 
 canon_maps/canon_map6.txt: blant.h make-canon-maps
 	mkdir -p canon_maps
-	for i in 3 4 5 6; do ./make-canon-maps $$i 1 0 | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list$$i.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature$$i.txt; gcc -O2 "-Dk=$$i" "-DkString=\"$$i\"" -o create-bin-data create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
+	for i in 3 4 5 6; do ./make-canon-maps $$i 1 0 | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list$$i.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature$$i.txt; gcc -O2 "-Dkk=$$i" "-DkString=\"$$i\"" -o create-bin-data create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
 	/bin/rm -f create-bin-data # it's not useful after this
 
 canon_maps/canon_map7.txt: blant.h make-canon-maps
