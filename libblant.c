@@ -1,7 +1,7 @@
 #include "blant.h"
 #include "tinygraph.h"
 
-// Given a TINY_GRAPH and k, return the integer ID cretaed from one triangle (upper or lower) of the adjacency matrix.
+// Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
 int TinyGraph2Int(TINY_GRAPH *g, int k)
 {
     int i, j, bitPos=0, Gint = 0, bit;
