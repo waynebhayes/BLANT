@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	assert(strlen(cPerm) <= MAX_TSET && strlen(cPerm)==k);
 	if(Gint == Gcanon) // "new" canonical, possibly faux
 	{
-	    	(Gint, G);
+	    BuildGraph(Gint, G);
 	    for(i=0; i<_numCanonicals; i++)
 	    {
 #if PERMS_CAN2NON // the permutation provided is from canonical to non-canonical
