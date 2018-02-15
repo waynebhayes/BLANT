@@ -31,7 +31,7 @@ int TinyGraph2Int(TINY_GRAPH *g, int k)
 ** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
 ** Handles either upper or lower triangle representation depending upon compile-time option below.
 */
-void BuildGraph(int Gint, TINY_GRAPH* G)
+void BuildGraph(TINY_GRAPH* G, int Gint)
 {
     int i, j, bitPos=0, k = G->n;
     int Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.

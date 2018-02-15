@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 	if(Gint == Gcanon) // it's a true canonical
 	{
 	    _canonicalSig[_numCanonicals] = Gint;
-	    BuildGraph(Gint, G);
+	    BuildGraph(G, Gint);
 	    TinyGraphCopy(_canonicalGraph[_numCanonicals], G);
 	    ++_numCanonicals;
 	}
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	assert(strlen(cPerm) <= MAX_TSET && strlen(cPerm)==k);
 	if(Gint == Gcanon) // "new" canonical, possibly faux
 	{
-	    BuildGraph(Gint, G);
+	    BuildGraph(G, Gint);
 	    for(i=0; i<_numCanonicals; i++)
 	    {
 #if PERMS_CAN2NON // the permutation provided is from canonical to non-canonical

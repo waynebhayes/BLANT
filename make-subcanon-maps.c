@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     int tsetBit;
     for (i = 0; i < numCanon; i++) {
         int canonical = canon_list[i];
-        BuildGraph(canonical, G);
+        BuildGraph(G, canonical);
         printf("%d ", canonical); 
 
         //Reset induceTSET
