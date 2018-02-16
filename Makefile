@@ -40,7 +40,7 @@ make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c
 	gcc -O2 -o make-canon-maps libblant.c make-canon-maps.c $(LIBWAYNE)
 	gcc -O2 -o canon-sift libblant.c canon-sift.c  $(LIBWAYNE)
 
-blant: libwayne blant.c blant.h
+blant: libwayne blant.c blant.h libblant.c
 	gcc -O2 -o blant libblant.c blant.c $(LIBWAYNE)
 	gcc -O2 -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
@@ -49,7 +49,7 @@ libwayne: libwayne/libwayne.a
 libwayne/libwayne.a:
 	cd libwayne; make opt
 
-subcanon_maps: libwayne make-subcanon-maps.c blant.h
+subcanon_maps: libwayne make-subcanon-maps.c blant.h libblant.c
 	mkdir -p canon_maps
 	gcc -O2 -Wall -o make-subcanon-maps make-subcanon-maps.c libblant.c $(LIBWAYNE)
 	for i in  4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
