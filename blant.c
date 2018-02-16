@@ -68,6 +68,19 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
     return Gv;
 }
 
+
+// return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
+static TSET _visited;
+static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
+{
+    if(startingNode == 0) TSetEmpty(_visited);
+    TSetAdd(_visited,startingNode);
+    char j, Varray[maxK], numVisited = 0; // char rather than int since k <= 8
+    TSetToArray(Varray, g->A[startingNode]);
+    for(j=0; j<g->degree[startingNode]; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
+    return 1+numVisited;
+}
+
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
@@ -304,7 +317,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 
     // always do the loop at least k times, but i>=k is the reservoir phase.
     while(i<k || nOut > 0)
-    // while(i < 64*k) // this one doesn't seem to work as well.
+    // while(i < LIMIT*k) // this one doesn't seem to work as well.
     {
 	int candidate;
 	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
@@ -349,17 +362,19 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		if(!T) T = TinyGraphAlloc(k);
 		static int graphetteArray[maxK], distArray[maxK];
 #if PARANOID_ASSERTS
+		// ensure it's connected before we do the replacement
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
-		// ensure it's connected before we do the replacement
-		assert(TinyGraphBFS(T, 0, k, graphetteArray, distArray) == k);
+		assert(NumReachableNodes(T, 0) == TinyGraphBFS(T, 0, k, graphetteArray, distArray));
+		assert(NumReachableNodes(T, 0) == k);
 #endif
 		int memberToDelete = k*drand48();
 		v2 = Varray[memberToDelete]; // remember the node delated from V in case we need to revert
 		Varray[memberToDelete] = v1; // v1 is the outbound candidate.
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
-		if(TinyGraphBFS(T, 0, k, graphetteArray, distArray) < k)
+		assert(NumReachableNodes(T,0) == TinyGraphBFS(T, 0, k, graphetteArray, distArray));
+		if(NumReachableNodes(T, 0) < k)
 		    Varray[memberToDelete] = v2; // revert the change because the graph is not connected
 		else // add the new guy and delete the old
 		{
@@ -383,6 +398,56 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
     SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
 #endif
 }
+
+
+// Compute the degree of the state in the state graph (see Lu&Bressen)
+// Given the big graph G, and a set of nodes S (|S|==k), compute the 
+// degree of the *state* represented by these nodes, which is:
+//     Degree(S) = k*|NN2| + (k-1)*|NN1|
+// where NN1 is the set of nodes one step outside S that have only 1 connection back into S,
+// and   NN2 is the set of nodes one step outside S that have more than 1 connection back into S.
+static int StateDegree(GRAPH *G, SET *S)
+{
+#if PARANOID_ASSERTS
+    assert(SetCardinality(S) == _k);
+#endif
+    int Varray[_k]; // array of elements in S
+    SetToArray(Varray, S);
+
+    SET *outSet=SetAlloc(G->n); // the set of nodes in G that are one step outside S, from *anybody* in S
+    int connectCount[G->n]; // for each node in the outset, count the number of times it's connected into S
+    memset(connectCount, 0, G->n * sizeof(int)); // set them all to zero
+
+    int i, j, numOut = 0;
+    for(i=0;i<_k;i++) for(j=0; j<G->degree[Varray[i]]; j++)
+    {
+	int neighbor = G->neighbor[Varray[i]][j];
+	if(!SetIn(S, neighbor))
+	{
+	    SetAdd(outSet, neighbor);
+	    if(connectCount[neighbor] == 0) ++numOut;
+	    ++connectCount[neighbor];
+	}
+    }
+#if PARANOID_ASSERTS
+    assert(SetCardinality(outSet) == numOut);
+#endif
+    int outArray[numOut], Sdeg = 0;
+    i = SetToArray(outArray, outSet);
+    assert(i == numOut);
+    for(i=0; i < numOut; i++)
+    {
+	switch(connectCount[outArray[i]])
+	{
+	case 0: break;
+	case 1: Sdeg += _k-1; break;
+	default:  Sdeg += _k; break;
+	}
+    }
+    SetFree(outSet);
+    return Sdeg;
+}
+
 
 static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // slower
 static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // faster!
@@ -410,12 +475,13 @@ static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 	    while(SetIn(V, Varray[i]));
 	    SetAdd(V, Varray[i]);
 	}
-#if PARANOID_ASSERTS
-	assert(SetCardinality(V)==k);
-#endif
 	TinyGraphEdgesAllDelete(g);
 	TinyGraphInducedFromGraph(g, G, Varray);
-    } while(TinyGraphBFS(g, 0, k, graphetteArray, distArray) < k);
+#if PARANOID_ASSERTS
+	assert(SetCardinality(V)==k);
+	assert(NumReachableNodes(g,0) == TinyGraphBFS(g, 0, k, graphetteArray, distArray));
+#endif
+    } while(NumReachableNodes(g, 0) < k);
 
     return V;
 }

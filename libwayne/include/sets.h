@@ -126,7 +126,7 @@ typedef unsigned char TSET; // Tiny SET
 #define TSetCountBits(i) lookupBitCount[i]
 #define TSetCardinality TSetCountBits
 TSET TSetFromArray(int n, unsigned *array);
-unsigned TSetToArray(unsigned *array, TSET set);
+unsigned TSetToArray(unsigned char *array, TSET set);
 char *TSetToString(int len, char s[], TSET set);
 
 /* SSET dictionary - a set of sets */

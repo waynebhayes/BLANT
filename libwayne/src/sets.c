@@ -285,7 +285,7 @@ unsigned SSetToArray(unsigned *array, SSET set)
 }
 
 
-unsigned TSetToArray(unsigned *array, TSET set)
+unsigned TSetToArray(unsigned char *array, TSET set)
 {
     int pos = 0;
     int i;
