@@ -17,43 +17,12 @@ static int k, _numCanonicals, _canonicalSig[MAX_CANONICALS];
 static int perm[MAX_TSET];
 
 /*
-** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
-** Handles either upper or lower triangle representation depending upon compile-time option below.
-*/
-static void BuildGraph(int Gint)
-{
-    int i, j, bitPos=0;
-    int Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
-    TinyGraphEdgesAllDelete(G);
-#if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
-    {
-	for(j=i-1;j>=0;j--)
-#else	// UPPER_TRIANGLE
-    for(i=k-2;i>=0;i--)
-    {
-	for(j=k-1;j>i;j--)
-#endif
-	{
-	    if(!Gint2) break;
-	    int bit = (1 << bitPos);
-	    if(Gint & bit)
-		TinyGraphConnect(G,i,j);
-	    Gint2 &= ~bit;
-	    bitPos++;
-	}
-	if(!Gint2) break;
-    }
-}
-
-
-/*
 ** Given an integer, build the graph and see if it's isomorphic to any existing canonicals.
 ** If not, then it becomes the next new canonical.
 */
 void CheckGraph(int Gint)
 {
-    BuildGraph(Gint);
+    BuildGraph(G, Gint);
     int i, j;
     for(i=0; i<_numCanonicals; i++)
     {

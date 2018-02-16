@@ -27,7 +27,7 @@ canon_map7 canon_map8:
 
 canon_maps/canon_map6.txt: blant.h make-canon-maps
 	mkdir -p canon_maps
-	for i in 3 4 5 6; do ./make-canon-maps $$i 1 0 | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list$$i.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature$$i.txt; gcc -O2 "-Dk=$$i" "-DkString=\"$$i\"" -o create-bin-data create-bin-data.c; ./create-bin-data; done
+	for i in 3 4 5 6; do ./make-canon-maps $$i 1 0 | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list$$i.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature$$i.txt; gcc -O2 "-Dkk=$$i" "-DkString=\"$$i\"" -o create-bin-data create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
 	/bin/rm -f create-bin-data # it's not useful after this
 
 canon_maps/canon_map7.txt: blant.h make-canon-maps
@@ -36,12 +36,12 @@ canon_maps/canon_map7.txt: blant.h make-canon-maps
 	./make-canon-maps 7 1 0 | cut -f2- | tee canon_maps/canon_map7.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list7.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature7.txt
 	gcc -O2 "-Dk=7" "-DkString=\"7\"" -o create-bin-data create-bin-data.c; ./create-bin-data
 
-make-canon-maps: make-canon-maps.c blant.h canon-sift.c
-	gcc -O2 -o make-canon-maps make-canon-maps.c $(LIBWAYNE)
-	gcc -O2 -o canon-sift canon-sift.c $(LIBWAYNE)
+make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c
+	gcc -O2 -o make-canon-maps libblant.c make-canon-maps.c $(LIBWAYNE)
+	gcc -O2 -o canon-sift libblant.c canon-sift.c  $(LIBWAYNE)
 
 blant: libwayne blant.c blant.h
-	gcc -O2 -o blant blant.c $(LIBWAYNE)
+	gcc -O2 -o blant libblant.c blant.c $(LIBWAYNE)
 	gcc -O2 -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
 libwayne: libwayne/libwayne.a
@@ -51,7 +51,7 @@ libwayne/libwayne.a:
 
 subcanon_maps: libwayne make-subcanon-maps.c blant.h
 	mkdir -p canon_maps
-	gcc -O2 -Wall -o make-subcanon-maps make-subcanon-maps.c $(LIBWAYNE)
+	gcc -O2 -Wall -o make-subcanon-maps make-subcanon-maps.c libblant.c $(LIBWAYNE)
 	for i in  4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
 	#/bin/rm -f make-subcanon-maps # it's not useful after this
 

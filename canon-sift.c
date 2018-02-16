@@ -65,36 +65,6 @@ static int _numFauxCanon, _fauxCanonSig[MAX_CANONICALS], _fauxCanonTrueSig[MAX_C
 */
 static int perm[MAX_TSET], _fauxCanonPerm[MAX_CANONICALS][MAX_TSET];
 
-/*
-** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
-** Handles either upper or lower triangle representation depending upon compile-time option below.
-*/
-static void BuildGraph(int Gint)
-{
-    int i, j, bitPos=0;
-    int Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
-    TinyGraphEdgesAllDelete(G);
-#if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
-    {
-	for(j=i-1;j>=0;j--)
-#else	// UPPER_TRIANGLE
-    for(i=k-2;i>=0;i--)
-    {
-	for(j=k-1;j>i;j--)
-#endif
-	{
-	    if(!Gint2) break;
-	    int bit = (1 << bitPos);
-	    if(Gint & bit)
-		TinyGraphConnect(G,i,j);
-	    Gint2 &= ~bit;
-	    bitPos++;
-	}
-	if(!Gint2) break;
-    }
-}
-
 int main(int argc, char *argv[])
 {
     int i;
@@ -122,7 +92,7 @@ int main(int argc, char *argv[])
 	if(Gint == Gcanon) // it's a true canonical
 	{
 	    _canonicalSig[_numCanonicals] = Gint;
-	    BuildGraph(Gint);
+	    BuildGraph(G, Gint);
 	    TinyGraphCopy(_canonicalGraph[_numCanonicals], G);
 	    ++_numCanonicals;
 	}
@@ -143,7 +113,7 @@ int main(int argc, char *argv[])
 	assert(strlen(cPerm) <= MAX_TSET && strlen(cPerm)==k);
 	if(Gint == Gcanon) // "new" canonical, possibly faux
 	{
-	    BuildGraph(Gint);
+	    BuildGraph(G, Gint);
 	    for(i=0; i<_numCanonicals; i++)
 	    {
 #if PERMS_CAN2NON // the permutation provided is from canonical to non-canonical

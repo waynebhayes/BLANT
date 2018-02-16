@@ -25,8 +25,6 @@
 #error "must choose exactly one of the SAMPLE_XXX choices"
 #endif
 
-#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
-
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
 // For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
@@ -58,33 +56,6 @@ static void ExtractPerm(char perm[_k], int i)
     for(j=0;j<_k;j++)
 	perm[j] = (i32 >> 3*j) & 7;
 }
-
-// Given a TINY_GRAPH and k, return the integer ID cretaed from one triangle (upper or lower) of the adjacency matrix.
-static int TinyGraph2Int(TINY_GRAPH *G, int k)
-{
-    int i, j, bitPos=0, Gint = 0, bit;
-    
-#if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
-    for(i=k-1;i>0;i--)
-    {
-        for(j=i-1;j>=0;j--)
-#else   // UPPER_TRIANGLE // this is what we used in the original faye code and paper with Adib Hasan and Po-Chien Chung.
-    for(i=k-2;i>=0;i--)
-    {
-        for(j=k-1;j>i;j--)
-#endif
-        {
-	    if(TinyGraphAreConnected(G,i,j))
-	    {
-		bit = (1 << bitPos);
-		Gint |= bit;
-	    }
-            bitPos++;
-        }
-    }
-    return Gint;
-}
-
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
 static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
