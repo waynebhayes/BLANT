@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -23,6 +24,10 @@
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 #if (SAMPLE_UNBIASED + SAMPLE_NODE_EXPANSION + SAMPLE_EDGE_EXPANSION) != 1
 #error "must choose exactly one of the SAMPLE_XXX choices"
+#endif
+
+#ifndef RESERVOIR_MULTIPLIER
+#define RESERVOIR_MULTIPLIER 8
 #endif
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
@@ -75,9 +80,10 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 {
     if(startingNode == 0) TSetEmpty(_visited);
     TSetAdd(_visited,startingNode);
-    char j, Varray[maxK], numVisited = 0; // char rather than int since k <= 8
-    TSetToArray(Varray, g->A[startingNode]);
-    for(j=0; j<g->degree[startingNode]; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
+    int j, Varray[maxK], numVisited = 0;
+    int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
+    assert(numNeighbors == g->degree[startingNode]);
+    for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
     return 1+numVisited;
 }
 
@@ -317,7 +323,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 
     // always do the loop at least k times, but i>=k is the reservoir phase.
     while(i<k || nOut > 0)
-    // while(i < LIMIT*k) // this one doesn't seem to work as well.
+    //while(i < RESERVOIR_MULTIPLIER*k) // this one doesn't seem to work as well.
     {
 	int candidate;
 	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
@@ -365,6 +371,8 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		// ensure it's connected before we do the replacement
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
+		printf("NRN = %d\n", NumReachableNodes(T, 0));
+		printf("BFS = %d\n", TinyGraphBFS(T, 0, k, graphetteArray, distArray));
 		assert(NumReachableNodes(T, 0) == TinyGraphBFS(T, 0, k, graphetteArray, distArray));
 		assert(NumReachableNodes(T, 0) == k);
 #endif
@@ -583,6 +591,7 @@ void BlantAddEdge(int v1, int v2)
     assert(_pairs[2*_numEdges] < _pairs[2*_numEdges+1]);
     _numEdges++;
 }
+
 void RunBlantEdgesFinished(int k, int numSamples)
 {
     GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
