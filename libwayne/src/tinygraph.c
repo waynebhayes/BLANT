@@ -221,7 +221,7 @@ int TinyGraphBFS(TINY_GRAPH *G, int root, int distance, int *nodeArray, int *dis
 
 TINY_GRAPH *TinyGraphInduced(TINY_GRAPH *Gv, TINY_GRAPH *G, TSET V)
 {
-    unsigned array[MAX_TSET], nV = TSetToArray(array, V), i, j;
+    unsigned int array[MAX_TSET], nV = TSetToArray(array, V), i, j;
     TINY_GRAPH GGv;
     if(Gv)
     {
@@ -245,7 +245,7 @@ TINY_GRAPH *TinyGraphInduced(TINY_GRAPH *Gv, TINY_GRAPH *G, TSET V)
 
 TINY_GRAPH *TinyGraphInduced_NoVertexDelete(TINY_GRAPH *Gv, TINY_GRAPH *G, TSET V)
 {
-    unsigned array[MAX_TSET], nV = TSetToArray(array, V), i, j;
+    unsigned int array[MAX_TSET], nV = TSetToArray(array, V), i, j;
     TINY_GRAPH GGv;
     if(Gv)
     {

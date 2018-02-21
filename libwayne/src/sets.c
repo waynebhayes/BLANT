@@ -260,7 +260,7 @@ unsigned SetCardinality(SET *A)
 /* populate the given array with the list of members currently present
 ** in the set.  The array is assumed to have enough space.
 */
-unsigned SetToArray(unsigned *array, SET *set)
+unsigned SetToArray(unsigned int *array, SET *set)
 {
     int pos = 0;
     int i;
@@ -272,7 +272,7 @@ unsigned SetToArray(unsigned *array, SET *set)
     return pos;
 }
 
-unsigned SSetToArray(unsigned *array, SSET set)
+unsigned SSetToArray(unsigned int *array, SSET set)
 {
     int pos = 0;
     int i;
@@ -285,7 +285,7 @@ unsigned SSetToArray(unsigned *array, SSET set)
 }
 
 
-unsigned TSetToArray(unsigned char *array, TSET set)
+unsigned TSetToArray(unsigned int *array, TSET set)
 {
     int pos = 0;
     int i;
@@ -300,7 +300,7 @@ unsigned TSetToArray(unsigned char *array, TSET set)
 
 /* Add the elements listed in the array to the set.
 */
-SET *SetFromArray(SET *set, int n, unsigned *array)
+SET *SetFromArray(SET *set, int n, unsigned int *array)
 {
     while(n > 0)
 	SetAdd(set, array[--n]);
@@ -309,7 +309,7 @@ SET *SetFromArray(SET *set, int n, unsigned *array)
 
 /* Add the elements listed in the array to the small set.
 */
-SSET SSetFromArray(int n, unsigned *array)
+SSET SSetFromArray(int n, unsigned int *array)
 {
     SSET set;
     SSetEmpty(set);
@@ -327,7 +327,7 @@ char *SSetToString(int len, char s[], SSET set)
     return s;
 }
 
-TSET TSetFromArray(int n, unsigned *array)
+TSET TSetFromArray(int n, unsigned int *array)
 {
     TSET set;
     TSetEmpty(set);
