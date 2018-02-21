@@ -571,52 +571,6 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     return 0;
 }
 
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
-void BlantAddEdge(int v1, int v2)
-{
-    if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
-    assert(_numEdges <= _maxEdges);
-    if(_numEdges >= _maxEdges)
-    {
-	_maxEdges *=2;
-	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(int));
-    }
-    _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
-    _numNodes = MAX(_numNodes, v2+1);
-    _pairs[2*_numEdges] = v1;
-    _pairs[2*_numEdges+1] = v2;
-    if(_pairs[2*_numEdges] == _pairs[2*_numEdges+1])
-	Fatal("BlantAddEdge: edge %d (%d,%d) has equal nodes; cannot have self-loops\n", _numEdges, v1, v2);
-    if(_pairs[2*_numEdges] > _pairs[2*_numEdges+1])
-    {
-	int tmp = _pairs[2*_numEdges];
-	_pairs[2*_numEdges] = _pairs[2*_numEdges+1];
-	_pairs[2*_numEdges+1] = tmp;
-    }
-    assert(_pairs[2*_numEdges] < _pairs[2*_numEdges+1]);
-    _numEdges++;
-}
-
-int RunBlantEdgesFinished(int k, int numSamples)
-{
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
-    Free(_pairs);
-    return RunBlantInThreads(k, numSamples, G);
-}
-
-// Initialize the graph G from an edgelist; the user must allocate the pairs array
-// to have 2*numEdges elements (all integers), and each entry must be between 0 and
-// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
-// we are going to free it right after creating G (ie., before returning to the caller.)
-void RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
-{
-    assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
-    Free(pairs);
-    RunBlantFromGraph(k, numSamples, G);
-}
-
-
 FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 {
     int fds[2];
@@ -672,6 +626,52 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(leftovers)
 	return RunBlantFromGraph(_k, leftovers, G);
 }
+
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+void BlantAddEdge(int v1, int v2)
+{
+    if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
+    assert(_numEdges <= _maxEdges);
+    if(_numEdges >= _maxEdges)
+    {
+	_maxEdges *=2;
+	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(int));
+    }
+    _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
+    _numNodes = MAX(_numNodes, v2+1);
+    _pairs[2*_numEdges] = v1;
+    _pairs[2*_numEdges+1] = v2;
+    if(_pairs[2*_numEdges] == _pairs[2*_numEdges+1])
+	Fatal("BlantAddEdge: edge %d (%d,%d) has equal nodes; cannot have self-loops\n", _numEdges, v1, v2);
+    if(_pairs[2*_numEdges] > _pairs[2*_numEdges+1])
+    {
+	int tmp = _pairs[2*_numEdges];
+	_pairs[2*_numEdges] = _pairs[2*_numEdges+1];
+	_pairs[2*_numEdges+1] = tmp;
+    }
+    assert(_pairs[2*_numEdges] < _pairs[2*_numEdges+1]);
+    _numEdges++;
+}
+
+int RunBlantEdgesFinished(int k, int numSamples)
+{
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
+    Free(_pairs);
+    return RunBlantInThreads(k, numSamples, G);
+}
+
+// Initialize the graph G from an edgelist; the user must allocate the pairs array
+// to have 2*numEdges elements (all integers), and each entry must be between 0 and
+// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
+// we are going to free it right after creating G (ie., before returning to the caller.)
+void RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
+{
+    assert(numNodes >= k);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
+    Free(pairs);
+    RunBlantFromGraph(k, numSamples, G);
+}
+
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
