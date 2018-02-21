@@ -12,7 +12,7 @@
 #include "blant.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
-#define USAGE "USAGE: blant [-numCores] {k} {nSamples} {graphInputFile}\n" \
+#define USAGE "USAGE: blant [-t threads (default=1)] {k} {nSamples} {graphInputFile}\n" \
     "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT."
@@ -27,6 +27,7 @@
 #endif
 
 #ifndef RESERVOIR_MULTIPLIER
+// this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
 
@@ -37,6 +38,8 @@
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
+static Boolean _countOnly = false;
+static int _THREADS; // number of parallel threads to run.
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
@@ -511,7 +514,7 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", _k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("RunBlant: cannot find %s/canon_list%d.txt\n", CANON_DIR, _k);
+    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, _k);
     int numCanon;
     fscanf(fp_ord, "%d",&numCanon);
     int canon_list[numCanon], i;
@@ -527,7 +530,9 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
-void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+// This is the main top BLANT function; all the other ways of reading input must call this one
+// once the graph is finished being input.
+int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
     int i;
     char perm[maxK+1];
@@ -563,7 +568,7 @@ void RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     SetFree(V);
     GraphFree(G);
 #endif
-    return;
+    return 0;
 }
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
@@ -592,11 +597,11 @@ void BlantAddEdge(int v1, int v2)
     _numEdges++;
 }
 
-void RunBlantEdgesFinished(int k, int numSamples)
+int RunBlantEdgesFinished(int k, int numSamples)
 {
     GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
     Free(_pairs);
-    RunBlantFromGraph(k, numSamples, G);
+    return RunBlantInThreads(k, numSamples, G);
 }
 
 // Initialize the graph G from an edgelist; the user must allocate the pairs array
@@ -612,87 +617,46 @@ void RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int
 }
 
 
-// This is the single-core version of blant. It used to be the main() function, which is why it takes (argc,argv[]).
-// Now it simply gets called once for each core we use when run with multiple cores.
-int blant(int argc, char *argv[])
+FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 {
-    int k=atoi(argv[1]), i, j;
-    if(k < 3 || k > 8) Fatal("argument '%s' is supposed to be k, an integer between 3 and 8", argv[1]);
-    _k = k;
-    int numSamples = atoi(argv[2]);
-    if(!numSamples) Fatal("argument '%s' is numSamples and must be a positive integer", argv[2]);
-    FILE *fp = fopen(argv[3], "r");
-    if(!fp) Fatal("cannot open edge list file '%s'\n", argv[3]);
-    SetGlobalCanonMaps();
-#if 1
-    // Read it in using native Graph routine.
-    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
-    fclose(fp);
-    RunBlantFromGraph(k, numSamples, G);
-#else
-    // Test the functions that will be called from C++
-    while(!feof(fp))
+    int fds[2];
+    pipe(fds);
+    if(fork()) // we are the parent
     {
-	static int line;
-	int v1, v2;
-	++line;
-	if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
-	    Fatal("can't find 2 ints on line %d\n", line);
-	BlantAddEdge(v1, v2);
+	close(fds[1]); // we will not be writing to the pipe
+	return fdopen(fds[0],"r");
     }
-    fclose(fp);
-    RunBlantEdgesFinished(k, numSamples);
-#endif
-    return 0;
+    else // we are the child
+    {
+	close(fds[0]); // we will not be reading from the pipe
+	close(1); // close our usual stdout
+	dup(fds[1]); // move the write end of the pipe to fd 1.
+	close(fds[1]);
+	RunBlantFromGraph(k, numSamples, G);
+	exit(0);
+    }
 }
 
-// The main program, which handles multiple cores if requested.  We simply fire off a bunch of parallel
-// blant *processes* (not threads, but full processes), and simply merge all their outputs together here
-// in the parent.
-int main(int argc, char *argv[])
+int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 {
-    int i, CORES;
-    if(argc != 4 && argc != 5) Fatal(USAGE);
-    if(argc == 5) // only way to get 5 args is if the user specified "-cores" as the first argument.
-    {
-	CORES = atoi(argv[1]);
-	if(CORES >= 0)
-	    Fatal("You specified 5 arguments but the first argument must be specified as -nCores\n" USAGE);
-	CORES = -CORES;
-	for(i=1;i<argc;i++) // nuke the numCores argument
-	    argv[i]=argv[i+1];
-	--argc;
-    }
-    else // CORES = 1;
-	return blant(argc, argv);
+    if(_THREADS == 1)
+	return RunBlantFromGraph(k, numSamples, G);
 
-    char cmd[BUFSIZ]; // buffer to hold the command line of the core-wise BLANT processes.
-    // create the command that calls ourself CORES times, generating numSamples/CORES samples each.
-    // NOTE that this is terrible in terms of I/O; each of the processes will independently read both
-    // the input graph, and all the canonical information. It would be much better to read all that
-    // stuff first, create the GRAPH, and then and only then perform the fork.  It would be fine to
-    // use pipes to correlate the info but we shouldn't use popen to fork command-line processes, we
-    // should instead manually create the pipes and do the forking after all the inputs have been
-    // read in, and the GRAPH already created, otherwise we're doing massive duplication of effort.
-    int numSamples = atoi(argv[2]);  // will handle leftovers later
-    int samplesPerCore = numSamples/CORES;  // will handle leftovers later if numSamples is not divisible by CORES
-    sprintf(cmd, "%s %s %d %s", argv[0], argv[1], samplesPerCore, argv[3]);
+    // At this point, _THREADS must be greater than 1.
+    int i, samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
 
-    FILE *fp[CORES]; // these will be the pipes reading output of the parallel blants
-    for(i=0;i<CORES;i++)
-    {
-	fp[i] = popen(cmd, "r"); // fire off a single-core blant with its output to this FILE poniter.
-	assert(fp[i]);
-    }
+    FILE *fpThreads[_THREADS]; // these will be the pipes reading output of the parallel blants
+    for(i=0;i<_THREADS;i++)
+	fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
 
     Boolean done = false;
     do
     {
 	char line[BUFSIZ];
-	for(i=0;i<CORES;i++)	// read and then echo one line from each of the parallel instances
+	for(i=0;i<_THREADS;i++)	// read and then echo one line from each of the parallel instances
 	{
-	    fgets(line, sizeof(line), fp[i]);
-	    if(feof(fp[i])) // assume if any one of them finishes, we are done.
+	    fgets(line, sizeof(line), fpThreads[i]);
+	    if(feof(fpThreads[i])) // assume if any one of them finishes, we are done.
 	    {
 		done = true;
 		break;
@@ -700,15 +664,69 @@ int main(int argc, char *argv[])
 	    fputs(line, stdout);
 	}
     } while(!done);
-    for(i=0; i<CORES; i++)
-	pclose(fp[i]);  // close all the pipes
+    for(i=0; i<_THREADS; i++)
+	fclose(fpThreads[i]);  // close all the pipes
 
-    // if numSamples is not a multiple of CORES, finish the leftover samples
-    int leftovers = numSamples % CORES;
+    // if numSamples is not a multiple of _THREADS, finish the leftover samples
+    int leftovers = numSamples % _THREADS;
     if(leftovers)
+	return RunBlantFromGraph(_k, leftovers, G);
+}
+
+// The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
+// blant *processes* (not threads, but full processes), and simply merge all their outputs together here
+// in the parent.
+int main(int argc, char *argv[])
+{
+    int i, opt;
+
+    if(argc == 1)
     {
-	sprintf(cmd, "%s %s %d %s", argv[0], argv[1], leftovers, argv[3]);
-	system(cmd);
+	fprintf(stderr, "%s\n", USAGE);
+	exit(1);
     }
-    return 0;
+
+    _THREADS = 1; 
+    _k = 0;
+    while((opt = getopt(argc, argv, "t:c")) != -1)
+    {
+	switch(opt)
+	{
+	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
+	case 'c': _countOnly = true; break;
+	default: Fatal(USAGE);
+	}
+    }
+
+    _k = atoi(argv[optind++]);
+    if(!(3 <= _k && _k <= 8)) Fatal(USAGE);
+
+    int numSamples = atoi(argv[optind++]);  // will handle leftovers later
+    if(numSamples < 0) Fatal(USAGE);
+
+    SetGlobalCanonMaps(); // needs _k to be set
+
+    FILE *fpGraph = fopen(argv[optind], "r");
+    if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
+    optind++;
+    assert(optind == argc);
+
+#if 0 // Test the functions that will be called from C++
+    while(!feof(fpGraph))
+    {
+	static int line;
+	int v1, v2;
+	++line;
+	if(fscanf(fpGraph, "%d%d ", &v1, &v2) != 2)
+	    Fatal("can't find 2 ints on line %d\n", line);
+	BlantAddEdge(v1, v2);
+    }
+    fclose(fpGraph);
+    return RunBlantEdgesFinished(_k, numSamples);
+#else
+    // Read it in using native Graph routine.
+    GRAPH *G = GraphReadEdgeList(fpGraph, true); // sparse = true
+    fclose(fpGraph);
+    return RunBlantInThreads(_k, numSamples, G);
+#endif
 }
