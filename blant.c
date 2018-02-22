@@ -15,7 +15,9 @@
 #define USAGE "USAGE: blant [-t threads (default=1)] {k} {nSamples} {graphInputFile}\n" \
     "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
-    "Duplicates and self-loops should be removed before calling BLANT."
+    "Duplicates and self-loops should be removed before calling BLANT.\n" \
+    "k is the number of nodes in graphlets to be sampled."
+    
 
 // These are mutually exclusive
 #define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
@@ -38,7 +40,9 @@
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
+static unsigned _numCanon, *_canonList;
 static Boolean _countOnly = false;
+static unsigned long int _graphletCount[MAX_CANONICALS];
 static int _THREADS; // number of parallel threads to run.
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -512,13 +516,13 @@ void SetGlobalCanonMaps(void)
     assert(3 <= _k && _k <= 8);
     _Bk = (1 <<(_k*(_k-1)/2));
     char BUF[BUFSIZ];
+    int i;
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", _k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, _k);
-    int numCanon;
-    fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon], i;
-    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
+    fscanf(fp_ord, "%d",&_numCanon);
+    _canonList = Calloc(_numCanon, sizeof(*_canonList));
+    for(i=0; i<_numCanon; i++) fscanf(fp_ord, "%d", &_canonList[i]);
     fclose(fp_ord);
     short int *Kf = createCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
@@ -552,14 +556,27 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int Gint = TinyGraph2Int(g,k), j;
-	for(j=0;j<k;j++) perm[j]=0;
-	ExtractPerm(perm, Gint);
-	//printf("K[%d]=%d [%d];", Gint, _K[Gint], canon_list[_K[Gint]]);
-	printf("%d", _K[Gint]); // Note this is the ordinal of the canonical, not its bit representation
-	for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
-	puts("");
+	int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
+	if(_countOnly)
+	{
+#if PARANOID_ASSERTS
+	    assert(0 <= GintCanon && GintCanon < _numCanon);
+#endif
+	    ++_graphletCount[GintCanon];
+	}
+	else
+	{
+	    for(j=0;j<k;j++) perm[j]=0;
+	    ExtractPerm(perm, Gint);
+	    //printf("K[%d]=%d [%d];", Gint, GintCanon, _canonList[GintCanon]);
+	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	    for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
+	    puts("");
+	}
     }
+    if(_countOnly)
+	for(i=0; i<_numCanon; i++)
+	    printf("%d %ld\n", i, _graphletCount[i]);
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     TinyGraphFree(g);
     SetFree(V);
@@ -612,7 +629,15 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		done = true;
 		break;
 	    }
-	    fputs(line, stdout);
+	    if(_countOnly)
+	    {
+		unsigned long int count;
+		int canon, numRead = sscanf(line, "%d%ld", &canon, &count);
+		assert(numRead == 2);
+		_graphletCount[canon] += count;
+	    }
+	    else
+		fputs(line, stdout);
 	}
     } while(!done);
     for(i=0; i<_THREADS; i++)
@@ -620,8 +645,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     int leftovers = numSamples % _THREADS;
-    if(leftovers)
-	return RunBlantFromGraph(_k, leftovers, G);
+    return RunBlantFromGraph(_k, leftovers, G);
 }
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
@@ -661,12 +685,12 @@ int RunBlantEdgesFinished(int k, int numSamples)
 // to have 2*numEdges elements (all integers), and each entry must be between 0 and
 // numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
 // we are going to free it right after creating G (ie., before returning to the caller.)
-void RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
+int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
 {
     assert(numNodes >= k);
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
     Free(pairs);
-    RunBlantFromGraph(k, numSamples, G);
+    return RunBlantFromGraph(k, numSamples, G);
 }
 
 
@@ -696,10 +720,10 @@ int main(int argc, char *argv[])
     }
 
     _k = atoi(argv[optind++]);
-    if(!(3 <= _k && _k <= 8)) Fatal(USAGE);
+    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 
     int numSamples = atoi(argv[optind++]);  // will handle leftovers later
-    if(numSamples < 0) Fatal(USAGE);
+    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 
     SetGlobalCanonMaps(); // needs _k to be set
 
