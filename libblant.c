@@ -1,3 +1,4 @@
+#include <sys/file.h>
 #include "blant.h"
 
 // Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
@@ -54,4 +55,17 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 	}
 	if(!Gint2) break;
     }
+}
+
+/*
+** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
+** Mmap the canon_map binary file to the aligned array. 
+*/
+short int *createCanonMap(char* BUF, short int *K, int k) {
+    int Bk = (1 <<(k*(k-1)/2));
+    sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
+    int Kfd = open(BUF, 0*O_RDONLY);
+    assert(Kfd > 0);
+    short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
+    assert(Kf == K);
 }

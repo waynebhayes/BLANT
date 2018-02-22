@@ -25,3 +25,4 @@
 
 void BuildGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
+short int *createCanonMap(char* BUF, short int *K, int k);
