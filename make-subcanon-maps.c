@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     fclose(fp_ord);
 
     //Create canon map for k-1
-    short int *Kf = createCanonMap(BUF, K, k-1);
+    createCanonMap(BUF, K, k-1);
 
     /*
         For every canonical in canonical_list
