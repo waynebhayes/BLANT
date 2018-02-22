@@ -14,9 +14,8 @@ int main(int argc, char* argv[]) {
     k=atoi(argv[1]);
     TINY_GRAPH* G = TinyGraphAlloc(k);
 
-    
+    //Create k canon list
     char BUF[BUFSIZ];
-    //Create canon list for k
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
     FILE *fp_ord=fopen(BUF, "r");
     assert(fp_ord);
