@@ -524,7 +524,7 @@ void SetGlobalCanonMaps(void)
     _canonList = Calloc(_numCanon, sizeof(*_canonList));
     for(i=0; i<_numCanon; i++) fscanf(fp_ord, "%d", &_canonList[i]);
     fclose(fp_ord);
-    createCanonMap(BUF, _K, _k);
+    mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
     kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
