@@ -524,13 +524,10 @@ void SetGlobalCanonMaps(void)
     _canonList = Calloc(_numCanon, sizeof(*_canonList));
     for(i=0; i<_numCanon; i++) fscanf(fp_ord, "%d", &_canonList[i]);
     fclose(fp_ord);
-    sprintf(BUF, CANON_DIR "/canon_map%d.bin", _k);
-    int Kfd = open(BUF, 0*O_RDONLY);
+    mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
-    short int *Kf = Mmap(_K, _Bk*sizeof(_K[0]), Kfd);
     kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
-    assert(Kf == _K);
     assert(Pf == Permutations);
 }
 
