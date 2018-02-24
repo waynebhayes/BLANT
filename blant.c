@@ -674,7 +674,7 @@ void BlantAddEdge(int v1, int v2)
     _numEdges++;
 }
 
-int RunBlantEdgesFinished(int k, int numSamples)
+int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
 {
     GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
     Free(_pairs);
