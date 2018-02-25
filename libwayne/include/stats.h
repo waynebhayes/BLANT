@@ -52,6 +52,6 @@ double StatQuantile(STAT*, double quantile);
 ** 3), and the number of samples is too small, this can be optimistic.
 */
 double StatConfInterval(STAT*, double confidence);
-double StatTDist (double quantile, long freedom);
+double StatTDistP2Z(double quantile, long freedom);
 
 #endif /* _STATS_H */
