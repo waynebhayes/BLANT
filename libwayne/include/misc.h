@@ -93,7 +93,7 @@ extern void *Malloc(size_t);
 extern void *Calloc(size_t, size_t);
 extern void *Realloc(void *ptr, size_t newSize);
 void *Memdup(void *v, size_t n);
-#define Free free
+#define Free(s) free((void*)(s))
 
 
 /* return current user time used in seconds.  Returns -1 if error. */

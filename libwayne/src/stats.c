@@ -11,7 +11,9 @@
 #include "misc.h"
 #include "stats.h"
 #include "rand48.h"
+#include <assert.h>
 #include <math.h>
+#include <string.h>
 
 STAT *StatAlloc(int numHistogramBins, double histMin, double histMax,
     Boolean geom)
@@ -49,8 +51,8 @@ STAT *StatReset(STAT *s)
 void StatFree(STAT *s)
 {
     if(s->numHistBins)
-	free(s->histogram-1);   /* since we bumped it up before */
-    free(s);
+	Free(s->histogram-1);   /* since we bumped it up before */
+    Free(s);
 }
 
 
@@ -215,7 +217,7 @@ double StatSkew(STAT*s)
 
 double StatConfInterval(STAT *s, double confidence)
 {
-    return StatTDist((1-confidence)/2, s->n - 1) * sqrt(StatVariance(s) / s->n);
+    return StatTDistP2Z((1-confidence)/2, s->n - 1) * sqrt(StatVariance(s) / s->n);
 }
 
 
@@ -248,7 +250,7 @@ double StatRV_Normal(void)
 /* Taken from MacDougall, "Simulating Computer * Systems", MIT Press, 1987,
  * p. 276 (or therabouts.)
  */
-static double NormalDist (double quantile)
+static double NormalPtoZ(double quantile)
 {
     double    q, z1, n, d;
 
@@ -266,15 +268,15 @@ static double NormalDist (double quantile)
  * of the student t distribution with "freedom" degrees of freedom.  This
  * is the x for which the area under the curve from x to +ve infinity is
  * equal to quantile.  Taken from MacDougall, "Simulating Computer
- * Systems", MIT Press, 1987, p. 276.
+ * Systems", MIT Press, 1987, p. 276.  Note it's a one-tailed z-value.
  */
 
-double StatTDist (double quantile, long freedom)
+double StatTDistP2Z(double quantile, long freedom)
 {
     long    i;
     double    z1, z2, h[4], x;
 
-    z1 = fabs (NormalDist (quantile));
+    z1 = fabs (NormalPtoZ (quantile));
     z2 = z1 * z1;
 
     h[0] = 0.25 * z1 * (z2 + 1.0);
@@ -285,19 +287,156 @@ double StatTDist (double quantile, long freedom)
     h[3] *= 0.000010851;
 
     x = 0.0;
-    for (i = 3; i >= 0; i--)
+    for(i = 3; i >= 0; i--)
     x = (x + h[i]) / (double) freedom;
     z1 += x;
     return (quantile > 0.5 ? -z1 : z1);
 }
 
-#if TEST
-main()
+
+///////////////////////////////////////////////////////////////////////////
+// Now the ACM algorithms, which may or may not be more accurate???
+///////////////////////////////////////////////////////////////////////////
+static double StatACMGaussZ2P(double z)
+{
+  // input = z-value (-inf to +inf)
+  // output = p under Normal curve from -inf to z
+  // e.g., if z = 0.0, function returns 0.5000
+  // ACM Algorithm #209
+  double y; // 209 scratch variable
+  double p; // result. called 'z' in 209
+  double w; // 209 scratch variable
+
+  if (z == 0.0)
+    p = 0.0;
+  else
+  {
+    y = fabs(z) / 2;
+    if (y >= 3.0)
+    {
+      p = 1.0;
+    }
+    else if (y < 1.0)
+    {
+      w = y * y;
+      p = ((((((((0.000124818987 * w
+        - 0.001075204047) * w + 0.005198775019) * w
+        - 0.019198292004) * w + 0.059054035642) * w
+        - 0.151968751364) * w + 0.319152932694) * w
+        - 0.531923007300) * w + 0.797884560593) * y * 2.0;
+    }
+    else
+    {
+      y = y - 2.0;
+      p = (((((((((((((-0.000045255659 * y
+        + 0.000152529290) * y - 0.000019538132) * y
+        - 0.000676904986) * y + 0.001390604284) * y
+        - 0.000794620820) * y - 0.002034254874) * y
+        + 0.006549791214) * y - 0.010557625006) * y
+        + 0.011630447319) * y - 0.009279453341) * y
+        + 0.005353579108) * y - 0.002141268741) * y
+        + 0.000535310849) * y + 0.999936657524;
+    }
+  }
+
+  if (z > 0.0)
+    return (p + 1.0) / 2;
+  else
+    return (1.0 - p) / 2;
+} // StatACMGaussZ2P()
+static double StatACMStudentZ2P_D(double t, double df)
+{
+  // for large int df or double df
+  // adapted from ACM algorithm 395
+  // returns 1-tail probability
+      
+  double n = df; // to sync with ACM parameter name
+  double a, b, y;
+
+  t = t * t;
+  y = t / n;
+  b = y + 1.0;
+  if (y > 1.0E-6) y = log(b);
+  a = n - 0.5;
+  b = 48.0 * a * a;
+  y = a * y;
+
+  y = (((((-0.4 * y - 3.3) * y - 24.0) * y - 85.5) /
+    (0.8 * y * y + 100.0 + b) +
+      y + 3.0) / b + 1.0) * sqrt(y);
+  return StatACMGaussZ2P(-y);
+} // StatACMStudentZ2P_D (double df)
+static double StatACMStudentZ2P(double t, int df)
+{
+  // adapted from ACM algorithm 395
+  // forsmall int df
+  int n = df; // to sync with ACM parameter name
+  double a, b, y, z;
+
+  z = 1.0;
+  t = t * t;
+  y = t / n;
+  b = 1.0 + y;
+#if 0 //The Z2P_D function doesn't seem to work.
+  if ((n >= 1000 && t < n) || n > 1000) // large df
+  {
+    double x = 1.0 * n; // make df a double
+    return StatACMStudentZ2P_D(t, x); // double version
+  }
+#endif
+  if (n < 1000 && t < 4.0)
+  {
+    a = y = sqrt(y);
+    if (n == 1)
+      a = 0.0;
+  }
+  else
+  {
+    int j;
+    a = sqrt(b); 
+    y = a * n;
+    for(j = 2; a != z; j += 2)
+    {
+      z = a;
+      y = y * (j - 1) / (b * j);
+      a = a + y / (n + j);
+    }
+    n = n + 2;
+    z = y = 0.0;
+    a = -a;
+  }
+
+  int sanityCt = 0;
+  while (true && sanityCt < 10000)
+  {
+    ++sanityCt;
+    n = n - 2;
+    if (n > 1)
+    {
+      a = (n - 1) / (b * n) * a + y;
+      continue;
+    }
+
+    if (n == 0)
+      a = a / sqrt(b);
+    else // n == 1
+      a = (atan(y) + a / b) * 0.63661977236; // 2/Pi
+
+    return (z - a)/2;
+  }
+
+  assert(false);  // shouldn't get here
+} // StatACMStudentZ2P (int df)
+
+
+#if 1 //TEST
+int main(void)
 {
     int v;
     double gamma;
-    puts("Enter df, gamma pairs until you're happy (see Law&Kelton, Appendix)");
+    puts("Enter3 df, gamma pairs until you're happy (see Law&Kelton, Appendix)");
     while(scanf("%d %lf", &v, &gamma) == 2)
-	printf("%g\n", StatTDist(gamma, v));
+	printf("%g\n", StatACMStudentZ2P(StatTDistP2Z(gamma, v),v));
+    return 0;
 }
 #endif
