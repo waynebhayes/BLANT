@@ -428,7 +428,7 @@ static double StatACMStudentZ2P(double t, int df)
 } // StatACMStudentZ2P (int df)
 
 
-#if 1 //TEST
+#if TEST
 int main(void)
 {
     int v;
