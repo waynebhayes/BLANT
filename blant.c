@@ -12,12 +12,6 @@
 #include "blant.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
-#define USAGE "USAGE: blant [-t threads (default=1)] {k} {nSamples} {graphInputFile}\n" \
-    "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
-    "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
-    "Duplicates and self-loops should be removed before calling BLANT.\n" \
-    "k is the number of nodes in graphlets to be sampled."
-    
 
 // These are mutually exclusive
 #define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
@@ -41,9 +35,11 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static unsigned _numCanon, *_canonList;
-static Boolean _countOnly = false;
+static Boolean _freqOnly = false;
 static unsigned long int _graphletCount[MAX_CANONICALS];
-static int _THREADS; // number of parallel threads to run.
+
+// number of parallel threads to run.  This must be global because we may get called from C++.
+static int _THREADS;
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
@@ -531,8 +527,8 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
-// This is the main top BLANT function; all the other ways of reading input must call this one
-// once the graph is finished being input.
+// This is the main top BLANT function. Once the graph is finished being input,
+// all the other ways of reading input must call this one.
 int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
     int i;
@@ -557,7 +553,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
-	if(_countOnly)
+	if(_freqOnly)
 	{
 #if PARANOID_ASSERTS
 	    assert(0 <= GintCanon && GintCanon < _numCanon);
@@ -574,7 +570,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    puts("");
 	}
     }
-    if(_countOnly)
+    if(_freqOnly)
 	for(i=0; i<_numCanon; i++)
 	    printf("%d %ld\n", i, _graphletCount[i]);
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
@@ -589,20 +585,23 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 {
     int fds[2];
     pipe(fds);
-    if(fork()) // we are the parent
+    int pid = fork();
+    if(pid > 0) // we are the parent
     {
-	close(fds[1]); // we will not be writing to the pipe
+	close(fds[1]); // we will not be writing to the pipe, so close it.
 	return fdopen(fds[0],"r");
     }
-    else // we are the child
+    else if(pid == 0) // we are the child
     {
-	close(fds[0]); // we will not be reading from the pipe
+	close(fds[0]); // we will not be reading from the pipe, so close it.
 	close(1); // close our usual stdout
-	dup(fds[1]); // move the write end of the pipe to fd 1.
-	close(fds[1]);
+	dup(fds[1]); // copy the write end of the pipe to fd 1.
+	close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
 	RunBlantFromGraph(k, numSamples, G);
 	exit(0);
     }
+    else
+	Fatal("fork failed");
 }
 
 int RunBlantInThreads(int k, int numSamples, GRAPH *G)
@@ -629,7 +628,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		done = true;
 		break;
 	    }
-	    if(_countOnly)
+	    if(_freqOnly)
 	    {
 		unsigned long int count;
 		int canon, numRead = sscanf(line, "%d%ld", &canon, &count);
@@ -694,36 +693,58 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 }
 
 
+const char const *const USAGE = 
+    "USAGE: blant [-t threads (default=1)] [-f] {-s nSamples | -c confidence -w width} {k} {graphInputFile}\n" \
+    "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
+    "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
+    "Duplicates and self-loops should be removed before calling BLANT.\n" \
+    "k is the number of nodes in graphlets to be sampled.\n" \
+    "";
+
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
 // in the parent.
 int main(int argc, char *argv[])
 {
-    int i, opt;
+    int i, opt, numSamples=0;
+    double confWidth = 0, confidence=0; // for confidence interval, if it's chosen
 
     if(argc == 1)
     {
-	fprintf(stderr, "%s\n", USAGE);
+	fprintf(stderr, "%s", USAGE);
 	exit(1);
     }
 
     _THREADS = 1; 
     _k = 0;
-    while((opt = getopt(argc, argv, "t:c")) != -1)
+
+    while((opt = getopt(argc, argv, "ft:s:c:w:")) != -1)
     {
 	switch(opt)
 	{
+	case 'f': _freqOnly = true; break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
-	case 'c': _countOnly = true; break;
+	case 's': numSamples = atoi(optarg);  // will handle leftovers later
+	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
+	    break;
+	case 'c': confidence = atof(optarg);
+	    if(confidence <= 0) Fatal("-c argument (confidence of confidence interval) must be positive\n%s", USAGE);
+	    break;
+	case 'w': confWidth = atof(optarg);
+	    if(confWidth <= 0) Fatal("-w argument (width of confidence interval) must be positive\n%s", USAGE);
+	    break;
 	default: Fatal(USAGE);
 	}
     }
+    if(confidence>0) assert(confWidth>0);
+    if(confWidth>0) assert(confidence>0);
+    if(confidence>0) Apology("confidence intervals not implemented yet");
+
+    if(numSamples!=0 && confidence>0)
+	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
 
     _k = atoi(argv[optind++]);
     if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
-
-    int numSamples = atoi(argv[optind++]);  // will handle leftovers later
-    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 
     SetGlobalCanonMaps(); // needs _k to be set
 
