@@ -1,3 +1,4 @@
+#include "misc.h"
 #include "eigen.h"
 
 int Eigen(int N, double A[N][N], double eigval[N], double eigvec[N][N])
@@ -6,7 +7,7 @@ int Eigen(int N, double A[N][N], double eigval[N], double eigvec[N][N])
     double WORK[LWORK];
     int i, j, INFO;
     char jobz, uplo;
-    extern void dsyev_();
+    extern void dsyev_(char *, ...);
 
     jobz='V';
     uplo='L';   /* upper part in C, but F sees it transposed */

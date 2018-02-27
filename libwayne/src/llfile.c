@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <strings.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 
@@ -182,8 +183,9 @@ FILE *llfileNextSubfile(LLFILE *llfp)
 
 FILE *llfilePrevSubfile(LLFILE *llfp)
 {
+#if !SUBFILE_SIZE_BY_STRUCT
     FILE *oldfp = llfp->fp;
-
+#endif
     assert(llfp->ispipe == false);
     assert(llfp->subfile > 0);
 

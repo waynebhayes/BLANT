@@ -205,7 +205,7 @@ int TinyGraphBFS(TINY_GRAPH *G, int root, int distance, int *nodeArray, int *dis
 
 	if(distArray[v] < distance) /* v's neighbors will be within BFS distance */
 	{
-	    int neighbor[MAX_TSET];
+	    unsigned int neighbor[MAX_TSET];
 	    int j, numNeighbors = TSetToArray(neighbor, G->A[v]); /* This is the slow part, O(n) */
 	    for(j=0; j < numNeighbors; j++)
 		if(distArray[neighbor[j]] == -1) /* some of the neighbors might have already been visited */
@@ -296,7 +296,7 @@ static int TinyGraphContainsK3(TINY_GRAPH *G)
 
 static TINY_GRAPH *isoG1, *isoG2;
 
-static int _permutationIdentical(int n, int perm[n])
+static Boolean _permutationIdentical(int n, int perm[n])
 {
     int i, j;
     for(i=0; i<n; i++)
@@ -335,8 +335,8 @@ Boolean TinyGraphsIsomorphic(int *perm, TINY_GRAPH *G1, TINY_GRAPH *G2)
 	degreeCount1[i] = degreeCount2[i] = 0;
     for(i=0; i<n; i++)
     {
-	++degreeCount1[G1->degree[i]];
-	++degreeCount2[G2->degree[i]];
+	++degreeCount1[(int)(G1->degree[i])];
+	++degreeCount2[(int)(G2->degree[i])];
     }
     for(i=0; i<n; i++)
 	if(degreeCount1[i] != degreeCount2[i])

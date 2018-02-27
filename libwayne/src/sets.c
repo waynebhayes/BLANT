@@ -84,10 +84,11 @@ SET *SetResize(SET *set, unsigned new_n)
 */
 SET *SetEmpty(SET *set)
 {
-    int i, arrayElem=SIZE(set->n);
+    int arrayElem=SIZE(set->n);
 #if 1
     memset(set->array, 0, arrayElem * sizeof(set->array[0]));
 #else
+    int i;
     for(i=0; i<arrayElem; i++)
 	set->array[i] = 0;
 #endif

@@ -1,6 +1,10 @@
 #ifndef _MISC_H
 #define _MISC_H
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <time.h> // because I use the time() function so much
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -48,14 +52,16 @@ typedef unsigned char Boolean;
 #define maybe (Boolean)2
 
 typedef union _voidInt {
-    char c[sizeof(long long)];
-    int i, i2;
-    long l, l2;
     long long ll;
-    float f, f2;
-    double d;
+    long int l, l2;
+    unsigned long long ull;
     void *v, *v2;
     char *s, *s2;
+    char c[sizeof(long long)];
+    int i, i2;
+    unsigned int ui, ui2;
+    float f, f2;
+    double d;
 } foint;
 
 /* The comparison function type: used by heaps, binary trees and sorts.

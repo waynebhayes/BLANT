@@ -11,7 +11,7 @@
 #define ALIGN_2 1   /* boolean */
 #define ALIGN_4 0   /* boolean: if true then ALIGN_2 must also be true */
 
-static numLeft = 0;
+static int numLeft = 0;
 static STACK *Set, *BigSet;
 
 /* alloc and clear n bytes. Ofree frees ALL previously alloc'd sets.
@@ -19,7 +19,7 @@ static STACK *Set, *BigSet;
 */
 void *Omalloc(unsigned n)
 {
-    static void *currentSet;
+    static char *currentSet;
     if(n == 0)
 	return malloc(0);       /* do whatever the system does with 0 */
     else if(n > SET_SIZE) /* too big for us, pass on to Malloc directly */

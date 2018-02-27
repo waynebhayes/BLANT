@@ -22,7 +22,6 @@ RKD78 *Rkd78Alloc(int n, double time, double *y, F_EVAL f, int stiff_flag,
     double tol, double zero)
 {
     RKD78 *r = Calloc(1, sizeof(RKD78));
-    int i;
 
     if(stiff_flag != 0 || zero != 0.0)
 	Fatal("Rkd78Alloc: stiff_flag must be 0 && zero must be 0.0");
@@ -66,7 +65,7 @@ static void FORT_F(int *NN, double *TT, double *YY, double *YP)
 double Rkd78Integrate(RKD78 *r, double TOUT) /* returns actual tout */
 {
     int direction = TOUT - r->T > 0 ? 1 : -1;
-    extern rdmeth78_();
+    extern void rdmeth78_(int*,...);
 
      _gr = r;
 

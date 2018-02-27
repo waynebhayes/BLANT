@@ -247,7 +247,7 @@ foint LinkedListNext( LINKED_LIST *ll )
 
 void LinkedListSanityCheck( LINKED_LIST *ll, Boolean ordered )
 {
-    LINKED_LIST_NODE *prev, *curr;
+    LINKED_LIST_NODE *curr;
     assert( ll );
     assert( ll->n >= 0 );
 
@@ -260,7 +260,6 @@ void LinkedListSanityCheck( LINKED_LIST *ll, Boolean ordered )
         assert( ll->first == ll->last && ll->first->next == NULL );
     else { /* n >= 2 */
         int i;
-        prev = NULL;
         curr = ll->first;
         for( i = 0; i < ll->n - 1; i++ )
         {
@@ -268,7 +267,6 @@ void LinkedListSanityCheck( LINKED_LIST *ll, Boolean ordered )
             assert( curr->next != NULL );
             if( ordered )
                 assert(ll->comparisonFunction(curr->data, curr->next->data)<=0);
-            prev = curr;
             curr = curr->next;
         }
         assert( curr == ll->last );

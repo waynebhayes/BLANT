@@ -441,7 +441,7 @@ static void init_ary(int n)
     
     num_ary[n] = circulants(n, 1, true, NULL);  // number of connection sets, or rows for the array
     ary[n] = Malloc(num_ary[n]*(n/2));
-    nd = circulants(n, num_ary[n], false, ary[n]);
+    nd = circulants(n, num_ary[n], false, (char (*)[])ary[n]);
     assert(nd == num_ary[n]);
 }
 

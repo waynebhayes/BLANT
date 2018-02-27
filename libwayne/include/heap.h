@@ -40,8 +40,8 @@ foint   HeapDelete(HEAP*, foint);
 /*int     HeapSort(foint *list, pCmpFcn);*/
 int     HeapSanityCheck(HEAP*);   /* sanity check, for debugging */
 void    HeapPrint(HEAP*);   /* dump an entire heap.  You must define a HeapTypePrint function */
-#if 0
-void    HeapTypePrint(/*not-void*/);
+#if 1
+extern void HeapTypePrint(foint);
 #endif
 
 #endif  /* _HEAP_H */

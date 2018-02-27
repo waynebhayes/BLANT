@@ -85,7 +85,7 @@ double LsodeIntegrate(LSODE *l, double TOUT) /* returns actual tout */
 
     while(direction*(l->T - TOUT) < 0)
     {
-	extern void lsode_();
+	extern void lsode_(void (*F)(int*,double*,double*,double*),...);
 	lsode_(FORT_F, &l->N, l->Y, &l->T, &TOUT, &l->ITOL, &fRTOL, &fATOL,
 	    &l->FUNOUT, &l->ISTATE, &l->IOPT, l->RWORK, &l->LRW, l->IWORK,
 	    &l->LIW, FORT_F, &l->METHFLAG);

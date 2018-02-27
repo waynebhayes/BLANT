@@ -133,7 +133,7 @@ double Ddriv2Integrate(DDRIV2 *d, double TOUT) /* returns actual tout */
 
     while(direction*(d->T - TOUT) < 0)
     {
-	extern ddriv2_();
+	extern void ddriv2_(int*,...);
 	ddriv2_(&d->N, &d->T, d->Y, FORT_F, &TOUT, &d->MSTATE, &d->NROOT,
 	    &d->EPS, &d->EWT, &d->MINT, d->W, &d->LW, d->IW, &d->LIW, FORT_G);
 

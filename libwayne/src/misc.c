@@ -22,7 +22,7 @@
 
 #include "misc.h"
 
-const foint ABSTRACT_ERROR = {(1 << (8*sizeof(void*)-1))};
+const foint ABSTRACT_ERROR = {0xDEADBEEFDEADBEEF};
 
 static FILE *tty;
 
@@ -154,7 +154,7 @@ long long IIntPow(int a, int n)
     if(n == 1)
 	return a;
     if(n == 0)
-	return a == 0 ? 0/0 : 1;
+	return a == 0 ? NAN : 1;
 
     result = IIntPow(a, n/2);
     if(n & 1)
@@ -170,7 +170,7 @@ double IntPow(double a, int n)
     if(n == 1)
 	return a;
     if(n == 0)
-	return a == 0.0 ? 0/0 : 1;
+	return a == 0.0 ? NAN : 1;
     if(n < 0)
 	return 1/IntPow(a,-n);
 

@@ -236,6 +236,7 @@ void hsort (__ptr_t __base, size_t __nmemb, size_t __size,
 
 
 
+#if 0
 /* Used as a cheap checksum during testing of HeapSort to "assert" that
 ** the array we get is a permutation of the original.
 */
@@ -246,7 +247,7 @@ static int SumArray(int *l, int n)
 	sum += l[i];
     return sum;
 }
-
+#endif
 
 
 

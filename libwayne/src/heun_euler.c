@@ -3,15 +3,15 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "misc.h"
+#include "matvec.h"
 #include "adaptive_ralston.h"
 
 #define MAX_N 1000
 #define SQR(x) ((x)*(x))
 
-static int N, Fcount = 0;
-static double T, DT, *R, *V, internal_r[MAX_N], internal_v[MAX_N], k11[MAX_N], k12[MAX_N], k21[MAX_N], k22[MAX_N], tempinternal_r[MAX_N];
+static int N;
+static double T, DT, *R, *V, internal_r[MAX_N], internal_v[MAX_N], k11[MAX_N], k12[MAX_N], k21[MAX_N], tempinternal_r[MAX_N];
 static double temp_Rv[MAX_N], temp_RA[MAX_N], rho, TOL, DELTA, DTMAX, DTMIN;
-static double prevIntRH[MAX_N], prevIntVH[MAX_N];
 static FF_EVAL F;
 
 #if 0
@@ -70,6 +70,7 @@ double RhoFunction(int n, double v[n], double a[n])
 #if 0
 void reverse_adaptive_ralston_velocities(void)
 {
+    static double prevIntRH[MAX_N], prevIntVH[MAX_N];
     int i;
     for(i=0; i<N; i++)
     {
@@ -82,7 +83,6 @@ void reverse_adaptive_ralston_velocities(void)
 
 double minNorm(int n, double v[n], double a[n])
 {
-    double norm = 0.0;
     int i;
     double temp;
     temp = v[0];
@@ -104,7 +104,6 @@ double minNorm(int n, double v[n], double a[n])
 */
 void init_heun_euler(int n, double t0, double dt, double *r, double *v, FF_EVAL f, double tol)
 {
-    int i;
     double A[MAX_N];
     N = n;
     T = t0;
@@ -150,7 +149,7 @@ double integrate_heun_euler(double tout)
 	tempinternal_r[i] = (internal_r[i] + k12[i])*(DT);
     }
 
-    F(N, T, tempinternal_r, A);//k22=A
+    F(N, T, tempinternal_r, A);
     
     for(i=0;i<N; i++)
     {

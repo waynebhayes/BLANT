@@ -76,7 +76,7 @@ static void FORT_F(int *NN, double *TT, double *YY, double *YP)
 double DverkIntegrate(DVERK *r, double TOUT) /* returns actual tout */
 {
     int direction = TOUT - r->T > 0 ? 1 : -1;
-    extern dverk_();
+    extern void dverk_(int*,...);
 
     gr = r;
 

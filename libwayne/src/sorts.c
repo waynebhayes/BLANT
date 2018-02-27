@@ -433,7 +433,7 @@ int HeapSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 
 
 static pfnCmpFcn _PointerSortCompare;
-static int _PointerSortCmp(const void *x, const void *y)
+int _PointerSortCmp(const void *x, const void *y)
 {
     const char *const*X = x, *const*Y = y;
     return _PointerSortCompare(*X, *Y);

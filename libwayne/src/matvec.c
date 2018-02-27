@@ -5,11 +5,11 @@
 #include "assert.h"
 #include <stdarg.h>
 
-static foint _DEADBEEF = {16045690984833335023ULL}; /* decimal rep. of DEADBEEFDEABFEEF */
+static foint _DEADBEEF = {0xDEADBEEFDEADBEEF}; /* decimal rep. of DEADBEEFDEADBEEF */
 /* A sparse matrix is marked by *every* row having its last element
  * equal to 0xDEADBEEFDEADBEEF
  */
-Boolean MatIsSparse(int n, int m, const double A[n][m])
+Boolean MatIsSparse(int n, int m, double const A[n][m])
 {
     int i;
     assert(_DEADBEEF.l == 0xDEADBEEF && _DEADBEEF.l2 == 0xDEADBEEF);
@@ -19,7 +19,7 @@ Boolean MatIsSparse(int n, int m, const double A[n][m])
     return true;
 }
 
-Boolean MatSparseSanity(int n, int m, const double A[n][m])
+Boolean MatSparseSanity(int n, int m, double const A[n][m])
 {
     int i;
     assert(MatIsSparse(n,m,A));
@@ -54,7 +54,7 @@ Boolean MatSparseSanity(int n, int m, const double A[n][m])
     return true;
 }
 
-static void MatRawCopy(int n, int m, double dest[n][m], const double src[n][m])
+static void MatRawCopy(int n, int m, double dest[n][m], double const src[n][m])
 {
     int i,j;
     for(i=0; i<n; i++)
@@ -62,7 +62,7 @@ static void MatRawCopy(int n, int m, double dest[n][m], const double src[n][m])
 	    dest[i][j] = src[i][j];
 }
 
-Boolean MatMakeSparse(int n, int m, double S[n][m], const double A[n][m])
+Boolean MatMakeSparse(int n, int m, double S[n][m], double const A[n][m])
 {
     int i;
     double T[n][m]; /* temp matrix */
@@ -88,11 +88,12 @@ Boolean MatMakeSparse(int n, int m, double S[n][m], const double A[n][m])
 	assert(col==0 && (nElem == 0 || A[i][0] == 0.0 || (T[i][1]==0 && T[i][nElem+1] == A[i][0])));
 	T[i][0] = nElem;
     }
-    MatRawCopy(n,m,S,T);
-    assert(MatIsSparse(n,m,S));
+    MatRawCopy(n,m,S,(const double (*)[])T);
+    assert(MatIsSparse(n,m,(const double (*)[])S));
+    return true;
 }
 
-void MatMakeUnSparse(int n, int m, double A[n][m], const double S[n][m])
+void MatMakeUnSparse(int n, int m, double A[n][m], double const S[n][m])
 {
     int i;
     double T[n][m]; /* temp matrix */
@@ -109,8 +110,8 @@ void MatMakeUnSparse(int n, int m, double A[n][m], const double S[n][m])
 	    T[i][col] = S[i][nElem+j];
 	}
     }
-    MatRawCopy(n,m,A,T);
-    assert(!MatIsSparse(n,m,A));
+    MatRawCopy(n,m,A,(const double (*)[])T);
+    assert(!MatIsSparse(n,m,(const double (*)[])A));
 }
 
 
@@ -126,14 +127,14 @@ double *VecAssign(double *v, int n, ...)
     return v;
 }
 
-void VecPut(int dim, const double y[dim])
+void VecPut(int dim, double const y[dim])
 {
     int i;
     for(i=0; i<dim; i++)
 	printf("%18.15g ", y[i]);
 }
 
-void MatPut(int n, int m, const double yy[n][m])
+void MatPut(int n, int m, double const yy[n][m])
 {
     int i;
     assert(!MatIsSparse(n,m,yy));
@@ -160,7 +161,7 @@ void MatGet(int n, int m, double yy[n][m])
     int i;
     for(i=0; i<n; i++)
 	VecGet(m, yy[i]);
-    assert(!MatIsSparse(n,m,yy));
+    assert(!MatIsSparse(n,m,(const double (*)[])yy));
 }
 
 
@@ -174,7 +175,7 @@ void MatRand(int n, int m, double A[n][m])
 	A[i][j] = drand48();
 }
     
-void MatCopy(int n, int m, double dest[n][m], const double src[n][m])
+void MatCopy(int n, int m, double dest[n][m], double const src[n][m])
 {
     int i,j;
     assert(!MatIsSparse(n,m,src));
@@ -188,7 +189,7 @@ void MatCopy(int n, int m, double dest[n][m], const double src[n][m])
 ** memory space.
 */
 void MatMatMult(int n, int m, int p, double A[n][p],
-    double const B[n][m], const double C[m][p])
+    double const B[n][m], double const C[m][p])
 {
     int i,j,k, numZeros=0;
     static Boolean warned = false;
@@ -213,7 +214,7 @@ void MatMatMult(int n, int m, int p, double A[n][p],
     }
 #endif
 
-    if(A != B && A != C)
+    if((double*)A != (double*)B && (double*)A != (double*)C)
     {
 	for(i=0; i<n; i++)
 	    for(k=0; k<p; k++)
@@ -245,7 +246,7 @@ void MatMatMult(int n, int m, int p, double A[n][p],
 ** Compute yy = A * xx.  Return pointer to array yy.
 */
 double *MatVecMult(int rows, int cols, double yy[rows],
-    const double A[rows][cols], const double xx[cols])
+    double const A[rows][cols], double const xx[cols])
 {
     int i;
     assert(!MatIsSparse(rows,cols,A));
@@ -279,7 +280,7 @@ double *MatVecMult(int rows, int cols, double yy[rows],
 /*
 ** FLOPS ~ 12M
 */
-double VecDot(int dim, const double vec1[dim], const double vec2[dim])
+double VecDot(int dim, double const vec1[dim], double const vec2[dim])
 {
     int i;
     double sum = 0;
@@ -291,7 +292,7 @@ double VecDot(int dim, const double vec1[dim], const double vec2[dim])
 /*
 **  Vector cross product
 */
-void VecCrossProd(int dim, double prod[dim], const double u[dim], const double v[dim])
+void VecCrossProd(int dim, double prod[dim], double const u[dim], double const v[dim])
 {
     assert(dim==3);
     prod[0] = u[1]*v[2] - u[2]*v[1];
@@ -304,7 +305,7 @@ void VecCrossProd(int dim, double prod[dim], const double u[dim], const double v
 ** this way, since the compiler knows they're both the same vector.
 ** FLOPS ~ 18M
 */
-double VecLength(int dim, const double vec[dim])
+double VecLength(int dim, double const vec[dim])
 {
     int i;
     double sum = 0;
@@ -316,7 +317,7 @@ double VecLength(int dim, const double vec[dim])
 /*
 ** FLOPS ~ 24M
 */
-double *VecNormalize(int dim, double dest[dim], const double vec[dim])
+double *VecNormalize(int dim, double dest[dim], double const vec[dim])
 {
     double mag_ = 1./VecLength(dim, vec);
     if(mag_ != 1.0)
@@ -328,7 +329,7 @@ double *VecNormalize(int dim, double dest[dim], const double vec[dim])
     return dest;
 }
 
-double VecNorm1(int n, const double y[n])
+double VecNorm1(int n, double const y[n])
 {
     double sum = 0;
     int i;
@@ -337,7 +338,7 @@ double VecNorm1(int n, const double y[n])
     return sum;
 }
 
-double VecNormEucl(int n, const double y[n])
+double VecNormEucl(int n, double const y[n])
 {
     double sum = 0;
     int i;
@@ -346,13 +347,13 @@ double VecNormEucl(int n, const double y[n])
     return sqrt(sum);
 }
 
-double MatNormEucl(int n, int m, const double A[n][m])
+double MatNormEucl(int n, int m, double const A[n][m])
 {
     assert(!MatIsSparse(n,m,A));
-    return VecNormEucl(n*m, (const double*)A);
+    return VecNormEucl(n*m, (double const*)A);
 }
 
-double *VecAdd(int dim, double result[dim], const double v1[dim], const double v2[dim])
+double *VecAdd(int dim, double result[dim], double const v1[dim], double const v2[dim])
 {
     int i;
     for(i=0; i<dim; i++)
@@ -360,7 +361,7 @@ double *VecAdd(int dim, double result[dim], const double v1[dim], const double v
     return result;
 }
 
-double *VecDiff(int dim, double result[dim], const double v1[dim], const double v2[dim])
+double *VecDiff(int dim, double result[dim], double const v1[dim], double const v2[dim])
 {
     int i;
     for(i=0; i<dim; i++)
@@ -368,13 +369,13 @@ double *VecDiff(int dim, double result[dim], const double v1[dim], const double 
     return result;
 }
 
-void MatDiff(int n,int m, double result[n][m], const double A1[n][m], const double A2[n][m])
+void MatDiff(int n,int m, double result[n][m], double const A1[n][m], double const A2[n][m])
 {
     assert(!MatIsSparse(n,m,A1) && !MatIsSparse(n,m,A2));
-    VecDiff(n*m, (double*)result, (const double*)A1, (const double*)A2);
+    VecDiff(n*m, (double*)result, (double const*)A1, (double const*)A2);
 }
 
-double *VecScalMul(int dim, double result[dim], double k, const double v[dim])
+double *VecScalMul(int dim, double result[dim], double k, double const v[dim])
 {
     int i;
     for(i=0; i<dim; i++)
@@ -390,7 +391,7 @@ double *VecSetZero(int dim, double v[dim])
     return v;
 }
 
-double *VecCopy(int dim, double dest[dim], const double src[dim])
+double *VecCopy(int dim, double dest[dim], double const src[dim])
 {
     int i;
     for(i=0; i<dim; i++)
@@ -410,7 +411,7 @@ double *VecCopy(int dim, double dest[dim], const double src[dim])
 **      result += term;
 ** } while(inftyNorm(term) > eps);
 */
-void MatExpMat(int n, double result[n][n], const double A[n][n], double eps)
+void MatExpMat(int n, double result[n][n], double const A[n][n], double eps)
 {
     double term[n][n], maxNorm, Ac[n][n];
     int i,j, k = 1;
@@ -438,7 +439,7 @@ void MatExpMat(int n, double result[n][n], const double A[n][n], double eps)
     {
 	maxNorm = 0;
 	k++;
-	MatMatMult(n,n,n, term, term, Ac);
+	MatMatMult(n,n,n, term, (const double (*)[])term, (const double (*)[])Ac);
 	for(i=0; i<n; i++) for(j=0; j<n; j++)
 	{
 	    term[i][j] /= k;
@@ -451,8 +452,8 @@ void MatExpMat(int n, double result[n][n], const double A[n][n], double eps)
 
 void MatGaussJordan(int n, double A[n][n], int m, double B[n][m])
 {
-    int i,j,k,l,ll,irow,icol,nmax;
-    double a,b,dum,pivinv,big;
+    int i,j,k,l,ll,irow=-1,icol=-1;
+    double dum,pivinv,big;
     int ipiv[n], indxr[n], indxc[n];
     
     for(i=0; i<n; i++) ipiv[i] = indxr[i] = indxc[i] = 0;
@@ -482,6 +483,7 @@ void MatGaussJordan(int n, double A[n][n], int m, double B[n][m])
 		}
 	    }
 	}
+	assert(irow >=0 && icol >= 0);
 	ipiv[icol]=ipiv[icol]+1;
 	if(irow!=icol)
 	{
@@ -535,7 +537,7 @@ void MatGaussJordan(int n, double A[n][n], int m, double B[n][m])
     }
 }
 
-void MatInverse(int n, int m, double AI[m][n], const double A[n][m])
+void MatInverse(int n, int m, double AI[m][n], double const A[n][m])
 {
     if(n!=m)
 	Apology("n must= m in MatInverse");
@@ -561,7 +563,7 @@ void MatInverse(int n, int m, double AI[m][n], const double A[n][m])
 }
 
 
-void MatTranspose(int n, int m, double AT[m][n], const double A[n][m])
+void MatTranspose(int n, int m, double AT[m][n], double const A[n][m])
 {
     double at[m][n];
     int i,j;
@@ -569,10 +571,10 @@ void MatTranspose(int n, int m, double AT[m][n], const double A[n][m])
     for(i=0; i<n; i++) for(j=0; j<m; j++)
 	at[j][i] = A[i][j];
     
-    MatCopy(m, n, AT, at);
+    MatCopy(m, n, AT, (const double (*)[])at);
 }
 
-void MatLUFact(int n, double L[n][n], double U[n][n], const double A[n][n])
+void MatLUFact(int n, double L[n][n], double U[n][n], double const A[n][n])
 {
     int i, j, k;
     
@@ -600,7 +602,7 @@ void MatLUFact(int n, double L[n][n], double U[n][n], const double A[n][n])
     }
 }
 
-double *MatForwardSubst(int n, double y[n], const double L[n][n],
+double *MatForwardSubst(int n, double y[n], double const L[n][n],
     double const b[n])
 {
     int i,j;
@@ -621,8 +623,8 @@ double *MatForwardSubst(int n, double y[n], const double L[n][n],
     return y;
 }
 
-double *MatBackSubst(int n, double x[n], const double U[n][n],
-    const double b[n])
+double *MatBackSubst(int n, double x[n], double const U[n][n],
+    double const b[n])
 {
     int i,j;
 
@@ -638,12 +640,12 @@ double *MatBackSubst(int n, double x[n], const double U[n][n],
     return x;
 }
 
-double *MatSolve(int n, const double A[n][n], double x[n], const double b[n])
+double *MatSolve(int n, double const A[n][n], double x[n], double const b[n])
 {
 #if 1
     double Ainv[n][n];
     MatInverse(n,n,Ainv,A);
-    MatVecMult(n,n,x,Ainv,b);
+    MatVecMult(n,n,x,(const double (*)[])Ainv,b);
     return x;
 #else
     double L[n][n], U[n][n], tmp[n];

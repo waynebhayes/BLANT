@@ -89,7 +89,7 @@ EventInfo *EventNext(void)
     return next;
 }
 
-#if 1
+#if 0
 void PriorityQueueTypePrint(EventInfo *a)
 {
     printf("%.4g ", a->time);

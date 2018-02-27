@@ -186,7 +186,7 @@ int SmallGraphBFS(SMALL_GRAPH *G, int root, int distance, int *nodeArray, int *d
 
 	if(distArray[v] < distance) /* v's neighbors will be within BFS distance */
 	{
-	    int neighbor[MAX_SSET];
+	    unsigned int neighbor[MAX_SSET];
 	    int j, numNeighbors = SSetToArray(neighbor, G->A[v]); /* This is the slow part, O(n) */
 	    for(j=0; j < numNeighbors; j++)
 		if(distArray[neighbor[j]] == -1) /* some of the neighbors might have already been visited */
@@ -420,7 +420,7 @@ Boolean SmallGraphInContains(SMALL_GRAPH *G, int n)
 
 static SMALL_GRAPH *isoG1, *isoG2;
 
-static int _permutationIdentical(int n, int perm[n])
+static Boolean _permutationIdentical(int n, int perm[n])
 {
     int i, j;
     for(i=0; i<n; i++)
