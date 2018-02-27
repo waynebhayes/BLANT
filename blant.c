@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -15,7 +16,7 @@
 
 // These are mutually exclusive
 #define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
-#define SAMPLE_NODE_EXPANSION 1	// sample using uniform outset; about 100,000 samples per second
+#define SAMPLE_NODE_EXPANSION 1	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 0	// Fastest, up to a million samples per second
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 #if (SAMPLE_UNBIASED + SAMPLE_NODE_EXPANSION + SAMPLE_EDGE_EXPANSION) != 1
@@ -36,9 +37,20 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static unsigned _numCanon, *_canonList;
 
-enum OutputMode {undef, graphletIndex, graphletFrequency, ODV, GDV};
+enum OutputMode {undef, indexGraphlets, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
+
+// A bit counter-intuitive: we need to allocate this many vectors each of length [_numNodes],
+// and then the degree for node v, graphlet/orbit g is _degreeVector[g][v], NOT [v][g].
+// We do this simply because we know the length of MAX_CANONICALS so we pre-know the length of
+// the first dimension, otherwise we'd need to get more funky with the pointer allocation.
+// Only one of these actually get allocated, depending upon outputMode.
+static unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
+static unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
+// If you're squeemish then use this one to access the degrees:
+#define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
+#define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
 
 // number of parallel threads to run.  This must be global because we may get called from C++.
 static int _THREADS;
@@ -529,8 +541,9 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
-// This is the main top BLANT function. Once the graph is finished being input,
-// all the other ways of reading input must call this one.
+// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
+// Call RunBlantInThreads instead, it's the top-level entry point to call once the
+// graph is finished being input---all the ways of reading input call RunBlantInThreads.
 int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
     int i;
@@ -555,33 +568,56 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
+#if PARANOID_ASSERTS
+	assert(0 <= GintCanon && GintCanon < _numCanon);
+#endif
 	switch(_outputMode)
 	{
 	case graphletFrequency:
-#if PARANOID_ASSERTS
-	    assert(0 <= GintCanon && GintCanon < _numCanon);
-#endif
 	    ++_graphletCount[GintCanon];
 	    break;
-	case graphletIndex:
-	    for(j=0;j<k;j++) perm[j]=0;
+	case indexGraphlets:
+	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-	    //printf("K[%d]=%d [%d];", Gint, GintCanon, _canonList[GintCanon]);
 	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
-	    for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
+	    for(j=0;j<k;j++) printf(" %d", Varray[(int)perm[j]]);
 	    puts("");
+	    break;
+	case outputGDV:
+	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
 	    break;
 	default: Abort("unknown or un-implemented outputMode");
 	    break;
 	}
     }
-    if(_outputMode == graphletFrequency)
-	for(i=0; i<_numCanon; i++)
-	    printf("%ld %d\n", _graphletCount[i], i);
+    switch(_outputMode)
+    {
+	int canon;
+    case indexGraphlets: break; // already output on-the-fly above
+    case graphletFrequency:
+	for(canon=0; canon<_numCanon; canon++)
+	    printf("%lu %d\n", _graphletCount[canon], canon);
+	break;
+    case outputGDV:
+	for(i=0; i < G->n; i++)
+	{
+	    printf("%lu", GDV(i,0));
+	    for(canon=1; canon < _numCanon; canon++)
+		printf(" %lu", GDV(i,canon));
+	    puts("");
+	}
+	break;
+    default: Abort("unknown or un-implemented outputMode");
+	break;
+    }
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     TinyGraphFree(g);
     SetFree(V);
     GraphFree(G);
+    if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
+	Free(_graphletDegreeVector[i]);
+    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
+	Free(_orbitDegreeVector[i]);
 #endif
     return 0;
 }
@@ -609,40 +645,72 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 	Abort("fork failed");
 }
 
+
 int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 {
+    int i;
+    if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
+	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
+    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
+	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
+
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
     // At this point, _THREADS must be greater than 1.
-    int i, samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
+    int samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
 
     FILE *fpThreads[_THREADS]; // these will be the pipes reading output of the parallel blants
     for(i=0;i<_THREADS;i++)
 	fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
 
     Boolean done = false;
+    int lineNum = 0;
     do
     {
-	char line[BUFSIZ];
-	for(i=0;i<_THREADS;i++)	// read and then echo one line from each of the parallel instances
+	#define MAX_WORDSIZE 20 // the maximum string length of a 64-bit int written in base 10
+	char line[MAX_ORBITS * (MAX_WORDSIZE + 1) + 1]; // one space between words, plus a newline 
+	int thread;
+	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
-	    fgets(line, sizeof(line), fpThreads[i]);
-	    if(feof(fpThreads[i])) // assume if any one of them finishes, we are done.
+	    fgets(line, sizeof(line), fpThreads[thread]);
+	    if(feof(fpThreads[thread])) // assume if any one of them finishes, we are done.
 	    {
 		done = true;
 		break;
 	    }
-	    if(_outputMode == graphletFrequency)
+	    char *nextChar = line;
+	    unsigned long int count;
+	    int canon, numRead;
+	    switch(_outputMode)
 	    {
-		unsigned long int count;
-		int canon, numRead = sscanf(line, "%ld%d", &count, &canon);
+	    case graphletFrequency:
+		numRead = sscanf(line, "%lu%d", &count, &canon);
 		assert(numRead == 2);
 		_graphletCount[canon] += count;
-	    }
-	    else
+		break;
+	    case outputGDV:
+		for(canon=0; canon < _numCanon; canon++)
+		{
+		    assert(isdigit(*nextChar));
+		    numRead = sscanf(nextChar, "%lu", &count);
+		    assert(numRead == 1);
+		    GDV(lineNum,canon) += count;
+		    while(isdigit(*nextChar)) nextChar++; // read past current integer
+		    assert(*nextChar == ' ' || (canon == _numCanon-1 && *nextChar == '\n'));
+		    nextChar++;
+		}
+		assert(*nextChar == '\0');
+		break;
+	    case indexGraphlets:
 		fputs(line, stdout);
+		break;
+	    default:
+		Abort("oops... unknown _outputMode in RunBlantInThreads while reading child process");
+		break;
+	    }
 	}
+	lineNum++;
     } while(!done);
     for(i=0; i<_THREADS; i++)
 	fclose(fpThreads[i]);  // close all the pipes
@@ -653,6 +721,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 }
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+char **_nodeNames;
 void BlantAddEdge(int v1, int v2)
 {
     if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
@@ -682,6 +751,7 @@ int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
 {
     GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
     Free(_pairs);
+    _nodeNames = nodeNames;
     return RunBlantInThreads(k, numSamples, G);
 }
 
@@ -694,14 +764,14 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     assert(numNodes >= k);
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
     Free(pairs);
-    return RunBlantFromGraph(k, numSamples, G);
+    return RunBlantInThreads(k, numSamples, G);
 }
 
 
 const char const * const USAGE = \
     "USAGE: blant [-t threads (default=1)] [-o{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
     "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
-    "outputmode is one of: o (ODV, the default); i (graphletIndex); g (GDV); f (graphletFrequency).\n" \
+    "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT.\n" \
     "k is the number of nodes in graphlets to be sampled." \
@@ -732,16 +802,17 @@ int main(int argc, char *argv[])
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
 	    {
-	    case 'i': _outputMode = graphletIndex; break;
+	    case 'i': _outputMode = indexGraphlets; break;
 	    case 'f': _outputMode = graphletFrequency; break;
-	    case 'g': _outputMode = GDV; break;
-	    case 'o': _outputMode = ODV; break;
-	    default: Fatal("-o%c: unknown output mode; modes are i=graphletIndex, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+	    case 'g': _outputMode = outputGDV; break;
+	    case 'o': _outputMode = outputODV; break;
+	    default: Fatal("-o%c: unknown output mode;\n"
+		   "\tmodes are i=indexGraphlets, f=graphletFrequency, g=GDV, o=ODV", *optarg);
 		break;
 	    }
 	    break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
-	case 's': numSamples = atoi(optarg);  // will handle leftovers later
+	case 's': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
 	case 'c': confidence = atof(optarg);
@@ -756,7 +827,7 @@ int main(int argc, char *argv[])
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
-    if(_outputMode == undef) _outputMode = ODV; // default to the same thing ORCA and Jesse use
+    if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse use
 
     if(confidence>0) assert(confWidth>0);
     if(confWidth>0) assert(confidence>0);
@@ -784,7 +855,7 @@ int main(int argc, char *argv[])
 	BlantAddEdge(v1, v2);
     }
     fclose(fpGraph);
-    return RunBlantEdgesFinished(_k, numSamples);
+    return RunBlantEdgesFinished(_k, numSamples, _numNodes, NULL);
 #else
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, true); // sparse = true

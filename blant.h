@@ -6,7 +6,8 @@
 
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
 
-#define MAX_CANONICALS 12346	// This is the number of canonical graphettes for k=8
+#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
+#define MAX_ORBITS	79264	// This is the number of orbits for k=8
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
