@@ -6,9 +6,9 @@ default:
 
 all:
 	make opt_clean
-	make opt
+	make -j4 opt
 	make debug_clean
-	make debug
+	make -j4 debug
 
 opt:
 	make 'OPT=-O1' 'LIBOUT=libwayne.a' libwayne

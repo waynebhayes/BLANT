@@ -12,7 +12,8 @@ test_blant:
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
 	# NOTE THIS WILL FAIL UNLESS YOU SET BOTH LOWER_TRIANGLE AND PERMS_CAN2NON TO 1 IN blant.h.
-	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo checking frequency of graphlets in syeast.el for "k=$$k"; ./blant -t 4 -s 10000000 $$k syeast.el | awk '{++count[$$1]}END{for(i in count) print count[i],i}' | sort -nr | head | awk '{print $$2}' | sort -n | diff -b - blant.k$$k.syeast.out; fi; done
+	#for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo checking frequency of graphlets in syeast.el for "k=$$k"; ./blant -t 4 -s 10000000 $$k syeast.el | awk '{++count[$$1]}END{for(i in count) print count[i],i}' | sort -nr | awk '{print $$2}' | head | sort -n | diff -b - blant.k$$k.syeast.out; fi; done
+	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo checking frequency of graphlets in syeast.el for "k=$$k"; ./blant -t 4 -s 10000000 -f $$k syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - blant.k$$k.syeast.out; fi; done
 
 canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps subcanon_maps
 

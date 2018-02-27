@@ -572,7 +572,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     }
     if(_freqOnly)
 	for(i=0; i<_numCanon; i++)
-	    printf("%d %ld\n", i, _graphletCount[i]);
+	    printf("%ld %d\n", _graphletCount[i], i);
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     TinyGraphFree(g);
     SetFree(V);
@@ -631,7 +631,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    if(_freqOnly)
 	    {
 		unsigned long int count;
-		int canon, numRead = sscanf(line, "%d%ld", &canon, &count);
+		int canon, numRead = sscanf(line, "%ld%d", &count, &canon);
 		assert(numRead == 2);
 		_graphletCount[canon] += count;
 	    }
