@@ -26,102 +26,33 @@ const foint ABSTRACT_ERROR = {(1 << (8*sizeof(void*)-1))};
 
 static FILE *tty;
 
-void Warning(const char *fmt, ...)
-{
-    va_list ap;
-    fflush(stdout);
-    fprintf(stderr, "Warning: ");
-    va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-    fprintf(stderr, "\n");
-#if 0
-    if(!isatty(fileno(stderr)))
-    {
-	if(!tty)
-	    if(!(tty = fopen("/dev/tty", "w")))
-		return;
-	fprintf(tty, "Warning: ");
-	va_start(ap, fmt);
-	vfprintf(tty, fmt, ap);
-	va_end(ap);
-	fprintf(tty, "\n");
-    }
-#endif
-}
-
-void Apology(const char *fmt, ...)
-{
-    va_list ap;
-    fflush(stdout);
-    fprintf(stderr, "Sorry, fatal limitation: ");
-    va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-    fprintf(stderr, "\n");
-    if(!isatty(fileno(stderr)))
-    {
-	if(!tty)
-	    tty = fopen("/dev/tty", "w");
-	fprintf(tty, "Sorry, fatal limitation: ");
-	va_start(ap, fmt);
-	vfprintf(tty, fmt, ap);
-	va_end(ap);
-	fprintf(tty, "\n");
-    }
-    exit(1);
-}
-
-void Fatal(const char *fmt, ...)
-{
-    va_list ap;
-    fflush(stdout);
-    fprintf(stderr, "Fatal Error: ");
-    va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-    fprintf(stderr, "\n");
-    if(!isatty(fileno(stderr)))
-    {
-	if(!tty)
-	    tty = fopen("/dev/tty", "w");
-	fprintf(tty, "Fatal Error: ");
-	va_start(ap, fmt);
-	vfprintf(tty, fmt, ap);
-	va_end(ap);
-	fprintf(tty, "\n");
-    }
-    fflush(stdout);
-    fflush(stderr);
-    fflush(tty);
-    exit(1);
-}
-
-void Abort(const char *fmt, ...)
-{
-    va_list ap;
-    fflush(stdout);
-    fprintf(stderr, "Fatal Error: ");
-    va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
-    va_end(ap);
-    fprintf(stderr, "\n");
-    if(!isatty(fileno(stderr)))
-    {
-	if(!tty)
-	    tty = fopen("/dev/tty", "w");
-	fprintf(tty, "Fatal Error: ");
-	va_start(ap, fmt);
-	vfprintf(tty, fmt, ap);
-	va_end(ap);
-	fprintf(tty, "\n");
-    }
-    fflush(stdout);
-    fflush(stderr);
-    fflush(tty);
-    assert(false);
-    exit(1);
-}
+// The following must be a macro since we use va_args.
+#define ERROR_TEXT(PREAMBLE) \
+	va_list ap; \
+	fflush(stdout); \
+	fprintf(stderr, PREAMBLE); \
+	va_start(ap, fmt); \
+	vfprintf(stderr, fmt, ap); \
+	va_end(ap); \
+	fprintf(stderr, "\n"); \
+	if(!isatty(fileno(stderr))) \
+	{ \
+	    if(!tty) \
+		if(!(tty = fopen("/dev/tty", "w"))) \
+		    return; \
+	    fprintf(tty, PREAMBLE); \
+	    va_start(ap, fmt); \
+	    vfprintf(tty, fmt, ap); \
+	    va_end(ap); \
+	    fprintf(tty, "\n"); \
+	} \
+	fflush(stdout); \
+	fflush(stderr); \
+	fflush(tty)
+void Warning(const char *fmt, ...) { ERROR_TEXT("Warning: "); }
+void Apology(const char *fmt, ...) { ERROR_TEXT("Sorry, can't do that: "); exit(1); }
+void Fatal(const char *fmt, ...) { ERROR_TEXT("User error: "); exit(1); }
+void Abort(const char *fmt, ...) { ERROR_TEXT("Internal error: "); assert(false); exit(1); }
 
 // Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
 void *Mmap(void *p, size_t n, int fd)

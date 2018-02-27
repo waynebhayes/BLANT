@@ -698,13 +698,13 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 }
 
 
-const char const *const USAGE = 
-    "USAGE: blant [-t threads (default=1)] [-o{outputMode}] {-s nSamples | -c confidence -w width} {k} {graphInputFile}\n" \
+const char const * const USAGE = \
+    "USAGE: blant [-t threads (default=1)] [-o{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
     "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
     "outputmode is one of: o (ODV, the default); i (graphletIndex); g (GDV); f (graphletFrequency).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT.\n" \
-    "k is the number of nodes in graphlets to be sampled.\n" \
+    "k is the number of nodes in graphlets to be sampled." \
     "";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
@@ -717,7 +717,7 @@ int main(int argc, char *argv[])
 
     if(argc == 1)
     {
-	fprintf(stderr, "%s", USAGE);
+	fprintf(stderr, "%s\n", USAGE);
 	exit(1);
     }
 
@@ -753,7 +753,7 @@ int main(int argc, char *argv[])
 	case 'k': _k = atoi(optarg);
 	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
-	default: Fatal(USAGE);
+	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
     if(_outputMode == undef) _outputMode = ODV; // default to the same thing ORCA and Jesse use
@@ -765,12 +765,13 @@ int main(int argc, char *argv[])
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
 
-    SetGlobalCanonMaps(); // needs _k to be set
-
+    if(!argv[optind]) Fatal("no input graph file specified\n%s", USAGE);
     FILE *fpGraph = fopen(argv[optind], "r");
     if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
     optind++;
     assert(optind == argc);
+
+    SetGlobalCanonMaps(); // needs _k to be set
 
 #if 0 // Test the functions that will be called from C++
     while(!feof(fpGraph))
