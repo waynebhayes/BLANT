@@ -35,7 +35,9 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static unsigned _numCanon, *_canonList;
-static Boolean _freqOnly = false;
+
+enum OutputMode {undef, graphletIndex, graphletFrequency, ODV, GDV};
+static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
 // number of parallel threads to run.  This must be global because we may get called from C++.
@@ -553,24 +555,27 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
-	if(_freqOnly)
+	switch(_outputMode)
 	{
+	case graphletFrequency:
 #if PARANOID_ASSERTS
 	    assert(0 <= GintCanon && GintCanon < _numCanon);
 #endif
 	    ++_graphletCount[GintCanon];
-	}
-	else
-	{
+	    break;
+	case graphletIndex:
 	    for(j=0;j<k;j++) perm[j]=0;
 	    ExtractPerm(perm, Gint);
 	    //printf("K[%d]=%d [%d];", Gint, GintCanon, _canonList[GintCanon]);
 	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
 	    for(j=0;j<k;j++) printf(" %d", Varray[(unsigned)perm[j]]);
 	    puts("");
+	    break;
+	default: Abort("unknown or un-implemented outputMode");
+	    break;
 	}
     }
-    if(_freqOnly)
+    if(_outputMode == graphletFrequency)
 	for(i=0; i<_numCanon; i++)
 	    printf("%ld %d\n", _graphletCount[i], i);
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
@@ -601,7 +606,7 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 	exit(0);
     }
     else
-	Fatal("fork failed");
+	Abort("fork failed");
 }
 
 int RunBlantInThreads(int k, int numSamples, GRAPH *G)
@@ -628,7 +633,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		done = true;
 		break;
 	    }
-	    if(_freqOnly)
+	    if(_outputMode == graphletFrequency)
 	    {
 		unsigned long int count;
 		int canon, numRead = sscanf(line, "%ld%d", &count, &canon);
@@ -694,8 +699,9 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 
 const char const *const USAGE = 
-    "USAGE: blant [-t threads (default=1)] [-f] {-s nSamples | -c confidence -w width} {k} {graphInputFile}\n" \
+    "USAGE: blant [-t threads (default=1)] [-o{outputMode}] {-s nSamples | -c confidence -w width} {k} {graphInputFile}\n" \
     "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
+    "outputmode is one of: o (ODV, the default); i (graphletIndex); g (GDV); f (graphletFrequency).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT.\n" \
     "k is the number of nodes in graphlets to be sampled.\n" \
@@ -718,11 +724,22 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "ft:s:c:w:")) != -1)
+    while((opt = getopt(argc, argv, "o:t:s:c:w:k:")) != -1)
     {
 	switch(opt)
 	{
-	case 'f': _freqOnly = true; break;
+	case 'o':
+	    if(_outputMode != undef) Fatal("tried to define output mode twice");
+	    switch(*optarg)
+	    {
+	    case 'i': _outputMode = graphletIndex; break;
+	    case 'f': _outputMode = graphletFrequency; break;
+	    case 'g': _outputMode = GDV; break;
+	    case 'o': _outputMode = ODV; break;
+	    default: Fatal("-o%c: unknown output mode; modes are i=graphletIndex, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+		break;
+	    }
+	    break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
 	case 's': numSamples = atoi(optarg);  // will handle leftovers later
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
@@ -733,18 +750,20 @@ int main(int argc, char *argv[])
 	case 'w': confWidth = atof(optarg);
 	    if(confWidth <= 0) Fatal("-w argument (width of confidence interval) must be positive\n%s", USAGE);
 	    break;
+	case 'k': _k = atoi(optarg);
+	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+	    break;
 	default: Fatal(USAGE);
 	}
     }
+    if(_outputMode == undef) _outputMode = ODV; // default to the same thing ORCA and Jesse use
+
     if(confidence>0) assert(confWidth>0);
     if(confWidth>0) assert(confidence>0);
     if(confidence>0) Apology("confidence intervals not implemented yet");
 
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
-
-    _k = atoi(argv[optind++]);
-    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 
     SetGlobalCanonMaps(); // needs _k to be set
 

@@ -83,7 +83,8 @@ extern const foint ABSTRACT_ERROR;
 */
 extern void Warning(const char *fmt, ...);
 extern void Apology(const char *fmt, ...);
-extern void Fatal(const char *fmt, ...);  /* generates an assertion failure */
+extern void Abort(const char *fmt, ...);  /* generates an assertion failure */
+extern void Fatal(const char *fmt, ...);  /* Fatal user error */
 
 // Try to use mmap? As long as mmap is supported, even if it doesn't work blant will still work
 // because it'll revert to simply loading the entire binary mapping if the mmap fails.

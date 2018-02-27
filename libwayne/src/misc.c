@@ -69,7 +69,6 @@ void Apology(const char *fmt, ...)
 	va_end(ap);
 	fprintf(tty, "\n");
     }
-    assert(false);
     exit(1);
 }
 
@@ -95,7 +94,31 @@ void Fatal(const char *fmt, ...)
     fflush(stdout);
     fflush(stderr);
     fflush(tty);
-//    getchar();
+    exit(1);
+}
+
+void Abort(const char *fmt, ...)
+{
+    va_list ap;
+    fflush(stdout);
+    fprintf(stderr, "Fatal Error: ");
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    if(!isatty(fileno(stderr)))
+    {
+	if(!tty)
+	    tty = fopen("/dev/tty", "w");
+	fprintf(tty, "Fatal Error: ");
+	va_start(ap, fmt);
+	vfprintf(tty, fmt, ap);
+	va_end(ap);
+	fprintf(tty, "\n");
+    }
+    fflush(stdout);
+    fflush(stderr);
+    fflush(tty);
     assert(false);
     exit(1);
 }
