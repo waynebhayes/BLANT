@@ -68,7 +68,7 @@ short int canon2ordinal(int numCanon, int canon_list[numCanon], int canonical)
 int main(int argc, char *argv[])
 {
     int i;
-    FILE *fp_ord=fopen("canon_maps/canon_list" kString ".txt","r");
+    FILE *fp_ord=fopen(CANON_DIR "/canon_list" kString ".txt","r");
     assert(fp_ord);
     int numCanon;
     fscanf(fp_ord, "%d",&numCanon);
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
 
-    FILE *fp=fopen("canon_maps/canon_map" kString ".txt","r");
+    FILE *fp=fopen(CANON_DIR "/canon_map" kString ".txt","r");
     assert(fp);
     int line;
     char buf[BUFSIZ];
@@ -100,10 +100,10 @@ int main(int argc, char *argv[])
 #endif
     }
     fclose(fp);
-    fp=fopen("canon_maps/canon_map" kString ".bin","wb");
+    fp=fopen(CANON_DIR "/canon_map" kString ".bin","wb");
     fwrite((void*)K,sizeof(K[0]),Bk,fp);
     fclose(fp);
-    fp=fopen("canon_maps/perm_map" kString ".bin","wb");
+    fp=fopen(CANON_DIR "/perm_map" kString ".bin","wb");
     fwrite((void*)Permutations,sizeof(Permutations[0]),Bk,fp);
     fclose(fp);
 }

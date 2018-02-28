@@ -37,7 +37,7 @@ void Fatal(string s)
 
 int main(int argc,char* argv[]){
     if(argc!=6) Fatal("not enough arguments");
-    bool check=1, tmp=1;
+    bool check=1, same=1;
     int k=argv[1][0]-'0';
     ullint m, decimal,numOrbitId_, new_int, old_int;
     ullint e = k*(k-1)/2;
@@ -90,10 +90,10 @@ int main(int argc,char* argv[]){
     	orbit(l,canonicalPermutation,k,o2);
     	for(int r=0; r<k; r++)
     		check &= (o1[r]==o2[r]);
-    	if(check==0){cout << "line no: " << t1+1 << " old file: " << old_int << " " << canonicalPermutation << " new file: " << new_int << " " << canonicalPermutation_new << endl; check = 1;tmp = 0;}
+    	if(check==0){cout << "line no: " << t1+1 << " old file: " << old_int << " " << canonicalPermutation << " new file: " << new_int << " " << canonicalPermutation_new << endl; check = 1;same = 0;}
     	t1++;}
-    if(tmp==1)cout << "files agree with each other\n";
     fcanon_map.close();
     fcanon_map_new.close();
-    return 0;
+    if(same==1) return 0;
+    else return 1;
 }
