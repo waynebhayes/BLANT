@@ -21,9 +21,10 @@
 // local alignment between the nodes listed.  Listing them in the other direction doesn't seem to have much use.
 #define PERMS_CAN2NON	1
 
-//#define CANON_DIR "canon_maps"
-#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
+#define CANON_DIR "canon_maps"
+//#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
-void BuildGraph(TINY_GRAPH* G, int Gint);
+void BuildGraph(TINY_GRAPH *G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
-void mapCanonMap(char* BUF, short int *K, int k);
+void mapCanonMap(char *BUF, short int *K, int k);
+int canonListPopulate(char *BUF, int *canonListArray, int k);

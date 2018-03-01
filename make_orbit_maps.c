@@ -14,6 +14,8 @@
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
 static int k;
+static int canon_list[MAX_CANONICALS];
+
 
 
 bool suitablePerm(int permutation[], int adj[k][k+1]);
@@ -185,14 +187,8 @@ void main(int argc,char* argv[]){
     k=atoi(argv[1]);
     assert(k > 2 && k <= 8);
     //reading data from canon_list file
-    FILE *fp_ord=fopen(argv[2],"r");
-    assert(fp_ord);
-    int numCanon;
-    fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon];
-    for(int i=0; i<numCanon; i++) 
-	fscanf(fp_ord, "%d", &canon_list[i]);
-    fclose(fp_ord);
+    char BUF[BUFSIZ];
+    int numCanon = canonListPopulate(BUF, canon_list, k);
     //making orbit_map file
     int x = 0;
     FILE *fp;
