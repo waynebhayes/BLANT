@@ -58,7 +58,7 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 }
 
 /*
-** Given a pre-allocat  ed filename buffer, a 256MB aligned array K, num nodes k
+** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array. 
 */
 void mapCanonMap(char *BUF, short int *K, int k) {
