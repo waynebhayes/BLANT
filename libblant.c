@@ -58,7 +58,7 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 }
 
 /*
-** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
+** Given a pre-allocat  ed filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array. 
 */
 void mapCanonMap(char *BUF, short int *K, int k) {
@@ -75,10 +75,11 @@ int canonListPopulate(char *BUF, int *canonListArray, int k) {
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
     int numCanon;
-    fscanf(fp_ord, "%d",&numCanon);
+    int scanresult;
+    scanresult = fscanf(fp_ord, "%d",&numCanon);
     int canon_list[numCanon];
     int i;
-    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
+    for(i=0; i<numCanon; i++) scanresult = fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
     return numCanon;
 }
