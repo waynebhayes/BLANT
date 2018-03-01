@@ -794,11 +794,11 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "o:t:s:c:w:k:")) != -1)
+    while((opt = getopt(argc, argv, "m:t:s:c:w:k:")) != -1)
     {
 	switch(opt)
 	{
-	case 'o':
+	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
 	    {
