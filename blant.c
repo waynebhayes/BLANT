@@ -35,7 +35,7 @@
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
-static unsigned _numCanon, *_canonList;
+static int _numCanon, _canonList[MAX_CANONICALS];
 
 enum OutputMode {undef, indexGraphlets, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
@@ -527,13 +527,7 @@ void SetGlobalCanonMaps(void)
     _Bk = (1 <<(_k*(_k-1)/2));
     char BUF[BUFSIZ];
     int i;
-    sprintf(BUF, CANON_DIR "/canon_list%d.txt", _k);
-    FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, _k);
-    fscanf(fp_ord, "%d",&_numCanon);
-    _canonList = Calloc(_numCanon, sizeof(*_canonList));
-    for(i=0; i<_numCanon; i++) fscanf(fp_ord, "%d", &_canonList[i]);
-    fclose(fp_ord);
+    _numCanon = canonListPopulate(BUF, _canonList, _k);
     mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
