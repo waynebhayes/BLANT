@@ -22,6 +22,7 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 #define Bk (1 <<(k*(k-1)/2))
 kperm Permutations[Bk] __attribute__ ((aligned (32768)));
 short int K[Bk] __attribute__ ((aligned (32768)));
+static int canon_list[MAX_CANONICALS];
 
 void ExtractPerm(char perm[k], int i) // you provide a permutation array, we fill it with permutation i
 {
@@ -34,13 +35,8 @@ void ExtractPerm(char perm[k], int i) // you provide a permutation array, we fil
 int N=10;
 int main(int argc, char *argv[])
 {
-    FILE *fp_ord=fopen("data/canon_list" kString ".txt","r");
-    assert(fp_ord);
-    int numCanon;
-    fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon];
-    for(int i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
-    fclose(fp_ord);
+    char BUF[BUFSIZ];
+    int numCanon = canonListPopulate(BUF, canon_list, k);
 
     char perm[9];
     int Kfd = open(("data/canon_map" kString ".bin"), 0*O_RDONLY);

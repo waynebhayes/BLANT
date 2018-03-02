@@ -36,6 +36,7 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 #define Bk (1 <<(kk*(kk-1)/2))
 short int K[Bk]; // does not NEED to be unsigned, so leave it signed, since for kk<=8 max_Bk is 12346 < 32657
 kperm Permutations[Bk];
+static int canon_list[MAX_CANONICALS];
 
 void ExtractPerm(char perm[kk], int i) // you provide a permutation array, we fill it with permutation i
 {
@@ -68,18 +69,12 @@ short int canon2ordinal(int numCanon, int canon_list[numCanon], int canonical)
 int main(int argc, char *argv[])
 {
     int i;
-    FILE *fp_ord=fopen(CANON_DIR "/canon_list" kString ".txt","r");
-    assert(fp_ord);
-    int numCanon;
-    fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon];
-    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
-    fclose(fp_ord);
+    char buf[BUFSIZ];   
+    int numCanon = canonListPopulate(buf, canon_list, kk);
 
     FILE *fp=fopen(CANON_DIR "/canon_map" kString ".txt","r");
     assert(fp);
     int line;
-    char buf[BUFSIZ];
     for(line=0; line < Bk; line++) {
 	int canonical, ordinal, isGraphlet, numRead;
 	char perm[9];

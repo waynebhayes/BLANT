@@ -8,6 +8,7 @@
 
 // Here we are allocating 256MB x sizeof(short int) = 512MB for the canon map.
 static short int K[maxBk] __attribute__ ((aligned (8192)));
+static int canon_list[MAX_CANONICALS];
 
 int main(int argc, char* argv[]) {
     int i, j, k;
@@ -16,14 +17,7 @@ int main(int argc, char* argv[]) {
 
     //Create k canon list
     char BUF[BUFSIZ];
-    sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
-    FILE *fp_ord=fopen(BUF, "r");
-    assert(fp_ord);
-    int numCanon;
-    fscanf(fp_ord, "%d",&numCanon);
-    int canon_list[numCanon];
-    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
-    fclose(fp_ord);
+    int numCanon = canonListPopulate(BUF, canon_list, k);
 
     //Create canon map for k-1
     mapCanonMap(BUF, K, k-1);
