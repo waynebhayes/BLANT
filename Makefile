@@ -47,10 +47,13 @@ blant: libwayne blant.c blant.h libblant.c convert.cpp
 	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
-libwayne: libwayne/libwayne.a
+libwayne: libwayne/libwayne.a libwayne/libwayne-g.a
 
 libwayne/libwayne.a:
-	cd libwayne; make opt
+	cd libwayne; make opt_clean; make opt
+
+libwayne/libwayne-g.a:
+	cd libwayne; make debug_clean; make debug
 
 subcanon_maps: libwayne make-subcanon-maps.c blant.h libblant.c
 	mkdir -p canon_maps
@@ -61,4 +64,4 @@ subcanon_maps: libwayne make-subcanon-maps.c blant.h libblant.c
 clean:
 	/bin/rm -f *.[oa] blant make-canon-maps canon-sift
 	/bin/rm -f canon_maps/*[3-6].* # don't remove 7 or 8 unless you REALLY want to since they take long to create
-	# cd libwayne; make clean
+	cd libwayne; make clean
