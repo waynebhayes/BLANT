@@ -14,6 +14,11 @@
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
+// Enable the code that uses C++ to parse input files?
+#define SHAWN_AND_ZICAN 0
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+char **_nodeNames;
+
 // These are mutually exclusive
 #define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
 #define SAMPLE_NODE_EXPANSION 1	// sample using uniform node expansion; about 100,000 samples per second
@@ -574,7 +579,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+#if SHAWN_AND_ZICAN
+	    for(j=0;j<k;j++) printf(" %s", _nodeNames[Varray[(int)perm[j]]]);
+#else
 	    for(j=0;j<k;j++) printf(" %d", Varray[(int)perm[j]]);
+#endif
 	    puts("");
 	    break;
 	case outputGDV:
@@ -714,8 +723,6 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     return RunBlantFromGraph(_k, leftovers, G);
 }
 
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
-char **_nodeNames;
 void BlantAddEdge(int v1, int v2)
 {
     if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
@@ -831,6 +838,7 @@ int main(int argc, char *argv[])
 	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
 
     if(!argv[optind]) Fatal("no input graph file specified\n%s", USAGE);
+    char *graphFileName = argv[optind];
     FILE *fpGraph = fopen(argv[optind], "r");
     if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
     optind++;
@@ -838,7 +846,8 @@ int main(int argc, char *argv[])
 
     SetGlobalCanonMaps(); // needs _k to be set
 
-#if 0 // Test the functions that will be called from C++
+#if SHAWN_AND_ZICAN
+#ifdef CPP_CALLS_C  // false by default
     while(!feof(fpGraph))
     {
 	static int line;
@@ -849,6 +858,19 @@ int main(int argc, char *argv[])
 	BlantAddEdge(v1, v2);
     }
     fclose(fpGraph);
+#else // Shawn + Zican see here:
+    fclose(fpGraph);
+    _nodeNames = convertToEL(graphFileName);
+    assert(_numNodes > 0);
+    assert(_nodeNames && _nodeNames[0]);
+    //assert(!_nodeNames[_numNodes]);
+#if 1
+    for(i=0; i < _numNodes; i++)
+	printf("nodeName[%d]=%s\n", i, _nodeNames[i]);
+    exit(0);
+#endif
+    // call clean maybe?
+#endif
     return RunBlantEdgesFinished(_k, numSamples, _numNodes, NULL);
 #else
     // Read it in using native Graph routine.

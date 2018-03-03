@@ -28,4 +28,4 @@ void BuildGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 void mapCanonMap(char* BUF, short int *K, int k);
 int canonListPopulate(char *BUF, int *canon_list, int k);
-
+char** convertToEL(char* file); // from convert.cpp

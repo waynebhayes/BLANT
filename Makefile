@@ -41,8 +41,10 @@ make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c
 	gcc -o make-canon-maps libblant.c make-canon-maps.c $(LIBWAYNE)
 	gcc -o canon-sift libblant.c canon-sift.c  $(LIBWAYNE)
 
-blant: libwayne blant.c blant.h libblant.c
-	gcc -o blant libblant.c blant.c $(LIBWAYNE)
+blant: libwayne blant.c blant.h libblant.c convert.cpp
+	gcc -c libblant.c blant.c $(LIBWAYNE)
+	g++ -std=c++11 -c convert.cpp
+	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
 libwayne: libwayne/libwayne.a
