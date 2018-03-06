@@ -770,7 +770,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 
 const char const * const USAGE = \
-    "USAGE: blant [-t threads (default=1)] [-o{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
+    "USAGE: blant [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
     "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
@@ -807,7 +807,7 @@ int main(int argc, char *argv[])
 	    case 'f': _outputMode = graphletFrequency; break;
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
-	    default: Fatal("-o%c: unknown output mode;\n"
+	    default: Fatal("-m%c: unknown output mode;\n"
 		   "\tmodes are i=indexGraphlets, f=graphletFrequency, g=GDV, o=ODV", *optarg);
 		break;
 	    }
