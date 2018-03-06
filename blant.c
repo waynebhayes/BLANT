@@ -33,6 +33,8 @@ char **_nodeNames;
 #define RESERVOIR_MULTIPLIER 8
 #endif
 
+#define ALLOW_DISCONNECTED_GRAPHLETS 0
+
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
 // For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
@@ -155,12 +157,22 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     for(i=2; i<k; i++)
     {
 	int j;
-	if(nOut == 0) // the graphlet has saturated it's connected component, return a disconnected graphette.
+	if(nOut == 0) // the graphlet has saturated it's connected component
 	{
+#if ALLOW_DISCONNECTED_GRAPHLETS
 	    while(SetIn(V, (j = G->n*drand48())))
 		; // must terminate since k <= G->n
 	    outbound[nOut++] = j;
 	    j = 0;
+#else
+	    static int depth;
+	    // tail recursion... must terminate eventually as long as there's at least one connected component with >=k nodes.
+	    depth++;
+	    assert(depth < MAX_TRIES);
+	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k);
+	    depth--;
+	    return V;
+#endif
 	}
 	else
 	    j = nOut * drand48();
@@ -269,8 +281,10 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		// Test that hypothesis.
 		int nodeArray[G->n], distArray[G->n];
 		int sizeOfCC = GraphBFS(G, v1, G->n, nodeArray, distArray);
+#if PARANOID_ASSERTS
 		assert(sizeOfCC < k);
-
+#endif
+#if ALLOW_DISCONNECTED_GRAPHLETS
 		// get a new node outside this connected component.
 		// Note this will return a disconnected graphlet.
 		while(SetIn(V, (newNode = G->n*drand48())))
@@ -281,6 +295,9 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
 		    cumulative[j] = 0;
 		SetEmpty(internal);
+#else
+		return SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+#endif
 	    }
 	}
 	SetAdd(V, newNode);
@@ -343,13 +360,13 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
     }
     i=2;
 
-    // always do the loop at least k times, but i>=k is the reservoir phase.
-    while(i<k || nOut > 0)
-    //while(i < RESERVOIR_MULTIPLIER*k) // this one doesn't seem to work as well.
+    // while(i<k || nOut > 0) // always do the loop at least k times, but i>=k is the reservoir phase.
+    while(i < RESERVOIR_MULTIPLIER*k) // value of 8 seems to work best from empirical studies.
     {
 	int candidate;
 	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
 	{
+#if ALLOW_DISCONNECTED_GRAPHLETS
 	    if(i < k)
 	    {
 		int tries=0;
@@ -359,7 +376,10 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		candidate = 0; // representing v1 as the 0'th entry in the outbound array
 	    }
 	    else
-		break; // assert(false); // we're done because i >= k and nOut == 0... but we shouldn't get here.
+		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
+#else
+	    return SampleGraphletLuBressanReservoir(V, Varray, G, k);
+#endif
 	}
 	else
 	{
@@ -649,9 +669,14 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 }
 
 
+// This is the primary entry point into BLANT, even if THREADS=1.  We assume you've already
+// read the graph into G, and will do whatever is necessary to run blant with the number of
+// threads specified.  Also does some sanity checking.
 int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 {
     int i;
+    assert(k == _k);
+    assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
