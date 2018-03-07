@@ -58,7 +58,7 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 }
 
 /*
-** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
+** Given a pre-allocated filename buffer of BUFSIZ, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array. 
 */
 void mapCanonMap(char* BUF, short int *K, int k) {
@@ -70,6 +70,10 @@ void mapCanonMap(char* BUF, short int *K, int k) {
     assert(Kf == K);
 }
 
+/*
+** Given a pre-allocated filename buffer of BUFSIZ, a preallocated canon list of size MAX_CANONICALS
+** Fill the buffer with the canon_list$k.txt. 
+*/
 int canonListPopulate(char *BUF, int *canon_list, int k) {
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
     FILE *fp_ord=fopen(BUF, "r");
