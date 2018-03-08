@@ -1,4 +1,5 @@
 #include "tinygraph.h"
+#include "graph.h"
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
@@ -8,6 +9,7 @@
 
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 #define MAX_ORBITS	79264	// This is the number of orbits for k=8
+#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
@@ -21,6 +23,8 @@
 // local alignment between the nodes listed.  Listing them in the other direction doesn't seem to have much use.
 #define PERMS_CAN2NON	1
 
+#define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
+
 #define CANON_DIR "canon_maps"
 //#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
@@ -29,3 +33,4 @@ int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 void mapCanonMap(char* BUF, short int *K, int k);
 int canonListPopulate(char *BUF, int *canon_list, int k);
 char** convertToEL(char* file); // from convert.cpp
+void testConnectedComponent(GRAPH* G, int k, int v1);

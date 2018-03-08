@@ -84,3 +84,19 @@ int canonListPopulate(char *BUF, int *canon_list, int k) {
     fclose(fp_ord);
     return numCanon;
 }
+
+/*
+** Given a generated Graph G, number of nodes k, and vertex index v1,
+** find the number of nodes in the connected comonent the vertex is in.
+** Also, assert that this hasn't happened MAX_TRIES times before.
+*/
+void testConnectedComponent(GRAPH *G, int k, int v1) {
+    int nodeArray[G->n], distArray[G->n];
+    int sizeOfCC = GraphBFS(G, v1, G->n, nodeArray, distArray);
+#if PARANOID_ASSERTS
+		assert(sizeOfCC < k);
+#endif
+    static int depth;
+    depth++;
+    assert(depth < MAX_TRIES);
+}
