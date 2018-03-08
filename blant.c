@@ -164,6 +164,7 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 #else
 	    testConnectedComponent(G, k, v1);
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k);
+		decrementDepth();
 	    return V;
 #endif
 	}
@@ -272,7 +273,6 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    {
 		// We are probably in a connected component with fewer than k nodes.
 		// Test that hypothesis.
-		testConnectedComponent(G, k, v1);
 #if ALLOW_DISCONNECTED_GRAPHLETS
 		// get a new node outside this connected component.
 		// Note this will return a disconnected graphlet.
@@ -285,7 +285,10 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		    cumulative[j] = 0;
 		SetEmpty(internal);
 #else
-		return SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+		testConnectedComponent(G, k, v1);
+		V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+		decrementDepth();
+		return V;
 #endif
 	    }
 	}
@@ -356,7 +359,6 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
 	{
 		//Check if this has happened MAX_TRIES times
-		testConnectedComponent(G, k, v1);
 #if ALLOW_DISCONNECTED_GRAPHLETS
 	    if(i < k)
 	    {
@@ -369,7 +371,10 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    else
 		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 #else
-	    return SampleGraphletLuBressanReservoir(V, Varray, G, k);
+		testConnectedComponent(G, k, v1);
+		V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
+		decrementDepth();
+		return V;
 #endif
 	}
 	else

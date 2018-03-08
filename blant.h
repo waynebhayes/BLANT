@@ -34,3 +34,4 @@ void mapCanonMap(char* BUF, short int *K, int k);
 int canonListPopulate(char *BUF, int *canon_list, int k);
 char** convertToEL(char* file); // from convert.cpp
 void testConnectedComponent(GRAPH* G, int k, int v1);
+void decrementDepth();
