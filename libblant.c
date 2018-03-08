@@ -92,7 +92,7 @@ int canonListPopulate(char *BUF, int *canon_list, int k) {
 */
 void testConnectedComponent(GRAPH *G, int k, int v1) {
     int nodeArray[G->n], distArray[G->n];
-    int sizeOfCC = GraphBFS(G, v1, G->n, nodeArray, distArray);
+    int sizeOfCC = GraphDFS(G, v1, k, nodeArray, distArray);
 #if PARANOID_ASSERTS
 		assert(sizeOfCC < k);
 #endif
