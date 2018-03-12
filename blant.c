@@ -19,19 +19,18 @@
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
 char **_nodeNames;
 
-// These are mutually exclusive
-#define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
-#define SAMPLE_NODE_EXPANSION 1	// sample using uniform node expansion; about 100,000 samples per second
-#define SAMPLE_EDGE_EXPANSION 0	// Fastest, up to a million samples per second
-#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
-#if (SAMPLE_UNBIASED + SAMPLE_NODE_EXPANSION + SAMPLE_EDGE_EXPANSION) != 1
-#error "must choose exactly one of the SAMPLE_XXX choices"
-#endif
-
+// Below are the sampling methods; pick one on the last line
+#define SAMPLE_UNBIASED 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
+#define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
+#define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
+#define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
 #ifndef RESERVOIR_MULTIPLIER
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
+#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
+
+#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
 
@@ -435,10 +434,14 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		    Varray[memberToDelete] = v2; // revert the change because the graph is not connected
 		else // add the new guy and delete the old
 		{
+#if PARANOID_ASSERTS
 		    assert(SetCardinality(V) == k);
+#endif
 		    SetDelete(V, v2);
 		    SetAdd(V, v1);
+#if PARANOID_ASSERTS
 		    assert(SetCardinality(V) == k);
+#endif
 		    int j;
 		    for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
 		    {
@@ -581,14 +584,16 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     unsigned Varray[maxK+1];
     for(i=0; i<numSamples; i++)
     {
-#if SAMPLE_UNBIASED
+#if SAMPLE_METHOD == SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
-#elif SAMPLE_NODE_EXPANSION
-	//SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
+#elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
 	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
-#else
-#assert SAMPLE_EDGE_EXPANSION(1)
+#elif SAMPLE_METHOD == SAMPLE_RESERVOIR
+	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
+#elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#else
+#error unknown sampling method
 #endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
