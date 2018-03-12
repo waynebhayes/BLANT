@@ -166,9 +166,9 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    j = 0;
 #else
 	    static int depth;
-	    // tail recursion... must terminate eventually as long as there's at least one connected component with >=k nodes.
 	    depth++;
-	    assert(depth < MAX_TRIES);
+	    // must terminate eventually as long as there's at least one connected component with >=k nodes.
+	    assert(depth < MAX_TRIES); // graph is too disconnected
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k);
 	    depth--;
 	    return V;
@@ -275,7 +275,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    SetAdd(internal, whichNeigh);
 	    if(++numTries < MAX_TRIES)
 		continue;
-	    else
+	    else // graph is too disconnected
 	    {
 		// We are probably in a connected component with fewer than k nodes.
 		// Test that hypothesis.
@@ -371,14 +371,19 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    {
 		int tries=0;
 		while(SetIn(V, (v1 = G->n*drand48())))
-		    assert(tries++<MAX_TRIES); // must terminate since k <= G->n
+		    assert(tries++<MAX_TRIES); // graph is too disconnected
 		outbound[nOut++] = v1; // recall that nOut was 0 to enter this block, so now it's 1
 		candidate = 0; // representing v1 as the 0'th entry in the outbound array
 	    }
 	    else
 		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 #else
-	    return SampleGraphletLuBressanReservoir(V, Varray, G, k);
+	    static depth;
+	    depth++;
+	    assert(depth < MAX_TRIES); // graph is too disconnected
+	    V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
+	    depth--;
+	    return V;
 #endif
 	}
 	else
@@ -413,8 +418,10 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		// ensure it's connected before we do the replacement
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
+#if 0
 		printf("NRN = %d\n", NumReachableNodes(T, 0));
 		printf("BFS = %d\n", TinyGraphBFS(T, 0, k, graphetteArray, distArray));
+#endif
 		assert(NumReachableNodes(T, 0) == TinyGraphBFS(T, 0, k, graphetteArray, distArray));
 		assert(NumReachableNodes(T, 0) == k);
 #endif
