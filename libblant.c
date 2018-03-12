@@ -1,8 +1,6 @@
 #include <sys/file.h>
 #include "blant.h"
 
-static int depth;
-
 // Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
 int TinyGraph2Int(TINY_GRAPH *g, int k)
 {
@@ -60,7 +58,7 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 }
 
 /*
-** Given a pre-allocated filename buffer of BUFSIZ, a 256MB aligned array K, num nodes k
+** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array. 
 */
 void mapCanonMap(char* BUF, short int *K, int k) {
@@ -72,10 +70,6 @@ void mapCanonMap(char* BUF, short int *K, int k) {
     assert(Kf == K);
 }
 
-/*
-** Given a pre-allocated filename buffer of BUFSIZ, a preallocated canon list of size MAX_CANONICALS
-** Fill the buffer with the canon_list$k.txt. 
-*/
 int canonListPopulate(char *BUF, int *canon_list, int k) {
     sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
     FILE *fp_ord=fopen(BUF, "r");
@@ -85,23 +79,4 @@ int canonListPopulate(char *BUF, int *canon_list, int k) {
     for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
     fclose(fp_ord);
     return numCanon;
-}
-
-/*
-** Given a generated Graph G, number of nodes k, and vertex index v1,
-** find the number of nodes in the connected comonent the vertex is in.
-** Also, assert that this hasn't happened MAX_TRIES times before.
-*/
-void testConnectedComponent(GRAPH *G, int k, int v1) {
-    int nodeArray[G->n], distArray[G->n];
-    int sizeOfCC = GraphBFS(G, v1, k, nodeArray, distArray);
-#if PARANOID_ASSERTS
-		assert(sizeOfCC < k);
-#endif
-    depth++;
-    assert(depth < MAX_TRIES);
-}
-
-void decrementDepth() {
-    depth--;
 }

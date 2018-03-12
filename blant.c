@@ -12,6 +12,8 @@
 #include "heap.h"
 #include "blant.h"
 
+#define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
+
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
@@ -21,6 +23,7 @@ char **_nodeNames;
 #define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
 #define SAMPLE_NODE_EXPANSION 1	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 0	// Fastest, up to a million samples per second
+#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 #if (SAMPLE_UNBIASED + SAMPLE_NODE_EXPANSION + SAMPLE_EDGE_EXPANSION) != 1
 #error "must choose exactly one of the SAMPLE_XXX choices"
 #endif
@@ -162,9 +165,12 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    outbound[nOut++] = j;
 	    j = 0;
 #else
-	    testConnectedComponent(G, k, v1);
+	    static int depth;
+	    // tail recursion... must terminate eventually as long as there's at least one connected component with >=k nodes.
+	    depth++;
+	    assert(depth < MAX_TRIES);
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k);
-		decrementDepth();
+	    depth--;
 	    return V;
 #endif
 	}
@@ -273,6 +279,11 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    {
 		// We are probably in a connected component with fewer than k nodes.
 		// Test that hypothesis.
+		int nodeArray[G->n], distArray[G->n];
+		int sizeOfCC = GraphBFS(G, v1, G->n, nodeArray, distArray);
+#if PARANOID_ASSERTS
+		assert(sizeOfCC < k);
+#endif
 #if ALLOW_DISCONNECTED_GRAPHLETS
 		// get a new node outside this connected component.
 		// Note this will return a disconnected graphlet.
@@ -285,10 +296,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		    cumulative[j] = 0;
 		SetEmpty(internal);
 #else
-		testConnectedComponent(G, k, v1);
-		V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
-		decrementDepth();
-		return V;
+		return SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
 #endif
 	    }
 	}
@@ -358,7 +366,6 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	int candidate;
 	if(nOut ==0) // the graphlet has saturated its connected component before getting to k, start elsewhere
 	{
-		//Check if this has happened MAX_TRIES times
 #if ALLOW_DISCONNECTED_GRAPHLETS
 	    if(i < k)
 	    {
@@ -371,10 +378,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    else
 		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 #else
-		testConnectedComponent(G, k, v1);
-		V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
-		decrementDepth();
-		return V;
+	    return SampleGraphletLuBressanReservoir(V, Varray, G, k);
 #endif
 	}
 	else
