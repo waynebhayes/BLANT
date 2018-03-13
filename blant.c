@@ -329,7 +329,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 {
     // Start by getting the first k nodes using a previous method. Once you figure out which is
     // better, it's probably best to share variables so you don't have to recompute the outset here.
-#if 1  // the following is copied almost verbatim from NodeEdgeExpasion, just changing for loop to while loop.
+#if 1  // the following is copied almost verbatim from NodeEdgeExpansion, just changing for loop to while loop.
     static SET *outSet;
     static int numIsolatedNodes;
     if(!outSet)
