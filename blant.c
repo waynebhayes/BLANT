@@ -277,12 +277,10 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		continue;
 	    else
 	    {
+#if PARANOID_ASSERTS
 		// We are probably in a connected component with fewer than k nodes.
 		// Test that hypothesis.
-		int nodeArray[G->n], distArray[G->n];
-		int sizeOfCC = GraphBFS(G, v1, G->n, nodeArray, distArray);
-#if PARANOID_ASSERTS
-		assert(sizeOfCC < k);
+		assert(!GraphCCatLeastK(G, v1, k));
 #endif
 #if ALLOW_DISCONNECTED_GRAPHLETS
 		// get a new node outside this connected component.
@@ -296,7 +294,12 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		    cumulative[j] = 0;
 		SetEmpty(internal);
 #else
-		return SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+		static int depth;
+		depth++;
+		assert(depth < MAX_TRIES);
+		V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+		depth--;
+		return V;
 #endif
 	    }
 	}
@@ -378,7 +381,12 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    else
 		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 #else
-	    return SampleGraphletLuBressanReservoir(V, Varray, G, k);
+		static int depth;
+		depth++;
+		assert(depth < MAX_TRIES);
+		V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
+		depth--;
+		return V;
 #endif
 	}
 	else
