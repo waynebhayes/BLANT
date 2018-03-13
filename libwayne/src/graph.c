@@ -651,20 +651,19 @@ Boolean GraphCCatLeastK(GRAPH *G, int v, int k) {
 
 /* visited holds previously visited nodes, v holds the current vertex, k holds the remaining count
 ** Visit the current node
+** if the remaining count reached 0
+**      return true
 ** For each adjacent node
 **      if it hasn't been visited
-**          decrement remaining count
 **          recursive call to dfs the node
-**                if the remaining count reached 0
-**                  return true
 ** return false if the CC wasn't at least k
 */
 Boolean _GraphCCatLeastKHelper(GRAPH *G, SET* visited, int v, int *k) {
-    if (*k <= 0) return true;
     SetAdd(visited, v);
+    *k -= 1;
+    if (*k <= 0) return true;
     for (int i = 0; i < G->degree; i++) {
         if (!SetIn(visited, G->neighbor[v][i])) {
-            *k -= 1;
             Boolean result = _GraphCCatLeastKHelper(G, visited, G->neighbor[v][i], k);
             if (result)
                 return result;
