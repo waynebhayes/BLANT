@@ -19,19 +19,18 @@
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
 char **_nodeNames;
 
-// These are mutually exclusive
-#define SAMPLE_UNBIASED 0	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
-#define SAMPLE_NODE_EXPANSION 1	// sample using uniform node expansion; about 100,000 samples per second
-#define SAMPLE_EDGE_EXPANSION 0	// Fastest, up to a million samples per second
-#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
-#if (SAMPLE_UNBIASED + SAMPLE_NODE_EXPANSION + SAMPLE_EDGE_EXPANSION) != 1
-#error "must choose exactly one of the SAMPLE_XXX choices"
-#endif
-
+// Below are the sampling methods; pick one on the last line
+#define SAMPLE_UNBIASED 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
+#define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
+#define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
+#define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
 #ifndef RESERVOIR_MULTIPLIER
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
+#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
+
+#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
 
@@ -166,9 +165,9 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    j = 0;
 #else
 	    static int depth;
-	    // tail recursion... must terminate eventually as long as there's at least one connected component with >=k nodes.
 	    depth++;
-	    assert(depth < MAX_TRIES);
+	    // must terminate eventually as long as there's at least one connected component with >=k nodes.
+	    assert(depth < MAX_TRIES); // graph is too disconnected
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k);
 	    depth--;
 	    return V;
@@ -275,7 +274,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    SetAdd(internal, whichNeigh);
 	    if(++numTries < MAX_TRIES)
 		continue;
-	    else
+	    else // graph is too disconnected
 	    {
 #if PARANOID_ASSERTS
 		// We are probably in a connected component with fewer than k nodes.
@@ -374,19 +373,19 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    {
 		int tries=0;
 		while(SetIn(V, (v1 = G->n*drand48())))
-		    assert(tries++<MAX_TRIES); // must terminate since k <= G->n
+		    assert(tries++<MAX_TRIES); // graph is too disconnected
 		outbound[nOut++] = v1; // recall that nOut was 0 to enter this block, so now it's 1
 		candidate = 0; // representing v1 as the 0'th entry in the outbound array
 	    }
 	    else
 		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 #else
-		static int depth;
-		depth++;
-		assert(depth < MAX_TRIES);
-		V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
-		depth--;
-		return V;
+	    static depth;
+	    depth++;
+	    assert(depth < MAX_TRIES); // graph is too disconnected
+	    V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
+	    depth--;
+	    return V;
 #endif
 	}
 	else
@@ -421,8 +420,10 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		// ensure it's connected before we do the replacement
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
+#if 0
 		printf("NRN = %d\n", NumReachableNodes(T, 0));
 		printf("BFS = %d\n", TinyGraphBFS(T, 0, k, graphetteArray, distArray));
+#endif
 		assert(NumReachableNodes(T, 0) == TinyGraphBFS(T, 0, k, graphetteArray, distArray));
 		assert(NumReachableNodes(T, 0) == k);
 #endif
@@ -436,10 +437,14 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		    Varray[memberToDelete] = v2; // revert the change because the graph is not connected
 		else // add the new guy and delete the old
 		{
+#if PARANOID_ASSERTS
 		    assert(SetCardinality(V) == k);
+#endif
 		    SetDelete(V, v2);
 		    SetAdd(V, v1);
+#if PARANOID_ASSERTS
 		    assert(SetCardinality(V) == k);
+#endif
 		    int j;
 		    for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
 		    {
@@ -582,14 +587,16 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     unsigned Varray[maxK+1];
     for(i=0; i<numSamples; i++)
     {
-#if SAMPLE_UNBIASED
+#if SAMPLE_METHOD == SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
-#elif SAMPLE_NODE_EXPANSION
-	//SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
+#elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
 	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
-#else
-#assert SAMPLE_EDGE_EXPANSION(1)
+#elif SAMPLE_METHOD == SAMPLE_RESERVOIR
+	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
+#elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#else
+#error unknown sampling method
 #endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
