@@ -642,6 +642,37 @@ int GraphBFS(GRAPH *G, int root, int distance, int *nodeArray, int *distArray)
     return count;
 }
 
+Boolean GraphCCatLeastK(GRAPH *G, int v, int k) {
+    SET* visited = SetAlloc(k);
+    Boolean result = _GraphCCatLeastKHelper(G, visited, v, &k);
+    SetFree(visited);
+    return result;
+}
+
+/* visited holds previously visited nodes, v holds the current vertex, k holds the remaining count
+** Visit the current node
+** if the remaining count reached 0
+**      return true
+** For each adjacent node
+**      if it hasn't been visited
+**          recursive call to dfs the node
+** return false if the CC wasn't at least k
+*/
+Boolean _GraphCCatLeastKHelper(GRAPH *G, SET* visited, int v, int *k) {
+    SetAdd(visited, v);
+    *k -= 1;
+    if (*k <= 0) return true;
+    int i;
+    for (i = 0; i < G->degree; i++) {
+        if (!SetIn(visited, G->neighbor[v][i])) {
+            Boolean result = _GraphCCatLeastKHelper(G, visited, G->neighbor[v][i], k);
+            if (result)
+                return result;
+        }
+    }
+    return false;
+}
+
 /* doesn't allow Gv == G */
 GRAPH *GraphInduced(GRAPH *Gv, GRAPH *G, SET *V)
 {

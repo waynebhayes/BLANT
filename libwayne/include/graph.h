@@ -55,6 +55,12 @@ GRAPH *GraphCopy(GRAPH *Gc, GRAPH *G); // If Gc == NULL, create duplicate.  Othe
  */
 int GraphBFS(GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
 
+/* Uses DFS on G starting at node v to see if the current connected component has at least k nodes.
+ */
+Boolean GraphCCatLeastK(GRAPH *G, int v, int k);
+Boolean _GraphCCatLeastKHelper(GRAPH *G, SET* visited, int v, int *k);
+
+
 /*
 ** GraphInduced_NoVertexDelete doesn't delete any vertices, it only deletes
 ** edges whose ends don't both appear in V.  GraphInduced builds an entirely
