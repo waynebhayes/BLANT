@@ -662,7 +662,8 @@ Boolean _GraphCCatLeastKHelper(GRAPH *G, SET* visited, int v, int *k) {
     SetAdd(visited, v);
     *k -= 1;
     if (*k <= 0) return true;
-    for (int i = 0; i < G->degree; i++) {
+    int i;
+    for (i = 0; i < G->degree; i++) {
         if (!SetIn(visited, G->neighbor[v][i])) {
             Boolean result = _GraphCCatLeastKHelper(G, visited, G->neighbor[v][i], k);
             if (result)
