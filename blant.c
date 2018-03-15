@@ -28,7 +28,7 @@ char **_nodeNames;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
+#define SAMPLE_METHOD SAMPLE_EDGE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -257,8 +257,29 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     while(vCount < k)
     {
 	int i, whichNeigh;
-	while(SetIn(internal, (whichNeigh = outDegree * drand48())))
-	    ; // which edge to choose among all edges leaving all nodes in V so far?
+	while(numTries < MAX_TRIES && SetIn(internal, (whichNeigh = outDegree * drand48())))
+	    ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
+	if(numTries >= MAX_TRIES) {
+#if ALLOW_DISCONNECTED_GRAPHLETS
+		    // get a new node outside this connected component.
+		    // Note this will return a disconnected graphlet.
+		    while(SetIn(V, (newNode = G->n*drand48())))
+			; // must terminate since k <= G->n
+		    numTries = 0;
+		    outDegree = 0;
+		    int j;
+		    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
+			cumulative[j] = 0;
+		    SetEmpty(internal);
+#else
+		    static int depth;
+		    depth++;
+		    assert(depth < MAX_TRIES);
+		    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+		    depth--;
+		    return V;
+#endif
+	}
 	for(i=0; cumulative[i] <= whichNeigh; i++)
 	    ; // figure out whose neighbor it is
 	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]); // which neighbor of node i?
