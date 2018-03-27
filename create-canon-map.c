@@ -8,13 +8,16 @@
 #ifndef k
 #define k 7
 #endif
+#if k <= 8
 #define q (1 << k*(k-1)/2)
+#else
+#define q (1LL << k*(k-1LL)/2)
+#endif
 
 typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal and permutation
 
-xChar data[q];
-long long int canonicalDecimal[274668];//274668 canonical graphettes for k=9
-bool check[q];
+static xChar data[q];
+static long int canonicalDecimal[274668LL];//274668 canonical graphettes for k=9
 
 long power(int x, int y){
         if(y==0)return 1;
@@ -23,7 +26,7 @@ long power(int x, int y){
 
 void encodeChar(xChar ch, long indexD, long indexP){
 
-        long long int x=indexD+indexP*power(2,19);//19 bits for canonical decimal index
+        long int x=indexD+indexP*power(2,19);//19 bits for canonical decimal index
         long z=power(2,8);
         for(int i=4; i>=0; i--){
                 ch[i]=(char)(x%z);
@@ -33,7 +36,7 @@ void encodeChar(xChar ch, long indexD, long indexP){
 
 void decodeChar(xChar ch, long* indexD, long* indexP){
 
-        long long int x=0,m;
+        long int x=0,m;
         int y=0,w;
 
         for(int i=4; i>=0; i--){
@@ -85,14 +88,15 @@ bool nextPermutation(int permutation[])
 }
 
 void canon_map(void){
+    bool check[q];
 
     FILE *fcanon = stdout;
   
     int bitVectorSize = (k*(k-1))/2;
-    long long int D;
+    long int D;
     int bitarray[k][k];
     
-    for(long long int i=0; i<q; i++)check[i]=0;
+    for(long int i=0; i<q; i++)check[i]=0;
     canonicalDecimal[0]=0;
     long f=factorial(k);
     char Permutations[f][k];
@@ -107,16 +111,16 @@ void canon_map(void){
     }
 
     encodeChar(data[0],0,0);
-    long num_canon=0;
+    unsigned long num_canon=0;
 
     //finding canonical forms of all graphettes
-    for(long long int t=1; t<q; t++){
+    for(unsigned long int t=1; t<q; t++){
         if(check[t]) continue;
 	check[t]=1;
 	encodeChar(data[t],++num_canon,0);
 	canonicalDecimal[num_canon]=t;
              
-        long long int num = 0;
+        unsigned long int num = 0;
         D=t;
         for(int i=k-2; i>=0; i--){
             for(int j=k-1; j>i; j--){
@@ -138,8 +142,8 @@ void canon_map(void){
             int f=0;
             for(int i = 0; i < k-1; i++)
                 for(int j=i+1; j < k; j++){
-                       num+=bitarray[permutation[i]][permutation[j]] << (bitVectorSize-1-f);
-                    f++;
+		   num+=(bitarray[permutation[i]][permutation[j]] << (bitVectorSize-1-f));
+                   f++;
                 }
 	    num_perm++;
             if(!check[num]){
