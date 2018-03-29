@@ -142,7 +142,7 @@ void canon_map(void){
             int f=0;
             for(int i = 0; i < k-1; i++)
                 for(int j=i+1; j < k; j++){
-		   num+=(bitarray[permutation[i]][permutation[j]] << (bitVectorSize-1-f));
+		   num+=(((long)bitarray[permutation[i]][permutation[j]]) << (bitVectorSize-1-f));
                    f++;
                 }
 	    num_perm++;
