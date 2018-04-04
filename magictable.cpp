@@ -5,32 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "blant.h"
 #include <string>
 #include <vector>
 #include <fstream>
 #include <iostream>
+#include <assert.h>
 
 using namespace std;
-
-#define CANON_DIR "canon_maps"
-
-static int _numCanon, _canonList[MAX_CANONICALS];
-
-static short int _K[maxBk] __attribute__ ((aligned (8192)));
-
-/*
-** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
-** Mmap the canon_map binary file to the aligned array. 
-*/
-void mapCanonMap(char* BUF, short int *K, int k) {
-    int Bk = (1 <<(k*(k-1)/2));
-    sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
-    int Kfd = open(BUF, 0*O_RDONLY);
-    assert(Kfd > 0);
-    short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
-    assert(Kf == K);
-}
 
 uint64_t Upper2Lower(uint64_t Gint, int k)
 {
@@ -73,16 +54,22 @@ int main(int argc, char* argv[]) {
     for (int k = 3; k <= 7; k++) {
         auto table = vector<vector<int>>();
         ofstream outfile;
-        outfile.open("Table" + to_string(k) + ".txt");
+        outfile.open("transformations/Table" + to_string(k) + ".txt");
         ifstream infile;
-        infile.open("UpperToLower" + to_string(k) + ".txt");
+        infile.open("transformations/UpperToLower" + to_string(k) + ".txt");
+        if (!infile) {
+            cerr << "Failed to open file\n";
+            exit(EXIT_FAILURE);
+        }
+        int j = 0;
         while (infile) {
-            vector<int> temp;
-            temp.reserve(7);
+            int temp;
+            table.push_back(vector<int>());
             for (int i = 0; i < 7; i++) {
-                infile >> temp[i];
+                infile >> temp;
+                table[j].push_back(temp);
             }
-            table.push_back(temp);
+            j++;
         }
 
         outfile.close();
@@ -91,10 +78,10 @@ int main(int argc, char* argv[]) {
 
         //Testing
         for (int i = 0; i < table.size(); i++) {
-            assert(table[i][3] == Upper2Lower(table[i][2], k));
+            int lowerCanonical = 0;
+            lowerCanonical = Upper2Lower(table[i][2], k);
+            assert(table[i][3] == lowerCanonical);
         }
     }
-
-    
     return 0;
 }

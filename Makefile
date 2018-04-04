@@ -1,8 +1,8 @@
-LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
-#LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
+#LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
+LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-all: canon_maps blant test_blant
+all: canon_maps blant test_blant magic_table
 
 test_blant:
 	# First run blant-sanity for various values of k
@@ -42,7 +42,7 @@ make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c
 	gcc -o canon-sift libblant.c canon-sift.c  $(LIBWAYNE)
 
 blant: libwayne blant.c blant.h libblant.c convert.cpp
-	gcc -c libblant.c blant.c $(LIBWAYNE)
+	gcc -ggdb -c libblant.c blant.c $(LIBWAYNE)
 	g++ -std=c++11 -c convert.cpp
 	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
@@ -65,3 +65,6 @@ clean:
 	/bin/rm -f *.[oa] blant make-canon-maps canon-sift
 	/bin/rm -f canon_maps/*[3-6].* # don't remove 7 or 8 unless you REALLY want to since they take long to create
 	cd libwayne; make clean
+
+magic_table:
+	g++ -ggdb -std=c++11 -o mt magictable.cpp libblant.o $(LIBWAYNE)
