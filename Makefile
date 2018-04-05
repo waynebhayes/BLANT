@@ -38,7 +38,7 @@ canon_maps/canon_map7.txt: blant.h make-canon-maps libblant.c
 	./make-canon-maps 7 1 0 | cut -f2- | tee canon_maps/canon_map7.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list7.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature7.txt
 	gcc "-Dk=7" "-DkString=\"7\"" -o create-bin-data libblant.c create-bin-data.c; ./create-bin-data
 
-make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c make-orbit-maps.c
+make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c make-orbit-maps
 	gcc -o make-canon-maps libblant.c make-canon-maps.c $(LIBWAYNE)
 	gcc -o canon-sift libblant.c canon-sift.c  $(LIBWAYNE)
 
