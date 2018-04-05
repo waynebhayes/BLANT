@@ -101,17 +101,22 @@ void canon_map(void){
     canonicalDecimal[0]=0;
     long f=factorial(k);
     char Permutations[f][k];
+    char Permutations2[f][k];
     int tmpPerm[k];
     for(int i=0;i<k;i++)tmpPerm[i]=i;
    
     //saving all permutations
     for(long i=0;i<f;i++){
        	for(int j=0; j<k; j++)
-#if 1 // Tamzid
+	{
 	    Permutations[i][j]=tmpPerm[j];
-#else
-	    Permutations[i][tmpPerm[j]]=j;
-#endif
+	    Permutations2[i][tmpPerm[j]]=j;
+	}
+       	for(int j=0; j<k; j++)
+	{
+	    assert( Permutations2[i][Permutations[i][j]] == j);
+	    assert( Permutations[i][Permutations2[i][j]] == j);
+	}
     	nextPermutation(tmpPerm);
     }
 
