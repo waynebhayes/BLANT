@@ -121,8 +121,8 @@ bool sortcol5(const vector<uint64_t>& v1, const vector<uint64_t>& v2 ) {
     return v1[4] < v2[4];
 }
 
-bool sortcol3(const vector<uint64_t>& v1, const vector<uint64_t>& v2 ) {
-    return v1[2] < v2[2];
+bool sortcol2(const vector<uint64_t>& v1, const vector<uint64_t>& v2 ) {
+    return v1[1] < v2[1];
 }
 
 ostream& operator<<(ostream& os, const vector<vector<uint64_t>> table) {
@@ -162,13 +162,13 @@ int main(int argc, char* argv[]) {
                 infile >> temp;
                 table[j].push_back(temp);
             }
-            //table[j].push_back(0);
+            table[j].push_back(0);
             j++;
         }
         infile.close();
         table.pop_back();
 
-        //sort(table.begin(), table.end(), sortcol5);
+        sort(table.begin(), table.end(), sortcol5);
         //Process
         for (int i = 0; i < table.size(); i++) {
             uint64_t lower, lowerOrdinal, lowerCanonical;
@@ -179,19 +179,19 @@ int main(int argc, char* argv[]) {
             table[i][3] = lowerCanonical;
             table[i][4] = lowerOrdinal;
 
-            // table[i][7] = 0;
-            // if (table[i][0]) {
-            //     if (k <= 5) {
-            //         table[i][7] = 0;
-            //     } else {
-            //         table[i][7] = connectedCount;
-            //     }
-            //     connectedCount++;
-            // } else {
-            //     table[i][7] = 0;
-            // }
+            table[i][7] = 0;
+            if (table[i][0]) {
+                if (k <= 5) {
+                    table[i][7] = 0;
+                } else {
+                    table[i][7] = connectedCount;
+                }
+                connectedCount++;
+            } else {
+                table[i][7] = 0;
+            }
         }   
-        //sort(table.begin(), table.end(), sortcol);
+        sort(table.begin(), table.end(), sortcol2);
         //output
         outfile << table;
         outfile.close();
