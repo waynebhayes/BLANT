@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdbool.h>
 
+// Note that this defaults to lower triangle, so we cannot use it with blant.h's LOWER stuff.
 
 #ifndef k
 #define k 7
@@ -106,7 +107,11 @@ void canon_map(void){
     //saving all permutations
     for(long i=0;i<f;i++){
        	for(int j=0; j<k; j++)
-		Permutations[i][j]=tmpPerm[j]+'0';
+#if 1 // Tamzid
+	    Permutations[i][j]=tmpPerm[j];
+#else
+	    Permutations[i][tmpPerm[j]]=j;
+#endif
     	nextPermutation(tmpPerm);
     }
 
@@ -159,9 +164,9 @@ void canon_map(void){
 
         for(int i=0; i<q; i++){
 	    decodeChar(data[i],&canonDec,&canonPerm);
-            fprintf(fcanon,"%lld ", canonicalDecimal[canonDec]);
+            fprintf(fcanon,"%lld\t", canonicalDecimal[canonDec]);
             for(int p=0;p<k;p++)
-                fprintf(fcanon,"%c", Permutations[canonPerm][p]);
+                fprintf(fcanon,"%d", Permutations[canonPerm][p]);
             fprintf(fcanon,"\n");
         }
 }
