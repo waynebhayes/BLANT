@@ -137,6 +137,9 @@ ostream& operator<<(ostream& os, const vector<vector<uint64_t>> table) {
 
 //first, check 4th column matches blant canonical
 //2nd, fix 5th column blant ordinale
+//3rd do k >= 5 jesse
+//4th do k < 5 jesse
+
 int main(int argc, char* argv[]) {
     int connectedCount = 1;
     for (int k = 3; k <= 7; k++) {
@@ -189,6 +192,11 @@ int main(int argc, char* argv[]) {
                 connectedCount++;
             } else {
                 table[i][7] = 0;
+            }
+
+            //Check if k< 5 jesse
+            if (k < 5 && table[i][0]) {
+                cout << k << ' ' << table[i][3] << '\n';
             }
         }   
         sort(table.begin(), table.end(), sortcol2);
