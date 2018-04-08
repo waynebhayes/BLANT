@@ -22,6 +22,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <algorithm>
+#include <sstream>
 
 using namespace std;
 
@@ -193,10 +194,12 @@ int main(int argc, char* argv[]) {
             } else {
                 table[i][7] = 0;
             }
-
+            
             //Check if k< 5 jesse
             if (k < 5 && table[i][0]) {
-                cout << k << ' ' << table[i][3] << '\n';
+                stringstream ss;
+                ss << "$(../Sanagv/graphette2dot -u -k " << k << " -d " << table[i][3] << " -t k" << k << "d" << table[i][3] << " -o k" << k << "d" << table[i][3] << ")\n";
+                system(ss.str().c_str());
             }
         }   
         sort(table.begin(), table.end(), sortcol2);
