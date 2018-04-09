@@ -23,6 +23,19 @@
 #include <unistd.h>
 #include <algorithm>
 #include <sstream>
+#include <unordered_map>
+
+// extern "C"{
+// typedef struct _tinyGraph;
+// int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
+// TINY_GRAPH *TinyGraphAlloc(unsigned int n);
+// #define TinyGraphFree free
+// void BuildGraph(TINY_GRAPH* G, int Gint);
+// int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
+// void mapCanonMap(char* BUF, short int *K, int k);
+// int canonListPopulate(char *BUF, int *canon_list, int k);
+// char** convertToEL(char* file); // from convert.cpp
+// }
 
 using namespace std;
 
@@ -35,6 +48,11 @@ using namespace std;
 
 static int _numCanon, _canonList[MAX_CANONICALS];
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
+const auto umap3 = unordered_map<uint64_t,uint64_t>{{3, 1}, {7, 2}};
+const auto umap4 = unordered_map<uint64_t, uint64_t>{{7, 4}, {13, 3}, {15, 6}, {30, 5}, {31, 7}, {63, 8}};
+const auto umap5 = unordered_map<uint64_t, uint64_t>{{15, 11}, {29, 10}, {31, 14}, {58, 9}, {59, 12},
+ {62, 16}, {63, 17}, {126, 20}, {127, 22}, {185, 13}, {187, 19}, {191, 23}, {207, 18}, {220, 15}, {223, 24},
+  {254, 25}, {255, 26}, {495, 27}, {511, 28}, {1023, 29}};
 
 // Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
 void *Mmap(void *p, size_t n, int fd)
@@ -186,7 +204,14 @@ int main(int argc, char* argv[]) {
             table[i][7] = 0;
             if (table[i][0]) {
                 if (k <= 5) {
-                    table[i][7] = 0;
+                    if (k == 3) {
+                        table[i][7] = umap3.at(table[i][2]);
+                    } else if (k == 4) {
+                        table[i][7] = umap4.at(table[i][2]);
+                    } else {
+                        table[i][7] = umap5.at(table[i][2]);
+
+                    }
                 } else {
                     table[i][7] = connectedCount;
                 }
@@ -194,13 +219,13 @@ int main(int argc, char* argv[]) {
             } else {
                 table[i][7] = 0;
             }
-            
-            //Check if k< 5 jesse
-            if (k < 5 && table[i][0]) {
-                stringstream ss;
-                ss << "$(../Sanagv/graphette2dot -u -k " << k << " -d " << table[i][3] << " -t k" << k << "d" << table[i][3] << " -o k" << k << "d" << table[i][3] << ")\n";
-                system(ss.str().c_str());
-            }
+
+            //Check if k<= 5 jesse
+            // if (k <= 5 && table[i][0]) {
+            //     stringstream ss;
+            //     ss << "$(../SanaGV/graphette2dot -u -k " << k << " -d " << table[i][2] << " -t k" << k << "d" << table[i][3] << " -o k" << k << "d" << table[i][3] << ")\n";
+            //     system(ss.str().c_str());
+            // }
         }   
         sort(table.begin(), table.end(), sortcol2);
         //output
