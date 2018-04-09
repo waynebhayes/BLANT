@@ -205,20 +205,11 @@ int main(int argc, char* argv[]) {
             if (table[i][0]) {
                 if (k <= 5) {
                     if (k == 3) {
-                        if (umap3.find(table[i][2]) == umap3.end()) {
-                            cout << k << ' ' << table[i][2] << '\n';
-                        }
-                        //table[i][7] = umap3.at(table[i][2]);
+                        table[i][7] = umap3.at(table[i][2]);
                     } else if (k == 4) {
-                        if (umap4.find(table[i][2]) == umap4.end()) {
-                            cout << k << ' ' << table[i][2] << '\n';
-                        }
-                        //table[i][7] = umap4.at(table[i][2]);
+                        table[i][7] = umap4.at(table[i][2]);
                     } else {
-                        if (umap5.find(table[i][2]) == umap5.end()) {
-                            cout << k << ' ' << table[i][2] << '\n';
-                        }
-                        //table[i][7] = umap5.at(table[i][2]);
+                        table[i][7] = umap5.at(table[i][2]);
                     }
                 } else {
                     table[i][7] = connectedCount;
@@ -229,11 +220,11 @@ int main(int argc, char* argv[]) {
             }
 
             //Check if k<= 5 jesse
-            if (k <= 5 && table[i][0]) {
-                stringstream ss;
-                ss << "$(../SanaGV/graphette2dot -u -k " << k << " -d " << table[i][2] << " -t k" << k << "d" << table[i][2] << " -o k" << k << "d" << table[i][2] << ")\n";
-                system(ss.str().c_str());
-            }
+            // if (k <= 5 && table[i][0]) {
+            //     stringstream ss;
+            //     ss << "$(../SanaGV/graphette2dot -u -k " << k << " -d " << table[i][2] << " -t k" << k << "d" << table[i][2] << " -o k" << k << "d" << table[i][2] << ")\n";
+            //     system(ss.str().c_str());
+            // }
         }   
         sort(table.begin(), table.end(), sortcol2);
         //output
