@@ -49,10 +49,10 @@ using namespace std;
 static int _numCanon, _canonList[MAX_CANONICALS];
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 const auto umap3 = unordered_map<uint64_t,uint64_t>{{3, 1}, {7, 2}};
-const auto umap4 = unordered_map<uint64_t, uint64_t>{{7, 4}, {13, 3}, {15, 6}, {30, 5}, {31, 7}, {63, 8}};
-const auto umap5 = unordered_map<uint64_t, uint64_t>{{15, 11}, {29, 10}, {31, 14}, {58, 9}, {59, 12},
- {62, 16}, {63, 17}, {126, 20}, {127, 22}, {185, 13}, {187, 19}, {191, 23}, {207, 18}, {220, 15}, {223, 24},
-  {254, 25}, {255, 26}, {495, 27}, {511, 28}, {1023, 29}};
+const auto umap4 = unordered_map<uint64_t, uint64_t>{{11, 4}, {13, 3}, {15, 6}, {30, 5}, {31, 7}, {63, 8}};
+const auto umap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14}, {86, 9}, {87, 12},
+ {94, 16}, {95, 17}, {117, 13}, {119, 19}, {127, 23}, {222, 20}, {223, 22}, {235, 18}, {236, 15}, {237, 21},
+  {239, 24}, {254, 25}, {255, 26}, {507, 27}, {511, 28}, {1023, 29}};
 
 // Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
 void *Mmap(void *p, size_t n, int fd)
@@ -205,12 +205,20 @@ int main(int argc, char* argv[]) {
             if (table[i][0]) {
                 if (k <= 5) {
                     if (k == 3) {
-                        table[i][7] = umap3.at(table[i][2]);
+                        if (umap3.find(table[i][2]) == umap3.end()) {
+                            cout << k << ' ' << table[i][2] << '\n';
+                        }
+                        //table[i][7] = umap3.at(table[i][2]);
                     } else if (k == 4) {
-                        table[i][7] = umap4.at(table[i][2]);
+                        if (umap4.find(table[i][2]) == umap4.end()) {
+                            cout << k << ' ' << table[i][2] << '\n';
+                        }
+                        //table[i][7] = umap4.at(table[i][2]);
                     } else {
-                        table[i][7] = umap5.at(table[i][2]);
-
+                        if (umap5.find(table[i][2]) == umap5.end()) {
+                            cout << k << ' ' << table[i][2] << '\n';
+                        }
+                        //table[i][7] = umap5.at(table[i][2]);
                     }
                 } else {
                     table[i][7] = connectedCount;
@@ -221,11 +229,11 @@ int main(int argc, char* argv[]) {
             }
 
             //Check if k<= 5 jesse
-            // if (k <= 5 && table[i][0]) {
-            //     stringstream ss;
-            //     ss << "$(../SanaGV/graphette2dot -u -k " << k << " -d " << table[i][2] << " -t k" << k << "d" << table[i][3] << " -o k" << k << "d" << table[i][3] << ")\n";
-            //     system(ss.str().c_str());
-            // }
+            if (k <= 5 && table[i][0]) {
+                stringstream ss;
+                ss << "$(../SanaGV/graphette2dot -u -k " << k << " -d " << table[i][2] << " -t k" << k << "d" << table[i][2] << " -o k" << k << "d" << table[i][2] << ")\n";
+                system(ss.str().c_str());
+            }
         }   
         sort(table.begin(), table.end(), sortcol2);
         //output
