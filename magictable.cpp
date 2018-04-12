@@ -25,26 +25,26 @@
 #include <sstream>
 #include <unordered_map>
 
-// extern "C"{
-// typedef struct _tinyGraph;
-// int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
-// TINY_GRAPH *TinyGraphAlloc(unsigned int n);
-// #define TinyGraphFree free
-// void BuildGraph(TINY_GRAPH* G, int Gint);
-// int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
-// void mapCanonMap(char* BUF, short int *K, int k);
-// int canonListPopulate(char *BUF, int *canon_list, int k);
-// char** convertToEL(char* file); // from convert.cpp
-// }
 
-using namespace std;
+extern "C"{
+    void mapCanonMap(char* BUF, short int *K, int k);
+    void *Mmap(void *p, size_t n, int fd);
+    int canonListPopulate(char *BUF, int *canon_list, int k);
+}
+
+using std::sort;
+using std::vector;
+using std::unordered_map;
+using std::to_string;
+using std::stringstream;
+using std::ifstream;
+using std::ofstream;
+using std::cerr;
+using std::ostream;
 
 #define maxK 8
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
-#define MAX_ORBITS	79264	// This is the number of orbits for k=8
-#define CANON_DIR "canon_maps"
-#define MMAP 1
 
 static int _numCanon, _canonList[MAX_CANONICALS];
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
@@ -53,51 +53,6 @@ const auto umap4 = unordered_map<uint64_t, uint64_t>{{11, 4}, {13, 3}, {15, 6}, 
 const auto umap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14}, {86, 9}, {87, 12},
  {94, 16}, {95, 17}, {117, 13}, {119, 19}, {127, 23}, {222, 20}, {223, 22}, {235, 18}, {236, 15}, {237, 21},
   {239, 24}, {254, 25}, {255, 26}, {507, 27}, {511, 28}, {1023, 29}};
-
-// Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
-void *Mmap(void *p, size_t n, int fd)
-{
-#if MMAP
-    void *newPointer = mmap(p, n, PROT_READ, MAP_PRIVATE|MAP_FIXED, fd, 0);
-    if(newPointer == MAP_FAILED)
-#endif
-    {
-#if !__WIN32__ && !__CYGWIN__ // it will always fail on Windoze so don't bother with a warning
-        perror("mmap failed");
-#endif
-	int status;
-	size_t numRead = 0;
-        while(numRead < n && (status = read(fd, (char*)p + numRead, n-numRead)) > 0)
-	    numRead += status;
-        if(numRead < n) perror("cannot mmap, or cannot read the file, or both");
-    }
-    return p;
-}
-
-/*
-** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
-** Mmap the canon_map binary file to the aligned array. 
-*/
-void mapCanonMap(char* BUF, short int *K, int k) {
-    int Bk = (1 <<(k*(k-1)/2));
-    sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
-    int Kfd = open(BUF, 0*O_RDONLY);
-    assert(Kfd > 0);
-    short int *Kf = (short int*) Mmap(K, Bk*sizeof(K[0]), Kfd);
-    assert(Kf == K);
-}
-
-int canonListPopulate(char *BUF, int *canon_list, int k) {
-    sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
-    FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) perror("cannot find\n");
-    int numCanon, i;
-    fscanf(fp_ord, "%d",&numCanon);
-    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
-    fclose(fp_ord);
-    return numCanon;
-}
-
 
 //assuming little endian? bad filling matrix
 uint64_t Upper2Lower(uint64_t Gint, int k)
@@ -218,13 +173,6 @@ int main(int argc, char* argv[]) {
             } else {
                 table[i][7] = 0;
             }
-
-            //Check if k<= 5 jesse
-            // if (k <= 5 && table[i][0]) {
-            //     stringstream ss;
-            //     ss << "$(../SanaGV/graphette2dot -u -k " << k << " -d " << table[i][2] << " -t k" << k << "d" << table[i][2] << " -o k" << k << "d" << table[i][2] << ")\n";
-            //     system(ss.str().c_str());
-            // }
         }   
         sort(table.begin(), table.end(), sortcol2);
         //output
