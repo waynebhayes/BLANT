@@ -1,32 +1,15 @@
-#include <sys/file.h>
-#include <unistd.h>
-#include <time.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 #include <string>
 #include <vector>
 #include <fstream>
 #include <iostream>
-#include <assert.h>
-#include <inttypes.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <assert.h>
-#include <memory.h>
-#include <sys/mman.h>
-#include <sys/time.h>   /*getrusage doesn't seem to work.*/
-#include <sys/resource.h>
-#include <unistd.h>
 #include <algorithm>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 
-
-extern "C"{
+//Functions from libwayne and libblant.c
+extern "C" {
     void mapCanonMap(char* BUF, short int *K, int k);
     void *Mmap(void *p, size_t n, int fd);
     int canonListPopulate(char *BUF, int *canon_list, int k);
@@ -41,22 +24,39 @@ using std::ifstream;
 using std::ofstream;
 using std::cerr;
 using std::ostream;
+using std::unordered_set;
 
 #define maxK 8
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 
+//Columns
+const int CONNECTED = 0;
+const int UPPER_ORDINAL = 1;
+const int UPPER_DECIMAL = 2;
+const int LOWER_DECIMAL = 3;
+const int LOWER_ORDINAL = 4;
+const int NUM_ORBITS = 5;
+const int NUM_NODES_FIRST_ORBIT = 6;
+const int ORCA = 7;
+const int FIRST_ODV_ORBIT_CON = 8;
+const int FIRST_ODV_ORBIT_ALL = 9;
+const int FIRST_ODV_ORBIT_CON_FAYE = 10;
+const int FIRST_ODV_ORBIT_ALL_FAYE = 11;
+
 static int _numCanon, _canonList[MAX_CANONICALS];
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
+
+//Manually generated mapping from upper(FAYE) binary representation of connected canonical graphlets to GRAAL/Przulj numbering
 const auto umap3 = unordered_map<uint64_t,uint64_t>{{3, 1}, {7, 2}};
 const auto umap4 = unordered_map<uint64_t, uint64_t>{{11, 4}, {13, 3}, {15, 6}, {30, 5}, {31, 7}, {63, 8}};
 const auto umap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14}, {86, 9}, {87, 12},
  {94, 16}, {95, 17}, {117, 13}, {119, 19}, {127, 23}, {222, 20}, {223, 22}, {235, 18}, {236, 15}, {237, 21},
   {239, 24}, {254, 25}, {255, 26}, {507, 27}, {511, 28}, {1023, 29}};
 
-//assuming little endian? bad filling matrix
-uint64_t Upper2Lower(uint64_t Gint, int k)
-{
+//assuming little endian? bad filling matrix.
+//TODO make better copying functions in make_orbit_maps
+uint64_t Upper2Lower(uint64_t Gint, int k) {
     auto matrix = vector<vector<bool>>(k, vector<bool>(k, false));
     int j = k-1, i = k-2;
     uint64_t mask = 1, result = 0;
@@ -91,14 +91,17 @@ uint64_t Upper2Lower(uint64_t Gint, int k)
     return result;
 }
 
-bool sortcol5(const vector<uint64_t>& v1, const vector<uint64_t>& v2 ) {
-    return v1[4] < v2[4];
+//Sort table predicate on lower/BLANT ordinal
+bool sortLower(const vector<uint64_t>& v1, const vector<uint64_t>& v2 ) {
+    return v1[LOWER_ORDINAL] < v2[LOWER_ORDINAL];
 }
 
-bool sortcol2(const vector<uint64_t>& v1, const vector<uint64_t>& v2 ) {
-    return v1[1] < v2[1];
+//Sort table predicate on upper/FAYE ordinal
+bool sortUpper(const vector<uint64_t>& v1, const vector<uint64_t>& v2 ) {
+    return v1[UPPER_ORDINAL] < v2[UPPER_ORDINAL];
 }
 
+//Prints table to output stream
 ostream& operator<<(ostream& os, const vector<vector<uint64_t>> table) {
     for (auto row : table) {
         for (auto num : row) {
@@ -109,28 +112,28 @@ ostream& operator<<(ostream& os, const vector<vector<uint64_t>> table) {
     return os;
 }
 
-//first, check 4th column matches blant canonical
-//2nd, fix 5th column blant ordinale
-//3rd do k >= 5 jesse
-//4th do k < 5 jesse
-
 int main(int argc, char* argv[]) {
+    //Connected count starts at 1 because k=2 has a connected node
     int connectedCount = 1;
     for (int k = 3; k <= 7; k++) {
         //load into memory
         auto table = vector<vector<uint64_t>>();
+        auto orbitTable = vector<vector<int>>();
         ofstream outfile;
         outfile.open("newTransformations/UpperToLower" + to_string(k) + ".txt");
-        ifstream infile;
+        ifstream infile, orbitInfile;
         infile.open("transformations/UpperToLower" + to_string(k) + ".txt");
-        if (!infile) {
+        if (!infile || !orbitInfile) {
             cerr << "Failed to open file\n";
             exit(EXIT_FAILURE);
         }
+
+        //Load canon_list and canon_map
         char BUF[BUFSIZ];
         _numCanon = canonListPopulate(BUF, _canonList, k);
         mapCanonMap(BUF, _K, k);
 
+        //Load info from files
         int j = 0;
         while (infile) {
             uint64_t temp;
@@ -139,42 +142,102 @@ int main(int argc, char* argv[]) {
                 infile >> temp;
                 table[j].push_back(temp);
             }
-            table[j].push_back(0);
+            for (int i = 0; i < 3; i++)
+                table[j].push_back(0);
             j++;
         }
         infile.close();
+
+        //Pop EOF element
         table.pop_back();
 
-        sort(table.begin(), table.end(), sortcol5);
-        //Process
+        //Load upper orbit information
+        // orbitInfile.open("orbit_maps/orbit_mapu" + to_string(k) + ".txt");
+        // int num, i = 0;
+        // while (orbitInfile) {
+        //     orbitTable.push_back(vector<int>(k, 0));
+        //     for (int j = 0; j < k; j++) {
+        //         orbitInfile >> orbitTable[i][j];
+        //     }
+        //     i++;
+        // }
+        // orbitTable.pop_back();
+
+        //Process in Upper Sorting
+        int numConnectedOrbits = 0;
+        int numTotalOrbits = 0;
+        for (int i = 0; i < table.size(); i++) {
+            //table[i][NUM_ORBITS] = orbitTable[i][0];
+
+            if (table[i][0]) {
+                //table[i][FIRST_ODV_ORBIT_CON_FAYE] = numConnectedOrbits;
+                //numConnectedOrbits += table[i][NUM_ORBITS];
+            }
+            //table[i][FIRST_ODV_ORBIT_ALL_FAYE] = numTotalOrbits;
+            //numTotalOrbits += table[i][NUM_ORBITS];
+        }
+
+        //Load lower orbit information
+        orbitInfile.open("orbit_maps/orbit_map" + to_string(k) + ".txt");
+        int num, i = 0;
+        orbitInfile >> num;
+        while (orbitInfile) {
+            orbitTable.push_back(vector<int>(k, 0));
+            for (int j = 0; j < k; j++) {
+                orbitInfile >> orbitTable[i][j];
+            }
+            i++;
+        }
+        //Pop EOF element
+        orbitTable.pop_back();
+
+        //Process in Lower Sorting
+        sort(table.begin(), table.end(), sortLower);
+        unordered_set<int> orbits;
+        numConnectedOrbits = 0;
+        numTotalOrbits = 0;
+
         for (int i = 0; i < table.size(); i++) {
             uint64_t lower, lowerOrdinal, lowerCanonical;
-            lower = Upper2Lower(table[i][2], k);
+            lower = Upper2Lower(table[i][UPPER_DECIMAL], k);
             lowerOrdinal = _K[lower];
             lowerCanonical = _canonList[lowerOrdinal];
 
-            table[i][3] = lowerCanonical;
-            table[i][4] = lowerOrdinal;
+            table[i][LOWER_DECIMAL] = lowerCanonical;
+            table[i][LOWER_ORDINAL] = lowerOrdinal;
 
-            table[i][7] = 0;
+            orbits.clear();
+            for (int j = 0; j < orbitTable[i].size(); j++) {
+                orbits.insert(orbitTable[i][j]);
+            }
+            table[i][NUM_ORBITS] = orbits.size();
+
+            if (table[i][0]) {
+                table[i][FIRST_ODV_ORBIT_CON] = numConnectedOrbits;
+                numConnectedOrbits += table[i][NUM_ORBITS];
+            }
+            table[i][FIRST_ODV_ORBIT_ALL] = numTotalOrbits;
+            numTotalOrbits += table[i][NUM_ORBITS];
+
             if (table[i][0]) {
                 if (k <= 5) {
                     if (k == 3) {
-                        table[i][7] = umap3.at(table[i][2]);
+                        table[i][ORCA] = umap3.at(table[i][UPPER_DECIMAL]);
                     } else if (k == 4) {
-                        table[i][7] = umap4.at(table[i][2]);
+                        table[i][ORCA] = umap4.at(table[i][UPPER_DECIMAL]);
                     } else {
-                        table[i][7] = umap5.at(table[i][2]);
+                        table[i][ORCA] = umap5.at(table[i][UPPER_DECIMAL]);
                     }
                 } else {
-                    table[i][7] = connectedCount;
+                    table[i][ORCA] = connectedCount;
                 }
                 connectedCount++;
             } else {
-                table[i][7] = 0;
+                table[i][ORCA] = 0;
             }
-        }   
-        sort(table.begin(), table.end(), sortcol2);
+        }
+        //sort(table.begin(), table.end(), sortUpper);
+
         //output
         outfile << table;
         outfile.close();
