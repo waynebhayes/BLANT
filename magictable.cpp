@@ -236,7 +236,7 @@ int main(int argc, char* argv[]) {
                 table[i][ORCA] = 0;
             }
         }
-        //sort(table.begin(), table.end(), sortUpper);
+        sort(table.begin(), table.end(), sortUpper);
 
         //output
         outfile << table;
