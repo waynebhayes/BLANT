@@ -7,6 +7,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <iomanip>
 
 //Functions from libwayne and libblant.c
 extern "C" {
@@ -45,6 +46,7 @@ const int FIRST_ODV_ORBIT_CON_FAYE = 10;
 const int FIRST_ODV_ORBIT_ALL_FAYE = 11;
 
 static int _numCanon, _canonList[MAX_CANONICALS];
+static int _numCanonU, _canonListU[MAX_CANONICALS];
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
 //Manually generated mapping from upper(FAYE) binary representation of connected canonical graphlets to GRAAL/Przulj numbering
@@ -115,71 +117,107 @@ ostream& operator<<(ostream& os, const vector<vector<uint64_t>> table) {
 int main(int argc, char* argv[]) {
     //Connected count starts at 1 because k=2 has a connected node
     int connectedCount = 1;
-    for (int k = 3; k <= 7; k++) {
-        //load into memory
-        auto table = vector<vector<uint64_t>>();
+    for (int k = 5; k <= 5; k++) {
         auto orbitTable = vector<vector<int>>();
+        auto orbitTableUpper = vector<vector<int>>();
         ofstream outfile;
-        outfile.open("newTransformations/UpperToLower" + to_string(k) + ".txt");
-        ifstream infile, orbitInfile;
-        infile.open("transformations/UpperToLower" + to_string(k) + ".txt");
-        if (!infile || !orbitInfile) {
-            cerr << "Failed to open file\n";
-            exit(EXIT_FAILURE);
-        }
+        outfile.open("magic_table/UpperToLower" + to_string(k) + ".txt");
+        ifstream orbitInfile;
 
         //Load canon_list and canon_map
         char BUF[BUFSIZ];
         _numCanon = canonListPopulate(BUF, _canonList, k);
+        _numCanonU = canonListPopulate(BUF, _canonListU, k);
         mapCanonMap(BUF, _K, k);
-
-        //Load info from files
-        int j = 0;
-        while (infile) {
-            uint64_t temp;
-            table.push_back(vector<uint64_t>());
-            for (int i = 0; i < 7; i++) {
-                infile >> temp;
-                table[j].push_back(temp);
-            }
-            for (int i = 0; i < 3; i++)
-                table[j].push_back(0);
-            j++;
+        if (_numCanon != _numCanonU) {
+            perror("Num canons not equal\n");
+            exit(-1);
         }
-        infile.close();
 
-        //Pop EOF element
-        table.pop_back();
+        //Create table
+        auto table = vector<vector<uint64_t>>(_numCanon, vector<uint64_t>(12, 0));
+        int lowerDecimal;
 
-        //Load upper orbit information
-        // orbitInfile.open("orbit_maps/orbit_mapu" + to_string(k) + ".txt");
-        // int num, i = 0;
-        // while (orbitInfile) {
-        //     orbitTable.push_back(vector<int>(k, 0));
-        //     for (int j = 0; j < k; j++) {
-        //         orbitInfile >> orbitTable[i][j];
-        //     }
-        //     i++;
-        // }
-        // orbitTable.pop_back();
+        //Load upper orbit information and fill out table with it
+        unordered_set<int> orbits;
+        orbitInfile.open("orbit_maps/orbit_mapu" + to_string(k) + ".txt");
+        if (!orbitInfile) {
+            cerr << "Failed to open file\n";
+            exit(EXIT_FAILURE);
+        }
+        int num, i = 0;
+        orbitInfile >> num;
+        while (orbitInfile) {
+            orbitTableUpper.push_back(vector<int>(k, 0));
+            for (int j = 0; j < k; j++) {
+                orbitInfile >> orbitTableUpper[i][j];
+            }
+            i++;
+        }
+        orbitTableUpper.pop_back();
+        orbitInfile.close();
 
-        //Process in Upper Sorting
+        if (orbitTableUpper.size() != table.size()) {
+            cerr << "Orbit table upper size: " << orbitTableUpper.size() << " Table: " << table.size() << '\n';
+            exit(-1);
+        }
+
+        //Calculate orbit information from upper
         int numConnectedOrbits = 0;
         int numTotalOrbits = 0;
-        for (int i = 0; i < table.size(); i++) {
-            //table[i][NUM_ORBITS] = orbitTable[i][0];
-
-            if (table[i][0]) {
-                //table[i][FIRST_ODV_ORBIT_CON_FAYE] = numConnectedOrbits;
-                //numConnectedOrbits += table[i][NUM_ORBITS];
+        for (int i = 0; i < orbitTableUpper.size(); i++) {
+            orbits.clear();
+            for (int j = 0; j < k; j++) {
+                orbits.insert(orbitTableUpper[i][j]);
             }
-            //table[i][FIRST_ODV_ORBIT_ALL_FAYE] = numTotalOrbits;
-            //numTotalOrbits += table[i][NUM_ORBITS];
+            table[i][NUM_ORBITS] = orbits.size();
+            //std::cout << "NUM_ORBITS: " << orbits.size() << '\n';
+            if (table[i][0]) {
+                table[i][FIRST_ODV_ORBIT_CON_FAYE] = numConnectedOrbits;
+                numConnectedOrbits += table[i][NUM_ORBITS];
+            }
+            table[i][FIRST_ODV_ORBIT_ALL_FAYE] = numTotalOrbits;
+            numTotalOrbits += table[i][NUM_ORBITS];
         }
 
-        //Load lower orbit information
+        //Fill table
+        for (int i = 0; i < table.size(); i++) {
+            table[i][UPPER_ORDINAL] = i;
+            table[i][UPPER_DECIMAL] = _canonListU[i];
+            lowerDecimal = Upper2Lower(table[i][UPPER_DECIMAL], k);
+            table[i][LOWER_ORDINAL] = _K[lowerDecimal];
+            table[i][LOWER_DECIMAL] = _canonList[table[i][LOWER_ORDINAL]];
+        }
+
+        std::cout << "Printing num orbits from upper sorted upper\n";
+        for (int i = 0; i < table.size(); i++) {
+            std::cout << std::setw(5) << table[i][NUM_ORBITS];
+        }
+        std::cout << '\n';
+
+        //Process in Upper Sorting
+        for (int i = 0; i < table.size(); i++) {
+            //table[i][NUM_ORBITS] = orbitTable[i][0];
+            orbits.clear();
+            for (int j = 0; j < orbitTableUpper[i].size(); j++) {
+                orbits.insert(orbitTableUpper[i][j]);
+            }
+            //std::cout << "NUM_ORBITS: " << orbits.size() << '\n';
+            table[i][NUM_ORBITS] = orbits.size();
+        }
+
+        //Begin Lower sorting things
+        sort(table.begin(), table.end(), sortLower);
+
+        //Load lower orbit information and compare with upper
+        numConnectedOrbits = 0;
+        numTotalOrbits = 0;
+        i = 0;
         orbitInfile.open("orbit_maps/orbit_map" + to_string(k) + ".txt");
-        int num, i = 0;
+        if (!orbitInfile) {
+            cerr << "Failed to open file\n";
+            exit(EXIT_FAILURE);
+        }
         orbitInfile >> num;
         while (orbitInfile) {
             orbitTable.push_back(vector<int>(k, 0));
@@ -188,29 +226,31 @@ int main(int argc, char* argv[]) {
             }
             i++;
         }
-        //Pop EOF element
         orbitTable.pop_back();
+        orbitInfile.close();
+        if (orbitTable.size() != table.size()) {
+            cerr << "Orbit table size: " << orbitTable.size() << " Table: " << table.size() << '\n';
+            exit(-1);
+        }
 
-        //Process in Lower Sorting
-        sort(table.begin(), table.end(), sortLower);
-        unordered_set<int> orbits;
-        numConnectedOrbits = 0;
-        numTotalOrbits = 0;
-
-        for (int i = 0; i < table.size(); i++) {
-            uint64_t lower, lowerOrdinal, lowerCanonical;
-            lower = Upper2Lower(table[i][UPPER_DECIMAL], k);
-            lowerOrdinal = _K[lower];
-            lowerCanonical = _canonList[lowerOrdinal];
-
-            table[i][LOWER_DECIMAL] = lowerCanonical;
-            table[i][LOWER_ORDINAL] = lowerOrdinal;
-
+        //Process in lower
+        for (int i = 0; i < orbitTable.size(); i++) {
             orbits.clear();
-            for (int j = 0; j < orbitTable[i].size(); j++) {
+            for (int j = 0; j < k; j++) {
+                orbitInfile >> orbitTable[i][j];
                 orbits.insert(orbitTable[i][j]);
             }
-            table[i][NUM_ORBITS] = orbits.size();
+            table[i][NUM_ORBITS] = orbits.size(); 
+            // if (table[i][NUM_ORBITS] != orbits.size()) {
+            //     cerr << k << ' ' << table[i][LOWER_DECIMAL] << ' ' << table[i][NUM_ORBITS] << ' ' << orbits.size() <<' ' << '\n';
+            //     if (k == 5) {
+            //         stringstream ss;
+            //         stringstream title;
+            //         // title << "k" << k << "d" << table[i][LOWER_DECIMAL] << "u" << table[i][NUM_ORBITS] << "l" << orbits.size();
+            //         // ss << "$(../SanaGV/graphette2dot -k 5 -d " << table[i][LOWER_DECIMAL] << " -t " << title.str() << " -o " << title.str()  << ")\n";
+            //         // system(ss.str().c_str());
+            //     }
+            // }
 
             if (table[i][0]) {
                 table[i][FIRST_ODV_ORBIT_CON] = numConnectedOrbits;
@@ -236,7 +276,18 @@ int main(int argc, char* argv[]) {
                 table[i][ORCA] = 0;
             }
         }
+        
+        std::cout << "Printing num orbits from lower sorted lower\n";
+        for (int i = 0; i < table.size(); i++) {
+            std::cout << std::setw(5) << table[i][NUM_ORBITS];
+        }
+        std::cout << '\n';
         sort(table.begin(), table.end(), sortUpper);
+        std::cout << "Printing num orbits from lower sorted upper\n";
+        for (int i = 0; i < table.size(); i++) {
+            std::cout << std::setw(5) << table[i][NUM_ORBITS];
+        }
+        std::cout << '\n';
 
         //output
         outfile << table;
