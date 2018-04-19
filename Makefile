@@ -66,5 +66,5 @@ clean:
 	/bin/rm -f canon_maps/*[3-6].* # don't remove 7 or 8 unless you REALLY want to since they take long to create
 	cd libwayne; make clean
 
-magic_table:
+magic_table: magictable.cpp
 	g++ -ggdb -std=c++11 -Wall -o mt magictable.cpp libblant.o $(LIBWAYNE)
