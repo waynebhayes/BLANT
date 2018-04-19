@@ -23,7 +23,7 @@ extern "C" {
     int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
     typedef unsigned char Boolean;
     Boolean TinyGraphDFSConnected(TINY_GRAPH *G, int seed);
-    int canonListPopulateU(char *BUF, int *canon_list, int k);
+    void Fatal(const char *fmt, ...);
 }
 
 using std::sort;
@@ -64,6 +64,7 @@ static int _numCanon, _canonList[MAX_CANONICALS];
 static int _numCanonU, _canonListU[MAX_CANONICALS];
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 static TINY_GRAPH* G;
+static char* DIR = "orca_jesse_blant_table";
 
 //Manually generated mapping from upper(FAYE) binary representation of connected canonical graphlets to GRAAL/Przulj numbering
 const auto umap3 = unordered_map<uint64_t,uint64_t>{{3, 1}, {7, 2}};
@@ -71,6 +72,17 @@ const auto umap4 = unordered_map<uint64_t, uint64_t>{{11, 4}, {13, 3}, {15, 6}, 
 const auto umap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14}, {86, 9}, {87, 12},
  {94, 16}, {95, 17}, {117, 13}, {119, 19}, {127, 23}, {222, 20}, {223, 22}, {235, 18}, {236, 15}, {237, 21},
   {239, 24}, {254, 25}, {255, 26}, {507, 27}, {511, 28}, {1023, 29}};
+
+int canonListPopulate(char *BUF, int *canon_list, int k, char c) {
+    sprintf(BUF, DIR, "/canon_list", c, "%d.txt", k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", DIR, k);
+    int numCanon, i;
+    fscanf(fp_ord, "%d",&numCanon);
+    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
+    fclose(fp_ord);
+    return numCanon;
+}
 
 //assuming little endian? bad filling matrix.
 //TODO make better copying functions in make_orbit_maps
@@ -136,17 +148,25 @@ int main(int argc, char* argv[]) {
     for (int k = MIN_K; k <= MAX_K; k++) {
         auto orbitTable = vector<vector<int>>();
         auto orbitTableUpper = vector<vector<int>>();
+
+        stringstream ss;
+        ss << DIR << "/UpperToLower" << k << ".txt";
         ofstream outfile;
-        outfile.open("magic_table/UpperToLower" + to_string(k) + ".txt");
+        outfile.open(ss.str());
+        if (!outfile) {
+            cerr << "Failed to open outputfile: " << ss.str() << '\n';
+        }
         ifstream orbitInfile;
+
         if (G) {
             free(G);
         }
         G = TinyGraphAlloc(k);
+
         //Load canon_list and canon_map
         char BUF[BUFSIZ];
-        _numCanon = canonListPopulate(BUF, _canonList, k);
-        _numCanonU = canonListPopulateU(BUF, _canonListU, k);
+        _numCanon = canonListPopulate(BUF, _canonList, k, 'l');
+        _numCanonU = canonListPopulate(BUF, _canonListU, k, 'u');
         mapCanonMap(BUF, _K, k);
         if (_numCanon != _numCanonU) {
             perror("Num canons not equal\n");
@@ -174,9 +194,11 @@ int main(int argc, char* argv[]) {
         }
 
         //Load num nodes first orbit information
-        orbitInfile.open("orbit_maps/num_nodes_first_orbit" + to_string(k) + ".txt");
+        ss.clear();
+        ss << DIR << "num_nodes_first_orbit" << k << ".txt";
+        orbitInfile.open(ss.str());
         if (!orbitInfile) {
-            cerr << "Failed to open orbit_maps/num_nodes_first_orbit" + to_string(k) + ".txt\n";
+            cerr << ss.str() << '\n';
             exit(EXIT_FAILURE);
         }
         for (int i = 0; i < table.size(); i++) {
@@ -243,9 +265,11 @@ int main(int argc, char* argv[]) {
         numConnectedOrbits = 0;
         numTotalOrbits = 0;
         i = 0;
-        orbitInfile.open("orbit_maps/orbit_map" + to_string(k) + ".txt");
+        ss.clear();
+        ss << "orbit_maps/orbit_map" << k << ".txt";
+        orbitInfile.open(ss.str());
         if (!orbitInfile) {
-            cerr << "Failed to open orbit_maps/orbit_map" + to_string(k) + ".txt\n";
+            cerr << ss.str() << '\n';
             exit(EXIT_FAILURE);
         }
         orbitInfile >> num;
@@ -260,7 +284,7 @@ int main(int argc, char* argv[]) {
         orbitInfile.close();
         if (orbitTable.size() != table.size()) {
             cerr << "Orbit table size: " << orbitTable.size() << " Table: " << table.size() << '\n';
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 
         //Process in lower
