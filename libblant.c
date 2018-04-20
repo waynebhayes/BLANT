@@ -80,14 +80,3 @@ int canonListPopulate(char *BUF, int *canon_list, int k) {
     fclose(fp_ord);
     return numCanon;
 }
-
-int canonListPopulateU(char *BUF, int *canon_list, int k) {
-    sprintf(BUF, CANON_DIR "/canon_listu%d.txt", k);
-    FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
-    int numCanon, i;
-    fscanf(fp_ord, "%d",&numCanon);
-    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
-    fclose(fp_ord);
-    return numCanon;
-}
