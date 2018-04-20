@@ -8,8 +8,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <iomanip>
+
 /*
     This file assumes LOWER_TRIANGLE is defined in blant.h
+    Otherwise, the graph won't be built correctly in BuildGraph
 */
 
 //Functions from libwayne and libblant.c
@@ -35,10 +37,10 @@ using std::ostream;
 using std::unordered_set;
 
 #define maxK 8
-#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
+#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map and canon_list
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 
-//Columns
+//Column contents information. Order can be changed easily. 
 const int CONNECTED = 0;
 const int UPPER_ORDINAL = 1;
 const int UPPER_DECIMAL = 2;
@@ -54,12 +56,13 @@ const int FIRST_ODV_ORBIT_ALL_FAYE = 11;
 
 const int TABLE_WIDTH = 12;
 
+//Not all files currently available for 8
 const int MIN_K = 3;
 const int MAX_K = 7;
 
-static int _numCanon, _canonList[MAX_CANONICALS];
-static int _numCanonU, _canonListU[MAX_CANONICALS];
-static short int _K[maxBk] __attribute__ ((aligned (8192)));
+static int _numCanon, _canonList[MAX_CANONICALS]; //Lower Canon List
+static int _numCanonU, _canonListU[MAX_CANONICALS]; //Upper Canon List
+static short int _K[maxBk] __attribute__ ((aligned (8192))); //Holds canon_map.bin for lookup
 static TINY_GRAPH* G;
 const char* DIR = "orca_jesse_blant_table/";
 
@@ -167,7 +170,7 @@ int main(int argc, char* argv[]) {
         _numCanon = canonListPopulate(BUF, _canonList, k, 'l');
         _numCanonU = canonListPopulate(BUF, _canonListU, k, 'u');
         mapCanonMap(BUF, _K, k);
-        if (_numCanon != _numCanonU) {
+        if (_numCanon != _numCanonU) { //Sanity Assertion
             perror("Num canons not equal\n");
             exit(-1);
         }
@@ -176,7 +179,7 @@ int main(int argc, char* argv[]) {
         auto table = vector<vector<uint64_t>>(_numCanon, vector<uint64_t>(TABLE_WIDTH, 0));
         int lowerDecimal;
 
-        //Fill table
+        //Fill table with graphlet information
         for (int i = 0; i < table.size(); i++) {
             table[i][UPPER_ORDINAL] = i;
             table[i][UPPER_DECIMAL] = _canonListU[i];
@@ -192,7 +195,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        //Load num nodes first orbit information
+        //Load num nodes first orbit information and put in table
         ss.str("");
         ss << DIR << "num_nodes_first_orbit" << k << ".txt";
         orbitInfile.open(ss.str());
@@ -205,7 +208,7 @@ int main(int argc, char* argv[]) {
         }
         orbitInfile.close();
 
-        //Load upper orbit information and fill out table with it
+        //Load upper orbit information
         unordered_set<int> orbits;
         ss.str("");
         ss << DIR << "orbit_mapu" << to_string(k) << ".txt";
@@ -224,14 +227,15 @@ int main(int argc, char* argv[]) {
             i++;
         }
         orbitInfile.close();
-        orbitTableUpper.pop_back();
+        orbitTableUpper.pop_back(); //EOF after space results in row of zeroes at end. Remove
 
+        //Sanity assertion
         if (orbitTableUpper.size() != table.size()) {
             cerr << "k: " << k << " Orbit table upper size: " << orbitTableUpper.size() << " Table: " << table.size() << '\n';
             exit(-1);
         }
 
-        //Calculate orbit information from upper
+        //Calculate orbit information from upper and fill out table
         int numConnectedOrbits = 0;
         int numTotalOrbits = 0;
         for (int i = 0; i < orbitTableUpper.size(); i++) {
@@ -248,23 +252,11 @@ int main(int argc, char* argv[]) {
             numTotalOrbits += table[i][NUM_ORBITS];
         }
 
-        //Process in Upper Sorting
-        for (int i = 0; i < table.size(); i++) {
-            //table[i][NUM_ORBITS] = orbitTable[i][0];
-            orbits.clear();
-            for (int j = 0; j < orbitTableUpper[i].size(); j++) {
-                orbits.insert(orbitTableUpper[i][j]);
-            }
-            //std::cout << "NUM_ORBITS: " << orbits.size() << '\n';
-            table[i][NUM_ORBITS] = orbits.size();
-        }
 
-        //Begin Lower sorting things
+        //Begin processing that requires table to be sorted in lower order
         sort(table.begin(), table.end(), sortLower);
 
-        //Load lower orbit information and compare with upper
-        numConnectedOrbits = 0;
-        numTotalOrbits = 0;
+        //Load lower orbit information
         i = 0;
         ss.str("");
         ss << DIR << "orbit_map" << k << ".txt";
@@ -281,14 +273,16 @@ int main(int argc, char* argv[]) {
             }
             i++;
         }
-        orbitTable.pop_back();
+        orbitTable.pop_back(); //Pop off empty vector
         orbitInfile.close();
-        if (orbitTable.size() != table.size()) {
+        if (orbitTable.size() != table.size()) { //Sanity Assertion
             cerr << "Orbit table size: " << orbitTable.size() << " Table: " << table.size() << '\n';
             exit(EXIT_FAILURE);
         }
 
-        //Process in lower
+        //Calculate lower orbit information and fill out table
+        numConnectedOrbits = 0;
+        numTotalOrbits = 0;
         for (int i = 0; i < orbitTable.size(); i++) {
             orbits.clear();
             for (int j = 0; j < k; j++) {
@@ -306,6 +300,7 @@ int main(int argc, char* argv[]) {
             table[i][FIRST_ODV_ORBIT_ALL] = numTotalOrbits;
             numTotalOrbits += table[i][NUM_ORBITS];
 
+        //Jesse/ORCA use Przuli numbering for lower k<=5. AFter they use lower ordering
             if (table[i][0]) {
                 if (k <= 5) {
                     if (k == 3) {
@@ -324,7 +319,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        //output
+        //output table sorted in upper order
         sort(table.begin(), table.end(), sortUpper);
         outfile << table;
         outfile.close();
