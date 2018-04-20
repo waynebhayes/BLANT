@@ -237,6 +237,19 @@ SET *SetIntersect(SET *C, SET *A, SET *B)
 }
 
 
+/* XOR A and B into C.  Any or all may be the same pointer.
+*/
+SET *SetXOR(SET *C, SET *A, SET *B)
+{
+    int i;
+    int loop = SIZE(C->n);
+    assert(A->n == B->n && B->n == C->n);
+    for(i=0; i < loop; i++)
+	C->array[i] = A->array[i] ^ B->array[i];
+    return C;
+}
+
+
 /* Complement of A.  Both may be the same pointer.
 */
 SET *SetComplement(SET *B, SET *A)
