@@ -832,7 +832,8 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 const char const * const USAGE = \
     "USAGE: blant [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
-    "Graph must be in edge-list format (one pair of unordered nodes on each line).\n" \
+    "Graph must be in one of the following formats with its extension name .\n" \
+          "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT.\n" \
