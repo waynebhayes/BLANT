@@ -232,7 +232,8 @@ void TinyGraphDFSConnectedHelper(TINY_GRAPH *G, int seed, TSET* visited) {
     TSetAdd(*visited, seed);
     unsigned int neighbor[MAX_TSET];
     int numNeighbors = TSetToArray(neighbor, G->A[seed]);
-    for (int i = 0; i < numNeighbors; i++) {
+    int i;
+    for (i = 0; i < numNeighbors; i++) {
         if (!TSetIn(*visited, neighbor[i])) {
             TinyGraphDFSConnectedHelper(G, neighbor[i], visited);
         }
