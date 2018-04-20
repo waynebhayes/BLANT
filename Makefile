@@ -1,5 +1,5 @@
-#LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
-LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
+LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
+#LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
 all: canon_maps blant magic_table #test_blant
@@ -71,4 +71,4 @@ clean:
 	#cd libwayne; make clean
 
 magic_table: magictable.cpp
-	g++ -ggdb -std=c++11 -Wall -o mt magictable.cpp libblant.o $(LIBWAYNE)
+	g++ -std=c++11 -Wall -o mt magictable.cpp libblant.o $(LIBWAYNE)
