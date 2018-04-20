@@ -64,7 +64,7 @@ static int _numCanon, _canonList[MAX_CANONICALS];
 static int _numCanonU, _canonListU[MAX_CANONICALS];
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 static TINY_GRAPH* G;
-static char* DIR = "orca_jesse_blant_table";
+const char* DIR = "orca_jesse_blant_table/";
 
 //Manually generated mapping from upper(FAYE) binary representation of connected canonical graphlets to GRAAL/Przulj numbering
 const auto umap3 = unordered_map<uint64_t,uint64_t>{{3, 1}, {7, 2}};
@@ -74,13 +74,19 @@ const auto umap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14
   {239, 24}, {254, 25}, {255, 26}, {507, 27}, {511, 28}, {1023, 29}};
 
 int canonListPopulate(char *BUF, int *canon_list, int k, char c) {
-    sprintf(BUF, DIR, "/canon_list", c, "%d.txt", k);
-    FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", DIR, k);
-    int numCanon, i;
-    fscanf(fp_ord, "%d",&numCanon);
-    for(i=0; i<numCanon; i++) fscanf(fp_ord, "%d", &canon_list[i]);
-    fclose(fp_ord);
+    stringstream ss;
+    ss << DIR << "/canon_list" << c << k << ".txt";
+    ifstream infile;
+    infile.open(ss.str());
+    if(!infile) {
+        cerr << "Cannot open: " << ss.str() << "\n";
+    }
+    int numCanon, i = 0;
+    infile >> numCanon;
+    for (int i = 0; i < numCanon; i++) {
+        infile >> canon_list[i];
+    }
+    infile.close();
     return numCanon;
 }
 
@@ -194,11 +200,11 @@ int main(int argc, char* argv[]) {
         }
 
         //Load num nodes first orbit information
-        ss.clear();
+        ss.str("");
         ss << DIR << "num_nodes_first_orbit" << k << ".txt";
         orbitInfile.open(ss.str());
         if (!orbitInfile) {
-            cerr << ss.str() << '\n';
+            cerr << "Failed to open: " << ss.str() << "\n";
             exit(EXIT_FAILURE);
         }
         for (int i = 0; i < table.size(); i++) {
@@ -208,9 +214,11 @@ int main(int argc, char* argv[]) {
 
         //Load upper orbit information and fill out table with it
         unordered_set<int> orbits;
-        orbitInfile.open("orbit_maps/orbit_mapu" + to_string(k) + ".txt");
+        ss.str("");
+        ss << DIR << "orbit_mapu" << to_string(k) << ".txt";
+        orbitInfile.open(ss.str());
         if (!orbitInfile) {
-            cerr << "Failed to open orbit_maps/orbit_mapu" + to_string(k) + ".txt\n";
+            cerr << "Failed to open: " << ss.str() << "\n";
             exit(EXIT_FAILURE);
         }
         int num, i = 0;
@@ -265,11 +273,11 @@ int main(int argc, char* argv[]) {
         numConnectedOrbits = 0;
         numTotalOrbits = 0;
         i = 0;
-        ss.clear();
-        ss << "orbit_maps/orbit_map" << k << ".txt";
+        ss.str("");
+        ss << DIR << "orbit_map" << k << ".txt";
         orbitInfile.open(ss.str());
         if (!orbitInfile) {
-            cerr << ss.str() << '\n';
+            cerr << "Failed to open: " << ss.str() << "\n";
             exit(EXIT_FAILURE);
         }
         orbitInfile >> num;
