@@ -7,7 +7,6 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
-#include <iomanip>
 
 /*
     This file assumes LOWER_TRIANGLE is defined in blant.h
