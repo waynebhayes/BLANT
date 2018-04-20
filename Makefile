@@ -2,7 +2,7 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-all: canon_maps blant test_blant
+all: canon_maps blant test_blant magic_table
 
 test_blant:
 	# First run blant-sanity for various values of k
@@ -64,6 +64,9 @@ subcanon_maps: libwayne make-subcanon-maps.c blant.h libblant.c
 	gcc -Wall -o make-subcanon-maps make-subcanon-maps.c libblant.c $(LIBWAYNE)
 	for i in 4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
 	/bin/rm -f make-subcanon-maps # it's not useful after this
+
+magic_table: magictable.cpp
+	g++ -std=c++11 -Wall -o orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
 
 clean:
 	/bin/rm -f *.[oa] blant make-canon-maps canon-sift
