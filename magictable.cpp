@@ -300,7 +300,7 @@ int main(int argc, char* argv[]) {
             table[i][FIRST_ODV_ORBIT_ALL] = numTotalOrbits;
             numTotalOrbits += table[i][NUM_ORBITS];
 
-        //Jesse/ORCA use Przuli numbering for lower k<=5. AFter they use lower ordering
+        //Jesse/ORCA use Przulj numbering for lower k<=5. AFter they use lower ordering
             if (table[i][0]) {
                 if (k <= 5) {
                     if (k == 3) {
