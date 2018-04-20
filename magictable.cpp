@@ -187,11 +187,7 @@ int main(int argc, char* argv[]) {
             table[i][LOWER_DECIMAL] = _canonList[table[i][LOWER_ORDINAL]];
 
             BuildGraph(G, table[i][LOWER_DECIMAL]);
-            if (TinyGraphDFSConnected(G, 0)) {
-                table[i][CONNECTED] = 1;
-            } else {
-                table[i][CONNECTED] = 0;
-            }
+            table[i][CONNECTED] = static_cast<bool>(TinyGraphDFSConnected(G,0));
         }
 
         //Load num nodes first orbit information and put in table
@@ -300,13 +296,22 @@ int main(int argc, char* argv[]) {
             numTotalOrbits += table[i][NUM_ORBITS];
 
         //Jesse/ORCA use Przulj numbering for lower k<=5. AFter they use lower ordering
-            if (table[i][0]) {
+            if (table[i][CONNECTED]) {
                 if (k <= 5) {
                     if (k == 3) {
-                        table[i][ORCA] = umap3.at(table[i][UPPER_DECIMAL]);
+                        if (umap3.find(table[i][UPPER_DECIMAL]) == umap3.end()) //Map sanity check
+                            cerr << "Cannot find: " << table[i][UPPER_DECIMAL] << " in umap" << k << "\n";
+                        else
+                            table[i][ORCA] = umap3.at(table[i][UPPER_DECIMAL]);
                     } else if (k == 4) {
+                        if (umap4.find(table[i][UPPER_DECIMAL]) == umap4.end()) //Map sanity check
+                            cerr << "Cannot find: " << table[i][UPPER_DECIMAL] << " in umap" << k << "\n";
+                        else
                         table[i][ORCA] = umap4.at(table[i][UPPER_DECIMAL]);
                     } else {
+                        if (umap5.find(table[i][UPPER_DECIMAL]) == umap5.end()) //Map sanity check
+                            cerr << "Cannot find: " << table[i][UPPER_DECIMAL] << " in umap" << k << "\n";
+                        else
                         table[i][ORCA] = umap5.at(table[i][UPPER_DECIMAL]);
                     }
                 } else {
