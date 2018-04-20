@@ -16,14 +16,11 @@
 extern "C" {
     struct TINY_GRAPH;
     void mapCanonMap(char* BUF, short int *K, int k);
-    void *Mmap(void *p, size_t n, int fd);
-    int canonListPopulate(char *BUF, int *canon_list, int k);
     void BuildGraph(TINY_GRAPH* G, int Gint);
     TINY_GRAPH *TinyGraphAlloc(unsigned int n);
     int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
     typedef unsigned char Boolean;
     Boolean TinyGraphDFSConnected(TINY_GRAPH *G, int seed);
-    void Fatal(const char *fmt, ...);
 }
 
 using std::sort;
@@ -81,7 +78,7 @@ int canonListPopulate(char *BUF, int *canon_list, int k, char c) {
     if(!infile) {
         cerr << "Cannot open: " << ss.str() << "\n";
     }
-    int numCanon, i = 0;
+    int numCanon;
     infile >> numCanon;
     for (int i = 0; i < numCanon; i++) {
         infile >> canon_list[i];
@@ -90,41 +87,37 @@ int canonListPopulate(char *BUF, int *canon_list, int k, char c) {
     return numCanon;
 }
 
-//assuming little endian? bad filling matrix.
-//TODO make better copying functions in make_orbit_maps
+//Converts between upper and lower decimal forms of a graphette
 uint64_t Upper2Lower(uint64_t Gint, int k) {
     auto matrix = vector<vector<bool>>(k, vector<bool>(k, false));
-    int j = k-1, i = k-2;
-    uint64_t mask = 1, result = 0;
-    int numBits = k*(k-1)/2;
-    for (int bit = 0; bit < numBits; bit++) {
-        if (Gint & mask) {
-            matrix[j][i] = true;
-            matrix[i][j] = true;
+
+    int i, j, bitPos=0, bit;
+    uint64_t Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
+    for(i=k-2;i>=0;i--) {
+        for(j=k-1;j>i;j--) {
+            if(!Gint2) break;
+            bit = (1 << bitPos);
+            if(Gint & bit) {
+                matrix[i][j] = true;
+                matrix[j][i] = true;
+            }
+            Gint2 &= ~bit;
+            bitPos++;
         }
-        mask <<= 1;
-        j--;
-		if (j == i) {
-			i--;
-			j = k-1;
-		}
+	    if(!Gint2) break;
     }
-    mask = 1;
-    j = k-2;
-    i = k-1;
-    for (int bit = 0; bit < k*(k-1)/2; bit++) {
-        if (matrix[j][i]) {
-            result |= mask;
-        }
-        mask <<= 1;
-        j--;
-        if (j == -1) {
-            i--;
-            j = i
-            -1;
+
+    bitPos=0, Gint2 = 0;
+    for(i=k-1;i>0;i--)  {
+        for(j=i-1;j>=0;j--) {
+            if(matrix[i][j]) {
+                bit = (1 << bitPos);
+                Gint2 |= bit;
+	        }
+            bitPos++;
         }
     }
-    return result;
+    return Gint2;
 }
 
 //Sort table predicate on lower/BLANT ordinal
