@@ -42,6 +42,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS];
+static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
 
 enum OutputMode {undef, indexGraphlets, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
@@ -587,6 +588,8 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     int i;
     _numCanon = canonListPopulate(BUF, _canonList, _k);
+    // Jens: this is where you'd insert a _numOrbits = orbitListPopulate(...) function;
+    // put the actual function in libblant.[ch]
     mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
@@ -645,6 +648,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	case outputGDV:
 	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
 	    break;
+	case outputODV: // Jens, here...
+	    Abort("Sorry, ODV is not implemented yet");
+	    for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][j]);
+	    break;
+		
 	default: Abort("unknown or un-implemented outputMode");
 	    break;
 	}
