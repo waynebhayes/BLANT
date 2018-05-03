@@ -483,6 +483,70 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #endif
 }
 
+// MCMC getNeighbor
+static SET *MCMCGetNeighbor(GRAPH *G, SET *X, int *Varray, int d)
+{
+	//*modularize
+	static SET *outSet;
+    static int numIsolatedNodes;
+    if(!outSet)
+    	outSet = SetAlloc(G->n);
+    else if(G->n > outSet->n)
+		SetResize(outSet, G->n);
+    else
+		SetEmpty(outSet);
+
+	int nOut = 0, outbound[G->n], vx, vj, j, i;
+
+	if (d != 2)
+	{
+		j =  X->n * drand48();
+		while(true)
+		{
+			int vx = Varray[j];
+			//*modularize
+			for(i=0; i < G->degree[v1]; i++)
+			{
+				int nv1 =  G->neighbor[v1][i];
+				if(nv1 != vx) SetAdd(outSet, (outbound[nOut++] = nv1));
+			}
+
+			j = nOut * drand48();
+			vj = outbound[j];
+			SetDelete(X, vx);
+			SetAdd(X, vj); // also add to array, does local set/arr need to be updated
+			
+			//vj;
+			// Xnext = swap vx & vj
+			// if Xnext is connected, break
+			break;
+		}
+	}
+	else
+	{
+		// assuming d = 2 (2 node graphlet)
+		// randomly create a probability 
+		// if 0 < p < 1, p < deg(u) + deg(v) then
+		vx; // select randomly from Neigh(u)
+		// Xnext = swap vx with u
+		
+		// else
+		// select vx from Neigh(v)
+		// swap vj with v to form Xnext
+	}
+
+	return X;
+}
+
+// MCMC sampleGraphletMCMC
+static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k)
+{
+	static unsigned int d = 2; // an arbitrary value d < k
+	V = SampleGraphletNodeBasedExpansion(V, Varray, G, d);
+	MCMCGetNeighbor(G, V, Varray, d);
+}
+
+
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
 // Given the big graph G, and a set of nodes S (|S|==k), compute the 
