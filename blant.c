@@ -597,20 +597,7 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
-// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
-// Call RunBlantInThreads instead, it's the top-level entry point to call once the
-// graph is finished being input---all the ways of reading input call RunBlantInThreads.
-int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
-{
-    int i;
-    char perm[maxK+1];
-    assert(k <= G->n);
-    srand48(time(0)+getpid());
-    SET *V = SetAlloc(G->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k);
-    unsigned Varray[maxK+1];
-    for(i=0; i<numSamples; i++)
-    {
+void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 #if SAMPLE_METHOD == SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
 #elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
@@ -622,6 +609,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #else
 #error unknown sampling method
 #endif
+}
+
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -656,6 +646,24 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	default: Abort("unknown or un-implemented outputMode");
 	    break;
 	}
+}
+
+// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
+// Call RunBlantInThreads instead, it's the top-level entry point to call once the
+// graph is finished being input---all the ways of reading input call RunBlantInThreads.
+int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+{
+    int i;
+    char perm[maxK+1];
+    assert(k <= G->n);
+    srand48(time(0)+getpid());
+    SET *V = SetAlloc(G->n);
+    TINY_GRAPH *g = TinyGraphAlloc(k);
+    unsigned Varray[maxK+1];
+    for(i=0; i<numSamples; i++)
+    {
+		SampleGraphlet(G, V, Varray, k);
+		ProcessGraphlet(G, V, Varray, perm, g, k);
     }
     switch(_outputMode)
     {
