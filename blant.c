@@ -24,6 +24,7 @@ char **_nodeNames;
 #define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
 #define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
+#define SAMPLE_MCMC 5 // MCMC Algorithm estimates graphlet frequency with a random walk
 #ifndef RESERVOIR_MULTIPLIER
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
@@ -42,6 +43,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS];
+static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
 
 enum OutputMode {undef, indexGraphlets, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
@@ -651,6 +653,8 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     int i;
     _numCanon = canonListPopulate(BUF, _canonList, _k);
+    // Jens: this is where you'd insert a _numOrbits = orbitListPopulate(...) function;
+    // put the actual function in libblant.[ch]
     mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
@@ -658,20 +662,7 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
-// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
-// Call RunBlantInThreads instead, it's the top-level entry point to call once the
-// graph is finished being input---all the ways of reading input call RunBlantInThreads.
-int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
-{
-    int i;
-    char perm[maxK+1];
-    assert(k <= G->n);
-    srand48(time(0)+getpid());
-    SET *V = SetAlloc(G->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k);
-    unsigned Varray[maxK+1];
-    for(i=0; i<numSamples; i++)
-    {
+void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 #if SAMPLE_METHOD == SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
 #elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
@@ -680,9 +671,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
 #elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#elif SAMPLE_METHOD == SAMPLE_MCMC
+	SampleGraphletMCMC(V, Varray, G, k);
 #else
 #error unknown sampling method
 #endif
+}
+
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -709,14 +705,44 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	case outputGDV:
 	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
 	    break;
+	case outputODV: // Jens, here...
+	    Abort("Sorry, ODV is not implemented yet");
+	    for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][j]);
+	    break;
+		
 	default: Abort("unknown or un-implemented outputMode");
 	    break;
 	}
+}
+
+// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
+// Call RunBlantInThreads instead, it's the top-level entry point to call once the
+// graph is finished being input---all the ways of reading input call RunBlantInThreads.
+int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+{
+    int i;
+    char perm[maxK+1];
+    assert(k <= G->n);
+    srand48(time(0)+getpid());
+    SET *V = SetAlloc(G->n);
+    TINY_GRAPH *g = TinyGraphAlloc(k);
+    unsigned Varray[maxK+1];
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	initializeMCMC();
+#endif
+    for(i=0; i<numSamples; i++)
+    {
+		SampleGraphlet(G, V, Varray, k);
+		ProcessGraphlet(G, V, Varray, perm, g, k);
     }
     switch(_outputMode)
     {
 	int canon;
-    case indexGraphlets: break; // already output on-the-fly above
+    case indexGraphlets: 
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	Warning("Sampling method MCMC overcounts graphlets by varying amounts.")
+#endif
+	break; // already output on-the-fly above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++)
 	    printf("%lu %d\n", _graphletCount[canon], canon);
