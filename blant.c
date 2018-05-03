@@ -24,6 +24,7 @@ char **_nodeNames;
 #define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
 #define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
+#define SAMPLE_MCMC 5 // MCMC Algorithm estimates graphlet frequency with a random walk
 #ifndef RESERVOIR_MULTIPLIER
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
@@ -606,6 +607,8 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
 #elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#elif SAMPLE_METHOD == SAMPLE_MCMC
+	SampleGraphletMCMC(V, Varray, G, k);
 #else
 #error unknown sampling method
 #endif
@@ -660,6 +663,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	initializeMCMC();
+#endif
     for(i=0; i<numSamples; i++)
     {
 		SampleGraphlet(G, V, Varray, k);
@@ -668,7 +674,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     switch(_outputMode)
     {
 	int canon;
-    case indexGraphlets: break; // already output on-the-fly above
+    case indexGraphlets: 
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	Warning("Sampling method MCMC overcounts graphlets by varying amounts.")
+#endif
+	break; // already output on-the-fly above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++)
 	    printf("%lu %d\n", _graphletCount[canon], canon);
