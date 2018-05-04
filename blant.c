@@ -402,7 +402,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    else
 		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 #else
-	    static depth;
+	    static int depth;
 	    depth++;
 	    assert(depth < MAX_TRIES); // graph is too disconnected
 	    V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
