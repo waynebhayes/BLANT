@@ -1,0 +1,54 @@
+#!/bin/sh
+# This links just about every library I ever use, including gcc, so I can
+# link gcc-compiled things to f77-compiled things.
+# It also runs the C pre-processor on .fcp files, producing .f files.
+
+# Include the flag "-k" to keep the intermediate .f files from .fcp.
+# Note that "-k" must the the first option, because we shift it away.
+KEEP_F=
+case "$1" in
+-k) KEEP_F=y; shift;;
+esac
+
+# Pre-process
+trap "/bin/rm -f /tmp/wf77*" 0 1 2 3 15
+for i
+do
+    case "$i" in
+    *.fcp) grep -vi '^C' $i | expand > /tmp/wf77$$.c
+	OUTFILE=`echo $i | sed 's/cp$//'`
+	if [ -f "$OUTFILE" ]; then
+	    echo "$OUTFILE already exists, will not create from .fcp" >&2
+	    exit 1
+	fi
+	gcc -E -C -I`pwd` /tmp/wf77$$.c | grep -v '^#' > $OUTFILE
+	# Now take out tons of extraneous spaces that MACROs insert
+	# Don't touch the first 6 columns.
+	#cut -c1-6 $OUTFILE > fcp1.$$
+	#cut -c7- $OUTFILE | sed 's/  *//g' > fcp2.$$
+	#paste '-d\0' fcp1.$$ fcp2.$$ > $OUTFILE
+	sed 's/^ *\([0-9][0-9]*\) *continue/\1	continue/' $OUTFILE | expand > fcp0.$$; mv fcp0.$$ $OUTFILE
+	rm -f fcp?.$$
+	;;
+    esac
+done
+
+FORTRAN=FORTRAN
+if echo "$@" | grep ' -g' >/dev/null ; then
+    FORTRAN=FORTRAN-g
+fi
+LIB_GCC=`gcc -v 2>&1 | grep 'Reading specs from' | sed 's,/specs$,,' | awk '{print $4}'`
+f77 `echo "$@" | sed 's/\.fcp/.f/g'` -L$HOME/lib/`arch` -lwayne -l$FORTRAN -L${LIB_GCC:-/dev/null} -lgcc -L${LD_LIBRARY_PATH:-/dev/null} #-llapack -lblas #$LINK_FNL_SHARED
+
+# UN-Pre-process
+case "$KEEP_F" in
+[Yy]*) ;;
+*)
+    for i
+    do
+	case "$i" in
+	*.fcp) rm `basename $i .fcp`.f ;;
+	esac
+    done
+    ;;
+esac
