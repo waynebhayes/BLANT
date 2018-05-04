@@ -1,0 +1,56 @@
+#!/bin/sh
+# Input: a file with a constant number of columns.  The first line contains the names of the columns.
+# First arg is an awk program that is run on each line, and you can use the names defined in the top line of the input file.
+# File is allowed to contain comments as hashes, they will be ignored
+
+die() { echo "$@" >&2; exit 1
+}
+
+newlines() { awk '{for(i=1; i<=NF; i++) print $i}' "$@"
+}
+
+FIELD_SEP='	'
+QUIET=0
+PROG=''
+VERBOSE=0
+HEADER=0
+while :; do
+    case "$1" in
+    -BEGIN) BEGIN=`echo "$2" | sed 's/ and / \&\& /g'`; shift 2;;
+    -END) END=`echo "$2" | sed 's/ and / \&\& /g'`; shift 2;;
+    -P) PROG="$PROG;"`cat "$2" | sed 's/ and / \&\& /g'`; shift 2;;
+    -F) FIELD_SEP="$2"; shift 2;;
+    -functions) FUNC="$2"; shift 2;;
+    -q) QUIET=1; shift ;;
+    -v) VERBOSE=1; shift ;;
+    -h) HEADER=1; shift ;;
+    -*) die "unknown option '$1'" ;;
+    *) break;;
+    esac
+done
+
+if [ "$PROG" == "" ]; then
+    PROG=`echo "$1" | sed 's/ and / \&\& /g'`
+    shift
+fi
+
+trap "/bin/rm -f /tmp/varNames$$; exit" 0 1 2 3 15
+# Automatically create awk code to assign the appropriate variables from the header
+ASSIGN=`head -1 "$1" | sed "s/$FIELD_SEP/ /g" | newlines | tr '$%' 'DP' | sed -e 's/[^_A-Za-z0-9]/_/g' | tee /tmp/varNames$$ | awk '{printf "%s=$%d\n", $1,NR}' | sed 's/^\([0-9]\)/_\1/'`
+VARCOLS=`cat /tmp/varNames$$ | awk '{printf "colName[%d]=\"%s\";varCol[\"%s\"]=%d\n",NR,$1,$1,NR}'`
+
+if [ "$VERBOSE" -eq 1 ]; then
+    echo "$ASSIGN" >&2
+fi
+
+awk -F "$FIELD_SEP" "`cat $HOME/bin/misc.awk`BEGIN{$VARCOLS}${FUNC}BEGIN{$BEGIN}"'
+    /^#/&&!started{print "FATAL ERROR: No comments allowed in data file before the header" > "/dev/stderr"; exit(1)}
+    /^[^#]/{started=1}
+    {gsub("#.*","")} # remove comments
+    /^$/{next}
+    started&&!seenHeader{NumCols=NF;seenHeader=1;if('"$HEADER"')print;next}
+    NF!=NumCols&&'$QUIET'==0{printf "named-col-prog: warning: expected %d columns at %s:%d but found %d\n", NumCols, FILENAME, NR, NF > "/dev/stderr";if('$VERBOSE')print > "/dev/stderr"}
+    started{
+    '"$ASSIGN"'
+    '"$PROG"'
+    }'"END{$END}" "$@"
