@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/bin/sh -x
 # The options below turn on lots and lots of gcc warnings.
 CC='gcc -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow' #-Wconversion 
 
-LIBHOME=`pwd`/../lib
+LIBHOME=`pwd`/..
 OtherLibs=""	#-L$PVM_ROOT/lib/$PVM_ARCH -lpvm3 -lsocket -lnsl"
 OtherIncs=""	#-I$PVM_ROOT/include"
 
