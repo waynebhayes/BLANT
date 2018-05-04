@@ -11,6 +11,7 @@
 #include "rand48.h"
 #include "heap.h"
 #include "blant.h"
+#include "queue.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
@@ -29,7 +30,7 @@ char **_nodeNames;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
+#define SAMPLE_METHOD SAMPLE_MCMC
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -73,7 +74,7 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
-
+static unsigned L; // walk length for MCMC algorithm
 /* AND NOW THE CODE */
 
 
@@ -486,7 +487,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 }
 
 // MCMC getNeighbor
-static SET *MCMCGetNeighbor(GRAPH *G, SET *X, int *Varray, int d)
+int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
 	//*modularize
 	static SET *outSet;
@@ -498,56 +499,142 @@ static SET *MCMCGetNeighbor(GRAPH *G, SET *X, int *Varray, int d)
     else
 		SetEmpty(outSet);
 
-	int nOut = 0, outbound[G->n], vx, vj, j, i;
+	int nOut = 0, outbound[G->n], p, j, i;
+	
+	// if (mcmc_d != 2)
+	// {
+	// 	j =  X->n * drand48();
+	// 	while(true)
+	// 	{
+	// 		int vx = Varray[j];
+	// 		//*modularize
+	// 		for(i=0; i < G->degree[v1]; i++)
+	// 		{
+	// 			int nv1 =  G->neighbor[v1][i];
+	// 			if(nv1 != vx) SetAdd(outSet, (outbound[nOut++] = nv1));
+	// 		}
 
-	if (d != 2)
-	{
-		j =  X->n * drand48();
-		while(true)
-		{
-			int vx = Varray[j];
-			//*modularize
-			for(i=0; i < G->degree[v1]; i++)
-			{
-				int nv1 =  G->neighbor[v1][i];
-				if(nv1 != vx) SetAdd(outSet, (outbound[nOut++] = nv1));
-			}
-
-			j = nOut * drand48();
-			vj = outbound[j];
-			SetDelete(X, vx);
-			SetAdd(X, vj); // also add to array, does local set/arr need to be updated
+	// 		j = nOut * drand48();
+	// 		vj = outbound[j];
+	// 		SetDelete(X, vx);
+	// 		SetAdd(X, vj); // also add to array, does local set/arr need to be updated
 			
-			//vj;
-			// Xnext = swap vx & vj
-			// if Xnext is connected, break
-			break;
-		}
-	}
-	else
+	// 		//vj;
+	// 		// Xnext = swap vx & vj
+	// 		// if Xnext is connected, break
+	// 		break;
+	// 	}
+	// }
+	
+	if (mcmc_d == 2)
 	{
 		// assuming d = 2 (2 node graphlet)
-		// randomly create a probability 
-		// if 0 < p < 1, p < deg(u) + deg(v) then
-		vx; // select randomly from Neigh(u)
-		// Xnext = swap vx with u
-		
-		// else
-		// select vx from Neigh(v)
-		// swap vj with v to form Xnext
+		// randomly create a probability
+		int oldu = Xcurrent[0];
+		int oldv = Xcurrent[1];
+		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
+			p = drand48();
+			// if 0 < p < 1, p < deg(u) + deg(v) then
+			if (p < G->degree[Xcurrent[0]]/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
+				// select randomly from Neigh(u) and swap
+				int neighbor = (int) (G->degree[Xcurrent[0]] * drand48());
+				Xcurrent[1] = G->neighbor[Xcurrent[0]][neighbor];
+			}
+			else {
+				// select randomly from Neigh(v) and swap
+				int neighbor = (int) (G->degree[Xcurrent[1]] * drand48());
+				Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
+			}
+		}
 	}
+	else Fatal("Not implemented. Set d to 2");
+	return Xcurrent;
+}
 
-	return X;
+// WalkLSteps
+SET *WalkLSteps(int *Varray, SET *UnionNodes, QUEUE *XL, GRAPH *G, int k)
+{
+	static int X[mcmc_d];
+	int numNodes = 0;
+	int edge = G->numEdges * drand48();
+    int v1 = G->edgeList[2*edge];
+    int v2 = G->edgeList[2*edge+1];
+	Varray[0] = v1;
+	Varray[1] = v2;
+    SetAdd(UnionNodes, v1); QueuePut(XL, (foint) v1);
+    SetAdd(UnionNodes, v2); QueuePut(XL, (foint) v2);
+	X[numNodes++] = v1;
+	X[numNodes++] = v2;
+	while (SetCardinality(UnionNodes) < k) {
+		MCMCGetNeighbor(X, G);
+		if (!SetIn(UnionNodes, X[0])) Varray[numNodes++] = X[0];
+		if (!SetIn(UnionNodes, X[1])) Varray[numNodes++] = X[1];
+		SetAdd(UnionNodes, X[0]); QueuePut(XL, (foint) X[0]);
+		SetAdd(UnionNodes, X[1]); QueuePut(XL, (foint) X[1]);
+
+	}
+	return UnionNodes;
+}
+
+void FillSetFromQueue(SET* V, QUEUE *Q)
+{
+	int num;
+	for (int i = 0; i < Q->length; i++) {
+		int num = (Q->queue[(Q->front + i) % Q->maxSize]).i;
+		if (!SetIn(V, num)) {
+			SetAdd(V, num);
+		}
+	}
 }
 
 // MCMC sampleGraphletMCMC
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k)
 {
-	static unsigned int d = 2; // an arbitrary value d < k
-	V = SampleGraphletNodeBasedExpansion(V, Varray, G, d);
-	MCMCGetNeighbor(G, V, Varray, d);
+	static Boolean setup = false;
+	static SET *UnionNodes;
+	static QUEUE *XL;
+
+	if (!XL) {
+		XL = QueueAlloc(_k*2);
+	}
+
+	if (!setup) {
+		return WalkLSteps(Varray, V, XL, G, k);
+	}
+	else {
+		int v1, v2;
+		do {
+			QueueGet(XL); QueueGet(XL); //Pop off the oldest graphlet from the queue
+			SetEmpty(V);
+			FillSetFromQueue(V, XL);
+		}
+		while(SetCardinality(V) >= k);
+
+		while (SetCardinality(V) < k)
+		{
+			v1 = (XL->queue[(XL->front + (XL->length - 1)) % XL->maxSize]).i;
+			v2 = (XL->queue[(XL->front + (XL->length)) % XL->maxSize]).i;
+			SetAdd(V, v1); QueuePut(XL, (foint) v1);
+			SetAdd(V, v2); QueuePut(XL, (foint) v2);
+		}
+		SetEmpty(V);
+
+		int num, numNodes = 0;
+		for (int i = 0; i < XL->length; i++) {
+			int num = (XL->queue[(XL->front + i) % XL->maxSize]).i;
+			if (!SetIn(V, num)) {
+				Varray[numNodes++] = num;
+				SetAdd(V, num);
+			}
+		}
+		return MCMCGETNeighbor(G, Varray);
+	}
+
 }
 
+void initializeMCMC() {
+	L = _k - mcmc_d  + 1;
+}
 
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
@@ -632,7 +719,6 @@ static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 	assert(NumReachableNodes(g,0) == TinyGraphBFS(g, 0, k, graphetteArray, distArray));
 #endif
     } while(NumReachableNodes(g, 0) < k);
-
     return V;
 }
 
@@ -740,7 +826,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	int canon;
     case indexGraphlets: 
 #if SAMPLE_METHOD == SAMPLE_MCMC
-	Warning("Sampling method MCMC overcounts graphlets by varying amounts.")
+	Warning("Sampling method MCMC overcounts graphlets by varying amounts.");
 #endif
 	break; // already output on-the-fly above
     case graphletFrequency:
