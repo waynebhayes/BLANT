@@ -52,12 +52,7 @@ blant: libwayne blant.c blant.h libblant.c convert.cpp
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
 libwayne: libwayne/libwayne.a libwayne/libwayne-g.a
-
-libwayne/libwayne.a:
-	cd libwayne; make opt_clean; make opt
-
-libwayne/libwayne-g.a:
-	cd libwayne; make debug_clean; make debug
+	cd libwayne; make all
 
 subcanon_maps: libwayne make-subcanon-maps.c blant.h libblant.c
 	mkdir -p canon_maps
