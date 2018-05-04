@@ -9,6 +9,7 @@ all:
 	make -j4 opt
 	make debug_clean
 	make -j4 debug
+	(cd tests; make stats; mv stats ../bin)
 
 opt:
 	make 'OPT=-O1' 'LIBOUT=libwayne.a' libwayne
