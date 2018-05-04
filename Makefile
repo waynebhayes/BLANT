@@ -66,7 +66,8 @@ subcanon_maps: libwayne make-subcanon-maps.c blant.h libblant.c
 	/bin/rm -f make-subcanon-maps # it's not useful after this
 
 magic_table: magictable.cpp
-	g++ -std=c++11 -Wall -o orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
+	g++ -std=c++11 -Wall -o make-orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
+	./make-orca-jesse-blant-table 7
 
 clean:
 	/bin/rm -f *.[oa] blant make-canon-maps canon-sift
