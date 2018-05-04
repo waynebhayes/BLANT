@@ -15,7 +15,7 @@ test_blant:
 	echo 'testing Graphlet (not orbit) Degree Vectors'
 	for k in 3 4 5 6 7 8; do export k; echo -n "$$k: "; ./blant -t 4 -mg -s 10000000 -k $$k networks/syeast.el | bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
-canon_maps: libwayne canon_maps/canon_map6.txt blant.h test_maps subcanon_maps
+canon_maps: libwayne/made canon_maps/canon_map6.txt blant.h test_maps subcanon_maps
 
 test_maps:
 	ls canon_maps.3-6 | fgrep -v README | awk '{printf "cmp canon_maps.3-6/%s canon_maps/%s\n",$$1,$$1}' | sh
@@ -45,16 +45,16 @@ make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c make-orbit-ma
 make-orbit-maps: make-orbit-maps.c blant.h canon-sift.c libblant.c
 	gcc -o make-orbit-maps libblant.c make-orbit-maps.c $(LIBWAYNE)
 
-blant: libwayne blant.c blant.h libblant.c convert.cpp
+blant: libwayne/made blant.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c blant.c $(LIBWAYNE)
 	g++ -std=c++11 -c convert.cpp
 	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
-libwayne: libwayne/libwayne.a libwayne/libwayne-g.a
+libwayne/made:
 	cd libwayne; make all
 
-subcanon_maps: libwayne make-subcanon-maps.c blant.h libblant.c
+subcanon_maps: libwayne/made make-subcanon-maps.c blant.h libblant.c
 	mkdir -p canon_maps
 	gcc -Wall -o make-subcanon-maps make-subcanon-maps.c libblant.c $(LIBWAYNE)
 	for i in 4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
