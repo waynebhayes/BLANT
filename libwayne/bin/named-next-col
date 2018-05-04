@@ -4,6 +4,8 @@
 
 die() { echo "$@" >&2; exit 1
 }
+newlines() { awk '{for(i=1; i<=NF; i++) print $i}' "$@"
+}
 
 QUIET=0
 
