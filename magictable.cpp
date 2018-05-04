@@ -55,9 +55,8 @@ const int FIRST_ODV_ORBIT_ALL_FAYE = 11;
 
 const int TABLE_WIDTH = 12;
 
-//Not all files currently available for 8
 const int MIN_K = 3;
-const int MAX_K = 7;
+int MAX_K;
 
 static int _numCanon, _canonList[MAX_CANONICALS]; //Lower Canon List
 static int _numCanonU, _canonListU[MAX_CANONICALS]; //Upper Canon List
@@ -143,8 +142,15 @@ ostream& operator<<(ostream& os, const vector<vector<uint64_t>> table) {
     return os;
 }
 
+//arv[1] = maxK
 int main(int argc, char* argv[]) {
     //Connected count starts at 1 because k=2 has a connected node
+    if (argc == 2)
+        MAX_K = atoi(argv[1]);
+    else {
+        cerr << "Please enter one argument: maxK. minK is 3. argc: " << argc << std::endl;
+        exit(EXIT_FAILURE);
+    }
     int connectedCount = 1;
     for (int k = MIN_K; k <= MAX_K; k++) {
         auto orbitTable = vector<vector<int>>();
