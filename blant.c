@@ -1102,14 +1102,14 @@ int main(int argc, char *argv[])
     assert(_numNodes > 0);
     assert(_nodeNames && _nodeNames[0]);
     //assert(!_nodeNames[_numNodes]);
-#if 1
+#if 0
     for(i=0; i < _numNodes; i++)
 	printf("nodeName[%d]=%s\n", i, _nodeNames[i]);
     exit(0);
 #endif
     // call clean maybe?
 #endif
-    return RunBlantEdgesFinished(_k, numSamples, _numNodes, NULL);
+    return RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
 #else
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, true); // sparse = true
