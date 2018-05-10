@@ -12,6 +12,7 @@
 #include "heap.h"
 #include "blant.h"
 #include "queue.h"
+#include "multisets.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
@@ -486,7 +487,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #endif
 }
 
-// MCMC getNeighbor
+// MCMC getNeighbor Gets a random neighbo of a d graphlet as an array of vertices Xcurrent
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
 	//*modularize
@@ -528,8 +529,6 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 	
 	if (mcmc_d == 2)
 	{
-		// assuming d = 2 (2 node graphlet)
-		// randomly create a probability
 		int oldu = Xcurrent[0];
 		int oldv = Xcurrent[1];
 		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
@@ -551,85 +550,95 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 	return Xcurrent;
 }
 
-// WalkLSteps
-SET *WalkLSteps(int *Varray, SET *UnionNodes, QUEUE *XL, GRAPH *G, int k)
+//Crawls one step along the graph updating our multiset, queue, and newest graphlet array
+void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
+	int v;
+	for (int i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from queue and multiset
+		v = QueueGet(XLQ).i;
+		MultisetDelete(XLS, v);
+	}
+	MCMCGetNeighbor(X, G); //Gets a neighbor of the most recent 2 vertices and add to queue and multiset
+	for (int i = 0; i < mcmc_d; i++) {
+		MultisetAdd(XLS, X[i]);
+		QueuePut(XLQ, (foint) X[i]);
+	}
+}
+
+// WalkLSteps fills Varray, UnionNodes, XLS, XLQ with L dgraphlets
+SET *WalkLSteps(int *Varray, SET *UnionNodes, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
 {
-	static int X[mcmc_d];
+	//For now d must be equal to 2 because we start by picking a random edge
 	int numNodes = 0;
+	if (mcmc_d != 2) {
+		Fatal("mcmc_d must be set to 2 in blant.h for now");
+	} else {
+	//Pick a random edge. Add the vertices from it to our structures
 	int edge = G->numEdges * drand48();
     int v1 = G->edgeList[2*edge];
     int v2 = G->edgeList[2*edge+1];
-	Varray[0] = v1;
-	Varray[1] = v2;
-    SetAdd(UnionNodes, v1); QueuePut(XL, (foint) v1);
-    SetAdd(UnionNodes, v2); QueuePut(XL, (foint) v2);
-	X[numNodes++] = v1;
-	X[numNodes++] = v2;
-	while (SetCardinality(UnionNodes) < k) {
-		MCMCGetNeighbor(X, G);
-		if (!SetIn(UnionNodes, X[0])) Varray[numNodes++] = X[0];
-		if (!SetIn(UnionNodes, X[1])) Varray[numNodes++] = X[1];
-		SetAdd(UnionNodes, X[0]); QueuePut(XL, (foint) X[0]);
-		SetAdd(UnionNodes, X[1]); QueuePut(XL, (foint) X[1]);
+	X[0] = v1;
+	X[1] = v2;
+    MultisetAdd(XLS, v1); QueuePut(XLQ, (foint) v1);
+    MultisetAdd(XLS, v2); QueuePut(XLQ, (foint) v2);
+	}
+
+	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
+	int l = k - mcmc_d + 1;
+	for (int i = 1; i  < l; i++) {
+		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
+		for (int j = 0; j < mcmc_d; j++) {
+			MultisetAdd(XLS, X[j]);
+			QueuePut(XLQ, (foint) X[j]);
+		}
 
 	}
+	//Keep crawling til we have k distinct vertices
+	while (MultisetCardinality(XLS) != k) {
+		crawlOneStep(XLS, XLQ, X, G);
+	}
+	//Fill our Varray and UnionNodes with the k distinct vertices
+
 	return UnionNodes;
 }
 
-void FillSetFromQueue(SET* V, QUEUE *Q)
-{
-	int num;
-	for (int i = 0; i < Q->length; i++) {
-		int num = (Q->queue[(Q->front + i) % Q->maxSize]).i;
+// MCMC sampleGraphletMCMC
+static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
+	static Boolean setup = false;
+	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
+	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
+	static int X[mcmc_d]; //d vertices for MCMCgetneighbor
+	if (!XLQ || !XLS) {
+		XLQ = QueueAlloc(_k*2);
+		XLS = MultisetAlloc(G->n);
+	}
+
+	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
+	if (!setup) {
+		setup = true;
+		MultisetEmpty(XLS);
+		while (QueueSize(XLQ) > 0) QueueGet(XLQ);
+		return WalkLSteps(Varray, V, XLS, XLQ, X, G, k);
+	}
+	else {
+		//Keep crawling til we have k distinct vertices. Crawl at least once
+		do  {
+			crawlOneStep(XLS, XLQ, X, G);
+		} while (MultisetCardinality(XLS) != k);
+	}
+#if PARANOID_ASSERTS
+		assert(MultisetCardinality(XLS) <= k);
+#endif
+
+	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
+	int num, numNodes = 0;
+	for (int i = 0; i < XLQ->length; i++) {
+		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
 		if (!SetIn(V, num)) {
+			Varray[numNodes++] = num;
 			SetAdd(V, num);
 		}
 	}
-}
-
-// MCMC sampleGraphletMCMC
-static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k)
-{
-	static Boolean setup = false;
-	static SET *UnionNodes;
-	static QUEUE *XL;
-
-	if (!XL) {
-		XL = QueueAlloc(_k*2);
-	}
-
-	if (!setup) {
-		return WalkLSteps(Varray, V, XL, G, k);
-	}
-	else {
-		int v1, v2;
-		do {
-			QueueGet(XL); QueueGet(XL); //Pop off the oldest graphlet from the queue
-			SetEmpty(V);
-			FillSetFromQueue(V, XL);
-		}
-		while(SetCardinality(V) >= k);
-
-		while (SetCardinality(V) < k)
-		{
-			v1 = (XL->queue[(XL->front + (XL->length - 1)) % XL->maxSize]).i;
-			v2 = (XL->queue[(XL->front + (XL->length)) % XL->maxSize]).i;
-			SetAdd(V, v1); QueuePut(XL, (foint) v1);
-			SetAdd(V, v2); QueuePut(XL, (foint) v2);
-		}
-		SetEmpty(V);
-
-		int num, numNodes = 0;
-		for (int i = 0; i < XL->length; i++) {
-			int num = (XL->queue[(XL->front + i) % XL->maxSize]).i;
-			if (!SetIn(V, num)) {
-				Varray[numNodes++] = num;
-				SetAdd(V, num);
-			}
-		}
-		return MCMCGETNeighbor(G, Varray);
-	}
-
+	return V; //and return
 }
 
 void initializeMCMC() {
