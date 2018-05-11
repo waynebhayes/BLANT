@@ -74,7 +74,10 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
+// 
 static unsigned L; // walk length for MCMC algorithm
+
+static int _alphaList[MAX_CANONICALS];
 /* AND NOW THE CODE */
 
 
@@ -565,6 +568,7 @@ SET *WalkLSteps(int *Varray, SET *UnionNodes, QUEUE *XL, GRAPH *G, int k)
     SetAdd(UnionNodes, v2); QueuePut(XL, (foint) v2);
 	X[numNodes++] = v1;
 	X[numNodes++] = v2;
+	//numTries
 	while (SetCardinality(UnionNodes) < k) {
 		MCMCGetNeighbor(X, G);
 		if (!SetIn(UnionNodes, X[0])) Varray[numNodes++] = X[0];
@@ -587,6 +591,11 @@ void FillSetFromQueue(SET* V, QUEUE *Q)
 	}
 }
 
+/*void ComputeAlpha(TINY_GRAPH *g, int k, int L) {
+	// generate all the edges of g
+
+}*/
+
 // MCMC sampleGraphletMCMC
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k)
 {
@@ -595,28 +604,28 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k)
 	static QUEUE *XL;
 
 	if (!XL) {
-		XL = QueueAlloc(_k*2);
+		XL = QueueAlloc(k*2);
 	}
 
 	if (!setup) {
+		setup = true;
 		return WalkLSteps(Varray, V, XL, G, k);
 	}
 	else {
+		//Sliding window stays L graphlets (Queue Size)
 		int v1, v2;
-		do {
+
+		do
+		{
+			//Get next d graphlet for sliding window
+			v1 = (XL->queue[(XL->front + (XL->length - 1)) % XL->maxSize]).i;
+			v2 = (XL->queue[(XL->front + (XL->length)) % XL->maxSize]).i;
+			QueuePut(XL, (foint) v1);
+			QueuePut(XL, (foint) v2);
 			QueueGet(XL); QueueGet(XL); //Pop off the oldest graphlet from the queue
 			SetEmpty(V);
 			FillSetFromQueue(V, XL);
-		}
-		while(SetCardinality(V) >= k);
-
-		while (SetCardinality(V) < k)
-		{
-			v1 = (XL->queue[(XL->front + (XL->length - 1)) % XL->maxSize]).i;
-			v2 = (XL->queue[(XL->front + (XL->length)) % XL->maxSize]).i;
-			SetAdd(V, v1); QueuePut(XL, (foint) v1);
-			SetAdd(V, v2); QueuePut(XL, (foint) v2);
-		}
+		}	while (SetCardinality(V) != k);
 		SetEmpty(V);
 
 		int num, numNodes = 0;
@@ -627,13 +636,25 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k)
 				SetAdd(V, num);
 			}
 		}
-		return MCMCGETNeighbor(G, Varray);
+		return MCMCGetNeighbor(G, Varray);
 	}
 
 }
 
-void initializeMCMC() {
-	L = _k - mcmc_d  + 1;
+void initializeMCMC(int k) {
+	L = k - mcmc_d  + 1;
+	//TINY_GRAPH *g = TinyGraphAlloc(k);
+
+	// create the alpha list
+	/*for (int i = 0; i < _numCanon; i++) {
+		BuildGraph(g, _canonList[i]);
+		if (TinyGraphDFSConnected(g, 0)) {
+			_alphaList[i] = ComputeAlpha(g, k, L);
+		}
+		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
+	}
+
+	TinyGraphFree(g);*/
 }
 
 
@@ -814,7 +835,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
 #if SAMPLE_METHOD == SAMPLE_MCMC
-	initializeMCMC();
+	initializeMCMC(k);
 #endif
     for(i=0; i<numSamples; i++)
     {
