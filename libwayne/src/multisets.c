@@ -11,7 +11,7 @@ MULTISET *MultisetAlloc(unsigned int n) {
 }
 
 //MULTISET *MultisetResize(MULTISET *mset, unsigned int new_n); not implemented
-MULTISET *MultisetFree(MULTISET *mset) {
+void MultisetFree(MULTISET *mset) {
     if(mset)
     {
 	if(mset->array)
@@ -45,8 +45,9 @@ unsigned MultisetCardinality(MULTISET *mset) {
 */
 MULTISET *MultisetAdd(MULTISET *mset, unsigned element) {
     assert(element < mset->n);
-    assert(mset->array[element] < ++mset->array[element]); //Check for unsigned overflow while incrementing
-    if (mset->array[element] == 1) mset->cardinality++;
+    if (mset->array[element] == 0) mset->cardinality++; //If there weren't any before cardinality goes up
+    assert(mset->array[element] < mset->array[element]+1); //Check for unsigned overflow while incrementing
+    mset->array[element]++;
     return mset;
 }
 
@@ -54,7 +55,9 @@ MULTISET *MultisetAdd(MULTISET *mset, unsigned element) {
    First checks for underflow
 */ 
 MULTISET *MultisetDelete(MULTISET *mset, unsigned element) {
-    assert(mset->array[element]-- > 0);
+    assert(element < mset->n);
+    assert(mset->array[element] > 0);
+    mset->array[element]--;
     if (mset->array[element] == 0) mset->cardinality--;
     return mset;
 }

@@ -16,7 +16,7 @@ typedef struct _multisetType {
 
 MULTISET *MultisetAlloc(unsigned int n);
 MULTISET *MultisetResize(MULTISET *mset, unsigned int new_n);
-MULTISET *MultisetFree(MULTISET *mset);
+void MultisetFree(MULTISET *mset);
 #define MultisetReset MultisetEmpty
 MULTISET *MultisetEmpty(MULTISET *mset);
 unsigned MultisetCardinality(MULTISET *mset);
