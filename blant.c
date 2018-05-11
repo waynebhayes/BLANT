@@ -498,39 +498,14 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 		SetResize(outSet, G->n);
     else
 		SetEmpty(outSet);
-	
-	// if (mcmc_d != 2)
-	// {
-	// 	j =  X->n * drand48();
-	// 	while(true)
-	// 	{
-	// 		int vx = Varray[j];
-	// 		//*modularize
-	// 		for(i=0; i < G->degree[v1]; i++)
-	// 		{
-	// 			int nv1 =  G->neighbor[v1][i];
-	// 			if(nv1 != vx) SetAdd(outSet, (outbound[nOut++] = nv1));
-	// 		}
 
-	// 		j = nOut * drand48();
-	// 		vj = outbound[j];
-	// 		SetDelete(X, vx);
-	// 		SetAdd(X, vj); // also add to array, does local set/arr need to be updated
-			
-	// 		//vj;
-	// 		// Xnext = swap vx & vj
-	// 		// if Xnext is connected, break
-	// 		break;
-	// 	}
-	// }
-	
 	if (mcmc_d == 2)
 	{
 		int oldu = Xcurrent[0];
 		int oldv = Xcurrent[1];
 		static int numTries = 0;
 		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
-			assert(++numTries < MAX_TRIES);
+			assert(++numTries < MAX_TRIES*100);
 			int p = drand48();
 			// if 0 < p < 1, p < deg(u) + deg(v) then
 			if (p < G->degree[Xcurrent[0]]/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
@@ -547,8 +522,8 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 		numTries = 0;
 #if PARANOID_ASSERTS
 		assert(Xcurrent[0] != Xcurrent[1]);
-		assert(oldu != Xcurrent[0] && oldv != Xcurrent[1]);
-		assert(oldu != Xcurrent[1] && oldv != Xcurrent[0]);
+		assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
+		assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
 #endif
 	}
 	else Fatal("Not implemented. Set d to 2");
@@ -587,7 +562,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 
 	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
 	int l = k - mcmc_d + 1;
-	for (int i = 1; i  < l; i++) {
+	for (int i = 1; i < l; i++) {
 		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
 		for (int j = 0; j < mcmc_d; j++) {
 			MultisetAdd(XLS, X[j]);
@@ -616,7 +591,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
 	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
 	if (!XLQ || !XLS) {
-		XLQ = QueueAlloc(_k*2);
+		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
 	}
 
@@ -626,8 +601,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 		MultisetEmpty(XLS);
 		while (QueueSize(XLQ) > 0) QueueGet(XLQ);
 		WalkLSteps(Varray, V, XLS, XLQ, Xcurrent, G, k);
-	}
-	else {
+	} else {
 #if PARANOID_ASSERTS
 		assert(QueueSize(XLQ) == 2 * (k-mcmc_d+1));
 #endif
