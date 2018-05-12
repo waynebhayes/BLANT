@@ -16,7 +16,7 @@
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
 char **_nodeNames;
 
 // Below are the sampling methods; pick one on the last line
@@ -605,7 +605,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     int i;
     char perm[maxK+1];
     assert(k <= G->n);
-    srand48(time(0)+getpid());
+    srand48(_seed);
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
@@ -839,7 +839,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 
 const char const * const USAGE = \
-    "USAGE: blant [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
+    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
@@ -865,7 +865,8 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:t:s:c:w:k:")) != -1)
+    _seed = time(0)+getpid();
+    while((opt = getopt(argc, argv, "m:t:s:c:w:k:r:")) != -1)
     {
 	switch(opt)
 	{
@@ -883,6 +884,8 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
+	case 'r': _seed = atoi(optarg);
+	    break;
 	case 's': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
