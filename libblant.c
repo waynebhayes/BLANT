@@ -80,3 +80,14 @@ int canonListPopulate(char *BUF, int *canon_list, int k) {
     fclose(fp_ord);
     return numCanon;
 }
+	
+int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int k) {
+    sprintf(BUF, CANON_DIR "/orbit_map%d.txt", k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find %s/orbit_map%d.txt\n", CANON_DIR, k);
+    int numOrbit, i, j;
+    fscanf(fp_ord, "%d",&numOrbit);
+    for(i=0; i<numOrbit; i++) for(j=0; j<k; j++)fscanf(fp_ord, "%d", &orbit_list[i][j]);
+    fclose(fp_ord);
+    return numOrbit;
+}
