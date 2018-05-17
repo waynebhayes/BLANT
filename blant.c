@@ -16,7 +16,7 @@
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
 char **_nodeNames;
 
 // Below are the sampling methods; pick one on the last line
@@ -588,6 +588,7 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     int i;
     _numCanon = canonListPopulate(BUF, _canonList, _k);
+    _numOrbits = orbitListPopulate(BUF, _orbitList, _k);
     // Jens: this is where you'd insert a _numOrbits = orbitListPopulate(...) function;
     // put the actual function in libblant.[ch]
     mapCanonMap(BUF, _K, _k);
@@ -602,10 +603,10 @@ void SetGlobalCanonMaps(void)
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
 int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
-    int i;
+    int i,j;
     char perm[maxK+1];
     assert(k <= G->n);
-    srand48(time(0)+getpid());
+    srand48(_seed);
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
@@ -649,8 +650,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
 	    break;
 	case outputODV: // Jens, here...
-	    Abort("Sorry, ODV is not implemented yet");
-	    for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][j]);
+	    //Abort("Sorry, ODV is not implemented yet");
+	    memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+ #if PERMS_CAN2NON            
+	    for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintCanon][j]);
+#else
+            for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
+#endif
 	    break;
 		
 	default: Abort("unknown or un-implemented outputMode");
@@ -674,6 +681,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    puts("");
 	}
 	break;
+     case outputODV:
+        for(i=0; i<G->n; i++) {for(j=0; j<_numOrbits; j++) printf("%d ", ODV(i,j)); printf("\n");}
+        break;
     default: Abort("unknown or un-implemented outputMode");
 	break;
     }
@@ -718,14 +728,15 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 // threads specified.  Also does some sanity checking.
 int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 {
-    int i;
+    int i,j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
-    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
+    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
-
+	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;}
+	
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
@@ -839,7 +850,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 
 const char const * const USAGE = \
-    "USAGE: blant [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
+    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
@@ -865,7 +876,8 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:t:s:c:w:k:")) != -1)
+    _seed = time(0)+getpid();
+    while((opt = getopt(argc, argv, "m:t:s:c:w:k:r:")) != -1)
     {
 	switch(opt)
 	{
@@ -883,6 +895,8 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
+	case 'r': _seed = atoi(optarg);
+	    break;
 	case 's': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
