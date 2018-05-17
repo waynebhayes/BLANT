@@ -3,18 +3,12 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdbool.h>
+
 #include "blant.h"
 
+static int k,q;
 
-#ifndef k
-#define k 8 
-#endif
-#if k <= 8 
-#define q (1 << k*(k-1)/2)
-#else
-#define q (1LL << k*(k-1LL)/2)
-#endif
-
+static TINY_GRAPH *G;
 #if LOWER_TRIANGLE
 
 unsigned long int bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
@@ -66,8 +60,8 @@ void decimalToBitArray(int bitarray[k][k], unsigned long int D){
 
 typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal and permutation
 
-static xChar data[q];
-static bool check[q];
+static xChar* data;
+static bool* check;
 static long int canonicalDecimal[274668];//274668 canonical graphettes for k=9
 
 long power(int x, int y){
@@ -139,7 +133,6 @@ bool nextPermutation(int permutation[])
 }
 
 void canon_map(void){
-	
 	FILE *fcanon = stdout;
 
 	int bitVectorSize = (k*(k-1))/2;
@@ -202,15 +195,35 @@ void canon_map(void){
 	for(int i=0; i<q; i++){
 		//canonDec=0;canonPerm=0;
 		decodeChar(data[i],&canonDec,&canonPerm);
-		fprintf(fcanon,"%lld\t", canonicalDecimal[canonDec]);
+		fprintf(fcanon,"%i\t%ld\t", i,canonicalDecimal[canonDec]);
 		for(int p=0;p<k;p++)
 			fprintf(fcanon,"%d", Permutations[canonPerm][p]);
+		if(canonPerm == 0) {
+			G = TinyGraphAlloc(k);
+			BuildGraph(G, i);
+			int nodeArray[k], distArray[k];
+			if(TinyGraphBFS(G, 0, k, nodeArray, distArray) == k)
+				fprintf(fcanon, " 1"); // connected, thus graphlet
+			else
+	    		fprintf(fcanon, " 0"); // disconnected, thus not graphlet
+		}
 		fprintf(fcanon,"\n");
 	}
 	//fprintf(fcanon,"%lld",canonicalDecimal[0]);
 }
 
+static char USAGE[] = "USAGE: $0 k";
+
 int main(int argc, char* argv[]){
+	if(argc != 2){fprintf(stderr, "expecting exactly one argument, which is k\n%s\n",USAGE); exit(1);}
+	k = atoi(argv[1]);
+	if(k<=8) {
+		q = 1 << k*(k-1)/2;
+	} else {
+		q = 1LL << k*(k-1LL)/2;
+	}
+	data = malloc(sizeof(xChar)*q);
+	check = malloc(sizeof(bool)*q);
 	canon_map();
 	return 0;
 }
