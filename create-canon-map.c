@@ -6,23 +6,24 @@
 
 #include "blant.h"
 
-static int k,q;
+static int k;
+static unsigned long long q;
 
 static TINY_GRAPH *G;
 #if LOWER_TRIANGLE
 
-unsigned long int bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
-        unsigned long int num=0;
+unsigned long long bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
+        unsigned long long num=0;
         int lf=0;
         for(int i = 1; i < k; i++)
                 for(int j=0; j < i; j++){
-                        num+=(((unsigned long int)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
+                        num+=(((unsigned long long)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
                         lf++;
                 }
         return num;
 }
 
-void decimalToBitArray(int bitarray[k][k], unsigned long int D){
+void decimalToBitArray(int bitarray[k][k], unsigned long long D){
         for(int i=k-1; i>=1; i--)
                 for(int j=i-1; j>=0; j--){
                         bitarray[i][j] = D%2;
@@ -34,18 +35,18 @@ void decimalToBitArray(int bitarray[k][k], unsigned long int D){
 
 #else
 
-unsigned long int bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
-	unsigned long int num=0;
+unsigned long long bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
+	unsigned long long num=0;
 	int lf=0;
 	for(int i = 0; i < k-1; i++)
         	for(int j=i+1; j < k; j++){
-                	num+=(((unsigned long int)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
+                	num+=(((unsigned long long)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
                 	lf++;
 		}
 	return num;
 }
 
-void decimalToBitArray(int bitarray[k][k], unsigned long int D){
+void decimalToBitArray(int bitarray[k][k], unsigned long long D){
 	for(int i=k-2; i>=0; i--)
         	for(int j=k-1; j>i; j--){
                 	bitarray[i][j] = D%2;
@@ -62,26 +63,26 @@ typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal a
 
 static xChar* data;
 static bool* check;
-static long int canonicalDecimal[274668];//274668 canonical graphettes for k=9
+static unsigned long long canonicalDecimal[274668];//274668 canonical graphettes for k=9
 
-long power(int x, int y){
+unsigned long long power(int x, int y){
 	if(y==0)return 1;
-	return (long)x*power(x,y-1);
+	return (unsigned long long)x*power(x,y-1);
 }
 
 void encodeChar(xChar ch, long indexD, long indexP){
 
-	long int x=indexD+indexP*power(2,19);//19 bits for canonical decimal index
-	long z=power(2,8);
+	unsigned long long x=(unsigned long long)indexD+(unsigned long long)indexP*power(2,19);//19 bits for canonical decimal index
+	unsigned long long z=power(2,8);
 	for(int i=4; i>=0; i--){
 		ch[i]=(char)(x%z);
-		x/=power(2,8);
+		x/=z;
 	}
 }
 
 void decodeChar(xChar ch, long* indexD, long* indexP){
 
-	long int x=0,m;
+	unsigned long long x=0,m;
 	int y=0,w;
 
 	for(int i=4; i>=0; i--){
@@ -90,7 +91,7 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
 		x+=w*m;
 		y+=8;
 	}
-	long z=power(2,19);
+	unsigned long long z=power(2,19);
 	*indexD=x%z;
 	*indexP=x/z; 
 }
@@ -136,10 +137,10 @@ void canon_map(void){
 	FILE *fcanon = stdout;
 
 	int bitVectorSize = (k*(k-1))/2;
-	unsigned long int D;
+	unsigned long long D;
 	int bitarray[k][k];
 
-	for(unsigned long int i=0; i<q; i++)check[i]=0;
+	for(unsigned long long i=0; i<q; i++)check[i]=0;
 	canonicalDecimal[0]=0;
 	long f=factorial(k);
 	char Permutations[f][k];
@@ -157,18 +158,18 @@ void canon_map(void){
 	}
 	check[0]=1;
 	encodeChar(data[0],0,0);
-	unsigned long num_canon=0;
+	long num_canon=0;
 
 	//finding canonical forms of all graphettes
-	for(unsigned long int t=1; t<q; t++){
+	for(unsigned long long t=1; t<q; t++){
 		if(check[t]) continue;
 		check[t]=1;
 		encodeChar(data[t],++num_canon,0);
 		canonicalDecimal[num_canon]=t;
 
-		unsigned long int num = 0;
+		unsigned long long num = 0;
 		decimalToBitArray(bitarray, t);
-		for(int nP=1; nP<f; nP++)//while( nextPermutation(permutation) )
+		for(long nP=1; nP<f; nP++)//while( nextPermutation(permutation) )
 		{
 			num=bitArrayToDecimal(bitarray, Permutations[nP], bitVectorSize);
 		
@@ -192,12 +193,12 @@ void canon_map(void){
 		}
 	}
 
-	for(int i=0; i<q; i++){
+	for(unsigned long long i=0; i<q; i++){
 		canonDec=0;canonPerm=0;
 		decodeChar(data[i],&canonDec,&canonPerm);
 		assert(canonDec >= 0);
 		assert(canonPerm >= 0);
-		fprintf(fcanon,"%i\t%ld\t", i,canonicalDecimal[canonDec]);
+		fprintf(fcanon,"%llu\t%llu\t", i,canonicalDecimal[canonDec]);
 		for(int p=0;p<k;p++)
 			fprintf(fcanon,"%d", Permutations[canonPerm][p]);
 		if(canonPerm == 0) {
