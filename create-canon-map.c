@@ -193,8 +193,10 @@ void canon_map(void){
 	}
 
 	for(int i=0; i<q; i++){
-		//canonDec=0;canonPerm=0;
+		canonDec=0;canonPerm=0;
 		decodeChar(data[i],&canonDec,&canonPerm);
+		assert(canonDec >= 0);
+		assert(canonPerm >= 0);
 		fprintf(fcanon,"%i\t%ld\t", i,canonicalDecimal[canonDec]);
 		for(int p=0;p<k;p++)
 			fprintf(fcanon,"%d", Permutations[canonPerm][p]);
