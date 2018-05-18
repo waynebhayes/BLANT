@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
             table[i][LOWER_DECIMAL] = _canonList[table[i][LOWER_ORDINAL]];
 
             BuildGraph(G, table[i][LOWER_DECIMAL]);
-            table[i][CONNECTED] = TinyGraphDFSConnected(G,0) ? 1 : 0;
+            table[i][CONNECTED] = TinyGraphDFSConnected(G,0) > 0 ? 1 : 0;
         }
 
         //Load num nodes first orbit information and put in table
