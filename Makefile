@@ -2,7 +2,7 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-all: canon_maps blant test_blant magic_table
+all: canon_maps blant test_blant magic_table draw
 
 test_blant:
 	# First run blant-sanity for various values of k
@@ -54,6 +54,9 @@ subcanon_maps: libwayne/made make-subcanon-maps.c blant.h libblant.c
 magic_table: magictable.cpp
 	g++ -std=c++11 -Wall -o make-orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
 	./make-orca-jesse-blant-table 7
+
+draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
+	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
 
 clean:
 	/bin/rm -f *.[oa] blant canon-sift create-canon-map
