@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
         int lowerDecimal;
 
         //Fill table with graphlet information
-        for (int i = 0; i < table.size(); i++) {
+        for (size_t i = 0; i < table.size(); i++) {
             table[i][UPPER_ORDINAL] = i;
             table[i][UPPER_DECIMAL] = _canonListU[i];
             lowerDecimal = Upper2Lower(table[i][UPPER_DECIMAL], k);
@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
             table[i][LOWER_DECIMAL] = _canonList[table[i][LOWER_ORDINAL]];
 
             BuildGraph(G, table[i][LOWER_DECIMAL]);
-            table[i][CONNECTED] = static_cast<bool>(TinyGraphDFSConnected(G,0));
+            table[i][CONNECTED] = TinyGraphDFSConnected(G,0) == 0 ? 0 : 1;
         }
 
         //Load num nodes first orbit information and put in table
@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
             cerr << "Failed to open: " << ss.str() << "\n";
             exit(EXIT_FAILURE);
         }
-        for (int i = 0; i < table.size(); i++) {
+        for (size_t i = 0; i < table.size(); i++) {
             orbitInfile >> table[i][NUM_NODES_FIRST_ORBIT];
         }
         orbitInfile.close();
@@ -239,7 +239,7 @@ int main(int argc, char* argv[]) {
         //Calculate orbit information from upper and fill out table
         int numConnectedOrbits = 0;
         int numTotalOrbits = 0;
-        for (int i = 0; i < orbitTableUpper.size(); i++) {
+        for (size_t i = 0; i < orbitTableUpper.size(); i++) {
             orbits.clear();
             for (int j = 0; j < k; j++) {
                 orbits.insert(orbitTableUpper[i][j]);
@@ -284,7 +284,7 @@ int main(int argc, char* argv[]) {
         //Calculate lower orbit information and fill out table
         numConnectedOrbits = 0;
         numTotalOrbits = 0;
-        for (int i = 0; i < orbitTable.size(); i++) {
+        for (size_t i = 0; i < orbitTable.size(); i++) {
             orbits.clear();
             for (int j = 0; j < k; j++) {
                 orbitInfile >> orbitTable[i][j];
