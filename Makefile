@@ -28,14 +28,10 @@ canon_maps/canon_map7.txt: blant.h make-canon-maps libblant.c create-canon-map
 create-canon-map: create-canon-map.c blant.h canon-sift.c libblant.c make-orbit-maps
 	gcc '-std=c99' -O2 -o create-canon-map libblant.c create-canon-map.c $(LIBWAYNE)
 
-canon_maps/canon_map8.txt: blant.h make-canon-maps libblant.c
+canon_map8: blant.h libblant.c create-canon-map
 	echo "Warning: this will take a few minutes"
-	./create-canon-maps 8 | cut -f2- | tee canon_maps/canon_map8.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list8.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature8.txt
-	gcc "-Dk=8" "-DkString=\"8\"" -o create-bin-data libblant.c create-bin-data.c; ./create-bin-data
-
-make-canon-maps: make-canon-maps.c blant.h canon-sift.c libblant.c make-orbit-maps
-	gcc -o make-canon-maps libblant.c make-canon-maps.c $(LIBWAYNE)
-	gcc -o canon-sift libblant.c canon-sift.c  $(LIBWAYNE)
+	./create-canon-map 8 | cut -f2- | tee canon_maps/canon_map8.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list8.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature8.txt
+	gcc "-Dkk=8" "-DkString=\"8\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data
 
 make-orbit-maps: make-orbit-maps.c blant.h canon-sift.c libblant.c
 	gcc -o make-orbit-maps libblant.c make-orbit-maps.c $(LIBWAYNE)
@@ -63,6 +59,6 @@ draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
 
 clean:
-	/bin/rm -f *.[oa] blant make-canon-maps canon-sift
+	/bin/rm -f *.[oa] blant canon-sift create-canon-map
 	/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create
 	#cd libwayne; make clean

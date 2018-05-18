@@ -6,24 +6,37 @@
 
 #include "blant.h"
 
+#if __WORDSIZE < 64
+    typedef graphletInt uint64;
+    typedef unsigned long uint32;
+#else
+    typedef unsigned long uint64;
+    typedef unsigned int uint32;
+#endif
+
 static int k;
-static unsigned long long q;
+#if maxK > 8
+typedef uint64 graphletInt;
+#else
+typedef uint32 graphletInt;
+#endif
+static graphletInt q;
 
 static TINY_GRAPH *G;
 #if LOWER_TRIANGLE
 
-unsigned long long bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
-        unsigned long long num=0;
+graphletInt bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
+        graphletInt num=0;
         int lf=0;
         for(int i = 1; i < k; i++)
                 for(int j=0; j < i; j++){
-                        num+=(((unsigned long long)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
+                        num+=(((graphletInt)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
                         lf++;
                 }
         return num;
 }
 
-void decimalToBitArray(int bitarray[k][k], unsigned long long D){
+void decimalToBitArray(int bitarray[k][k], graphletInt D){
         for(int i=k-1; i>=1; i--)
                 for(int j=i-1; j>=0; j--){
                         bitarray[i][j] = D%2;
@@ -35,18 +48,18 @@ void decimalToBitArray(int bitarray[k][k], unsigned long long D){
 
 #else
 
-unsigned long long bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
-	unsigned long long num=0;
+graphletInt bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
+	graphletInt num=0;
 	int lf=0;
 	for(int i = 0; i < k-1; i++)
         	for(int j=i+1; j < k; j++){
-                	num+=(((unsigned long long)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
+                	num+=(((graphletInt)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
                 	lf++;
 		}
 	return num;
 }
 
-void decimalToBitArray(int bitarray[k][k], unsigned long long D){
+void decimalToBitArray(int bitarray[k][k], graphletInt D){
 	for(int i=k-2; i>=0; i--)
         	for(int j=k-1; j>i; j--){
                 	bitarray[i][j] = D%2;
@@ -63,17 +76,17 @@ typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal a
 
 static xChar* data;
 static bool* check;
-static unsigned long long canonicalDecimal[274668];//274668 canonical graphettes for k=9
+static graphletInt canonicalDecimal[274668];//274668 canonical graphettes for k=9
 
-unsigned long long power(int x, int y){
+graphletInt power(int x, int y){
 	if(y==0)return 1;
-	return (unsigned long long)x*power(x,y-1);
+	return (graphletInt)x*power(x,y-1);
 }
 
 void encodeChar(xChar ch, long indexD, long indexP){
 
-	unsigned long long x=(unsigned long long)indexD+(unsigned long long)indexP*power(2,19);//19 bits for canonical decimal index
-	unsigned long long z=power(2,8);
+	graphletInt x=(graphletInt)indexD+(graphletInt)indexP*power(2,19);//19 bits for canonical decimal index
+	graphletInt z=power(2,8);
 	for(int i=4; i>=0; i--){
 		ch[i]=(char)(x%z);
 		x/=z;
@@ -82,7 +95,7 @@ void encodeChar(xChar ch, long indexD, long indexP){
 
 void decodeChar(xChar ch, long* indexD, long* indexP){
 
-	unsigned long long x=0,m;
+	graphletInt x=0,m;
 	int y=0,w;
 
 	for(int i=4; i>=0; i--){
@@ -91,7 +104,7 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
 		x+=w*m;
 		y+=8;
 	}
-	unsigned long long z=power(2,19);
+	graphletInt z=power(2,19);
 	*indexD=x%z;
 	*indexP=x/z; 
 }
@@ -137,10 +150,10 @@ void canon_map(void){
 	FILE *fcanon = stdout;
 
 	int bitVectorSize = (k*(k-1))/2;
-	unsigned long long D;
+	graphletInt D;
 	int bitarray[k][k];
 
-	for(unsigned long long i=0; i<q; i++)check[i]=0;
+	for(graphletInt i=0; i<q; i++)check[i]=0;
 	canonicalDecimal[0]=0;
 	long f=factorial(k);
 	char Permutations[f][k];
@@ -161,13 +174,13 @@ void canon_map(void){
 	long num_canon=0;
 
 	//finding canonical forms of all graphettes
-	for(unsigned long long t=1; t<q; t++){
+	for(graphletInt t=1; t<q; t++){
 		if(check[t]) continue;
 		check[t]=1;
 		encodeChar(data[t],++num_canon,0);
 		canonicalDecimal[num_canon]=t;
 
-		unsigned long long num = 0;
+		graphletInt num = 0;
 		decimalToBitArray(bitarray, t);
 		for(long nP=1; nP<f; nP++)//while( nextPermutation(permutation) )
 		{
@@ -193,7 +206,7 @@ void canon_map(void){
 		}
 	}
 
-	for(unsigned long long i=0; i<q; i++){
+	for(graphletInt i=0; i<q; i++){
 		canonDec=0;canonPerm=0;
 		decodeChar(data[i],&canonDec,&canonPerm);
 		assert(canonDec >= 0);
@@ -220,9 +233,11 @@ static char USAGE[] = "USAGE: $0 k";
 int main(int argc, char* argv[]){
 	if(argc != 2){fprintf(stderr, "expecting exactly one argument, which is k\n%s\n",USAGE); exit(1);}
 	k = atoi(argv[1]);
+	assert(k <= maxK);
 	if(k<=8) {
 		q = 1 << k*(k-1)/2;
 	} else {
+		assert(sizeof(uint64) >= 8);
 		q = 1LL << k*(k-1LL)/2;
 	}
 	data = malloc(sizeof(xChar)*q);
