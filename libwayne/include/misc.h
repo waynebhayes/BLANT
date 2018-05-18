@@ -47,8 +47,10 @@ extern int scanf(const char *, ...);
 
 typedef unsigned char Boolean;
 /* enum _boolEnum { false=0, true=1, maybe=2 };*/
+#ifndef false
 #define false (Boolean)0
 #define true  (Boolean)1
+#endif
 #define maybe (Boolean)2
 
 typedef union _voidInt {
