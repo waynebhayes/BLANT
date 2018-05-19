@@ -2,6 +2,8 @@
 #include <fstream>
 #include <string>
 #include <regex>
+#include <map>
+#include <string.h>
 using namespace std;
 
 extern "C"

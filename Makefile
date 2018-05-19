@@ -31,6 +31,7 @@ create-canon-map: create-canon-map.c blant.h canon-sift.c libblant.c make-orbit-
 canon_map8: blant.h libblant.c create-canon-map
 	echo "Warning: this will take a few minutes"
 	./create-canon-map 8 | cut -f2- | tee canon_maps/canon_map8.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list8.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature8.txt
+	./make-orbit-maps 8 > canon_maps/orbit_map8.txt;
 	gcc "-Dkk=8" "-DkString=\"8\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data
 
 make-orbit-maps: make-orbit-maps.c blant.h canon-sift.c libblant.c
