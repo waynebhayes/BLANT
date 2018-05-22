@@ -508,10 +508,10 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 		int oldv = Xcurrent[1];
 		static int numTries = 0;
 		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
-			assert(++numTries < MAX_TRIES*100);
-			int p = drand48();
+			assert(++numTries < MAX_TRIES);
+			double p = drand48();
 			// if 0 < p < 1, p < deg(u) + deg(v) then
-			if (p < G->degree[Xcurrent[0]]/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
+			if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
 				// select randomly from Neigh(u) and swap
 				int neighbor = (int) (G->degree[Xcurrent[0]] * drand48());
 				Xcurrent[1] = G->neighbor[Xcurrent[0]][neighbor];
@@ -578,7 +578,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 	//Keep crawling til we have k distinct vertices
 	static int numTries = 0;
 	while (MultisetCardinality(XLS) < k) {
-		assert(++numTries < MAX_TRIES);
+		assert(++numTries < MAX_TRIES); //If we crawl 100 steps without k distinct vertices. Todo restart
 		crawlOneStep(XLS, XLQ, X, G);
 	}
 	numTries = 0;
@@ -627,6 +627,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
 	int num, numNodes = 0;
+	SetEmpty(V);
 	for (int i = 0; i < XLQ->length; i++) {
 		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
 		if (!SetIn(V, num)) {
@@ -634,6 +635,9 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 			SetAdd(V, num);
 		}
 	}
+#if PARANOID_ASSERTS
+	assert(numNodes == k);
+#endif
 	return V; //and return
 }
 
