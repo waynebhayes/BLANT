@@ -592,7 +592,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 
 }*/
 
-// MCMC sampleGraphletMCMC
+// MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
 	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
