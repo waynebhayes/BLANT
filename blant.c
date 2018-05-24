@@ -587,10 +587,66 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 #endif
 }
 
-/*void ComputeAlpha(TINY_GRAPH *g, int k, int L) {
+//Given preallocated k graphlet and d graphlet
+int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 	// generate all the edges of g
 
-}*/
+	// 0 can result in DIVIDE BY ZERO ERROR
+	int alpha = 0;
+	unsigned combinArrayD[mcmc_d];
+	unsigned combinArrayL[L];
+	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArray);
+	int Darray[CombinChoose(k, mcmc_d)];
+
+	int SSize = 0;
+	if (d != 2) {
+		while (CombinNext(Dcombin)) {
+			TSET mask = 0;
+			for (int i = 0; i < mcmc_d; i++) {
+				TSETAdd(mask, combinArray[i]);
+			}
+			Gd = TinyGraphInduced(Gd, Gk, mask);
+			if (TinyGraphDFSConnected(Gd, 0))
+			{
+				for (i = 0; i < mcmc_d; i++)
+				{
+					Darray[SSize+i] = Dcombin->array[i];
+				}
+				SSize++;
+			}
+		}
+	} else {
+		while (CombinNext(Dcombin)) {
+			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
+			{
+				Darray[SSize] = Dcombin->array[i];
+				Darray[SSize+1] = Dcombin->array[i];
+				SSize++;
+			}
+		}
+	}
+	while (CombinNext(Dcombin)) {
+	}
+
+	COMBIN *Lcombin = CombinZeroth(SSize, L, combinArrayL);
+	while (CombinNext(Lcombin)) {
+		//add to set
+		TSET mask = 0;
+		for (int i = 0; i < L; i++) {
+			TSETAdd(mask, combinArray[i]);
+		}
+		//if set cardinality = k
+		if (TSetCardinality(mask) == k)
+		{
+			//Cancer permutation function
+			
+		}
+	}
+
+	
+	CombinFree(Dcombin);
+
+}
 
 // MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
