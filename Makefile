@@ -34,6 +34,9 @@ canon_map8: blant.h libblant.c create-canon-map
 	./make-orbit-maps 8 > canon_maps/orbit_map8.txt;
 	gcc "-Dkk=8" "-DkString=\"8\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data
 
+make-canon-maps: make-canon-maps.c blant.h libblant.c
+	gcc -o make-canon-maps libblant.c make-canon-maps.c $(LIBWAYNE)
+
 make-orbit-maps: make-orbit-maps.c blant.h canon-sift.c libblant.c
 	gcc -o make-orbit-maps libblant.c make-orbit-maps.c $(LIBWAYNE)
 
