@@ -595,15 +595,17 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 	int alpha = 0;
 	unsigned combinArrayD[mcmc_d];
 	unsigned combinArrayL[L];
-	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArray);
+	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD);
 	int Darray[CombinChoose(k, mcmc_d)];
 
+	//Fill the S array with all connected d graphlets from Gk
 	int SSize = 0;
-	if (d != 2) {
+	int i, j;
+	if (mcmc_d != 2) {
 		while (CombinNext(Dcombin)) {
 			TSET mask = 0;
-			for (int i = 0; i < mcmc_d; i++) {
-				TSETAdd(mask, combinArray[i]);
+			for (i = 0; i < mcmc_d; i++) {
+				TSetAdd(mask, combinArrayD[i]);
 			}
 			Gd = TinyGraphInduced(Gd, Gk, mask);
 			if (TinyGraphDFSConnected(Gd, 0))
@@ -625,21 +627,35 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 			}
 		}
 	}
-	while (CombinNext(Dcombin)) {
-	}
 
+	//for s over all combinations of L elements in S
 	COMBIN *Lcombin = CombinZeroth(SSize, L, combinArrayL);
 	while (CombinNext(Lcombin)) {
-		//add to set
+		//add vertices in combinations to set.
 		TSET mask = 0;
-		for (int i = 0; i < L; i++) {
-			TSETAdd(mask, combinArray[i]);
+		for (i = 0; i < L; i++) {
+			for (j = 0; i < mcmc_d; j++) {
+				TSetAdd(mask, Darray[combinArrayL[i]+j]);
+			}
 		}
-		//if set cardinality = k
+		//if Size of nodeset of nodes in each element of s == k then
 		if (TSetCardinality(mask) == k)
 		{
-			//Cancer permutation function
-			
+			int g1, g2;
+			for (g1 = 0; g1 < L; g1++) {
+				for (g2 = g1; g2 < L; g2++) {
+					TSET tset = 0;
+					for (i = 0; i < mcmc_d; i++) {
+						TSetAdd(tset, Darray[combinArrayL[g1]+i]);
+						TSetAdd(tset, Darray[combinArrayL[g2]+i]);
+					}
+
+					if (TSetCardinality(tset) == mcmc_d-1) {
+						alpha += 2;
+					}
+				}
+			}
+
 		}
 	}
 
