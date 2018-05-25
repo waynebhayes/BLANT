@@ -590,7 +590,6 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 //Given preallocated k graphlet and d graphlet
 int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 	// generate all the edges of g
-
 	// 0 can result in DIVIDE BY ZERO ERROR
 	int alpha = 0;
 	unsigned combinArrayD[mcmc_d];
@@ -658,10 +657,9 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 
 		}
 	}
-
 	
 	CombinFree(Dcombin);
-
+	CombinFree(Lcombin);
 }
 
 // MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
@@ -715,18 +713,21 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 
 void initializeMCMC(int k) {
 	L = k - mcmc_d  + 1;
-	//TINY_GRAPH *g = TinyGraphAlloc(k);
+	TINY_GRAPH *gk = TinyGraphAlloc(k);
+	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
 
 	// create the alpha list
-	/*for (int i = 0; i < _numCanon; i++) {
-		BuildGraph(g, _canonList[i]);
-		if (TinyGraphDFSConnected(g, 0)) {
-			_alphaList[i] = ComputeAlpha(g, k, L);
+	for (int i = 0; i < _numCanon; i++) {
+		BuildGraph(gk, _canonList[i]);
+		TinyGraphEdgesAllDelete(gd);
+		if (TinyGraphDFSConnected(gk, 0)) {
+			//_alphaList[i] = ComputeAlpha(gk, gd, k, L);
 		}
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}
 
-	TinyGraphFree(g);*/
+	TinyGraphFree(gk);
+	TinyGraphFree(gd);
 }
 
 
