@@ -587,21 +587,23 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 #endif
 }
 
-//Given preallocated k graphlet and d graphlet
+//Given preallocated k graphlet and d graphlet. Assumes Gk is connected
 int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 	// generate all the edges of g
 	// 0 can result in DIVIDE BY ZERO ERROR
+	assert(k >= 3 && k <=8); //TSET used limits to 8 bits of set represntation.
 	int alpha = 0;
-	unsigned combinArrayD[mcmc_d];
-	unsigned combinArrayL[L];
+	unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
+	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
 	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD);
-	int Darray[CombinChoose(k, mcmc_d)];
+	int numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
+	int Darray[numDGraphlets * mcmc_d]; //Vertices in our d graphlets
 
 	//Fill the S array with all connected d graphlets from Gk
 	int SSize = 0;
 	int i, j;
 	if (mcmc_d != 2) {
-		while (CombinNext(Dcombin)) {
+		do {
 			TSET mask = 0;
 			for (i = 0; i < mcmc_d; i++) {
 				TSetAdd(mask, combinArrayD[i]);
@@ -611,17 +613,17 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 			{
 				for (i = 0; i < mcmc_d; i++)
 				{
-					Darray[SSize+i] = Dcombin->array[i];
+					Darray[SSize*mcmc_d+i] = Dcombin->array[i];
 				}
 				SSize++;
 			}
-		}
+		} while (CombinNext(Dcombin)); 
 	} else {
 		while (CombinNext(Dcombin)) {
-			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
+			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1])) //the two indices in the array
 			{
-				Darray[SSize] = Dcombin->array[i];
-				Darray[SSize+1] = Dcombin->array[i];
+				Darray[SSize*mcmc_d] = Dcombin->array[i];
+				Darray[SSize*mcmc_d+1] = Dcombin->array[i];
 				SSize++;
 			}
 		}
@@ -629,7 +631,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 
 	//for s over all combinations of L elements in S
 	COMBIN *Lcombin = CombinZeroth(SSize, L, combinArrayL);
-	while (CombinNext(Lcombin)) {
+	do {
 		//add vertices in combinations to set.
 		TSET mask = 0;
 		for (i = 0; i < L; i++) {
@@ -656,7 +658,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 			}
 
 		}
-	}
+	} while (CombinNext(Lcombin)); 
 	
 	CombinFree(Dcombin);
 	CombinFree(Lcombin);
@@ -721,7 +723,7 @@ void initializeMCMC(int k) {
 		BuildGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
 		if (TinyGraphDFSConnected(gk, 0)) {
-			//_alphaList[i] = ComputeAlpha(gk, gd, k, L);
+			_alphaList[i] = ComputeAlpha(gk, gd, k, L);
 		}
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}
