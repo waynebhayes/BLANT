@@ -619,9 +619,9 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 			}
 		} while (CombinNext(Dcombin)); 
 	} else {
-		do {
-			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1])) //the two indices in the array
-			{ //add the d graphlet
+		do { //if there is an edge between any two vertices in the graphlet
+			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
+			{ //add it to the Darray
 				Darray[SSize*mcmc_d] = Dcombin->array[i];
 				Darray[SSize*mcmc_d+1] = Dcombin->array[i];
 				SSize++;
@@ -636,7 +636,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		TSET mask = 0;
 		for (i = 0; i < L; i++) {
 			for (j = 0; i < mcmc_d; j++) {
-				TSetAdd(mask, Darray[Lcombin->array[i]+j]);
+				TSetAdd(mask, Darray[Lcombin->array[i]*mcmc_d+j]);
 			}
 		}
 		//if Size of nodeset of nodes in each element of s == k then
@@ -647,8 +647,8 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 				for (g2 = g1; g2 < L; g2++) {
 					TSET tset = 0;
 					for (i = 0; i < mcmc_d; i++) {
-						TSetAdd(tset, Darray[Lcombin->array[g1]+i]);
-						TSetAdd(tset, Darray[Lcombin->array[g2]+i]);
+						TSetAdd(tset, Darray[Lcombin->array[g1]*mcmc_d+i]);
+						TSetAdd(tset, Darray[Lcombin->array[g2]*mcmc_d+i]);
 					}
 
 					if (TSetCardinality(tset) == mcmc_d-1) {
