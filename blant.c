@@ -606,7 +606,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		do {
 			TSET mask = 0;
 			for (i = 0; i < mcmc_d; i++) {
-				TSetAdd(mask, combinArrayD[i]);
+				TSetAdd(mask, Dcombin->array[i]);
 			}
 			Gd = TinyGraphInduced(Gd, Gk, mask);
 			if (TinyGraphDFSConnected(Gd, 0))
@@ -619,14 +619,14 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 			}
 		} while (CombinNext(Dcombin)); 
 	} else {
-		while (CombinNext(Dcombin)) {
+		do {
 			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1])) //the two indices in the array
-			{
+			{ //add the d graphlet
 				Darray[SSize*mcmc_d] = Dcombin->array[i];
 				Darray[SSize*mcmc_d+1] = Dcombin->array[i];
 				SSize++;
 			}
-		}
+		} while (CombinNext(Dcombin));
 	}
 
 	//for s over all combinations of L elements in S
@@ -636,7 +636,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		TSET mask = 0;
 		for (i = 0; i < L; i++) {
 			for (j = 0; i < mcmc_d; j++) {
-				TSetAdd(mask, Darray[combinArrayL[i]+j]);
+				TSetAdd(mask, Darray[Lcombin->array[i]+j]);
 			}
 		}
 		//if Size of nodeset of nodes in each element of s == k then
@@ -647,8 +647,8 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 				for (g2 = g1; g2 < L; g2++) {
 					TSET tset = 0;
 					for (i = 0; i < mcmc_d; i++) {
-						TSetAdd(tset, Darray[combinArrayL[g1]+i]);
-						TSetAdd(tset, Darray[combinArrayL[g2]+i]);
+						TSetAdd(tset, Darray[Lcombin->array[g1]+i]);
+						TSetAdd(tset, Darray[Lcombin->array[g2]+i]);
 					}
 
 					if (TSetCardinality(tset) == mcmc_d-1) {
