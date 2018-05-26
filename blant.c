@@ -686,12 +686,9 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 		assert(QueueSize(XLQ) == 2 * (k-mcmc_d+1));
 #endif
 		//Keep crawling til we have k distinct vertices. Crawl at least once
-		static int numTries = 0; //Give up after 100 consecutive tries
 		do  {
-			assert(++numTries < MAX_TRIES);
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
 		} while (MultisetCardinality(XLS) != k);
-		numTries = 0;
 	}
 #if PARANOID_ASSERTS
 		assert(MultisetCardinality(XLS) == k);
