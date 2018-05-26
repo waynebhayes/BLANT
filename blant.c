@@ -723,7 +723,7 @@ void initializeMCMC(int k) {
 		BuildGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
 		if (TinyGraphDFSConnected(gk, 0)) {
-			_alphaList[i] = ComputeAlpha(gk, gd, k, L);
+			//_alphaList[i] = ComputeAlpha(gk, gd, k, L);
 		}
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}
