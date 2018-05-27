@@ -11,6 +11,8 @@
 #include "rand48.h"
 #include "heap.h"
 #include "blant.h"
+#include "queue.h"
+#include "multisets.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
@@ -24,11 +26,12 @@ char **_nodeNames;
 #define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
 #define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
+#define SAMPLE_MCMC 5 // MCMC Algorithm estimates graphlet frequency with a random walk
 #ifndef RESERVOIR_MULTIPLIER
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
+#define SAMPLE_METHOD SAMPLE_MCMC
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -72,7 +75,10 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
+// 
+static unsigned L; // walk length for MCMC algorithm
 
+static int _alphaList[MAX_CANONICALS];
 /* AND NOW THE CODE */
 
 
@@ -484,6 +490,245 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #endif
 }
 
+// MCMC getNeighbor Gets a random neighbo of a d graphlet as an array of vertices Xcurrent
+int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
+{
+	static SET *outSet;
+    static int numIsolatedNodes;
+    if(!outSet)
+    	outSet = SetAlloc(G->n);
+    else if(G->n > outSet->n)
+		SetResize(outSet, G->n);
+    else
+		SetEmpty(outSet);
+
+	if (mcmc_d == 2)
+	{
+		int oldu = Xcurrent[0];
+		int oldv = Xcurrent[1];
+		static int numTries = 0;
+		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
+			assert(++numTries < MAX_TRIES);
+			double p = drand48();
+			// if 0 < p < 1, p < deg(u) + deg(v) then
+			if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
+				// select randomly from Neigh(u) and swap
+				int neighbor = (int) (G->degree[Xcurrent[0]] * drand48());
+				Xcurrent[1] = G->neighbor[Xcurrent[0]][neighbor];
+			}
+			else {
+				// select randomly from Neigh(v) and swap
+				int neighbor = (int) (G->degree[Xcurrent[1]] * drand48());
+				Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
+			}
+		}
+		numTries = 0;
+#if PARANOID_ASSERTS
+		assert(Xcurrent[0] != Xcurrent[1]);
+		assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
+		assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
+#endif
+	}
+	else Fatal("Not implemented. Set d to 2");
+	return Xcurrent;
+}
+
+//Crawls one step along the graph updating our multiset, queue, and newest graphlet array
+void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
+	int v;
+	for (int i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from queue and multiset
+		v = QueueGet(XLQ).i;
+		MultisetDelete(XLS, v);
+	}
+	MCMCGetNeighbor(X, G); //Gets a neighbor graphlet of the most recent d vertices and add to queue and multiset
+	for (int i = 0; i < mcmc_d; i++) {
+		MultisetAdd(XLS, X[i]);
+		QueuePut(XLQ, (foint) X[i]);
+	}
+}
+
+// WalkLSteps fills Varray, V, XLS, XLQ with L dgraphlets
+void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
+{
+	//For now d must be equal to 2 because we start by picking a random edge
+	int numNodes = 0;
+	if (mcmc_d != 2) {
+		Fatal("mcmc_d must be set to 2 in blant.h for now");
+	} else {
+	//Pick a random edge. Add the vertices from it to our data structures
+	int edge = G->numEdges * drand48();
+    X[0] = G->edgeList[2*edge];
+    X[1] = G->edgeList[2*edge+1];
+    MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
+    MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
+	}
+
+	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
+	int l = k - mcmc_d + 1;
+	for (int i = 1; i < l; i++) {
+		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
+		for (int j = 0; j < mcmc_d; j++) {
+			MultisetAdd(XLS, X[j]);
+			QueuePut(XLQ, (foint) X[j]);
+		}
+	}
+#if PARANOID_ASSERTS
+	assert(QueueSize(XLQ) == l*mcmc_d);
+#endif
+	//Keep crawling til we have k distinct vertices
+	static int numTries = 0;
+	while (MultisetCardinality(XLS) < k) {
+		assert(++numTries < MAX_TRIES); //If we crawl 100 steps without k distinct vertices. Todo restart
+		crawlOneStep(XLS, XLQ, X, G);
+	}
+	numTries = 0;
+#if PARANOID_ASSERTS
+	assert(MultisetCardinality(XLS) == k);
+#endif
+}
+
+//Given preallocated k graphlet and d graphlet. Assumes Gk is connected
+int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
+	// generate all the edges of g
+	// 0 can result in DIVIDE BY ZERO ERROR
+	assert(k >= 3 && k <=8); //TSET used limits to 8 bits of set represntation.
+	int alpha = 0;
+	unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
+	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
+	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD);
+	int numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
+	int Darray[numDGraphlets * mcmc_d]; //Vertices in our d graphlets
+
+	//Fill the S array with all connected d graphlets from Gk
+	int SSize = 0;
+	int i, j;
+	if (mcmc_d != 2) {
+		do {
+			TSET mask = 0;
+			for (i = 0; i < mcmc_d; i++) {
+				TSetAdd(mask, Dcombin->array[i]);
+			}
+			Gd = TinyGraphInduced(Gd, Gk, mask);
+			if (TinyGraphDFSConnected(Gd, 0))
+			{
+				for (i = 0; i < mcmc_d; i++)
+				{
+					Darray[SSize*mcmc_d+i] = Dcombin->array[i];
+				}
+				SSize++;
+			}
+		} while (CombinNext(Dcombin)); 
+	} else {
+		do { //if there is an edge between any two vertices in the graphlet
+			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
+			{ //add it to the Darray
+				Darray[SSize*mcmc_d] = Dcombin->array[i];
+				Darray[SSize*mcmc_d+1] = Dcombin->array[i];
+				SSize++;
+			}
+		} while (CombinNext(Dcombin));
+	}
+
+	//for s over all combinations of L elements in S
+	COMBIN *Lcombin = CombinZeroth(SSize, L, combinArrayL);
+	do {
+		//add vertices in combinations to set.
+		TSET mask = 0;
+		for (i = 0; i < L; i++) {
+			for (j = 0; i < mcmc_d; j++) {
+				TSetAdd(mask, Darray[Lcombin->array[i]*mcmc_d+j]);
+			}
+		}
+		//if Size of nodeset of nodes in each element of s == k then
+		if (TSetCardinality(mask) == k)
+		{
+			int g1, g2;
+			for (g1 = 0; g1 < L; g1++) {
+				for (g2 = g1; g2 < L; g2++) {
+					TSET tset = 0;
+					for (i = 0; i < mcmc_d; i++) {
+						TSetAdd(tset, Darray[Lcombin->array[g1]*mcmc_d+i]);
+						TSetAdd(tset, Darray[Lcombin->array[g2]*mcmc_d+i]);
+					}
+
+					if (TSetCardinality(tset) == mcmc_d-1) {
+						alpha += 2;
+					}
+				}
+			}
+
+		}
+	} while (CombinNext(Lcombin)); 
+	
+	CombinFree(Dcombin);
+	CombinFree(Lcombin);
+}
+
+// MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
+static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
+	static Boolean setup = false;
+	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
+	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
+	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
+	if (!XLQ || !XLS) {
+		XLQ = QueueAlloc(k*mcmc_d);
+		XLS = MultisetAlloc(G->n);
+	}
+
+	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
+	if (!setup) {
+		setup = true;
+		MultisetEmpty(XLS);
+		while (QueueSize(XLQ) > 0) QueueGet(XLQ);
+		WalkLSteps(Varray, V, XLS, XLQ, Xcurrent, G, k);
+	} else {
+#if PARANOID_ASSERTS
+		assert(QueueSize(XLQ) == 2 * (k-mcmc_d+1));
+#endif
+		//Keep crawling til we have k distinct vertices. Crawl at least once
+		do  {
+			crawlOneStep(XLS, XLQ, Xcurrent, G);
+		} while (MultisetCardinality(XLS) != k);
+	}
+#if PARANOID_ASSERTS
+		assert(MultisetCardinality(XLS) == k);
+#endif
+
+	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
+	int num, numNodes = 0;
+	SetEmpty(V);
+	for (int i = 0; i < XLQ->length; i++) {
+		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
+		if (!SetIn(V, num)) {
+			Varray[numNodes++] = num;
+			SetAdd(V, num);
+		}
+	}
+#if PARANOID_ASSERTS
+	assert(numNodes == k);
+#endif
+	return V; //and return
+}
+
+void initializeMCMC(int k) {
+	L = k - mcmc_d  + 1;
+	TINY_GRAPH *gk = TinyGraphAlloc(k);
+	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
+
+	// create the alpha list
+	for (int i = 0; i < _numCanon; i++) {
+		BuildGraph(gk, _canonList[i]);
+		TinyGraphEdgesAllDelete(gd);
+		if (TinyGraphDFSConnected(gk, 0)) {
+			//_alphaList[i] = ComputeAlpha(gk, gd, k, L);
+		}
+		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
+	}
+
+	TinyGraphFree(gk);
+	TinyGraphFree(gd);
+}
+
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
 // Given the big graph G, and a set of nodes S (|S|==k), compute the 
@@ -567,7 +812,6 @@ static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 	assert(NumReachableNodes(g,0) == TinyGraphBFS(g, 0, k, graphetteArray, distArray));
 #endif
     } while(NumReachableNodes(g, 0) < k);
-
     return V;
 }
 
@@ -598,20 +842,7 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
-// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
-// Call RunBlantInThreads instead, it's the top-level entry point to call once the
-// graph is finished being input---all the ways of reading input call RunBlantInThreads.
-int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
-{
-    int i,j;
-    char perm[maxK+1];
-    assert(k <= G->n);
-    srand48(_seed);
-    SET *V = SetAlloc(G->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k);
-    unsigned Varray[maxK+1];
-    for(i=0; i<numSamples; i++)
-    {
+void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 #if SAMPLE_METHOD == SAMPLE_UNBIASED
 	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
 #elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
@@ -620,9 +851,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
 #elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#elif SAMPLE_METHOD == SAMPLE_MCMC
+	SampleGraphletMCMC(V, Varray, G, k);
 #else
 #error unknown sampling method
 #endif
+}
+
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -663,11 +899,36 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	default: Abort("unknown or un-implemented outputMode");
 	    break;
 	}
+}
+
+// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
+// Call RunBlantInThreads instead, it's the top-level entry point to call once the
+// graph is finished being input---all the ways of reading input call RunBlantInThreads.
+int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+{
+    int i,j;
+    char perm[maxK+1];
+    assert(k <= G->n);
+    srand48(_seed);
+    SET *V = SetAlloc(G->n);
+    TINY_GRAPH *g = TinyGraphAlloc(k);
+    unsigned Varray[maxK+1];
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	initializeMCMC(k);
+#endif
+    for(i=0; i<numSamples; i++)
+    {
+		SampleGraphlet(G, V, Varray, k);
+		ProcessGraphlet(G, V, Varray, perm, g, k);
     }
     switch(_outputMode)
     {
 	int canon;
-    case indexGraphlets: break; // already output on-the-fly above
+    case indexGraphlets: 
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	Warning("Sampling method MCMC overcounts graphlets by varying amounts.");
+#endif
+	break; // already output on-the-fly above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++)
 	    printf("%lu %d\n", _graphletCount[canon], canon);
