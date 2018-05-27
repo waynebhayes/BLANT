@@ -535,13 +535,13 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 
 //Crawls one step along the graph updating our multiset, queue, and newest graphlet array
 void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
-	int v;
-	for (int i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from queue and multiset
+	int v, i;
+	for (i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from queue and multiset
 		v = QueueGet(XLQ).i;
 		MultisetDelete(XLS, v);
 	}
 	MCMCGetNeighbor(X, G); //Gets a neighbor graphlet of the most recent d vertices and add to queue and multiset
-	for (int i = 0; i < mcmc_d; i++) {
+	for (i = 0; i < mcmc_d; i++) {
 		MultisetAdd(XLS, X[i]);
 		QueuePut(XLQ, (foint) X[i]);
 	}
@@ -564,10 +564,10 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 	}
 
 	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
-	int l = k - mcmc_d + 1;
-	for (int i = 1; i < l; i++) {
+	int l = k - mcmc_d + 1, i, j;
+	for (i = 1; i < l; i++) {
 		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
-		for (int j = 0; j < mcmc_d; j++) {
+		for (j = 0; j < mcmc_d; j++) {
 			MultisetAdd(XLS, X[j]);
 			QueuePut(XLQ, (foint) X[j]);
 		}
@@ -695,9 +695,9 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 #endif
 
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
-	int num, numNodes = 0;
+	int num, numNodes = 0, i;
 	SetEmpty(V);
-	for (int i = 0; i < XLQ->length; i++) {
+	for (i = 0; i < XLQ->length; i++) {
 		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
 		if (!SetIn(V, num)) {
 			Varray[numNodes++] = num;
@@ -714,9 +714,9 @@ void initializeMCMC(int k) {
 	L = k - mcmc_d  + 1;
 	TINY_GRAPH *gk = TinyGraphAlloc(k);
 	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-
+	int i;
 	// create the alpha list
-	for (int i = 0; i < _numCanon; i++) {
+	for (i = 0; i < _numCanon; i++) {
 		BuildGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
 		if (TinyGraphDFSConnected(gk, 0)) {
