@@ -1,4 +1,5 @@
 #include "multisets.h"
+#include "misc.h"
 #include <assert.h>
 /* Allocates multiset with arraysize of n. Frequency allowed up to 1^sizeof(FREQTYPE) -1
 */
@@ -47,8 +48,8 @@ MULTISET *MultisetAdd(MULTISET *mset, unsigned element) {
     assert(element < mset->n);
     if (mset->array[element] == 0) mset->cardinality++; //If there weren't any before cardinality goes up
     if (mset->array[element] == MAX_MULTISET_NUM) //Check for unsigned overflow while incrementing
-        FATAL("Multiset incremented past storage limit");
-    mset->array[element]++;
+        Fatal("Multiset attempted to incremement past limit: %d", MAX_MULTISET_NUM);
+    else mset->array[element]++;
     return mset;
 }
 
