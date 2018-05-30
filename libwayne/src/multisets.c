@@ -46,7 +46,8 @@ unsigned MultisetCardinality(MULTISET *mset) {
 MULTISET *MultisetAdd(MULTISET *mset, unsigned element) {
     assert(element < mset->n);
     if (mset->array[element] == 0) mset->cardinality++; //If there weren't any before cardinality goes up
-    assert(mset->array[element] < mset->array[element]+1); //Check for unsigned overflow while incrementing
+    if (mset->array[element] == MAX_MULTISET_NUM) //Check for unsigned overflow while incrementing
+        FATAL("Multiset incremented past storage limit");
     mset->array[element]++;
     return mset;
 }
