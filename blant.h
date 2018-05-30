@@ -6,6 +6,8 @@
 
 #define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
 
+#define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
+
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 #define MAX_ORBITS	79264	// This is the number of orbits for k=8
 
