@@ -591,15 +591,17 @@ static COMBIN *_Lcombin;
 static int *_Darray;
 static int _alpha;
 
-Boolean _permuteHamPath(int size, int* array) {
+
+//if all consecutive elements within s share d-1 nodes then alpha++
+Boolean _permuteDgraphlets(int size, int* array) {
 	int g1, i;
 	Boolean hamPath = true;
 	for (g1 = 0; g1 < L-1; g1++) { //Unsure if this combination strategy works for d != 2
 		TSET tset1 = 0;
 		TSET tset2 = 0;
 		for (i = 0; i < mcmc_d; i++) {
-			TSetAdd(tset1, _Darray[_Lcombin->array[g1]*mcmc_d+i]);
-			TSetAdd(tset2, _Darray[_Lcombin->array[g1+1]*mcmc_d+i]);
+			TSetAdd(tset1, _Darray[_Lcombin->array[array[g1]]*mcmc_d+i]);
+			TSetAdd(tset2, _Darray[_Lcombin->array[array[g1+1]]*mcmc_d+i]);
 		}
 
 		if (TSetCardinality(TSetIntersect(tset1, tset2)) != mcmc_d-1) {
@@ -670,9 +672,10 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		{
 			int permArray[L];
 			memset(permArray, L, sizeof(int));
-			CombinAllPermutations(L, permArray, _permuteHamPath);
+			//all permutations of elements within s do 
+			CombinAllPermutations(L, permArray, _permuteDgraphlets);
 		}
-	} while (CombinNext(Lcombin)); //This loop adds 1 for every hampath in the graphlet
+	} while (CombinNext(Lcombin));
 	
 	CombinFree(Dcombin);
 	CombinFree(Lcombin);
