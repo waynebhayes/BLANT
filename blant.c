@@ -587,17 +587,42 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 #endif
 }
 
+static COMBIN *_Lcombin;
+static int *_Darray;
+static int _alpha;
+
+Boolean _permuteHamPath(int size, int* array) {
+	int g1, i;
+	Boolean hamPath = true;
+	for (g1 = 0; g1 < L-1; g1++) { //Unsure if this combination strategy works for d != 2
+		TSET tset1 = 0;
+		TSET tset2 = 0;
+		for (i = 0; i < mcmc_d; i++) {
+			TSetAdd(tset1, _Darray[_Lcombin->array[g1]*mcmc_d+i]);
+			TSetAdd(tset2, _Darray[_Lcombin->array[g1+1]*mcmc_d+i]);
+		}
+
+		if (TSetCardinality(TSetIntersect(tset1, tset2)) != mcmc_d-1) {
+			hamPath = false;
+			break;
+		}
+	}
+	if (hamPath) _alpha += 1;
+	return 0; //Tell permutation to continue
+}
+
 //Given preallocated k graphlet and d graphlet. Assumes Gk is connected
 int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 	// generate all the edges of g
 	// 0 can result in DIVIDE BY ZERO ERROR
 	assert(k >= 3 && k <=8); //TSET used limits to 8 bits of set represntation.
-	int alpha = 0;
+	_alpha = 0;
 	unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
 	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
 	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD);
 	int numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
 	int Darray[numDGraphlets * mcmc_d]; //Vertices in our d graphlets
+	_Darray = Darray; //static global variable for permuatation function
 
 	//Fill the S array with all connected d graphlets from Gk
 	int SSize = 0;
@@ -631,6 +656,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 
 	//for s over all combinations of L elements in S
 	COMBIN *Lcombin = CombinZeroth(SSize, L, combinArrayL);
+	_Lcombin = Lcombin;
 	do {
 		//add vertices in combinations to set.
 		TSET mask = 0;
@@ -642,29 +668,16 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		//if Size of nodeset of nodes in each element of s == k then
 		if (TSetCardinality(mask) == k)
 		{
-			int g1, g2;
-			for (g1 = 0; g1 < L; g1++) {
-				for (g2 = g1+1; g2 < L; g2++) {
-					TSET tset1 = 0;
-					TSET tset2 = 0;
-					for (i = 0; i < mcmc_d; i++) {
-						TSetAdd(tset1, Darray[Lcombin->array[g1]*mcmc_d+i]);
-						TSetAdd(tset2, Darray[Lcombin->array[g2]*mcmc_d+i]);
-					}
-
-					if (TSetCardinality(TSetIntersect(tset1, tset2)) == mcmc_d-1) {
-						alpha += 2;
-					}
-				}
-			}
-
+			int permArray[L];
+			memset(permArray, L, sizeof(int));
+			CombinAllPermutations(L, permArray, _permuteHamPath);
 		}
-	} while (CombinNext(Lcombin)); 
+	} while (CombinNext(Lcombin)); //This loop adds 1 for every hampath in the graphlet
 	
 	CombinFree(Dcombin);
 	CombinFree(Lcombin);
-	printf("K: %d, LowerInt: %d, alpha: %d\n", k, TinyGraph2Int(Gk, Gk->n), alpha);
-	return alpha;
+	fprintf(stderr, "K: %d, LowerInt: %d, alpha: %d\n", k, TinyGraph2Int(Gk, Gk->n), _alpha);
+	return _alpha;
 }
 
 // MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
