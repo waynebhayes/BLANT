@@ -622,8 +622,8 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		do { //if there is an edge between any two vertices in the graphlet
 			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
 			{ //add it to the Darray
-				Darray[SSize*mcmc_d] = Dcombin->array[i];
-				Darray[SSize*mcmc_d+1] = Dcombin->array[i];
+				Darray[SSize*mcmc_d] = Dcombin->array[0];
+				Darray[SSize*mcmc_d+1] = Dcombin->array[1];
 				SSize++;
 			}
 		} while (CombinNext(Dcombin));
@@ -635,7 +635,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		//add vertices in combinations to set.
 		TSET mask = 0;
 		for (i = 0; i < L; i++) {
-			for (j = 0; i < mcmc_d; j++) {
+			for (j = 0; j < mcmc_d; j++) {
 				TSetAdd(mask, Darray[Lcombin->array[i]*mcmc_d+j]);
 			}
 		}
@@ -644,14 +644,15 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 		{
 			int g1, g2;
 			for (g1 = 0; g1 < L; g1++) {
-				for (g2 = g1; g2 < L; g2++) {
-					TSET tset = 0;
+				for (g2 = g1+1; g2 < L; g2++) {
+					TSET tset1 = 0;
+					TSET tset2 = 0;
 					for (i = 0; i < mcmc_d; i++) {
-						TSetAdd(tset, Darray[Lcombin->array[g1]*mcmc_d+i]);
-						TSetAdd(tset, Darray[Lcombin->array[g2]*mcmc_d+i]);
+						TSetAdd(tset1, Darray[Lcombin->array[g1]*mcmc_d+i]);
+						TSetAdd(tset2, Darray[Lcombin->array[g2]*mcmc_d+i]);
 					}
 
-					if (TSetCardinality(tset) == mcmc_d-1) {
+					if (TSetCardinality(TSetIntersect(tset1, tset2)) == mcmc_d-1) {
 						alpha += 2;
 					}
 				}
@@ -662,6 +663,8 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
 	
 	CombinFree(Dcombin);
 	CombinFree(Lcombin);
+	printf("K: %d, LowerInt: %d, alpha: %d\n", k, TinyGraph2Int(Gk, Gk->n), alpha);
+	return alpha;
 }
 
 // MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
@@ -720,7 +723,7 @@ void initializeMCMC(int k) {
 		BuildGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
 		if (TinyGraphDFSConnected(gk, 0)) {
-			//_alphaList[i] = ComputeAlpha(gk, gd, k, L);
+			_alphaList[i] = ComputeAlpha(gk, gd, k, L);
 		}
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}
