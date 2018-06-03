@@ -31,7 +31,7 @@ char **_nodeNames;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_MCMC
+#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -153,12 +153,20 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     for(i=0; i < G->degree[v1]; i++)
     {
 	int nv1 =  G->neighbor[v1][i];
-	if(nv1 != v2) SetAdd(outSet, (outbound[nOut++] = nv1));
+	if(nv1 != v2)
+	{
+	    assert(!SetIn(V, nv1)); // assertion to ensure we're in line with faye
+	    SetAdd(outSet, (outbound[nOut++] = nv1));
+	}
     }
     for(i=0; i < G->degree[v2]; i++)
     {
 	int nv2 =  G->neighbor[v2][i];
-	if(nv2 != v1 && !SetIn(outSet, nv2)) SetAdd(outSet, (outbound[nOut++] = nv2));
+	if(nv2 != v1 && !SetIn(outSet, nv2))
+	{
+	    assert(!SetIn(V, nv2)); // assertion to ensure we're in line with faye
+	    SetAdd(outSet, (outbound[nOut++] = nv2));
+	}
     }
     for(i=2; i<k; i++)
     {
@@ -786,7 +794,7 @@ static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAP
 /*
 * Very slow: sample k nodes uniformly at random and throw away ones that are disconnected.
 */
-
+static unsigned long int unbiasedTotalTries;
 static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 {
     int arrayV[k], i;
@@ -794,6 +802,7 @@ static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
     TINY_GRAPH *g = TinyGraphAlloc(k);
     int graphetteArray[k];
 
+    int tries = 0;
     do
     {
 	SetEmpty(V);
@@ -811,7 +820,9 @@ static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 	assert(SetCardinality(V)==k);
 	assert(NumReachableNodes(g,0) == TinyGraphBFS(g, 0, k, graphetteArray, distArray));
 #endif
+	++tries;
     } while(NumReachableNodes(g, 0) < k);
+    unbiasedTotalTries += tries;
     return V;
 }
 
@@ -918,8 +929,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #endif
     for(i=0; i<numSamples; i++)
     {
-		SampleGraphlet(G, V, Varray, k);
-		ProcessGraphlet(G, V, Varray, perm, g, k);
+	SampleGraphlet(G, V, Varray, k);
+	ProcessGraphlet(G, V, Varray, perm, g, k);
     }
     switch(_outputMode)
     {
@@ -956,6 +967,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
 	Free(_orbitDegreeVector[i]);
+#endif
+#if SAMPLE_METHOD == SAMPLE_UNBIASED
+    fprintf(stderr,"Average number of tries per sample is %g\n", unbiasedTotalTries/(double)numSamples);
 #endif
     return 0;
 }
