@@ -35,7 +35,7 @@ char **_nodeNames;
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
-#define ALLOW_DISCONNECTED_GRAPHLETS 0
+#define ALLOW_DISCONNECTED_GRAPHLETS 1
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -273,34 +273,34 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     int numTries = 0;
     while(vCount < k)
     {
-	int i, whichNeigh;
+	int i, whichNeigh, newNode = -1;
 	while(numTries < MAX_TRIES && SetIn(internal, (whichNeigh = outDegree * drand48())))
 	    ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
 	if(numTries >= MAX_TRIES) {
 #if ALLOW_DISCONNECTED_GRAPHLETS
-		    // get a new node outside this connected component.
-		    // Note this will return a disconnected graphlet.
-		    while(SetIn(V, (newNode = G->n*drand48())))
-			; // must terminate since k <= G->n
-		    numTries = 0;
-		    outDegree = 0;
-		    int j;
-		    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
-			cumulative[j] = 0;
-		    SetEmpty(internal);
+	    // get a new node outside this connected component.
+	    // Note this will return a disconnected graphlet.
+	    while(SetIn(V, (newNode = G->n*drand48())))
+		; // must terminate since k <= G->n
+	    numTries = 0;
+	    outDegree = 0;
+	    int j;
+	    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
+		cumulative[j] = 0;
+	    SetEmpty(internal);
 #else
-		    static int depth;
-		    depth++;
-		    assert(depth < MAX_TRIES);
-		    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
-		    depth--;
-		    return V;
+	    static int depth;
+	    depth++;
+	    assert(depth < MAX_TRIES);
+	    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+	    depth--;
+	    return V;
 #endif
 	}
 	for(i=0; cumulative[i] <= whichNeigh; i++)
 	    ; // figure out whose neighbor it is
 	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]); // which neighbor of node i?
-	int newNode = G->neighbor[Varray[i]][localNeigh];
+	if(newNode < 0) newNode = G->neighbor[Varray[i]][localNeigh];
 #if PARANOID_ASSERTS
 	// really should check some of these a few lines higher but let's group all the paranoia in one place.
 	assert(i < vCount);
