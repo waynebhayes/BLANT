@@ -577,8 +577,15 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 #endif
 	//Keep crawling til we have k distinct vertices
 	static int numTries = 0;
+	static int depth = 0;
 	while (MultisetCardinality(XLS) < k) {
-		assert(++numTries < MAX_TRIES); //If we crawl 100 steps without k distinct vertices. Todo restart
+		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices. Todo restart
+			assert(depth++ < numTries);
+			
+			WalkLSteps(Varray,V,XLS,XLQ,X,G,k);
+			depth = 0;
+			return;
+		}
 		crawlOneStep(XLS, XLQ, X, G);
 	}
 	numTries = 0;
@@ -590,7 +597,6 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 static COMBIN *_Lcombin;
 static int *_Darray;
 static int _alpha;
-
 
 //if all consecutive elements within s share d-1 nodes then alpha++
 Boolean _permuteDgraphlets(int size, int* array) {
