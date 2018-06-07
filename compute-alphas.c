@@ -31,7 +31,7 @@ Boolean _permuteDgraphlets(int size, int* array) {
 		}
 
 		if (TSetCardinality(TSetIntersect(tset1, tset2)) != mcmc_d-1) {
-			hamPath = false;
+			validWalk = false;
 			break;
 		}
 	}

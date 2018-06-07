@@ -851,7 +851,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	for(canon=0; canon<_numCanon; canon++) {
 #if SAMPLE_METHOD == SAMPLE_MCMC
 #if PARANOID_ASSERTS
-	assert(_alphaList[canon] != 0)
+	assert(_alphaList[canon] != 0);
 #endif
 	printf("%lu %d\n", _graphletCount[canon]/_alphaList[canon], canon);
 #else
