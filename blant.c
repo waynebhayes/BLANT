@@ -597,7 +597,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 #endif
 }
 
-// MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
+// MCMC sampleGraphletMCMC. This and associated functions are not reentrant.
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
 	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
@@ -848,16 +848,16 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #endif
 	break; // already output on-the-fly above
     case graphletFrequency:
+	for(canon=0; canon<_numCanon; canon++) {
 #if SAMPLE_METHOD == SAMPLE_MCMC
-	for(canon=0; canon<_numCanon; canon++)
 #if PARANOID_ASSERTS
 	assert(_alphaList[canon] != 0)
 #endif
-		printf("%lu %d\n", _graphletCount[canon]/_alphaList[canon], canon);
+	printf("%lu %d\n", _graphletCount[canon]/_alphaList[canon], canon);
 #else
-	for(canon=0; canon<_numCanon; canon++)
-		printf("%lu %d\n", _graphletCount[canon], canon);
+	printf("%lu %d\n", _graphletCount[canon], canon);
 #endif
+	}
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
