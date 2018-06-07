@@ -493,22 +493,15 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 // MCMC getNeighbor Gets a random neighbo of a d graphlet as an array of vertices Xcurrent
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
-	static SET *outSet;
-    static int numIsolatedNodes;
-    if(!outSet)
-    	outSet = SetAlloc(G->n);
-    else if(G->n > outSet->n)
-		SetResize(outSet, G->n);
-    else
-		SetEmpty(outSet);
-
 	if (mcmc_d == 2)
 	{
 		int oldu = Xcurrent[0];
 		int oldv = Xcurrent[1];
-		static int numTries = 0;
+		int numTries = 0;
 		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
+#if PARANOID_ASSERTS
 			assert(++numTries < MAX_TRIES);
+#endif
 			double p = drand48();
 			// if 0 < p < 1, p < deg(u) + deg(v) then
 			if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
@@ -522,7 +515,6 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 				Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
 			}
 		}
-		numTries = 0;
 #if PARANOID_ASSERTS
 		assert(Xcurrent[0] != Xcurrent[1]);
 		assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
@@ -955,8 +947,16 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #endif
 	break; // already output on-the-fly above
     case graphletFrequency:
+#if SAMPLE_METHOD == SAMPLE_MCMC
 	for(canon=0; canon<_numCanon; canon++)
-	    printf("%lu %d\n", _graphletCount[canon], canon);
+#if PARANOID_ASSERTS
+	assert(_alphaList[canon] != 0)
+#endif
+		printf("%lu %d\n", _graphletCount[canon]/_alphaList[canon], canon);
+#else
+	for(canon=0; canon<_numCanon; canon++)
+		printf("%lu %d\n", _graphletCount[canon], canon);
+#endif
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
