@@ -607,13 +607,15 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
 	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
 	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
+	static SET *XcurrOutset;
 	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
 	static TINY_GRAPH* Gk;
-	static int currSamples = 0;
-	if (!XLQ || !XLS || !Gk) {
+	static int currSamples = 0, i;
+	if (!XLQ || !XLS || !Gk || !XcurrOutset) {
 		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
 		Gk = TinyGraphAlloc(k);
+		XcurrOutset = SetAlloc(G->n);
 	}
 
 	//The first time we run this, or when we restart. We want to find our initial L d graphlets, 
@@ -640,7 +642,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
 	int num, numNodes = 0;
 	SetEmpty(V);
-	for (int i = 0; i < XLQ->length; i++) {
+	for (i = 0; i < XLQ->length; i++) {
 		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
 		if (!SetIn(V, num)) {
 			Varray[numNodes++] = num;
@@ -652,12 +654,18 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 #endif
 	TinyGraphInducedFromGraph(Gk, G, Varray);
 	int Gint = TinyGraph2Int(Gk, k);
-
 	if (_L == 2) {
 		_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
 	} else {
 		assert(mcmc_d == 2);
-		_graphletConcentration[Gint] += 1/(_alphaList[Gint] * (G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]] - 2));
+		int neighbor;
+		for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
+			SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
+		}
+		for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
+			SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
+		}
+		_graphletConcentration[Gint] += 1/(_alphaList[Gint]*(SetCardinality(XcurrOutset) - 2));
 	}
 	return V; //and return
 }
