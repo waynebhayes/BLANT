@@ -608,12 +608,12 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
 	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
 	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
-	static TINY_GRAPH* Gd;
+	static TINY_GRAPH* Gk;
 	static int currSamples = 0;
-	if (!XLQ || !XLS || !Gd) {
+	if (!XLQ || !XLS || !Gk) {
 		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
-		Gd = TinyGraphAlloc(mcmc_d);
+		Gk = TinyGraphAlloc(k);
 	}
 
 	//The first time we run this, or when we restart. We want to find our initial L d graphlets, 
@@ -650,12 +650,13 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 #if PARANOID_ASSERTS
 	assert(numNodes == k);
 #endif
-	TinyGraphInducedFromGraph(Gd, G, Xcurrent);
-	int Gint = TinyGraph2Int(Gd, mcmc_d);
+	TinyGraphInducedFromGraph(Gk, G, Varray);
+	int Gint = TinyGraph2Int(Gk, k);
 
-	if (_L == 1) {
+	if (_L == 2) {
 		_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
 	} else {
+		assert(mcmc_d == 2);
 		_graphletConcentration[Gint] += 1/(_alphaList[Gint] * (G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]] - 2));
 	}
 	return V; //and return
@@ -670,6 +671,16 @@ void initializeMCMC(int k, int numSamples) {
 	for (i = 0; i < _numCanon; i++)
 	{
 		_graphletConcentration[i] = 0;
+	}
+}
+
+void finalizeMCMC() {
+	double totalConcentration = 0;
+	for (int i = 0; i < _numCanon; i++) {
+		totalConcentration += _graphletConcentration[i];
+	}
+	for (int i = 0; i < _numCanon; i++) {
+		_graphletConcentration[i] /= totalConcentration;
 	}
 }
 
@@ -864,6 +875,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		SampleGraphlet(G, V, Varray, k);
 		ProcessGraphlet(G, V, Varray, perm, g, k);
     }
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	finalizeMCMC();
+#endif
     switch(_outputMode)
     {
 	int canon;
