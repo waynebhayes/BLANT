@@ -90,18 +90,18 @@ MULTISET *MultisetDelete(MULTISET *mset, unsigned element) {
 }
 
 /* The sum of two multisets is the disjoint union of the two sets. Comparable to SetUnion.
-   This function assumes the multiset C allocated and clears previous values.
+   This function assumes the multiset C allocagted and clears previous values.
    A B and C should have the same size.
 */
 MULTISET *MultisetSum(MULTISET *C, MULTISET *A, MULTISET *B) {
     int i, freq;
-    int loop = SIZE(C->n);
+    int loop = C->n;
     assert(A->n == B->n && B->n == C->n);
     C->support = 0;
     for(i=0; i < loop; i++) {
         freq = A->array[i] + B->array[i]; //An int can safely store two unsigned chars added
         if (freq > MAX_MULTISET_NUM)
-            FATAL("MultisetSum overflow. Limit is %d", MAX_MULTISET_NUM);
+            Fatal("MultisetSum overflow. Limit is %d", MAX_MULTISET_NUM);
         C->array[i] = (unsigned char) freq;
         if (freq > 0) C->support++;
     }
@@ -114,7 +114,7 @@ MULTISET *MultisetSum(MULTISET *C, MULTISET *A, MULTISET *B) {
 */
 MULTISET *MultisetSubtract(MULTISET *C, MULTISET *A, MULTISET *B) {
     int i, freq;
-    int loop = SIZE(C->n);
+    int loop = C->n;
     assert(A->n == B->n && B->n == C->n);
     C->support = 0;
     for(i=0; i < loop; i++) {
