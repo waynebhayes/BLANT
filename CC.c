@@ -585,13 +585,13 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 #endif
 	//Keep crawling til we have k distinct vertices
 	static int numTries = 0;
-	while (MultisetCardinality(XLS) < k) {
+	while (MultisetSupport(XLS) < k) {
 		assert(++numTries < MAX_TRIES); //If we crawl 100 steps without k distinct vertices. Todo restart
 		crawlOneStep(XLS, XLQ, X, G);
 	}
 	numTries = 0;
 #if PARANOID_ASSERTS
-	assert(MultisetCardinality(XLS) == k);
+	assert(MultisetSupport(XLS) == k);
 #endif
 }
 
@@ -696,10 +696,10 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 		//Keep crawling til we have k distinct vertices. Crawl at least once
 		do  {
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
-		} while (MultisetCardinality(XLS) != k);
+		} while (MultisetSupport(XLS) != k);
 	}
 #if PARANOID_ASSERTS
-		assert(MultisetCardinality(XLS) == k);
+		assert(MultisetSupport(XLS) == k);
 #endif
 
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them

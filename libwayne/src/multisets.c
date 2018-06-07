@@ -6,22 +6,22 @@
 MULTISET *MultisetAlloc(unsigned int n) {
     MULTISET *mset = (MULTISET*) Calloc(1,sizeof(MULTISET));
     mset->n = n;
-    mset->cardinality = 0;
+    mset->support = 0;
     mset->array = (FREQTYPE*) Calloc(sizeof(FREQTYPE), n);
     return mset;
 }
 
 /* Resizes a multiset array to a new size;
-   Recalculates the cardinality in case the size is smaller and elements are removed.
+   Recalculates the support in case the size is smaller and elements are removed.
 */
 MULTISET *MultisetResize(MULTISET *mset, unsigned int new_n) {
     unsigned char* newArray = (FREQTYPE*) Calloc(sizeof(FREQTYPE), new_n);
     int loop = MIN(mset->n, new_n);
     int i;
-    mset->cardinality = 0;
+    mset->support = 0;
     for (i = 0; i < loop; i++) {
         newArray[i] = mset->array[i];
-        if (newArray[i] > 0) mset->cardinality++;
+        if (newArray[i] > 0) mset->support++;
     }
     unsigned char* temp = mset->array;
     mset->array = newArray;
@@ -48,27 +48,29 @@ MULTISET *MultisetEmpty(MULTISET *mset) {
     for(i=0; i<arrayElem; i++)
 	set->array[i] = 0;
 #endif
-    mset->cardinality = 0;
+    mset->support = 0;
     return mset;
 }
 
 /* Returns the number of distinct elements in a multiset. Its cardinality.
 */
-unsigned MultisetCardinality(MULTISET *mset) {
-    return mset->cardinality;
+unsigned MultisetSupport(MULTISET *mset) {
+    return mset->support;
 }
 
-/*
+/*  Returns the multiplicity of a single element
 */
-unsigned char MultisetMultiplicity(MULTISET *mset, unsigned element);
-
+unsigned char MultisetMultiplicity(MULTISET *mset, unsigned element) {
+    assert(element < mset->n);
+    return mset->array[element];
+}
 
 /* Add an element to a multiset.  Returns the same set handle.
    Adds one to the multiplicity of the element and updates the cardinality if necessary.
 */
 MULTISET *MultisetAdd(MULTISET *mset, unsigned element) {
     assert(element < mset->n);
-    if (mset->array[element] == 0) mset->cardinality++; //If there weren't any before cardinality goes up
+    if (mset->array[element] == 0) mset->support++; //If there weren't any before cardinality goes up
     if (mset->array[element] == MAX_MULTISET_NUM) //Check for unsigned overflow before incrementing
         Fatal("Multiset attempted to incremement past limit: %d", MAX_MULTISET_NUM);
     else mset->array[element]++;
@@ -83,7 +85,7 @@ MULTISET *MultisetDelete(MULTISET *mset, unsigned element) {
     if (mset->array[element] == 0) //Check for unsigned underflow before decrementing
         Fatal("Multiset attempted to decrement below 0");
     mset->array[element]--;
-    if (mset->array[element] == 0) mset->cardinality--;
+    if (mset->array[element] == 0) mset->support--;
     return mset;
 }
 
@@ -95,13 +97,13 @@ MULTISET *MultisetSum(MULTISET *C, MULTISET *A, MULTISET *B) {
     int i, freq;
     int loop = SIZE(C->n);
     assert(A->n == B->n && B->n == C->n);
-    C->cardinality = 0;
+    C->support = 0;
     for(i=0; i < loop; i++) {
         freq = A->array[i] + B->array[i]; //An int can safely store two unsigned chars added
         if (freq > MAX_MULTISET_NUM)
             FATAL("MultisetSum overflow. Limit is %d", MAX_MULTISET_NUM);
         C->array[i] = (unsigned char) freq;
-        if (freq > 0) C->cardinality++;
+        if (freq > 0) C->support++;
     }
     return C;
 }
@@ -114,12 +116,12 @@ MULTISET *MultisetSubtract(MULTISET *C, MULTISET *A, MULTISET *B) {
     int i, freq;
     int loop = SIZE(C->n);
     assert(A->n == B->n && B->n == C->n);
-    C->cardinality = 0;
+    C->support = 0;
     for(i=0; i < loop; i++) {
         freq = A->array[i] - B->array[i]; //An int can safely store two unsigned chars subtracted
         if (freq < 0) freq = 0;
         C->array[i] = (unsigned char) freq;
-        if (freq > 0) C->cardinality++;
+        if (freq > 0) C->support++;
     }
     return C;
 }
