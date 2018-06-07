@@ -75,10 +75,10 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
-// 
-static unsigned L; // walk length for MCMC algorithm
-
+//The number of edges required to walk a *Hamiltonion* path
+static unsigned L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
 static int _alphaList[MAX_CANONICALS];
+
 /* AND NOW THE CODE */
 
 
@@ -490,6 +490,17 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #endif
 }
 
+int alphaListPopulate(char *BUF, int *alpha_list, int k) {
+	sprintf(BUF, CANON_DIR "/alpha_list%d.bin", k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find %s/alpha_list%d.bin\n", CANON_DIR, k);
+    int numAlphas, i;
+    fscanf(fp_ord, "%d",&numAlphas);
+    for(i=0; i<numAlphas; i++) fscanf(fp_ord, "%d", &alpha_list[i]);
+    fclose(fp_ord);
+    return numAlphas;
+}
+
 // MCMC getNeighbor Gets a random neighbo of a d graphlet as an array of vertices Xcurrent
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
@@ -594,101 +605,6 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 #endif
 }
 
-static COMBIN *_Lcombin;
-static int *_Darray;
-static int _alpha;
-
-//if all consecutive elements within s share d-1 nodes then alpha++
-Boolean _permuteDgraphlets(int size, int* array) {
-	int g1, i;
-	Boolean hamPath = true;
-	for (g1 = 0; g1 < L-1; g1++) { //Unsure if this combination strategy works for d != 2
-		TSET tset1 = 0;
-		TSET tset2 = 0;
-		for (i = 0; i < mcmc_d; i++) {
-			TSetAdd(tset1, _Darray[_Lcombin->array[array[g1]]*mcmc_d+i]);
-			TSetAdd(tset2, _Darray[_Lcombin->array[array[g1+1]]*mcmc_d+i]);
-		}
-
-		if (TSetCardinality(TSetIntersect(tset1, tset2)) != mcmc_d-1) {
-			hamPath = false;
-			break;
-		}
-	}
-	if (hamPath) _alpha += 1;
-	return 0; //Tell permutation to continue
-}
-
-//Given preallocated k graphlet and d graphlet. Assumes Gk is connected
-int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
-	// generate all the edges of g
-	// 0 can result in DIVIDE BY ZERO ERROR
-	assert(k >= 3 && k <=8); //TSET used limits to 8 bits of set represntation.
-	_alpha = 0;
-	unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
-	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
-	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD);
-	int numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
-	int Darray[numDGraphlets * mcmc_d]; //Vertices in our d graphlets
-	_Darray = Darray; //static global variable for permuatation function
-
-	//Fill the S array with all connected d graphlets from Gk
-	int SSize = 0;
-	int i, j;
-	if (mcmc_d != 2) {
-		do {
-			TSET mask = 0;
-			for (i = 0; i < mcmc_d; i++) {
-				TSetAdd(mask, Dcombin->array[i]);
-			}
-			Gd = TinyGraphInduced(Gd, Gk, mask);
-			if (TinyGraphDFSConnected(Gd, 0))
-			{
-				for (i = 0; i < mcmc_d; i++)
-				{
-					Darray[SSize*mcmc_d+i] = Dcombin->array[i];
-				}
-				SSize++;
-			}
-		} while (CombinNext(Dcombin)); 
-	} else {
-		do { //if there is an edge between any two vertices in the graphlet
-			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
-			{ //add it to the Darray
-				Darray[SSize*mcmc_d] = Dcombin->array[0];
-				Darray[SSize*mcmc_d+1] = Dcombin->array[1];
-				SSize++;
-			}
-		} while (CombinNext(Dcombin));
-	}
-
-	//for s over all combinations of L elements in S
-	COMBIN *Lcombin = CombinZeroth(SSize, L, combinArrayL);
-	_Lcombin = Lcombin;
-	do {
-		//add vertices in combinations to set.
-		TSET mask = 0;
-		for (i = 0; i < L; i++) {
-			for (j = 0; j < mcmc_d; j++) {
-				TSetAdd(mask, Darray[Lcombin->array[i]*mcmc_d+j]);
-			}
-		}
-		//if Size of nodeset of nodes in each element of s == k then
-		if (TSetCardinality(mask) == k)
-		{
-			int permArray[L];
-			memset(permArray, L, sizeof(int));
-			//all permutations of elements within s do 
-			CombinAllPermutations(L, permArray, _permuteDgraphlets);
-		}
-	} while (CombinNext(Lcombin));
-	
-	CombinFree(Dcombin);
-	CombinFree(Lcombin);
-	fprintf(stderr, "K: %d, LowerInt: %d, alpha: %d\n", k, TinyGraph2Int(Gk, Gk->n), _alpha);
-	return _alpha;
-}
-
 // MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
@@ -736,24 +652,9 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 }
 
 void initializeMCMC(int k) {
-	L = k - mcmc_d  + 1;
-	TINY_GRAPH *gk = TinyGraphAlloc(k);
-	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-
-	// create the alpha list
-	for (int i = 0; i < _numCanon; i++) {
-		BuildGraph(gk, _canonList[i]);
-		TinyGraphEdgesAllDelete(gd);
-		if (TinyGraphDFSConnected(gk, 0)) {
-			_alphaList[i] = ComputeAlpha(gk, gd, k, L);
-		}
-		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
-	}
-
-	TinyGraphFree(gk);
-	TinyGraphFree(gd);
+	char BUF[BUFSIZ];
+	alphaListPopulate(BUF, _alphaList, k);
 }
-
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
 // Given the big graph G, and a set of nodes S (|S|==k), compute the 
