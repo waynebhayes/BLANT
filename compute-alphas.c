@@ -17,10 +17,11 @@ static int _alpha;
    Iterates through permutations of connected d graphlets from the k graphlet and checks if an ordering of them
    has all consecutive graphlets sharing d-1 vertices in common.
    If so, increments alpha.
+   Conceptually, this represents if this permutations of d nodes is possible to walk during sampling.
 */
 Boolean _permuteDgraphlets(int size, int* array) {
 	int g1, i;
-	Boolean hamPath = true;
+	Boolean validWalk = true;
 	for (g1 = 0; g1 < L-1; g1++) { //Unsure if this combination strategy works for d != 2
 		TSET tset1 = 0;
 		TSET tset2 = 0;
@@ -34,20 +35,22 @@ Boolean _permuteDgraphlets(int size, int* array) {
 			break;
 		}
 	}
-	if (hamPath) _alpha += 1;
+	if (validWalk) _alpha += 1;
 	return 0; //Tell permutation to continue
 }
 
-//Given preallocated k graphlet and d graphlet. Assumes Gk is connected
+/*  This function computes the number of ways SampleGraphlet MCMC can walk over each graphlet to sample it
+	For example a path has 2 ways to walk over it.
+	The number of ways this is possible is a bit higher than the number of Hamiltonion Paths in our graphlet.
+	Given preallocated k graphlet and d graphlet. Assumes Gk is connected
+*/
 int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, unsigned* combinArrayL, int k, int L) {
-	// generate all the edges of g
-	// 0 can result in DIVIDE BY ZERO ERROR
 	assert(k >= 3 && k <=8); //TSET used limits to 8 bits of set represntation.
 	_alpha = 0;
 	int numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
 	int Darray[numDGraphlets * mcmc_d]; //Vertices in our d graphlets
 	_Darray = Darray; //static global variable for permuatation function
-    COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD);
+    COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD); // generates all the edges of g if mcmc_d == 2
 	//Fill the S array with all connected d graphlets from Gk
 	int SSize = 0;
 	int i, j;
