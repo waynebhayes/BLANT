@@ -65,6 +65,8 @@ draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 
 clean:
 	/bin/rm -f *.[oa] blant canon-sift create-canon-map compute-alphas
+	#cd libwayne; make clean
+
+clean_canon_maps:
 	/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create
 	/bin/rm -f orca_jesse_blant_table/UpperToLower*.txt
-	#cd libwayne; make clean
