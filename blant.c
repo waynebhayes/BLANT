@@ -585,6 +585,9 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices. Todo restart
 			assert(depth++ < numTries);
 			
+			//Empty the SET/MULTISET/QUEUE before restarting
+			SetEmpty(V);
+			MultiSetEmpty(XLS);
 			WalkLSteps(Varray,V,XLS,XLQ,X,G,k);
 			depth = 0;
 			return;
