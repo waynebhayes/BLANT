@@ -8,6 +8,7 @@
 */
 
 typedef unsigned char FREQTYPE; //Using unsigned char limits multiset to 255 frequency
+#define MAX_MULTISET_NUM 255 //The largest number that can be stored in freqtype
 typedef struct _multisetType {
     unsigned int n; //is sizeof the array
     unsigned int cardinality; //number of distinct elements
