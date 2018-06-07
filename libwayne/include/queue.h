@@ -13,6 +13,7 @@ typedef struct _queueStruct {
 QUEUE *QueueAlloc(int maxSize);
 
 void QueueFree(QUEUE *q);
+void QueueEmpty(QUEUE *q);
 
 foint QueueFront(QUEUE *q); /* peek at front */
 foint QueueGet(QUEUE *q);       /* get and delete front of queue */
