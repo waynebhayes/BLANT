@@ -119,7 +119,8 @@ int main(int argc, char* argv[]) {
     unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
 	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
 	// create the alpha list
-	for (int i = 0; i < numCanon; i++) {
+	int i;
+	for (i = 0; i < numCanon; i++) {
 		BuildGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
 		if (TinyGraphDFSConnected(gk, 0)) {
