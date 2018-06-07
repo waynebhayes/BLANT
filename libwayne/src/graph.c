@@ -663,7 +663,7 @@ Boolean _GraphCCatLeastKHelper(GRAPH *G, SET* visited, int v, int *k) {
     *k -= 1;
     if (*k <= 0) return true;
     int i;
-    for (i = 0; i < G->degree[i]; i++) {
+    for (i = 0; i < G->degree[v]; i++) {
         if (!SetIn(visited, G->neighbor[v][i])) {
             Boolean result = _GraphCCatLeastKHelper(G, visited, G->neighbor[v][i], k);
             if (result)
@@ -671,6 +671,22 @@ Boolean _GraphCCatLeastKHelper(GRAPH *G, SET* visited, int v, int *k) {
         }
     }
     return false;
+}
+
+/* At top-level call, set (*pn)=0. The visited array does *not* need to be clear.
+** We return the number of elements in Varray.*/
+int GraphVisitCC(GRAPH *G, unsigned int v, SET *visited, unsigned int *Varray, int *pn)
+{
+    assert(v < visited->n);
+    if(!SetIn(visited,v))
+    {
+	SetAdd(visited, v);
+	Varray[(*pn)++] = v;
+    	int i;
+	for(i=0; i < G->degree[v]; i++)
+	    GraphVisitCC(G, G->neighbor[v][i], visited, Varray, pn);
+    }
+    return *pn;
 }
 
 /* doesn't allow Gv == G */

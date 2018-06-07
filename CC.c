@@ -22,7 +22,7 @@ static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
 char **_nodeNames;
 
 // Below are the sampling methods; pick one on the last line
-#define SAMPLE_ACCEPT_REJECT 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
+#define SAMPLE_UNBIASED 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
 #define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
 #define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
@@ -35,7 +35,7 @@ char **_nodeNames;
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
-#define ALLOW_DISCONNECTED_GRAPHLETS 1
+#define ALLOW_DISCONNECTED_GRAPHLETS 0
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -173,8 +173,6 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	int j;
 	if(nOut == 0) // the graphlet has saturated it's connected component
 	{
-	    assert(SetCardinality(outSet) == 0);
-	    assert(SetCardinality(V) < k);
 #if ALLOW_DISCONNECTED_GRAPHLETS
 	    while(SetIn(V, (j = G->n*drand48())))
 		; // must terminate since k <= G->n
@@ -273,34 +271,34 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     int numTries = 0;
     while(vCount < k)
     {
-	int i, whichNeigh, newNode = -1;
+	int i, whichNeigh;
 	while(numTries < MAX_TRIES && SetIn(internal, (whichNeigh = outDegree * drand48())))
 	    ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
 	if(numTries >= MAX_TRIES) {
 #if ALLOW_DISCONNECTED_GRAPHLETS
-	    // get a new node outside this connected component.
-	    // Note this will return a disconnected graphlet.
-	    while(SetIn(V, (newNode = G->n*drand48())))
-		; // must terminate since k <= G->n
-	    numTries = 0;
-	    outDegree = 0;
-	    int j;
-	    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
-		cumulative[j] = 0;
-	    SetEmpty(internal);
+		    // get a new node outside this connected component.
+		    // Note this will return a disconnected graphlet.
+		    while(SetIn(V, (newNode = G->n*drand48())))
+			; // must terminate since k <= G->n
+		    numTries = 0;
+		    outDegree = 0;
+		    int j;
+		    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
+			cumulative[j] = 0;
+		    SetEmpty(internal);
 #else
-	    static int depth;
-	    depth++;
-	    assert(depth < MAX_TRIES);
-	    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
-	    depth--;
-	    return V;
+		    static int depth;
+		    depth++;
+		    assert(depth < MAX_TRIES);
+		    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+		    depth--;
+		    return V;
 #endif
 	}
 	for(i=0; cumulative[i] <= whichNeigh; i++)
 	    ; // figure out whose neighbor it is
 	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]); // which neighbor of node i?
-	if(newNode < 0) newNode = G->neighbor[Varray[i]][localNeigh];
+	int newNode = G->neighbor[Varray[i]][localNeigh];
 #if PARANOID_ASSERTS
 	// really should check some of these a few lines higher but let's group all the paranoia in one place.
 	assert(i < vCount);
@@ -796,8 +794,8 @@ static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAP
 /*
 * Very slow: sample k nodes uniformly at random and throw away ones that are disconnected.
 */
-static unsigned long int _acceptRejectTotalTries;
-static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k)
+static unsigned long int unbiasedTotalTries;
+static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 {
     int arrayV[k], i;
     int nodeArray[G->n], distArray[G->n];
@@ -824,7 +822,7 @@ static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k)
 #endif
 	++tries;
     } while(NumReachableNodes(g, 0) < k);
-    _acceptRejectTotalTries += tries;
+    unbiasedTotalTries += tries;
     return V;
 }
 
@@ -856,8 +854,8 @@ void SetGlobalCanonMaps(void)
 }
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
-#if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
-	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW
+#if SAMPLE_METHOD == SAMPLE_UNBIASED
+	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
 #elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
 	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
 #elif SAMPLE_METHOD == SAMPLE_RESERVOIR
@@ -970,8 +968,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
 	Free(_orbitDegreeVector[i]);
 #endif
-#if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
-    fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
+#if SAMPLE_METHOD == SAMPLE_UNBIASED
+    fprintf(stderr,"Average number of tries per sample is %g\n", unbiasedTotalTries/(double)numSamples);
 #endif
     return 0;
 }
@@ -1205,38 +1203,31 @@ int main(int argc, char *argv[])
     optind++;
     assert(optind == argc);
 
-    SetGlobalCanonMaps(); // needs _k to be set
-
-#if SHAWN_AND_ZICAN
-#ifdef CPP_CALLS_C  // false by default
-    while(!feof(fpGraph))
-    {
-	static int line;
-	int v1, v2;
-	++line;
-	if(fscanf(fpGraph, "%d%d ", &v1, &v2) != 2)
-	    Fatal("can't find 2 ints on line %d\n", line);
-	BlantAddEdge(v1, v2);
-    }
-    fclose(fpGraph);
-#else // Shawn + Zican see here:
-    fclose(fpGraph);
-    _nodeNames = convertToEL(graphFileName);
-    assert(_numNodes > 0);
-    assert(_nodeNames && _nodeNames[0]);
-    //assert(!_nodeNames[_numNodes]);
-#if 0
-    for(i=0; i < _numNodes; i++)
-	printf("nodeName[%d]=%s\n", i, _nodeNames[i]);
-    exit(0);
-#endif
-    // call clean maybe?
-#endif
-    return RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
-#else
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, true); // sparse = true
     fclose(fpGraph);
-    return RunBlantInThreads(_k, numSamples, G);
-#endif
+    SET *visited = SetAlloc(G->n);
+    int ccCount=0, Varray[G->n], arrayCount = 0;
+    for(i=0; i< G->n;i++) if(!SetIn(visited, i))
+    {
+	SET *componentVisited = SetAlloc(G->n);
+	int j, ccSize = GraphVisitCC(G, i, componentVisited, Varray, &arrayCount);
+	GRAPH *component = GraphInduced(NULL, G, componentVisited);
+	if(component->n != ccSize) Fatal("ccSize %d, component->n %d\n", ccSize, component->n);
+	printf("Connected Component %d is nodes %d, edges %d, rho %g; nodes are:",
+	    ccCount, ccSize, component->numEdges, component->numEdges/(double)CombinChoose(component->n,2));
+	for(j=0;j<arrayCount;j++)printf(" %d",Varray[j]);
+	puts("");
+	arrayCount = 0;
+	++ccCount;
+	SetUnion(visited, visited, componentVisited);
+	SetFree(componentVisited);
+	GraphFree(component);
+    }
+    printf("Saw a total of %d connected components\n", ccCount);
+    assert(3 <= _k && _k <= 8);
+    int maxGraphletEdges = CombinChoose(_k, 2);
+    double rho = G->numEdges/(double)CombinChoose(G->n,2), pConnected = 0;
+    for(i=_k-1;i<=maxGraphletEdges;i++) pConnected += IntPow(rho,i)*IntPow(1-rho,maxGraphletEdges-i)*CombinChoose(maxGraphletEdges,i);
+    printf("maxGraphletEdges %d rho %.16f pConnected %.16f\n",maxGraphletEdges,rho,pConnected);
 }

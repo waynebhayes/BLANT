@@ -46,6 +46,11 @@ blant: libwayne/made blant.c blant.h libblant.c convert.cpp
 	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
+CC: libwayne/made CC.c blant.h libblant.c convert.cpp
+	gcc -c libblant.c CC.c $(LIBWAYNE)
+	g++ -std=c++11 -c convert.cpp
+	g++ -o CC libblant.o CC.o convert.o $(LIBWAYNE)
+
 libwayne/made:
 	cd libwayne; make all
 
