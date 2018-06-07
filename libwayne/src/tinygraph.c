@@ -220,7 +220,7 @@ int TinyGraphBFS(TINY_GRAPH *G, int root, int distance, int *nodeArray, int *dis
 }
 
 Boolean TinyGraphDFSConnected(TINY_GRAPH *G, int seed) {
-    TSET visited;
+    TSET visited = 0;
     TinyGraphDFSConnectedHelper(G, seed, &visited);
     return (G->n <= TSetCardinality(visited));
 }
