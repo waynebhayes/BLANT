@@ -132,10 +132,14 @@ int main(int argc, char* argv[]) {
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}
 
-    sprintf(BUF, CANON_DIR "/alpha_list%d.bin", k);
-    FILE *fp=fopen(BUF, "wb");
+    sprintf(BUF, CANON_DIR "/alpha_list%d.txt", k);
+    FILE *fp=fopen(BUF, "w");
     assert(fp);
-    fwrite((void*)_alphaList, sizeof(_alphaList[0]), numCanon, fp);
+	fprintf(fp, "%d\n", numCanon);
+	for (i = 0; i < numCanon; i++) {
+		fprintf(fp, "%d ", _alphaList[i]);
+	}
+	fputc('\n', fp);
     fclose(fp);
 
 	TinyGraphFree(gk);
