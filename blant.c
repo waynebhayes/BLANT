@@ -608,15 +608,13 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
 	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
 	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
-	static SET *XcurrOutset;
 	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
 	static TINY_GRAPH* Gk;
 	static int currSamples = 0, i;
-	if (!XLQ || !XLS || !Gk || !XcurrOutset) {
+	if (!XLQ || !XLS || !Gk) {
 		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
 		Gk = TinyGraphAlloc(k);
-		XcurrOutset = SetAlloc(G->n);
 	}
 
 	//The first time we run this, or when we restart. We want to find our initial L d graphlets, 
@@ -653,21 +651,6 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 #if PARANOID_ASSERTS
 	assert(numNodes == k);
 #endif
-	TinyGraphInducedFromGraph(Gk, G, Varray);
-	int Gint = TinyGraph2Int(Gk, k);
-	if (_L == 2) {
-		_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
-	} else {
-		assert(mcmc_d == 2);
-		int neighbor;
-		for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
-			SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
-		}
-		for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
-			SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
-		}
-		_graphletConcentration[Gint] += 1/(_alphaList[Gint]*(SetCardinality(XcurrOutset) - 2));
-	}
 	return V; //and return
 }
 
@@ -821,7 +804,14 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 #endif
 }
 
+#if SAMPLE_METHOD == SAMPLE_MCMC
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, SET *XcurrOutset, int k) {
+	unsigned Xcurrent[2];
+	Xcurrent[0] = Varray[0];
+	Xcurrent[1] = Varray[1];
+#else
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
+#endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -832,7 +822,23 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	switch(_outputMode)
 	{
 	case graphletFrequency:
+#if SAMPLE_METHOD == SAMPLE_MCMC
+		if (_L == 2) {
+			_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
+		} else {
+			assert(mcmc_d == 2);
+			int neighbor;
+			for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
+			}
+			for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
+			}
+			_graphletConcentration[Gint] += 1/(_alphaList[Gint]*(SetCardinality(XcurrOutset) - 2));
+		}
+#else
 	    ++_graphletCount[GintCanon];
+#endif
 	    break;
 	case indexGraphlets:
 	    memset(perm, 0, k);
@@ -878,13 +884,19 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     unsigned Varray[maxK+1];
 #if SAMPLE_METHOD == SAMPLE_MCMC
 	initializeMCMC(k, numSamples);
+	SET *XcurrOutset = SetAlloc(G->n);
 #endif
     for(i=0; i<numSamples; i++)
     {
 		SampleGraphlet(G, V, Varray, k);
+#if SAMPLE_METHOD == SAMPLE_MCMC
+ProcessGraphlet(G, V, Varray, perm, g, XcurrOutset, k);
+#else
 		ProcessGraphlet(G, V, Varray, perm, g, k);
+#endif
     }
 #if SAMPLE_METHOD == SAMPLE_MCMC
+	SetFree(XcurrOutset);
 	finalizeMCMC();
 #endif
     switch(_outputMode)
