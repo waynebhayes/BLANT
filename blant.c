@@ -31,7 +31,7 @@ char **_nodeNames;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_MCMC
+#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -583,8 +583,8 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 	static int numTries = 0;
 	static int depth = 0;
 	while (MultisetCardinality(XLS) < k) {
-		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices. Todo restart
-			assert(depth++ < numTries);
+		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices restart
+			assert(depth++ < numTries); //If we restart 100 times in a row without success give up and exit
 			
 			//Empty the SET/MULTISET/QUEUE before restarting
 			SetEmpty(V);
