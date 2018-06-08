@@ -34,6 +34,9 @@ canon_map8: blant.h libblant.c create-canon-map
 	./make-orbit-maps 8 > canon_maps/orbit_map8.txt;
 	gcc "-Dkk=8" "-DkString=\"8\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data
 
+make-canon-maps: make-canon-maps.c blant.h libblant.c
+	gcc -o make-canon-maps libblant.c make-canon-maps.c $(LIBWAYNE)
+
 make-orbit-maps: make-orbit-maps.c blant.h canon-sift.c libblant.c
 	gcc -o make-orbit-maps libblant.c make-orbit-maps.c $(LIBWAYNE)
 
@@ -46,6 +49,11 @@ blant: libwayne/made blant.c blant.h libblant.c convert.cpp
 compute-alphas: libblant.c blant.h cpmpute-alphas.c
 	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
 	for i in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$i.txt -a ! -f canon_maps/alpha_list$i.txt ]; then ./compute-alphas $$i; fi; done
+
+CC: libwayne/made CC.c blant.h libblant.c convert.cpp
+	gcc -c libblant.c CC.c $(LIBWAYNE)
+	g++ -std=c++11 -c convert.cpp
+	g++ -o CC libblant.o CC.o convert.o $(LIBWAYNE)
 
 libwayne/made:
 	cd libwayne; make all
