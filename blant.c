@@ -631,7 +631,7 @@ void finalizeMCMC() {
 		_graphletConcentration[i] /= totalConcentration;
 	}
 }
-=======
+
 void initializeMCMC(int k) {
 	L = k - mcmc_d  + 1;
 	TINY_GRAPH *gk = TinyGraphAlloc(k);
@@ -650,8 +650,6 @@ void initializeMCMC(int k) {
 	TinyGraphFree(gk);
 	TinyGraphFree(gd);
 }
-
->>>>>>> 467a74c0722fb27e6271ab3b2fe7cb27709757cd
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
 // Given the big graph G, and a set of nodes S (|S|==k), compute the 
