@@ -581,7 +581,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 
 	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
 	int i, j;
-	for (i = 1; i < l; i++) {
+	for (i = 1; i < _L; i++) {
 		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
 		for (j = 0; j < mcmc_d; j++) {
 			MultisetAdd(XLS, X[j]);
@@ -610,16 +610,60 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 	}
 	numTries = 0;
 #if PARANOID_ASSERTS
+	assert(QueueSize(XLQ) == _L*mcmc_d && MultisetSupport(XLS) == k);
 #endif
 }
 
 static int _numSamples = 0;
-// MCMC sampleGraphletMCMC. This and associated functions are not reentrant.
+/* SampleGraphletMCMC first starts with an edge in Walk L steps.
+   It then walks along L = k-1 edges with MCMCGetNeighbor until it fills XLQ and XLS with L edges(their vertices are stored).
+   XLQ and XLS always hold 2L vertices. They represent a window of the last L edges walked. If that window contains k
+   distinct vertices, a graphlet is returned. This random walk overcounts graphlets of different types by a precomputed
+   predictable amount represented by alpha values in the _alphaList. During sampling sample frequency is divided by the alpha value
+   plus the cardinality of the outset of the most recently sampled vertices. Finally, the frequencies are normalized into concentrations.
+*/
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
-	for (i = 0; i < _numCanon; i++)
-	{
-		_graphletConcentration[i] = 0;
+	static Boolean setup = false;
+	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
+	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
+	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
+	if (!XLQ || !XLS) {
+		XLQ = QueueAlloc(k*mcmc_d);
+		XLS = MultisetAlloc(G->n);
 	}
+
+	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
+	if (!setup) {
+		setup = true;
+		MultisetEmpty(XLS);
+		while (QueueSize(XLQ) > 0) QueueGet(XLQ);
+		WalkLSteps(Varray, V, XLS, XLQ, Xcurrent, G, k);
+	} else {
+#if PARANOID_ASSERTS
+		assert(QueueSize(XLQ) == 2 *_L);
+#endif
+		//Keep crawling til we have k distinct vertices. Crawl at least once
+		do  {
+			crawlOneStep(XLS, XLQ, Xcurrent, G);
+		} while (MultisetSupport(XLS) != k);
+	}
+#if PARANOID_ASSERTS
+		assert(MultisetSupport(XLS) == k);
+#endif
+	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
+	int num, numNodes = 0, i;
+	SetEmpty(V);
+	for (i = 0; i < XLQ->length; i++) {
+		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
+		if (!SetIn(V, num)) {
+			Varray[numNodes++] = num;
+			SetAdd(V, num);
+		}
+	}
+#if PARANOID_ASSERTS
+	assert(numNodes == k);
+#endif
+	return V; //and return
 }
 
 void finalizeMCMC() {
@@ -633,22 +677,14 @@ void finalizeMCMC() {
 }
 
 void initializeMCMC(int k) {
-	L = k - mcmc_d  + 1;
-	TINY_GRAPH *gk = TinyGraphAlloc(k);
-	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
+	_L = k - mcmc_d  + 1;
+	char BUF[BUFSIZ];
+	alphaListPopulate(BUF, _alphaList, k);
 	int i;
-	// create the alpha list
-	for (i = 0; i < _numCanon; i++) {
-		BuildGraph(gk, _canonList[i]);
-		TinyGraphEdgesAllDelete(gd);
-		if (TinyGraphDFSConnected(gk, 0)) {
-			//_alphaList[i] = ComputeAlpha(gk, gd, k, L);
-		}
-		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
+	for (i = 0; i < _numCanon; i++)
+	{
+		_graphletConcentration[i] = 0;
 	}
-
-	TinyGraphFree(gk);
-	TinyGraphFree(gd);
 }
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
@@ -767,8 +803,13 @@ void SetGlobalCanonMaps(void)
 }
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
+#if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
+	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW
+#elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
+	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
 #elif SAMPLE_METHOD == SAMPLE_RESERVOIR
 	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
+#elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
 #elif SAMPLE_METHOD == SAMPLE_MCMC
 	SampleGraphletMCMC(V, Varray, G, k);

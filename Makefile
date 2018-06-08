@@ -46,7 +46,7 @@ blant: libwayne/made blant.c blant.h libblant.c convert.cpp
 	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
 	
-compute-alphas: libblant.c blant.h cpmpute-alphas.c
+compute-alphas: libblant.c blant.h compute-alphas.c
 	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
 	for i in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$i.txt -a ! -f canon_maps/alpha_list$i.txt ]; then ./compute-alphas $$i; fi; done
 
