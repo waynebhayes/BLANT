@@ -660,6 +660,20 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 			SetAdd(V, num);
 		}
 	}
+	//Ensure Varray[0] == Xcurrent[0] and Varray[1] == Xcurrent[1];
+	int temp;
+	for (i = 0; i < k; i++) {
+		if (Varray[i] == Xcurrent[0]) {
+			temp = Varray[i];
+			Varray[i] = Varray[0];
+			Varray[0] = temp;
+		}
+		if (Varray[i] == Xcurrent[1]) {
+			temp = Varray[i];
+			Varray[i] = Varray[1];
+			Varray[1] = temp;
+		}
+	}
 #if PARANOID_ASSERTS
 	assert(numNodes == k);
 #endif
@@ -840,7 +854,6 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 		if (_L == 2) {
 			_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
 		} else {
-			assert(mcmc_d == 2);
 			int neighbor;
 			for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
 				SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
