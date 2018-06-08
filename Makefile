@@ -2,7 +2,7 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-all: canon_maps blant test_blant magic_table draw
+all: canon_maps blant compute-alphas test_blant magic_table draw
 
 test_blant:
 	# First run blant-sanity for various values of k
@@ -45,6 +45,10 @@ blant: libwayne/made blant.c blant.h libblant.c convert.cpp
 	g++ -std=c++11 -c convert.cpp
 	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
+	
+compute-alphas: libblant.c blant.h compute-alphas.c
+	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
+	for i in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$i.txt -a ! -f canon_maps/alpha_list$$i.txt ]; then ./compute-alphas $$i; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)
@@ -68,7 +72,9 @@ draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
 
 clean:
-	/bin/rm -f *.[oa] blant canon-sift create-canon-map
+	/bin/rm -f *.[oa] blant canon-sift create-canon-map compute-alphas
+	#cd libwayne; make clean
+
+clean_canon_maps:
 	/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create
 	/bin/rm -f orca_jesse_blant_table/UpperToLower*.txt
-	#cd libwayne; make clean

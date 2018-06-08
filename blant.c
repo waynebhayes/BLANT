@@ -75,8 +75,10 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
-// 
-static unsigned L; // walk length for MCMC algorithm
+//The number of edges required to walk a *Hamiltonion* path
+static unsigned _L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
+static int _alphaList[MAX_CANONICALS];
+static double _graphletConcentration[MAX_CANONICALS];
 
 static int _alphaList[MAX_CANONICALS];
 /* AND NOW THE CODE */
@@ -97,7 +99,7 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(Gv);
-    for(i=0; i < _k; i++) for(j=i+1; j < _k; j++)
+    for(i=0; i < Gv->n; i++) for(j=i+1; j < Gv->n; j++)
         if(GraphAreConnected(G, Varray[i], Varray[j]))
             TinyGraphConnect(Gv, i, j);
     return Gv;
@@ -500,25 +502,30 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #endif
 }
 
+int alphaListPopulate(char *BUF, int *alpha_list, int k) {
+	sprintf(BUF, CANON_DIR "/alpha_list%d.txt", k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find %s/alpha_list%d.txt\n", CANON_DIR, k);
+    int numAlphas, i;
+    fscanf(fp_ord, "%d",&numAlphas);
+	assert(numAlphas == _numCanon);
+    for(i=0; i<numAlphas; i++) fscanf(fp_ord, "%d", &alpha_list[i]);
+    fclose(fp_ord);
+    return numAlphas;
+}
+
 // MCMC getNeighbor Gets a random neighbo of a d graphlet as an array of vertices Xcurrent
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
-	static SET *outSet;
-    static int numIsolatedNodes;
-    if(!outSet)
-    	outSet = SetAlloc(G->n);
-    else if(G->n > outSet->n)
-		SetResize(outSet, G->n);
-    else
-		SetEmpty(outSet);
-
 	if (mcmc_d == 2)
 	{
 		int oldu = Xcurrent[0];
 		int oldv = Xcurrent[1];
-		static int numTries = 0;
+		int numTries = 0;
 		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
+#if PARANOID_ASSERTS
 			assert(++numTries < MAX_TRIES);
+#endif
 			double p = drand48();
 			// if 0 < p < 1, p < deg(u) + deg(v) then
 			if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
@@ -532,7 +539,6 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 				Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
 			}
 		}
-		numTries = 0;
 #if PARANOID_ASSERTS
 		assert(Xcurrent[0] != Xcurrent[1]);
 		assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
@@ -574,8 +580,8 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 	}
 
 	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
-	int l = k - mcmc_d + 1, i, j;
-	for (i = 1; i < l; i++) {
+	int i, j;
+	for (i = 1; i < _L; i++) {
 		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
 		for (j = 0; j < mcmc_d; j++) {
 			MultisetAdd(XLS, X[j]);
@@ -583,98 +589,39 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 		}
 	}
 #if PARANOID_ASSERTS
-	assert(QueueSize(XLQ) == l*mcmc_d);
+	assert(QueueSize(XLQ) == _L*mcmc_d);
 #endif
 	//Keep crawling til we have k distinct vertices
 	static int numTries = 0;
+	static int depth = 0;
 	while (MultisetSupport(XLS) < k) {
-		assert(++numTries < MAX_TRIES); //If we crawl 100 steps without k distinct vertices. Todo restart
+		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices restart
+			assert(depth++ < numTries); //If we restart 100 times in a row without success give up and exit
+			
+			//Empty the SET/MULTISET/QUEUE before restarting
+			SetEmpty(V);
+			MultisetEmpty(XLS);
+			WalkLSteps(Varray,V,XLS,XLQ,X,G,k);
+			QueueEmpty(XLQ);
+			depth = 0;
+			return;
+		}
 		crawlOneStep(XLS, XLQ, X, G);
 	}
 	numTries = 0;
 #if PARANOID_ASSERTS
-	assert(MultisetSupport(XLS) == k);
+	assert(QueueSize(XLQ) == _L*mcmc_d && MultisetSupport(XLS) == k);
 #endif
 }
 
-//Given preallocated k graphlet and d graphlet. Assumes Gk is connected
-int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, int k, int L) {
-	// generate all the edges of g
-	// 0 can result in DIVIDE BY ZERO ERROR
-	assert(k >= 3 && k <=8); //TSET used limits to 8 bits of set represntation.
-	int alpha = 0;
-	unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
-	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
-	COMBIN * Dcombin = CombinZeroth(k, mcmc_d, combinArrayD);
-	int numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
-	int Darray[numDGraphlets * mcmc_d]; //Vertices in our d graphlets
-
-	//Fill the S array with all connected d graphlets from Gk
-	int SSize = 0;
-	int i, j;
-	if (mcmc_d != 2) {
-		do {
-			TSET mask = 0;
-			for (i = 0; i < mcmc_d; i++) {
-				TSetAdd(mask, Dcombin->array[i]);
-			}
-			Gd = TinyGraphInduced(Gd, Gk, mask);
-			if (TinyGraphDFSConnected(Gd, 0))
-			{
-				for (i = 0; i < mcmc_d; i++)
-				{
-					Darray[SSize*mcmc_d+i] = Dcombin->array[i];
-				}
-				SSize++;
-			}
-		} while (CombinNext(Dcombin)); 
-	} else {
-		do { //if there is an edge between any two vertices in the graphlet
-			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
-			{ //add it to the Darray
-				Darray[SSize*mcmc_d] = Dcombin->array[i];
-				Darray[SSize*mcmc_d+1] = Dcombin->array[i];
-				SSize++;
-			}
-		} while (CombinNext(Dcombin));
-	}
-
-	//for s over all combinations of L elements in S
-	COMBIN *Lcombin = CombinZeroth(SSize, L, combinArrayL);
-	do {
-		//add vertices in combinations to set.
-		TSET mask = 0;
-		for (i = 0; i < L; i++) {
-			for (j = 0; i < mcmc_d; j++) {
-				TSetAdd(mask, Darray[Lcombin->array[i]*mcmc_d+j]);
-			}
-		}
-		//if Size of nodeset of nodes in each element of s == k then
-		if (TSetCardinality(mask) == k)
-		{
-			int g1, g2;
-			for (g1 = 0; g1 < L; g1++) {
-				for (g2 = g1; g2 < L; g2++) {
-					TSET tset = 0;
-					for (i = 0; i < mcmc_d; i++) {
-						TSetAdd(tset, Darray[Lcombin->array[g1]*mcmc_d+i]);
-						TSetAdd(tset, Darray[Lcombin->array[g2]*mcmc_d+i]);
-					}
-
-					if (TSetCardinality(tset) == mcmc_d-1) {
-						alpha += 2;
-					}
-				}
-			}
-
-		}
-	} while (CombinNext(Lcombin)); 
-	
-	CombinFree(Dcombin);
-	CombinFree(Lcombin);
-}
-
-// MCMC sampleGraphletMCMC. This as associated functions are not reentrant.
+static int _numSamples = 0;
+/* SampleGraphletMCMC first starts with an edge in Walk L steps.
+   It then walks along L = k-1 edges with MCMCGetNeighbor until it fills XLQ and XLS with L edges(their vertices are stored).
+   XLQ and XLS always hold 2L vertices. They represent a window of the last L edges walked. If that window contains k
+   distinct vertices, a graphlet is returned. This random walk overcounts graphlets of different types by a precomputed
+   predictable amount represented by alpha values in the _alphaList. During sampling sample frequency is divided by the alpha value
+   plus the cardinality of the outset of the most recently sampled vertices. Finally, the frequencies are normalized into concentrations.
+*/
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
 	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
@@ -693,7 +640,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 		WalkLSteps(Varray, V, XLS, XLQ, Xcurrent, G, k);
 	} else {
 #if PARANOID_ASSERTS
-		assert(QueueSize(XLQ) == 2 * (k-mcmc_d+1));
+		assert(QueueSize(XLQ) == 2 *_L);
 #endif
 		//Keep crawling til we have k distinct vertices. Crawl at least once
 		do  {
@@ -703,7 +650,6 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 #if PARANOID_ASSERTS
 		assert(MultisetSupport(XLS) == k);
 #endif
-
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
 	int num, numNodes = 0, i;
 	SetEmpty(V);
@@ -714,31 +660,46 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 			SetAdd(V, num);
 		}
 	}
+	//Ensure Varray[0] == Xcurrent[0] and Varray[1] == Xcurrent[1];
+	int temp;
+	for (i = 0; i < k; i++) {
+		if (Varray[i] == Xcurrent[0]) {
+			temp = Varray[i];
+			Varray[i] = Varray[0];
+			Varray[0] = temp;
+		}
+		if (Varray[i] == Xcurrent[1]) {
+			temp = Varray[i];
+			Varray[i] = Varray[1];
+			Varray[1] = temp;
+		}
+	}
 #if PARANOID_ASSERTS
 	assert(numNodes == k);
 #endif
 	return V; //and return
 }
 
-void initializeMCMC(int k) {
-	L = k - mcmc_d  + 1;
-	TINY_GRAPH *gk = TinyGraphAlloc(k);
-	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-	int i;
-	// create the alpha list
-	for (i = 0; i < _numCanon; i++) {
-		BuildGraph(gk, _canonList[i]);
-		TinyGraphEdgesAllDelete(gd);
-		if (TinyGraphDFSConnected(gk, 0)) {
-			//_alphaList[i] = ComputeAlpha(gk, gd, k, L);
-		}
-		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
+void finalizeMCMC() {
+	double totalConcentration = 0;
+	for (int i = 0; i < _numCanon; i++) {
+		totalConcentration += _graphletConcentration[i];
 	}
-
-	TinyGraphFree(gk);
-	TinyGraphFree(gd);
+	for (int i = 0; i < _numCanon; i++) {
+		_graphletConcentration[i] /= totalConcentration;
+	}
 }
 
+void initializeMCMC(int k) {
+	_L = k - mcmc_d  + 1;
+	char BUF[BUFSIZ];
+	alphaListPopulate(BUF, _alphaList, k);
+	int i;
+	for (i = 0; i < _numCanon; i++)
+	{
+		_graphletConcentration[i] = 0;
+	}
+}
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
 // Given the big graph G, and a set of nodes S (|S|==k), compute the 
@@ -871,7 +832,14 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 #endif
 }
 
+#if SAMPLE_METHOD == SAMPLE_MCMC
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, SET *XcurrOutset, int k) {
+	unsigned Xcurrent[2];
+	Xcurrent[0] = Varray[0];
+	Xcurrent[1] = Varray[1];
+#else
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
+#endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -882,7 +850,22 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	switch(_outputMode)
 	{
 	case graphletFrequency:
+#if SAMPLE_METHOD == SAMPLE_MCMC
+		if (_L == 2) {
+			_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
+		} else {
+			int neighbor;
+			for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
+			}
+			for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
+			}
+			_graphletConcentration[Gint] += 1/(_alphaList[Gint]*(SetCardinality(XcurrOutset) - 2));
+		}
+#else
 	    ++_graphletCount[GintCanon];
+#endif
 	    break;
 	case indexGraphlets:
 	    memset(perm, 0, k);
@@ -927,13 +910,22 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
 #if SAMPLE_METHOD == SAMPLE_MCMC
-	initializeMCMC(k);
+	initializeMCMC(k, numSamples);
+	SET *XcurrOutset = SetAlloc(G->n);
 #endif
     for(i=0; i<numSamples; i++)
     {
-	SampleGraphlet(G, V, Varray, k);
-	ProcessGraphlet(G, V, Varray, perm, g, k);
+		SampleGraphlet(G, V, Varray, k);
+#if SAMPLE_METHOD == SAMPLE_MCMC
+ProcessGraphlet(G, V, Varray, perm, g, XcurrOutset, k);
+#else
+		ProcessGraphlet(G, V, Varray, perm, g, k);
+#endif
     }
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	SetFree(XcurrOutset);
+	finalizeMCMC();
+#endif
     switch(_outputMode)
     {
 	int canon;
@@ -943,8 +935,13 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #endif
 	break; // already output on-the-fly above
     case graphletFrequency:
-	for(canon=0; canon<_numCanon; canon++)
-	    printf("%lu %d\n", _graphletCount[canon], canon);
+	for(canon=0; canon<_numCanon; canon++) {
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	printf("%lf %d\n", _graphletConcentration[canon], canon);
+#else
+	printf("%lu %d\n", _graphletCount[canon], canon);
+#endif
+	}
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
