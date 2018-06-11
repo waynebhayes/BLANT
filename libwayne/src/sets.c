@@ -243,6 +243,8 @@ SET *SetXOR(SET *C, SET *A, SET *B)
 {
     int i;
     int loop = SIZE(C->n);
+    if(!A) return SetCopy(C, B);
+    if(!B) return SetCopy(C, A);
     assert(A->n == B->n && B->n == C->n);
     for(i=0; i < loop; i++)
 	C->array[i] = A->array[i] ^ B->array[i];
