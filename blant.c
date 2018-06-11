@@ -31,7 +31,7 @@ char **_nodeNames;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
+#define SAMPLE_METHOD SAMPLE_MCMC
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -851,6 +851,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	{
 	case graphletFrequency:
 #if SAMPLE_METHOD == SAMPLE_MCMC
+		SetEmpty(XcurrOutset);
 		if (_L == 2) {
 			_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
 		} else {
