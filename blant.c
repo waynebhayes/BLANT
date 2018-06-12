@@ -690,7 +690,7 @@ void finalizeMCMC() {
 	}
 }
 
-void initializeMCMC(int k) {
+void initializeMCMC(int k, int numSamples) {
 	_L = k - mcmc_d  + 1;
 	char BUF[BUFSIZ];
 	alphaListPopulate(BUF, _alphaList, k);
@@ -851,10 +851,16 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	{
 	case graphletFrequency:
 #if SAMPLE_METHOD == SAMPLE_MCMC
-		SetEmpty(XcurrOutset);
+		int nominal = _K[Gint];
+		double alpha = (double) _alphaList[nominal];
+#if PARANOID_ASSERTS
+		assert(TinyGraphDFSConnected(g, 0));
+		assert(_alphaList[_K[Gint]] > 0.1);
+#endif
 		if (_L == 2) {
-			_graphletConcentration[Gint] += 1/(_alphaList[Gint]);
+			_graphletConcentration[Gint] += 1/(alpha);
 		} else {
+			SetEmpty(XcurrOutset);
 			int neighbor;
 			for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
 				SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
@@ -862,7 +868,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 			for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
 				SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
 			}
-			_graphletConcentration[Gint] += 1/(_alphaList[Gint]*(SetCardinality(XcurrOutset) - 2));
+			_graphletConcentration[Gint] += 1/(alpha*(SetCardinality(XcurrOutset) - 2));
 		}
 #else
 	    ++_graphletCount[GintCanon];
