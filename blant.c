@@ -851,14 +851,12 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	{
 	case graphletFrequency:
 #if SAMPLE_METHOD == SAMPLE_MCMC
-		int nominal = _K[Gint];
-		double alpha = (double) _alphaList[nominal];
 #if PARANOID_ASSERTS
 		assert(TinyGraphDFSConnected(g, 0));
-		assert(_alphaList[_K[Gint]] > 0.1);
+		assert(_alphaList[GintCanon] > 0.1);
 #endif
 		if (_L == 2) {
-			_graphletConcentration[Gint] += 1/(alpha);
+			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
 		} else {
 			SetEmpty(XcurrOutset);
 			int neighbor;
@@ -868,7 +866,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 			for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
 				SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
 			}
-			_graphletConcentration[Gint] += 1/(alpha*(SetCardinality(XcurrOutset) - 2));
+			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]*(SetCardinality(XcurrOutset) - 2));
 		}
 #else
 	    ++_graphletCount[GintCanon];
