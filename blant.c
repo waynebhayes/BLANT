@@ -514,7 +514,7 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     return numAlphas;
 }
 
-// MCMC getNeighbor Gets a random neighbo of a d graphlet as an array of vertices Xcurrent
+// MCMC getNeighbor Gets a random neighbor of a d graphlet as an array of vertices Xcurrent
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
 	if (mcmc_d == 2)
@@ -653,28 +653,16 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
 	int num, numNodes = 0, i;
 	SetEmpty(V);
-	for (i = 0; i < XLQ->length; i++) {
+	for (i = XLQ->length-1; i >= 0; i++) {
 		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
 		if (!SetIn(V, num)) {
 			Varray[numNodes++] = num;
 			SetAdd(V, num);
 		}
 	}
-	//Ensure Varray[0] == Xcurrent[0] and Varray[1] == Xcurrent[1];
-	int temp;
-	for (i = 0; i < k; i++) {
-		if (Varray[i] == Xcurrent[0]) {
-			temp = Varray[i];
-			Varray[i] = Varray[0];
-			Varray[0] = temp;
-		}
-		if (Varray[i] == Xcurrent[1]) {
-			temp = Varray[i];
-			Varray[i] = Varray[1];
-			Varray[1] = temp;
-		}
-	}
+	//Ensure the first elements in Varray are our most recent d graphlet
 #if PARANOID_ASSERTS
+	assert((Varray[0] == Xcurrent[0] && Varray[1] == Xcurrent[1]) || (Varray[1] == Xcurrent[0] && Varray[0] == Xcurrent[1]));
 	assert(numNodes == k);
 #endif
 	return V; //and return
