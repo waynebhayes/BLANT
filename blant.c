@@ -653,7 +653,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
 	int num, numNodes = 0, i;
 	SetEmpty(V);
-	for (i = XLQ->length-1; i >= 0; i++) {
+	for (i = XLQ->length-1; i >= 0; i--) {
 		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
 		if (!SetIn(V, num)) {
 			Varray[numNodes++] = num;
