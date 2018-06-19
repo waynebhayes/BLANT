@@ -26,6 +26,7 @@ unsigned MultisetSupport(MULTISET *mset); /* returns the support of the multiset
 FREQTYPE MultisetMultiplicity(MULTISET *mset, unsigned element); /* returns the multiplicity of an element in the multiset */
 
 MULTISET *MultisetAdd(MULTISET *mset, unsigned element);    /* add single element to multiset */
+MULTISET *MultisetComplement(MULTISET *mset, FREQTYPE N);   /* array[e] = N-array[e] for every element e */
 MULTISET *MultisetAddSet(MULTISET *mset, SET *s);    /* add a set of elements to a multiset */
 SET *MultisetToSet(SET *s, MULTISET *mset);    /* SET will have same list of non-zero elements as MULTISET */
 MULTISET *MultisetDelete(MULTISET *mset, unsigned element); /* delete a single element */

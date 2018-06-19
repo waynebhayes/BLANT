@@ -83,6 +83,20 @@ MULTISET *MultisetAdd(MULTISET *mset, unsigned element) {
     return mset;
 }
 
+MULTISET *MultisetComplement(MULTISET *mset, FREQTYPE N) {
+    SetComplement(mset->set, mset->set);
+    unsigned element, newSupport = 0;
+    for(element=0; element < mset->n; element++)
+    {
+	assert(mset->array[element] <= N);
+	mset->array[element] = N-mset->array[element];
+	if (mset->array[element] > 0) newSupport++;
+    }
+    assert(newSupport == N - mset->support);
+    mset->support = newSupport;
+    return mset;
+}
+
 SET *MultisetToSet(SET *s, MULTISET *mset) {
     return SetCopy(s, mset->set);
 }
