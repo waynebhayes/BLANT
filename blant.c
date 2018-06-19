@@ -670,10 +670,11 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 
 void finalizeMCMC() {
 	double totalConcentration = 0;
-	for (int i = 0; i < _numCanon; i++) {
+	int i;
+	for (i = 0; i < _numCanon; i++) {
 		totalConcentration += _graphletConcentration[i];
 	}
-	for (int i = 0; i < _numCanon; i++) {
+	for (i = 0; i < _numCanon; i++) {
 		_graphletConcentration[i] /= totalConcentration;
 	}
 }
