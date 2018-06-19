@@ -31,7 +31,7 @@ char **_nodeNames;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
+#define SAMPLE_METHOD SAMPLE_MCMC
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -549,22 +549,26 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 	return Xcurrent;
 }
 
-//Crawls one step along the graph updating our multiset, queue, and newest graphlet array
+//Crawls one step along the graph updating our sliding window
 void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 	int v, i;
-	for (i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from queue and multiset
+	for (i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from sliding window
 		v = QueueGet(XLQ).i;
 		MultisetDelete(XLS, v);
 	}
-	MCMCGetNeighbor(X, G); //Gets a neighbor graphlet of the most recent d vertices and add to queue and multiset
+	MCMCGetNeighbor(X, G); //Gets a neighbor graphlet of the most recent d vertices and add to sliding window
 	for (i = 0; i < mcmc_d; i++) {
 		MultisetAdd(XLS, X[i]);
 		QueuePut(XLQ, (foint) X[i]);
 	}
 }
 
-// WalkLSteps fills Varray, V, XLS, XLQ with L dgraphlets
-void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
+// WalkLSteps fills XLS, XLQ (the sliding window) with L dgraphlets
+// Given an empty sliding window, XLQ, XLS, walk along the graph starting at a random edge
+// growing our sliding window until we have L graphlets in it.
+// Then, we slide our window until it has k distinct vertices. That represents our initial sampling
+// when we start/restart.
+void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
 {
 	//For now d must be equal to 2 because we start by picking a random edge
 	int numNodes = 0;
@@ -579,7 +583,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
 	}
 
-	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
+	//Add L-1 d graphlets to our sliding window. The edge we added is the first d graphlet
 	int i, j;
 	for (i = 1; i < _L; i++) {
 		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
@@ -588,30 +592,24 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 			QueuePut(XLQ, (foint) X[j]);
 		}
 	}
-#if PARANOID_ASSERTS
-	assert(QueueSize(XLQ) == _L*mcmc_d);
-#endif
 	//Keep crawling til we have k distinct vertices
 	static int numTries = 0;
 	static int depth = 0;
 	while (MultisetSupport(XLS) < k) {
 		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices restart
-			assert(depth++ < numTries); //If we restart 100 times in a row without success give up and exit
-			
-			//Empty the SET/MULTISET/QUEUE before restarting
-			SetEmpty(V);
+			assert(depth++ < MAX_TRIES); //If we restart 100 times in a row without success give up and exit
+
+			//Empty the sliding window before restarting
 			MultisetEmpty(XLS);
-			WalkLSteps(Varray,V,XLS,XLQ,X,G,k);
 			QueueEmpty(XLQ);
-			depth = 0;
+			WalkLSteps(XLS,XLQ,X,G,k);
+			depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
+			numTries = 0; //And our number of attempts to crawl one step
 			return;
 		}
 		crawlOneStep(XLS, XLQ, X, G);
 	}
 	numTries = 0;
-#if PARANOID_ASSERTS
-	assert(QueueSize(XLQ) == _L*mcmc_d && MultisetSupport(XLS) == k);
-#endif
 }
 
 static int _numSamples = 0;
@@ -624,50 +622,53 @@ static int _numSamples = 0;
 */
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
+	static int currSamples = 0;
 	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
 	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
-	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
+	static int Xcurrent[mcmc_d]; //holds the most recently walked d graphlet as an invariant
 	if (!XLQ || !XLS) {
+		//This is a memory leak, but the program soon exits after sampling is completed
 		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
 	}
 
 	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
-	if (!setup) {
+	if (!setup || (_numSamples/2 == currSamples++)) {
 		setup = true;
 		MultisetEmpty(XLS);
-		while (QueueSize(XLQ) > 0) QueueGet(XLQ);
-		WalkLSteps(Varray, V, XLS, XLQ, Xcurrent, G, k);
+		QueueEmpty(XLQ);
+		WalkLSteps(XLS, XLQ, Xcurrent, G, k);
 	} else {
-#if PARANOID_ASSERTS
-		assert(QueueSize(XLQ) == 2 *_L);
-#endif
 		//Keep crawling til we have k distinct vertices. Crawl at least once
 		do  {
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
 		} while (MultisetSupport(XLS) != k);
 	}
 #if PARANOID_ASSERTS
-		assert(MultisetSupport(XLS) == k);
+		assert(MultisetSupport(XLS) == k); //very paranoid
+		assert(QueueSize(XLQ) == 2 *_L); //very paranoid
 #endif
+
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
 	int num, numNodes = 0, i;
 	SetEmpty(V);
-	for (i = XLQ->length-1; i >= 0; i--) {
+	for (i = XLQ->length-1; i >= 0; i--) { //Iterate backwards so most recent d graphlet is first two
 		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
 		if (!SetIn(V, num)) {
 			Varray[numNodes++] = num;
 			SetAdd(V, num);
 		}
 	}
+
 	//Ensure the first elements in Varray are our most recent d graphlet
 #if PARANOID_ASSERTS
 	assert((Varray[0] == Xcurrent[0] && Varray[1] == Xcurrent[1]) || (Varray[1] == Xcurrent[0] && Varray[0] == Xcurrent[1]));
-	assert(numNodes == k);
+	assert(numNodes == k); //Ensure we are returning k nodes
 #endif
-	return V; //and return
+	return V; //and return the currently sampled graphlet
 }
 
+//Converts the decimal frequencies of graphlets to concentrations (sum to 1).
 void finalizeMCMC() {
 	double totalConcentration = 0;
 	for (int i = 0; i < _numCanon; i++) {
@@ -678,9 +679,15 @@ void finalizeMCMC() {
 	}
 }
 
+// Loads alpha values(overcounting ratios) for MCMC sampling from files
+// Global variable _L is needed by many functions
+// It represents the length of the sliding window in d graphlets for sampling
+// Global variable _numSamples needed for the algorithm to reseed halfway through
+// Concentrations are initialized to 0
 void initializeMCMC(int k, int numSamples) {
 	_L = k - mcmc_d  + 1;
 	char BUF[BUFSIZ];
+	_numSamples = numSamples;
 	alphaListPopulate(BUF, _alphaList, k);
 	int i;
 	for (i = 0; i < _numCanon; i++)
@@ -822,8 +829,8 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 
 #if SAMPLE_METHOD == SAMPLE_MCMC
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, SET *XcurrOutset, int k) {
-	unsigned Xcurrent[2];
-	Xcurrent[0] = Varray[0];
+	unsigned Xcurrent[2]; //Holds the most recent d graphlet sampled.
+	Xcurrent[0] = Varray[0]; 
 	Xcurrent[1] = Varray[1];
 #else
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
@@ -840,10 +847,11 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	case graphletFrequency:
 #if SAMPLE_METHOD == SAMPLE_MCMC
 #if PARANOID_ASSERTS
-		assert(TinyGraphDFSConnected(g, 0));
-		assert(_alphaList[GintCanon] > 0.1);
+		assert(TinyGraphDFSConnected(g, 0)); //MCMC sampling method only samples connected graphlets
+		assert(_alphaList[GintCanon] > 0); //Alpha Value should be nonzero positive number for connected graphlet
 #endif
-		if (_L == 2) {
+		if (_L == 2) { //If _L == 2, k = 3 and we can use the simplified overcounting formula.
+			//The over counting ratio is the alpha value only.
 			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
 		} else {
 			SetEmpty(XcurrOutset);
@@ -854,6 +862,8 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 			for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
 				SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
 			}
+			//The over counting ratio is the alpha value times the number of distinct neighbors
+			//of the most recent d graphlet sampled not including the d graphlet itself.
 			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]*(SetCardinality(XcurrOutset) - 2));
 		}
 #else
@@ -930,7 +940,9 @@ ProcessGraphlet(G, V, Varray, perm, g, XcurrOutset, k);
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
 #if SAMPLE_METHOD == SAMPLE_MCMC
-	printf("%lf %d\n", _graphletConcentration[canon], canon);
+	BuildGraph(g, _canonList[canon]);
+	if (TinyGraphDFSConnected(g, 0))
+		printf("%lf %d\n", _graphletConcentration[canon], canon);
 #else
 	printf("%lu %d\n", _graphletCount[canon], canon);
 #endif
