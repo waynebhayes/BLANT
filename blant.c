@@ -659,7 +659,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 			node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
 			if (!SetIn(V, node)) {
 				Varray[numNodes++] = node;
-				SetAdd(V, num);
+				SetAdd(V, node);
 			}
 			graphletDegree += G->degree[node];
 		}
@@ -673,7 +673,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	assert(numNodes == k); //Ensure we are returning k nodes
 #endif
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int GintCanon = TinyGraph2Int(g);
+	int GintCanon = TinyGraph2Int(g, k);
 	if (_L == 2) { //If _L == 2, k = 3 and we can use the simplified overcounting formula.
 		//The over counting ratio is the alpha value only.
 		_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
