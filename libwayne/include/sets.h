@@ -59,6 +59,7 @@ SET *SetAddList(SET *set, ...); /* end list with (-1); uses varargs/stdarg */
 SET *SetDelete(SET *set, unsigned element); /* delete a single element */
 SET *SetUnion(SET *C, SET *A, SET *B);  /* C = union of A and B */
 SET *SetIntersect(SET *C, SET *A, SET *B);  /* C = intersection of A and B */
+SET *SetXOR(SET *C, SET *A, SET *B);  /* C = XOR of A and B */
 SET *SetComplement(SET *B, SET *A);  /* B = complement of A */
 unsigned SetCardinality(SET *A);    /* returns non-negative integer */
 Boolean SetIn(SET *set, unsigned element); /* boolean: 0 or 1 */

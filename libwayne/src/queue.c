@@ -27,6 +27,10 @@ void QueueFree(QUEUE *q)
     free(q);
 }
 
+void QueueEmpty(QUEUE *q) {
+    q->length = 0;
+}
+
 int QueueSize(QUEUE *q)
 {
     return q->length;

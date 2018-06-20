@@ -1,0 +1,28 @@
+#!/bin/sh -x
+# The options below turn on lots and lots of gcc warnings.
+CC='gcc -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow' #-Wconversion 
+
+LIBHOME=$HOME/lib
+OtherLibs=""	#-L$PVM_ROOT/lib/$PVM_ARCH -lpvm3 -lsocket -lnsl"
+OtherIncs=""	#-I$PVM_ROOT/include"
+
+# --- you shouldn't need to touch anything below here
+
+libList=
+everythingElse=
+doLink=y    # boolean
+LIBWAYNE=wayne    # will change if -g occurs
+while [ $# -gt 0 ]; do
+    case $1 in
+    -l*) libList="$libList $1" ;;
+    -c) doLink=n ;;
+    -g*) LIBWAYNE=wayne-g; everythingElse="$everythingElse $1" ;;
+    *) everythingElse="$everythingElse $1" ;;
+    esac
+    shift
+done
+
+case $doLink in
+    y) exec $CC -I$LIBHOME/include $OtherIncs $everythingElse -L$LIBHOME/`arch` $OtherLibs -l$LIBWAYNE -lm $libList `/bin/ls $LIBHOME/*.o 2>/dev/null`;;
+    n) exec $CC -c -I$LIBHOME/include $OtherIncs $everythingElse ;;
+esac

@@ -219,6 +219,25 @@ int TinyGraphBFS(TINY_GRAPH *G, int root, int distance, int *nodeArray, int *dis
     return count;
 }
 
+Boolean TinyGraphDFSConnected(TINY_GRAPH *G, int seed) {
+    TSET visited = 0;
+    TinyGraphDFSConnectedHelper(G, seed, &visited);
+    return (G->n <= TSetCardinality(visited));
+}
+
+void TinyGraphDFSConnectedHelper(TINY_GRAPH *G, int seed, TSET* visited) {
+    TSetAdd(*visited, seed);
+    unsigned int neighbor[MAX_TSET];
+    int numNeighbors = TSetToArray(neighbor, G->A[seed]);
+    int i;
+    for (i = 0; i < numNeighbors; i++) {
+        if (!TSetIn(*visited, neighbor[i])) {
+            TinyGraphDFSConnectedHelper(G, neighbor[i], visited);
+        }
+    }
+}
+
+
 TINY_GRAPH *TinyGraphInduced(TINY_GRAPH *Gv, TINY_GRAPH *G, TSET V)
 {
     unsigned int array[MAX_TSET], nV = TSetToArray(array, V), i, j;

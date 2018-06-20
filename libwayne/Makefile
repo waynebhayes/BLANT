@@ -9,6 +9,8 @@ all:
 	make -j4 opt
 	make debug_clean
 	make -j4 debug
+	#(cd tests; make stats; mv stats ../bin)
+	touch made
 
 opt:
 	make 'OPT=-O1' 'LIBOUT=libwayne.a' libwayne
@@ -28,11 +30,12 @@ opt_clean:
 	make 'OPT=-O1' 'LIBOUT=libwayne.a' raw_clean
 
 raw_clean:
-	/bin/rm -f src/*.[oa] $(LIBOUT)
+	/bin/rm -f src/*.[oa] $(LIBOUT) made
 
 clean:
 	make debug_clean
 	make opt_clean
+	/bin/rm -f made
 
 $(LIBOUT): src/$(LIBOUT)
 	ranlib src/$(LIBOUT)

@@ -11,19 +11,22 @@
 #include "rand48.h"
 #include "heap.h"
 #include "blant.h"
+#include "queue.h"
+#include "multisets.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024;
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
 char **_nodeNames;
 
 // Below are the sampling methods; pick one on the last line
-#define SAMPLE_UNBIASED 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
+#define SAMPLE_ACCEPT_REJECT 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
 #define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
 #define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
+#define SAMPLE_MCMC 5 // MCMC Algorithm estimates graphlet frequency with a random walk
 #ifndef RESERVOIR_MULTIPLIER
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
@@ -32,7 +35,7 @@ char **_nodeNames;
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
-#define ALLOW_DISCONNECTED_GRAPHLETS 0
+#define ALLOW_DISCONNECTED_GRAPHLETS 1
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -42,8 +45,9 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS];
+static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
 
-enum OutputMode {undef, indexGraphlets, graphletFrequency, outputODV, outputGDV};
+enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
@@ -71,7 +75,12 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
+//The number of edges required to walk a *Hamiltonion* path
+static unsigned _L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
+static int _alphaList[MAX_CANONICALS];
+static double _graphletConcentration[MAX_CANONICALS];
 
+static int _alphaList[MAX_CANONICALS];
 /* AND NOW THE CODE */
 
 
@@ -90,7 +99,7 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(Gv);
-    for(i=0; i < _k; i++) for(j=i+1; j < _k; j++)
+    for(i=0; i < Gv->n; i++) for(j=i+1; j < Gv->n; j++)
         if(GraphAreConnected(G, Varray[i], Varray[j]))
             TinyGraphConnect(Gv, i, j);
     return Gv;
@@ -146,18 +155,28 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     for(i=0; i < G->degree[v1]; i++)
     {
 	int nv1 =  G->neighbor[v1][i];
-	if(nv1 != v2) SetAdd(outSet, (outbound[nOut++] = nv1));
+	if(nv1 != v2)
+	{
+	    assert(!SetIn(V, nv1)); // assertion to ensure we're in line with faye
+	    SetAdd(outSet, (outbound[nOut++] = nv1));
+	}
     }
     for(i=0; i < G->degree[v2]; i++)
     {
 	int nv2 =  G->neighbor[v2][i];
-	if(nv2 != v1 && !SetIn(outSet, nv2)) SetAdd(outSet, (outbound[nOut++] = nv2));
+	if(nv2 != v1 && !SetIn(outSet, nv2))
+	{
+	    assert(!SetIn(V, nv2)); // assertion to ensure we're in line with faye
+	    SetAdd(outSet, (outbound[nOut++] = nv2));
+	}
     }
     for(i=2; i<k; i++)
     {
 	int j;
 	if(nOut == 0) // the graphlet has saturated it's connected component
 	{
+	    assert(SetCardinality(outSet) == 0);
+	    assert(SetCardinality(V) < k);
 #if ALLOW_DISCONNECTED_GRAPHLETS
 	    while(SetIn(V, (j = G->n*drand48())))
 		; // must terminate since k <= G->n
@@ -256,34 +275,34 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     int numTries = 0;
     while(vCount < k)
     {
-	int i, whichNeigh;
+	int i, whichNeigh, newNode = -1;
 	while(numTries < MAX_TRIES && SetIn(internal, (whichNeigh = outDegree * drand48())))
 	    ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
 	if(numTries >= MAX_TRIES) {
 #if ALLOW_DISCONNECTED_GRAPHLETS
-		    // get a new node outside this connected component.
-		    // Note this will return a disconnected graphlet.
-		    while(SetIn(V, (newNode = G->n*drand48())))
-			; // must terminate since k <= G->n
-		    numTries = 0;
-		    outDegree = 0;
-		    int j;
-		    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
-			cumulative[j] = 0;
-		    SetEmpty(internal);
+	    // get a new node outside this connected component.
+	    // Note this will return a disconnected graphlet.
+	    while(SetIn(V, (newNode = G->n*drand48())))
+		; // must terminate since k <= G->n
+	    numTries = 0;
+	    outDegree = 0;
+	    int j;
+	    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
+		cumulative[j] = 0;
+	    SetEmpty(internal);
 #else
-		    static int depth;
-		    depth++;
-		    assert(depth < MAX_TRIES);
-		    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
-		    depth--;
-		    return V;
+	    static int depth;
+	    depth++;
+	    assert(depth < MAX_TRIES);
+	    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+	    depth--;
+	    return V;
 #endif
 	}
 	for(i=0; cumulative[i] <= whichNeigh; i++)
 	    ; // figure out whose neighbor it is
 	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]); // which neighbor of node i?
-	int newNode = G->neighbor[Varray[i]][localNeigh];
+	if(newNode < 0) newNode = G->neighbor[Varray[i]][localNeigh];
 #if PARANOID_ASSERTS
 	// really should check some of these a few lines higher but let's group all the paranoia in one place.
 	assert(i < vCount);
@@ -401,7 +420,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    else
 		assert(i==k); // we're done because i >= k and nOut == 0... but we shouldn't get here.
 #else
-	    static depth;
+	    static int depth;
 	    depth++;
 	    assert(depth < MAX_TRIES); // graph is too disconnected
 	    V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
@@ -483,6 +502,193 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #endif
 }
 
+int alphaListPopulate(char *BUF, int *alpha_list, int k) {
+	sprintf(BUF, CANON_DIR "/alpha_list%d.txt", k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find %s/alpha_list%d.txt\n", CANON_DIR, k);
+    int numAlphas, i;
+    fscanf(fp_ord, "%d",&numAlphas);
+	assert(numAlphas == _numCanon);
+    for(i=0; i<numAlphas; i++) fscanf(fp_ord, "%d", &alpha_list[i]);
+    fclose(fp_ord);
+    return numAlphas;
+}
+
+// MCMC getNeighbor Gets a random neighbor of a d graphlet as an array of vertices Xcurrent
+int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
+{
+	if (mcmc_d == 2)
+	{
+		int oldu = Xcurrent[0];
+		int oldv = Xcurrent[1];
+		int numTries = 0;
+		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
+#if PARANOID_ASSERTS
+			assert(++numTries < MAX_TRIES);
+#endif
+			double p = drand48();
+			// if 0 < p < 1, p < deg(u) + deg(v) then
+			if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
+				// select randomly from Neigh(u) and swap
+				int neighbor = (int) (G->degree[Xcurrent[0]] * drand48());
+				Xcurrent[1] = G->neighbor[Xcurrent[0]][neighbor];
+			}
+			else {
+				// select randomly from Neigh(v) and swap
+				int neighbor = (int) (G->degree[Xcurrent[1]] * drand48());
+				Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
+			}
+		}
+#if PARANOID_ASSERTS
+		assert(Xcurrent[0] != Xcurrent[1]);
+		assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
+		assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
+#endif
+	}
+	else Fatal("Not implemented. Set d to 2");
+	return Xcurrent;
+}
+
+//Crawls one step along the graph updating our multiset, queue, and newest graphlet array
+void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
+	int v, i;
+	for (i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from queue and multiset
+		v = QueueGet(XLQ).i;
+		MultisetDelete(XLS, v);
+	}
+	MCMCGetNeighbor(X, G); //Gets a neighbor graphlet of the most recent d vertices and add to queue and multiset
+	for (i = 0; i < mcmc_d; i++) {
+		MultisetAdd(XLS, X[i]);
+		QueuePut(XLQ, (foint) X[i]);
+	}
+}
+
+// WalkLSteps fills Varray, V, XLS, XLQ with L dgraphlets
+void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
+{
+	//For now d must be equal to 2 because we start by picking a random edge
+	int numNodes = 0;
+	if (mcmc_d != 2) {
+		Fatal("mcmc_d must be set to 2 in blant.h for now");
+	} else {
+	//Pick a random edge. Add the vertices from it to our data structures
+	int edge = G->numEdges * drand48();
+    X[0] = G->edgeList[2*edge];
+    X[1] = G->edgeList[2*edge+1];
+    MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
+    MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
+	}
+
+	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
+	int i, j;
+	for (i = 1; i < _L; i++) {
+		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
+		for (j = 0; j < mcmc_d; j++) {
+			MultisetAdd(XLS, X[j]);
+			QueuePut(XLQ, (foint) X[j]);
+		}
+	}
+#if PARANOID_ASSERTS
+	assert(QueueSize(XLQ) == _L*mcmc_d);
+#endif
+	//Keep crawling til we have k distinct vertices
+	static int numTries = 0;
+	static int depth = 0;
+	while (MultisetSupport(XLS) < k) {
+		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices restart
+			assert(depth++ < numTries); //If we restart 100 times in a row without success give up and exit
+			
+			//Empty the SET/MULTISET/QUEUE before restarting
+			SetEmpty(V);
+			MultisetEmpty(XLS);
+			WalkLSteps(Varray,V,XLS,XLQ,X,G,k);
+			QueueEmpty(XLQ);
+			depth = 0;
+			return;
+		}
+		crawlOneStep(XLS, XLQ, X, G);
+	}
+	numTries = 0;
+#if PARANOID_ASSERTS
+	assert(QueueSize(XLQ) == _L*mcmc_d && MultisetSupport(XLS) == k);
+#endif
+}
+
+static int _numSamples = 0;
+/* SampleGraphletMCMC first starts with an edge in Walk L steps.
+   It then walks along L = k-1 edges with MCMCGetNeighbor until it fills XLQ and XLS with L edges(their vertices are stored).
+   XLQ and XLS always hold 2L vertices. They represent a window of the last L edges walked. If that window contains k
+   distinct vertices, a graphlet is returned. This random walk overcounts graphlets of different types by a precomputed
+   predictable amount represented by alpha values in the _alphaList. During sampling sample frequency is divided by the alpha value
+   plus the cardinality of the outset of the most recently sampled vertices. Finally, the frequencies are normalized into concentrations.
+*/
+static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
+	static Boolean setup = false;
+	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
+	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
+	static int Xcurrent[mcmc_d]; //d vertices for MCMCgetneighbor
+	if (!XLQ || !XLS) {
+		XLQ = QueueAlloc(k*mcmc_d);
+		XLS = MultisetAlloc(G->n);
+	}
+
+	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
+	if (!setup) {
+		setup = true;
+		MultisetEmpty(XLS);
+		while (QueueSize(XLQ) > 0) QueueGet(XLQ);
+		WalkLSteps(Varray, V, XLS, XLQ, Xcurrent, G, k);
+	} else {
+#if PARANOID_ASSERTS
+		assert(QueueSize(XLQ) == 2 *_L);
+#endif
+		//Keep crawling til we have k distinct vertices. Crawl at least once
+		do  {
+			crawlOneStep(XLS, XLQ, Xcurrent, G);
+		} while (MultisetSupport(XLS) != k);
+	}
+#if PARANOID_ASSERTS
+		assert(MultisetSupport(XLS) == k);
+#endif
+	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
+	int num, numNodes = 0, i;
+	SetEmpty(V);
+	for (i = XLQ->length-1; i >= 0; i--) {
+		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
+		if (!SetIn(V, num)) {
+			Varray[numNodes++] = num;
+			SetAdd(V, num);
+		}
+	}
+	//Ensure the first elements in Varray are our most recent d graphlet
+#if PARANOID_ASSERTS
+	assert((Varray[0] == Xcurrent[0] && Varray[1] == Xcurrent[1]) || (Varray[1] == Xcurrent[0] && Varray[0] == Xcurrent[1]));
+	assert(numNodes == k);
+#endif
+	return V; //and return
+}
+
+void finalizeMCMC() {
+	double totalConcentration = 0;
+	int i;
+	for (i = 0; i < _numCanon; i++) {
+		totalConcentration += _graphletConcentration[i];
+	}
+	for (i = 0; i < _numCanon; i++) {
+		_graphletConcentration[i] /= totalConcentration;
+	}
+}
+
+void initializeMCMC(int k, int numSamples) {
+	_L = k - mcmc_d  + 1;
+	char BUF[BUFSIZ];
+	alphaListPopulate(BUF, _alphaList, k);
+	int i;
+	for (i = 0; i < _numCanon; i++)
+	{
+		_graphletConcentration[i] = 0;
+	}
+}
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
 // Given the big graph G, and a set of nodes S (|S|==k), compute the 
@@ -540,14 +746,15 @@ static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAP
 /*
 * Very slow: sample k nodes uniformly at random and throw away ones that are disconnected.
 */
-
-static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
+static unsigned long int _acceptRejectTotalTries;
+static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k)
 {
     int arrayV[k], i;
     int nodeArray[G->n], distArray[G->n];
     TINY_GRAPH *g = TinyGraphAlloc(k);
     int graphetteArray[k];
 
+    int tries = 0;
     do
     {
 	SetEmpty(V);
@@ -565,8 +772,9 @@ static SET *SampleGraphletUnbiased(SET *V, int *Varray, GRAPH *G, int k)
 	assert(SetCardinality(V)==k);
 	assert(NumReachableNodes(g,0) == TinyGraphBFS(g, 0, k, graphetteArray, distArray));
 #endif
+	++tries;
     } while(NumReachableNodes(g, 0) < k);
-
+    _acceptRejectTotalTries += tries;
     return V;
 }
 
@@ -587,6 +795,7 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     int i;
     _numCanon = canonListPopulate(BUF, _canonList, _k);
+    _numOrbits = orbitListPopulate(BUF, _orbitList, _k);
     mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
@@ -594,30 +803,37 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
-// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
-// Call RunBlantInThreads instead, it's the top-level entry point to call once the
-// graph is finished being input---all the ways of reading input call RunBlantInThreads.
-int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
-{
-    int i;
-    char perm[maxK+1];
-    assert(k <= G->n);
-    srand48(time(0)+getpid());
-    SET *V = SetAlloc(G->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k);
-    unsigned Varray[maxK+1];
-    for(i=0; i<numSamples; i++)
-    {
-#if SAMPLE_METHOD == SAMPLE_UNBIASED
-	SampleGraphletUnbiased(V, Varray, G, k);	// REALLY REALLY SLOW
+void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
+#if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
+	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW
 #elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
 	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
 #elif SAMPLE_METHOD == SAMPLE_RESERVOIR
 	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
 #elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+#elif SAMPLE_METHOD == SAMPLE_MCMC
+	SampleGraphletMCMC(V, Varray, G, k);
 #else
 #error unknown sampling method
+#endif
+}
+
+void PrintNode(int v) {
+#if SHAWN_AND_ZICAN
+		printf("%s", _nodeNames[v]);
+#else
+		printf("%d", v);
+#endif
+}
+
+#if SAMPLE_METHOD == SAMPLE_MCMC
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, SET *XcurrOutset, int k) {
+	unsigned Xcurrent[2];
+	Xcurrent[0] = Varray[0];
+	Xcurrent[1] = Varray[1];
+#else
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
 #endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
@@ -628,34 +844,123 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #endif
 	switch(_outputMode)
 	{
+	    static SET* printed;
 	case graphletFrequency:
+#if SAMPLE_METHOD == SAMPLE_MCMC
+#if PARANOID_ASSERTS
+		assert(TinyGraphDFSConnected(g, 0));
+		assert(_alphaList[GintCanon] > 0.1);
+#endif
+		if (_L == 2) {
+			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
+		} else {
+			SetEmpty(XcurrOutset);
+			int neighbor;
+			for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
+			}
+			for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
+			}
+			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]*(SetCardinality(XcurrOutset) - 2));
+		}
+#else
 	    ++_graphletCount[GintCanon];
+#endif
 	    break;
 	case indexGraphlets:
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
-#if SHAWN_AND_ZICAN
-	    for(j=0;j<k;j++) printf(" %s", _nodeNames[Varray[(int)perm[j]]]);
-#else
-	    for(j=0;j<k;j++) printf(" %d", Varray[(int)perm[j]]);
-#endif
+	    for(j=0;j<k;j++)
+		{printf(" "); PrintNode(Varray[(int)perm[j]]);}
+	    puts("");
+	    break;
+	case indexOrbits:
+	    if(!printed) printed = SetAlloc(_k);
+	    SetEmpty(printed);
+	    memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	    for(j=0;j<k;j++) if(!SetIn(printed,j))
+	    {
+		printf(" "); PrintNode(Varray[(int)perm[j]]);
+		SetAdd(printed, j);
+		int j1;
+		for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
+		{
+		    assert(!SetIn(printed, j1));
+		    printf(":"); PrintNode(Varray[(int)perm[j1]]);
+		    SetAdd(printed, j1);
+		}
+
+	    }
 	    puts("");
 	    break;
 	case outputGDV:
 	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
 	    break;
+	case outputODV: // Jens, here...
+	    //Abort("Sorry, ODV is not implemented yet");
+	    memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+#if PERMS_CAN2NON            
+	    for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintCanon][j]);
+#else
+            for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
+#endif
+	    break;
+		
 	default: Abort("unknown or un-implemented outputMode");
 	    break;
 	}
+}
+
+// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
+// Call RunBlantInThreads instead, it's the top-level entry point to call once the
+// graph is finished being input---all the ways of reading input call RunBlantInThreads.
+int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+{
+    int i,j;
+    char perm[maxK+1];
+    assert(k <= G->n);
+    srand48(_seed);
+    SET *V = SetAlloc(G->n);
+    TINY_GRAPH *g = TinyGraphAlloc(k);
+    unsigned Varray[maxK+1];
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	initializeMCMC(k, numSamples);
+	SET *XcurrOutset = SetAlloc(G->n);
+#endif
+    for(i=0; i<numSamples; i++)
+    {
+		SampleGraphlet(G, V, Varray, k);
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	ProcessGraphlet(G, V, Varray, perm, g, XcurrOutset, k);
+#else
+	ProcessGraphlet(G, V, Varray, perm, g, k);
+#endif
     }
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	SetFree(XcurrOutset);
+	finalizeMCMC();
+#endif
     switch(_outputMode)
     {
 	int canon;
-    case indexGraphlets: break; // already output on-the-fly above
+    case indexGraphlets: case indexOrbits:
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	Warning("Sampling method MCMC overcounts graphlets by varying amounts.");
+#endif
+	break; // already output on-the-fly above
     case graphletFrequency:
-	for(canon=0; canon<_numCanon; canon++)
-	    printf("%lu %d\n", _graphletCount[canon], canon);
+	for(canon=0; canon<_numCanon; canon++) {
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	printf("%lf %d\n", _graphletConcentration[canon], canon);
+#else
+	printf("%lu %d\n", _graphletCount[canon], canon);
+#endif
+	}
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
@@ -666,6 +971,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    puts("");
 	}
 	break;
+     case outputODV:
+        for(i=0; i<G->n; i++) {for(j=0; j<_numOrbits; j++) printf("%d ", ODV(i,j)); printf("\n");}
+        break;
     default: Abort("unknown or un-implemented outputMode");
 	break;
     }
@@ -677,6 +985,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
 	Free(_orbitDegreeVector[i]);
+#endif
+#if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
+    fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
 #endif
     return 0;
 }
@@ -710,14 +1021,15 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 // threads specified.  Also does some sanity checking.
 int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 {
-    int i;
+    int i,j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
-    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
+    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
-
+	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;}
+	
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
@@ -831,7 +1143,8 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 
 const char const * const USAGE = \
-    "USAGE: blant [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
+
+    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
@@ -857,7 +1170,8 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:t:s:c:w:k:")) != -1)
+    _seed = time(0)+getpid();
+    while((opt = getopt(argc, argv, "m:t:s:c:w:k:r:")) != -1)
     {
 	switch(opt)
 	{
@@ -866,15 +1180,18 @@ int main(int argc, char *argv[])
 	    switch(*optarg)
 	    {
 	    case 'i': _outputMode = indexGraphlets; break;
+	    case 'j': _outputMode = indexOrbits; break;
 	    case 'f': _outputMode = graphletFrequency; break;
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
 	    default: Fatal("-m%c: unknown output mode;\n"
-		   "\tmodes are i=indexGraphlets, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+		   "\tmodes are i=indexGraphlets, j=indexOrbits, f=graphletFrequency, g=GDV, o=ODV", *optarg);
 		break;
 	    }
 	    break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
+	case 'r': _seed = atoi(optarg);
+	    break;
 	case 's': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
@@ -909,7 +1226,7 @@ int main(int argc, char *argv[])
     SetGlobalCanonMaps(); // needs _k to be set
 
 #if SHAWN_AND_ZICAN
-#ifdef CPP_CALLS_C  // false by default
+#if CPP_CALLS_C  // false by default
     while(!feof(fpGraph))
     {
 	static int line;
@@ -926,14 +1243,14 @@ int main(int argc, char *argv[])
     assert(_numNodes > 0);
     assert(_nodeNames && _nodeNames[0]);
     //assert(!_nodeNames[_numNodes]);
-#if 1
+#if 0
     for(i=0; i < _numNodes; i++)
 	printf("nodeName[%d]=%s\n", i, _nodeNames[i]);
     exit(0);
 #endif
     // call clean maybe?
 #endif
-    return RunBlantEdgesFinished(_k, numSamples, _numNodes, NULL);
+    return RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
 #else
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, true); // sparse = true

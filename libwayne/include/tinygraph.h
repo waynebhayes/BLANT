@@ -36,7 +36,8 @@ TINY_GRAPH *TinyGraphUnion(TINY_GRAPH *destination, TINY_GRAPH *G1, TINY_GRAPH *
  * Also, worst-case runtime is O(n^2)... very bad, yes.. :-(
  */
 int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
-
+Boolean TinyGraphDFSConnected(TINY_GRAPH *G, int seed);
+void TinyGraphDFSConnectedHelper(TINY_GRAPH *G, int seed, TSET* visited);
 /*
 ** TinyGraphInduced_NoVertexDelete doesn't delete any vertices, it only deletes
 ** edges whose ends don't both appear in V.  TinyGraphInduced builds an entirely
