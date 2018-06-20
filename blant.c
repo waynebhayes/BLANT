@@ -571,7 +571,7 @@ void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
 {
 	MultisetEmpty(XLS);
-	MultisetEmpty(XLQ);
+	QueueEmpty(XLQ);
 	//For now d must be equal to 2 because we start by picking a random edge
 	int numNodes = 0;
 	if (mcmc_d != 2) {
