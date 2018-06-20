@@ -1143,6 +1143,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 
 const char const * const USAGE = \
+
     "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
