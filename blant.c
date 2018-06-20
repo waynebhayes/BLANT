@@ -570,6 +570,8 @@ void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 // when we start/restart.
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
 {
+	MultisetEmpty(XLS);
+	MultisetEmpty(XLQ);
 	//For now d must be equal to 2 because we start by picking a random edge
 	int numNodes = 0;
 	if (mcmc_d != 2) {
@@ -597,12 +599,9 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
 	static int depth = 0;
 	while (MultisetSupport(XLS) < k) {
 		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices restart
-			assert(depth++ < MAX_TRIES); //If we restart 100 times in a row without success give up and exit
+			assert(depth++ < MAX_TRIES); //If we restart 100 times in a row without success give up
 
-			//Empty the sliding window before restarting
-			MultisetEmpty(XLS);
-			QueueEmpty(XLQ);
-			WalkLSteps(XLS,XLQ,X,G,k);
+			WalkLSteps(XLS,XLQ,X,G,k); //try again
 			depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
 			numTries = 0; //And our number of attempts to crawl one step
 			return;
@@ -623,11 +622,11 @@ static int _numSamples = 0;
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static Boolean setup = false;
 	static int currSamples = 0;
-	static MULTISET *XLS; //A multiset holding L dgraphlets as separate vertex integers
-	static QUEUE *XLQ; //A queue holding L dgraphlets as separate vertex integers
+	static MULTISET *XLS = NULL; //A multiset holding L dgraphlets as separate vertex integers
+	static QUEUE *XLQ = NULL; //A queue holding L dgraphlets as separate vertex integers
 	static int Xcurrent[mcmc_d]; //holds the most recently walked d graphlet as an invariant
 	if (!XLQ || !XLS) {
-		//This is a memory leak, but the program soon exits after sampling is completed
+		//NON REENTRANT CODE
 		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
 	}
@@ -635,8 +634,6 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
 	if (!setup || (_numSamples/2 == currSamples++)) {
 		setup = true;
-		MultisetEmpty(XLS);
-		QueueEmpty(XLQ);
 		WalkLSteps(XLS, XLQ, Xcurrent, G, k);
 	} else {
 		//Keep crawling til we have k distinct vertices. Crawl at least once
@@ -827,13 +824,12 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 #endif
 }
 
-#if SAMPLE_METHOD == SAMPLE_MCMC
-void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, SET *XcurrOutset, int k) {
-	unsigned Xcurrent[2]; //Holds the most recent d graphlet sampled.
-	Xcurrent[0] = Varray[0]; 
-	Xcurrent[1] = Varray[1];
-#else
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
+#if SAMPLE_METHOD == SAMPLE_MCMC
+	static SET* XcurrOutset = NULL;
+	if (!XcurrOutset) {
+		XcurrOutset = SetAlloc(G->n); //NOT REENTRANT
+	}
 #endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
@@ -856,11 +852,11 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 		} else {
 			SetEmpty(XcurrOutset);
 			int neighbor;
-			for (neighbor = 0; neighbor < G->degree[Xcurrent[0]]; neighbor++) {
-				SetAdd(XcurrOutset, G->neighbor[Xcurrent[0]][neighbor]);
+			for (neighbor = 0; neighbor < G->degree[Varray[0]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Varray[0]][neighbor]);
 			}
-			for (neighbor = 0; neighbor < G->degree[Xcurrent[1]]; neighbor++) {
-				SetAdd(XcurrOutset, G->neighbor[Xcurrent[1]][neighbor]);
+			for (neighbor = 0; neighbor < G->degree[Varray[1]]; neighbor++) {
+				SetAdd(XcurrOutset, G->neighbor[Varray[1]][neighbor]);
 			}
 			//The over counting ratio is the alpha value times the number of distinct neighbors
 			//of the most recent d graphlet sampled not including the d graphlet itself.
@@ -919,11 +915,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     for(i=0; i<numSamples; i++)
     {
 		SampleGraphlet(G, V, Varray, k);
-#if SAMPLE_METHOD == SAMPLE_MCMC
-ProcessGraphlet(G, V, Varray, perm, g, XcurrOutset, k);
-#else
 		ProcessGraphlet(G, V, Varray, perm, g, k);
-#endif
     }
 #if SAMPLE_METHOD == SAMPLE_MCMC
 	SetFree(XcurrOutset);
