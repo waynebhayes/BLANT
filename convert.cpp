@@ -222,7 +222,17 @@ void convert_el(string filename){
 	getline(ifs,line);
 	
 	if(regex_match(line,pattern)){
-		size_t pos = line.find(" ");
+		size_t pos = line.find("	");
+		if(pos !=  string::npos)
+		{
+			 string firstNode = line.substr(0,pos);
+			 string secondNode = line.substr(pos+1);
+			 stringEdge.push_back(firstNode);
+			 stringEdge.push_back(secondNode);
+			 numofEdges++;
+
+		}
+		pos = line.find(" ");
 		if(pos !=  string::npos)
 		{
 			 string firstNode = line.substr(0,pos);
