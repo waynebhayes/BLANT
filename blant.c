@@ -625,10 +625,12 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	static MULTISET *XLS = NULL; //A multiset holding L dgraphlets as separate vertex integers
 	static QUEUE *XLQ = NULL; //A queue holding L dgraphlets as separate vertex integers
 	static int Xcurrent[mcmc_d]; //holds the most recently walked d graphlet as an invariant
-	if (!XLQ || !XLS) {
+	static TINY_GRAPH *g = NULL; //Tinygraph for computing overcounting;
+	if (!XLQ || !XLS || !g) {
 		//NON REENTRANT CODE
 		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
+		g = TinyGraphAlloc(k);
 	}
 
 	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
@@ -647,21 +649,40 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 #endif
 
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
-	int num, numNodes = 0, i;
+	//Also calculate the degree of all the vertices in the sliding window and multiply them together
+	//(The number of non internal edges)
+	int node, numNodes = 0, i, j, multiplier = 1, graphletDegree;
 	SetEmpty(V);
-	for (i = XLQ->length-1; i >= 0; i--) { //Iterate backwards so most recent d graphlet is first two
-		int num = (XLQ->queue[(XLQ->front + i) % XLQ->maxSize]).i;
-		if (!SetIn(V, num)) {
-			Varray[numNodes++] = num;
-			SetAdd(V, num);
+	for (i = 0; i < _L; i++) {
+		graphletDegree = -2; //The edge between the vertices in the graphlet isn't included and is double counted
+		for (j = 0; j < mcmc_d; j++) {
+			node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
+			if (!SetIn(V, node)) {
+				Varray[numNodes++] = node;
+				SetAdd(V, num);
+			}
+			graphletDegree += G->degree[node];
 		}
-	}
-
-	//Ensure the first elements in Varray are our most recent d graphlet
 #if PARANOID_ASSERTS
-	assert((Varray[0] == Xcurrent[0] && Varray[1] == Xcurrent[1]) || (Varray[1] == Xcurrent[0] && Varray[0] == Xcurrent[1]));
+		assert(graphletDegree > 0);
+#endif
+		multiplier *= graphletDegree;
+	}
+	
+#if PARANOID_ASSERTS
 	assert(numNodes == k); //Ensure we are returning k nodes
 #endif
+	TinyGraphInducedFromGraph(g, G, Varray);
+	int GintCanon = TinyGraph2Int(g);
+	if (_L == 2) { //If _L == 2, k = 3 and we can use the simplified overcounting formula.
+		//The over counting ratio is the alpha value only.
+		_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
+	} else {
+		//The over counting ratio is the alpha value times the multiplier
+		//The multiplier is the product of the adjacent edges to each d graphlet in the sliding window
+		_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]*multiplier);
+	}
+
 	return V; //and return the currently sampled graphlet
 }
 
@@ -677,8 +698,9 @@ void finalizeMCMC() {
 }
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
+// The alpha value represents the number of ways to walk over that graphlet
 // Global variable _L is needed by many functions
-// It represents the length of the sliding window in d graphlets for sampling
+// _L represents the length of the sliding window in d graphlets for sampling
 // Global variable _numSamples needed for the algorithm to reseed halfway through
 // Concentrations are initialized to 0
 void initializeMCMC(int k, int numSamples) {
@@ -825,12 +847,6 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 }
 
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
-#if SAMPLE_METHOD == SAMPLE_MCMC
-	static SET* XcurrOutset = NULL;
-	if (!XcurrOutset) {
-		XcurrOutset = SetAlloc(G->n); //NOT REENTRANT
-	}
-#endif
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -846,22 +862,6 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 		assert(TinyGraphDFSConnected(g, 0)); //MCMC sampling method only samples connected graphlets
 		assert(_alphaList[GintCanon] > 0); //Alpha Value should be nonzero positive number for connected graphlet
 #endif
-		if (_L == 2) { //If _L == 2, k = 3 and we can use the simplified overcounting formula.
-			//The over counting ratio is the alpha value only.
-			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
-		} else {
-			SetEmpty(XcurrOutset);
-			int neighbor;
-			for (neighbor = 0; neighbor < G->degree[Varray[0]]; neighbor++) {
-				SetAdd(XcurrOutset, G->neighbor[Varray[0]][neighbor]);
-			}
-			for (neighbor = 0; neighbor < G->degree[Varray[1]]; neighbor++) {
-				SetAdd(XcurrOutset, G->neighbor[Varray[1]][neighbor]);
-			}
-			//The over counting ratio is the alpha value times the number of distinct neighbors
-			//of the most recent d graphlet sampled not including the d graphlet itself.
-			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]*(SetCardinality(XcurrOutset) - 2));
-		}
 #else
 	    ++_graphletCount[GintCanon];
 #endif
