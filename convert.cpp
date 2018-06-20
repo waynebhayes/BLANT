@@ -214,7 +214,6 @@ void convert_gml(string inp)
 }
 
 void convert_el(string filename){
-	cout << "el file" << endl;
 	regex pattern("(.)+(\\s)(.)+");
 	string line;
 	ifstream ifs;
@@ -269,16 +268,10 @@ void indexStringNodes(){
 		if(nodeIndex.find(s) == nodeIndex.end())
 		{
 			nodeIndex[s] = numofNodes;	
-	//		cout << *i << " " << numofNodes<<endl;
 			numofNodes++;
 			stringNode.push_back(s);
 		}		
 	}
-
- 	/*for (std::vector<string>::const_iterator x = stringNode.begin(); x != stringNode.end(); ++x)
-	{
-	cout << *x << endl;
-	}*/
 
 }
 
