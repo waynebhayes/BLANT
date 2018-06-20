@@ -9,7 +9,7 @@ all:
 	make -j4 opt
 	make debug_clean
 	make -j4 debug
-	(cd tests; make stats; mv stats ../bin)
+	#(cd tests; make stats; mv stats ../bin)
 	touch made
 
 opt:

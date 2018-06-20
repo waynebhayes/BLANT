@@ -47,7 +47,7 @@ static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual 
 static int _numCanon, _canonList[MAX_CANONICALS];
 static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
 
-enum OutputMode {undef, indexGraphlets, graphletFrequency, outputODV, outputGDV};
+enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
@@ -651,6 +651,8 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
 	//Also calculate the degree of all the vertices in the sliding window and multiply them together
 	//(The number of non internal edges)
+	//The multiplier is a shorthand for d graphlet degree product, It is obtained by multiplying the degrees
+	//of all the graphlets in the sliding window.
 	int node, numNodes = 0, i, j, multiplier = 1, graphletDegree;
 	SetEmpty(V);
 	for (i = 0; i < _L; i++) {
@@ -689,10 +691,11 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 //Converts the decimal frequencies of graphlets to concentrations (sum to 1).
 void finalizeMCMC() {
 	double totalConcentration = 0;
-	for (int i = 0; i < _numCanon; i++) {
+	int i;
+	for (i = 0; i < _numCanon; i++) {
 		totalConcentration += _graphletConcentration[i];
 	}
-	for (int i = 0; i < _numCanon; i++) {
+	for (i = 0; i < _numCanon; i++) {
 		_graphletConcentration[i] /= totalConcentration;
 	}
 }
@@ -821,8 +824,6 @@ void SetGlobalCanonMaps(void)
     int i;
     _numCanon = canonListPopulate(BUF, _canonList, _k);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _k);
-    // Jens: this is where you'd insert a _numOrbits = orbitListPopulate(...) function;
-    // put the actual function in libblant.[ch]
     mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
     int pfd = open(BUF, 0*O_RDONLY);
@@ -846,6 +847,14 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 #endif
 }
 
+void PrintNode(int v) {
+#if SHAWN_AND_ZICAN
+		printf("%s", _nodeNames[v]);
+#else
+		printf("%d", v);
+#endif
+}
+
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
@@ -856,25 +865,37 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 #endif
 	switch(_outputMode)
 	{
+	    static SET* printed;
 	case graphletFrequency:
-#if SAMPLE_METHOD == SAMPLE_MCMC
-#if PARANOID_ASSERTS
-		assert(TinyGraphDFSConnected(g, 0)); //MCMC sampling method only samples connected graphlets
-		assert(_alphaList[GintCanon] > 0); //Alpha Value should be nonzero positive number for connected graphlet
-#endif
-#else
 	    ++_graphletCount[GintCanon];
-#endif
 	    break;
 	case indexGraphlets:
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
-#if SHAWN_AND_ZICAN
-	    for(j=0;j<k;j++) printf(" %s", _nodeNames[Varray[(int)perm[j]]]);
-#else
-	    for(j=0;j<k;j++) printf(" %d", Varray[(int)perm[j]]);
-#endif
+	    for(j=0;j<k;j++)
+		{printf(" "); PrintNode(Varray[(int)perm[j]]);}
+	    puts("");
+	    break;
+	case indexOrbits:
+	    if(!printed) printed = SetAlloc(_k);
+	    SetEmpty(printed);
+	    memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	    for(j=0;j<k;j++) if(!SetIn(printed,j))
+	    {
+		printf(" "); PrintNode(Varray[(int)perm[j]]);
+		SetAdd(printed, j);
+		int j1;
+		for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
+		{
+		    assert(!SetIn(printed, j1));
+		    printf(":"); PrintNode(Varray[(int)perm[j1]]);
+		    SetAdd(printed, j1);
+		}
+
+	    }
 	    puts("");
 	    break;
 	case outputGDV:
@@ -884,7 +905,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    //Abort("Sorry, ODV is not implemented yet");
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
- #if PERMS_CAN2NON            
+#if PERMS_CAN2NON            
 	    for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintCanon][j]);
 #else
             for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
@@ -924,7 +945,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     switch(_outputMode)
     {
 	int canon;
-    case indexGraphlets: 
+    case indexGraphlets: case indexOrbits:
 #if SAMPLE_METHOD == SAMPLE_MCMC
 	Warning("Sampling method MCMC overcounts graphlets by varying amounts.");
 #endif
@@ -1157,11 +1178,12 @@ int main(int argc, char *argv[])
 	    switch(*optarg)
 	    {
 	    case 'i': _outputMode = indexGraphlets; break;
+	    case 'j': _outputMode = indexOrbits; break;
 	    case 'f': _outputMode = graphletFrequency; break;
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
 	    default: Fatal("-m%c: unknown output mode;\n"
-		   "\tmodes are i=indexGraphlets, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+		   "\tmodes are i=indexGraphlets, j=indexOrbits, f=graphletFrequency, g=GDV, o=ODV", *optarg);
 		break;
 	    }
 	    break;
@@ -1202,7 +1224,7 @@ int main(int argc, char *argv[])
     SetGlobalCanonMaps(); // needs _k to be set
 
 #if SHAWN_AND_ZICAN
-#ifdef CPP_CALLS_C  // false by default
+#if CPP_CALLS_C  // false by default
     while(!feof(fpGraph))
     {
 	static int line;
