@@ -49,7 +49,7 @@ void convert_leda(string filename){
 	ifstream ifs;
 	ifs.open(filename,ifstream::in);
 	string line;
-	regex pattern("([a-zA-Z\\d]*)(\\s)([a-zA-Z\\d]*)(\\s)([a-zA-Z\\d]*)(\\s)\\|\\{(.*)\\}\\|(.*)");
+	regex pattern("(.*)(\\s)(.*)(\\s)(.*)(\\s)\\|\\{(.*)\\}\\|(.*)");
 	while(!ifs.eof()){
 		getline(ifs,line);
 		if( regex_match(line,pattern))
@@ -87,7 +87,7 @@ void convert_lgf( string filename){
 	ifstream ifs;
 	ifs.open(filename,ifstream::in);
 	string line;
-	regex pattern("^([\\da-zA-Z]+)(\\s+)([\\da-zA-Z]+)(\\s+)(\\d+)(\\s+)(\\d+)(\\s*)$");
+	regex pattern("^(.+)(\\s+)(.+)(\\s+)(\\d+)(\\s+)(\\d+)(\\s*)$");
 
 		
 	while(!ifs.eof()){
