@@ -653,7 +653,8 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	//(The number of non internal edges)
 	//The multiplier is a shorthand for d graphlet degree product, It is obtained by multiplying the degrees
 	//of all the graphlets in the sliding window.
-	int node, numNodes = 0, i, j, multiplier = 1, graphletDegree;
+	int node, numNodes = 0, i, j, graphletDegree;
+	long long multiplier = 1;
 	SetEmpty(V);
 	for (i = 0; i < _L; i++) {
 		graphletDegree = -2; //The edge between the vertices in the graphlet isn't included and is double counted
@@ -669,22 +670,26 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 		assert(graphletDegree > 0);
 #endif
 		multiplier *= graphletDegree;
+		assert(multiplier > 0);
 	}
 	
+	TinyGraphInducedFromGraph(g, G, Varray);
+	int GintCanon = _K[TinyGraph2Int(g, k)];
 #if PARANOID_ASSERTS
 	assert(numNodes == k); //Ensure we are returning k nodes
 #endif
-	TinyGraphInducedFromGraph(g, G, Varray);
-	int GintCanon = _K[TinyGraph2Int(g, k)];
 	if (_L == 2) { //If _L == 2, k = 3 and we can use the simplified overcounting formula.
 		//The over counting ratio is the alpha value only.
-		_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
+		_graphletConcentration[GintCanon] += 1.0/(_alphaList[GintCanon]);;
 	} else {
 		//The over counting ratio is the alpha value times the multiplier
 		//The multiplier is the product of the adjacent edges to each d graphlet in the sliding window
-		_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]*multiplier);
-	}
 
+		_graphletConcentration[GintCanon] += 1.0/((double)_alphaList[GintCanon]*(double)multiplier);
+	}
+#if PARANOID_ASSERTS
+	assert(_graphletConcentration[GintCanon] > 0);
+#endif
 	return V; //and return the currently sampled graphlet
 }
 
@@ -694,6 +699,9 @@ void finalizeMCMC() {
 	int i;
 	for (i = 0; i < _numCanon; i++) {
 		totalConcentration += _graphletConcentration[i];
+#if PARANOID_ASSERTS
+		assert(_graphletConcentration[i] >= 0.0);
+#endif
 	}
 	for (i = 0; i < _numCanon; i++) {
 		_graphletConcentration[i] /= totalConcentration;
@@ -714,7 +722,7 @@ void initializeMCMC(int k, int numSamples) {
 	int i;
 	for (i = 0; i < _numCanon; i++)
 	{
-		_graphletConcentration[i] = 0;
+		_graphletConcentration[i] = 0.0;
 	}
 }
 
