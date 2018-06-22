@@ -90,7 +90,7 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
 //The number of edges required to walk a *Hamiltonion* path
-static unsigned _L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
+static unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
 static int _alphaList[MAX_CANONICALS];
 static double _graphletConcentration[MAX_CANONICALS];
 
@@ -595,7 +595,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 
 	//Get the data structures up to L d graphlets. Start at 1 because 1 d graphlet already there
 	int i, j;
-	for (i = 1; i < _L; i++) {
+	for (i = 1; i < _MCMC_L; i++) {
 		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
 		for (j = 0; j < mcmc_d; j++) {
 			MultisetAdd(XLS, X[j]);
@@ -603,7 +603,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 		}
 	}
 #if PARANOID_ASSERTS
-	assert(QueueSize(XLQ) == _L*mcmc_d);
+	assert(QueueSize(XLQ) == _MCMC_L*mcmc_d);
 #endif
 	//Keep crawling til we have k distinct vertices
 	static int numTries = 0;
@@ -624,7 +624,7 @@ void WalkLSteps(int *Varray, SET *V, MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G
 	}
 	numTries = 0;
 #if PARANOID_ASSERTS
-	assert(QueueSize(XLQ) == _L*mcmc_d && MultisetSupport(XLS) == k);
+	assert(QueueSize(XLQ) == _MCMC_L*mcmc_d && MultisetSupport(XLS) == k);
 #endif
 }
 
@@ -654,7 +654,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 		WalkLSteps(Varray, V, XLS, XLQ, Xcurrent, G, k);
 	} else {
 #if PARANOID_ASSERTS
-		assert(QueueSize(XLQ) == 2 *_L);
+		assert(QueueSize(XLQ) == 2 *_MCMC_L);
 #endif
 		//Keep crawling til we have k distinct vertices. Crawl at least once
 		do  {
@@ -694,7 +694,7 @@ void finalizeMCMC() {
 }
 
 void initializeMCMC(int k, int numSamples) {
-	_L = k - mcmc_d  + 1;
+	_MCMC_L = k - mcmc_d  + 1;
 	char BUF[BUFSIZ];
 	alphaListPopulate(BUF, _alphaList, k);
 	int i;
@@ -865,7 +865,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 		assert(TinyGraphDFSConnected(g, 0));
 		assert(_alphaList[GintCanon] > 0.1);
 #endif
-		if (_L == 2) {
+		if (_MCMC_L == 2) {
 			_graphletConcentration[GintCanon] += (double)1/(_alphaList[GintCanon]);
 		} else {
 			SetEmpty(XcurrOutset);
