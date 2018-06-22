@@ -35,7 +35,7 @@ char **_nodeNames;
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
-#define ALLOW_DISCONNECTED_GRAPHLETS 1
+#define ALLOW_DISCONNECTED_GRAPHLETS 0
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -820,10 +820,10 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 }
 
 void PrintNode(int v) {
-#if SHAWN_AND_ZICAN
-		printf("%s", _nodeNames[v]);
+#if SHAWN_AND_ZICAN || SUPPORT_NODE_NAMES
+    printf("%s", _nodeNames[v]);
 #else
-		printf("%d", v);
+    printf("%d", v);
 #endif
 }
 
@@ -1254,6 +1254,9 @@ int main(int argc, char *argv[])
 #else
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, true); // sparse = true
+#if SUPPORT_NODE_NAMES
+    _nodeNames = G->name;
+#endif
     fclose(fpGraph);
     return RunBlantInThreads(_k, numSamples, G);
 #endif
