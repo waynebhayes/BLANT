@@ -13,7 +13,7 @@
 #include "queue.h"
 #include "multisets.h"
 
-#define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
+#define PARANOID_ASSERTS 0	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
@@ -938,6 +938,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     int i,j;
     char perm[maxK+1];
     assert(k <= G->n);
+    _seed = time(0)+getpid();
     RandomSeed(_seed);
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
@@ -1092,7 +1093,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		}
 		assert(*nextChar == '\0');
 		break;
-	    case indexGraphlets:
+	    case indexGraphlets: case indexOrbits:
 		fputs(line, stdout);
 		break;
 	    default:
@@ -1184,7 +1185,6 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    _seed = time(0)+getpid();
     while((opt = getopt(argc, argv, "m:t:s:c:w:k:r:")) != -1)
     {
 	switch(opt)
