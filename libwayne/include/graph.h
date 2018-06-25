@@ -8,7 +8,7 @@
 
 #define SORT_NEIGHBORS 0 // Thought this might speed things up but it appears not to.
 
-#define SUPPORT_NODE_NAMES 0 // allows node names to be strings but slows things down alot for big graphs
+#define SUPPORT_NODE_NAMES 1 // allows node names to be strings but slows things down alot for big graphs
 #if SUPPORT_NODE_NAMES
 #include "bintree.h"
 #endif
