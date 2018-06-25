@@ -5,13 +5,10 @@
 #include "sets.h"
 #include "combin.h"
 #include <stdio.h>
+#include "bintree.h" // to support node names
 
 #define SORT_NEIGHBORS 0 // Thought this might speed things up but it appears not to.
 
-#define SUPPORT_NODE_NAMES 1 // allows node names to be strings but slows things down alot for big graphs
-#if SUPPORT_NODE_NAMES
-#include "bintree.h"
-#endif
 
 /* Constructs for simple graphs, no self-loops: edge (i,i) never exists.
 */
@@ -27,13 +24,13 @@ typedef struct _Graph {
     SET *sorted; // Boolean array: when sparse, is the neighbor list of node[i] sorted or not?
 #endif
     int maxEdges, numEdges, *edgeList; /* UNSORTED list of all edges in the graph, edgeList[0,..2*numEdges] */
-#if SUPPORT_NODE_NAMES
+    // next two members are only used if called with supportNodeNames=true;
+    Boolean supportNodeNames;
     BINTREE *nameDict;	// string to int map
     char **name;	// int to string map (inverse of the above)
-#endif
 } GRAPH;
 
-GRAPH *GraphAlloc(unsigned int n, Boolean sparse);
+GRAPH *GraphAlloc(unsigned int n, Boolean sparse, Boolean supportNodeNames);
 void GraphFree(GRAPH *G);
 GRAPH *GraphEdgesAllDelete(GRAPH *G);
 GRAPH *GraphConnect(GRAPH *G, int i, int j);
@@ -84,7 +81,7 @@ GRAPH *GraphReadAdjMatrix(FILE *fp, Boolean sparse);
 void GraphPrintAdjList(FILE *fp, GRAPH *G);
 GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse);
 GRAPH *GraphFromEdgeList(int numNodes, int numEdges, int *pairs, Boolean sparse);
-GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse);
+GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames);
 void GraphPrintConnections(FILE *fp, GRAPH *G);
 GRAPH *GraphReadConnections(FILE *fp, Boolean sparse);
 int GraphNumEdges(GRAPH *G); // total number of edges, just the sum of the degrees / 2.

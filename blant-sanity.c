@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     int k=atoi(argv[1]), i, j;
     _k = k;
     FILE *fp = fopen(argv[2], "r");
-    GRAPH *G = GraphReadEdgeList(fp, true); // sparse = true
+    GRAPH *G = GraphReadEdgeList(fp, true, false); // sparse = true, supportNodeNames=false since syeast.el is only ints.
     assert(G->n >= k);
     fclose(fp);
 

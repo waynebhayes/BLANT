@@ -18,7 +18,7 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
-char **_nodeNames;
+char **_nodeNames, _supportNodeNames = true;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
@@ -662,7 +662,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	}
 #if PARANOID_ASSERTS
 		assert(MultisetSupport(XLS) == k); //very paranoid
-		assert(QueueSize(XLQ) == 2 *_L); //very paranoid
+		assert(QueueSize(XLQ) == 2 *_MCMC_L); //very paranoid
 #endif
 
 	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
@@ -673,7 +673,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 	int node, numNodes = 0, i, j, graphletDegree;
 	long long multiplier = 1;
 	SetEmpty(V);
-	for (i = 0; i < _L; i++) {
+	for (i = 0; i < _MCMC_L; i++) {
 		graphletDegree = -2; //The edge between the vertices in the graphlet isn't included and is double counted
 		for (j = 0; j < mcmc_d; j++) {
 			node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
@@ -695,7 +695,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
 #if PARANOID_ASSERTS
 	assert(numNodes == k); //Ensure we are returning k nodes
 #endif
-	if (_L == 2) { //If _L == 2, k = 3 and we can use the simplified overcounting formula.
+	if (_MCMC_L == 2) { //If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 		//The over counting ratio is the alpha value only.
 		_graphletConcentration[GintCanon] += 1.0/(_alphaList[GintCanon]);;
 	} else {
@@ -727,8 +727,8 @@ void finalizeMCMC() {
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
-// Global variable _L is needed by many functions
-// _L represents the length of the sliding window in d graphlets for sampling
+// Global variable _MCMC_L is needed by many functions
+// _MCMC_L represents the length of the sliding window in d graphlets for sampling
 // Global variable _numSamples needed for the algorithm to reseed halfway through
 // Concentrations are initialized to 0
 void initializeMCMC(int k, int numSamples) {
@@ -873,10 +873,13 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 }
 
 void PrintNode(int v) {
-#if SHAWN_AND_ZICAN || SUPPORT_NODE_NAMES
+#if SHAWN_AND_ZICAN
     printf("%s", _nodeNames[v]);
 #else
-    printf("%d", v);
+    if(_supportNodeNames)
+	printf("%s", _nodeNames[v]);
+    else
+	printf("%d", v);
 #endif
 }
 
@@ -899,21 +902,21 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	case indexGraphlets:
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-		switch (_displayMode) {
-		case undefined:
-		case ordinal:
+	    switch (_displayMode) {
+	    case undefined:
+	    case ordinal:
 		printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
 		break;
-		case integer: //Prints the integer form of the canonical
+	    case integer: //Prints the integer form of the canonical
 		printf("%d", _canonList[GintCanon]);
 		break;
-		case binary: //Prints the bit representation of the canonical
+	    case binary: //Prints the bit representation of the canonical
 		for (j=0;j<GintNumBits;j++)
 		{GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
 		GintBinary[GintNumBits] = '\0';
 		printf("%s", GintBinary);
 		break;
-		}
+	    }
 	    
 	    for(j=0;j<k;j++)
 		{printf(" "); PrintNode(Varray[(int)perm[j]]);}
@@ -943,8 +946,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	case outputGDV:
 	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
 	    break;
-	case outputODV: // Jens, here...
-	    //Abort("Sorry, ODV is not implemented yet");
+	case outputODV:
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 #if PERMS_CAN2NON            
@@ -1311,10 +1313,12 @@ int main(int argc, char *argv[])
     return RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
 #else
     // Read it in using native Graph routine.
-    GRAPH *G = GraphReadEdgeList(fpGraph, true); // sparse = true
-#if SUPPORT_NODE_NAMES
-    _nodeNames = G->name;
-#endif
+    GRAPH *G = GraphReadEdgeList(fpGraph, true, _supportNodeNames); // sparse=true
+    if(_supportNodeNames)
+    {
+	assert(G->name);
+	_nodeNames = G->name;
+    }
     fclose(fpGraph);
     return RunBlantInThreads(_k, numSamples, G);
 #endif
