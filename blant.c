@@ -51,6 +51,9 @@ enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputOD
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
+enum CanonicalDisplayMode {ordinal, integer, binary};
+static enum CanonicalDisplayMode _displayMode = ordinal;
+
 // A bit counter-intuitive: we need to allocate this many vectors each of length [_numNodes],
 // and then the degree for node v, graphlet/orbit g is _degreeVector[g][v], NOT [v][g].
 // We do this simply because we know the length of MAX_CANONICALS so we pre-know the length of
@@ -842,6 +845,8 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 #if PARANOID_ASSERTS
 	assert(0 <= GintCanon && GintCanon < _numCanon);
 #endif
+	int GintNumBits = k*(k-1)/2;
+	char GintBinary[GintNumBits+1];
 	switch(_outputMode)
 	{
 	    static SET* printed;
@@ -871,7 +876,21 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	case indexGraphlets:
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+		switch (_displayMode) {
+		case ordinal:
+		printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+		break;
+		case integer:
+		printf("%d", _canonList[GintCanon]);
+		break;
+		case binary:
+		for (j=0;j<GintNumBits;j++)
+		{GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
+		GintBinary[GintNumBits] = '\0';
+		printf("%s", GintBinary);
+		break;
+		}
+	    
 	    for(j=0;j<k;j++)
 		{printf(" "); PrintNode(Varray[(int)perm[j]]);}
 	    puts("");
@@ -1171,7 +1190,7 @@ int main(int argc, char *argv[])
     _k = 0;
 
     _seed = time(0)+getpid();
-    while((opt = getopt(argc, argv, "m:t:s:c:w:k:r:")) != -1)
+    while((opt = getopt(argc, argv, "m:d:t:s:c:w:k:r:")) != -1)
     {
 	switch(opt)
 	{
@@ -1189,6 +1208,17 @@ int main(int argc, char *argv[])
 		break;
 	    }
 	    break;
+	case 'd':
+		switch(*optarg)
+		{
+		case 'o': _displayMode = ordinal; break;
+		case 'i': _displayMode = integer; break;
+		case 'b': _displayMode = binary; break;
+		default: Fatal("-d%c: unknown display mode:n"
+			"\tmodes are o=ordinal, i=integer, b=binary", *optarg);
+		break;
+		}
+		break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
 	case 'r': _seed = atoi(optarg);
 	    break;
