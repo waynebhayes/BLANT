@@ -54,12 +54,12 @@ MULTISET *MultisetEmpty(MULTISET *mset) {
 /* Returns the number of distinct elements in a multiset. Its cardinality.
 */
 unsigned MultisetSupport(MULTISET *mset) {
-    int i, check = 0;
-    for(i=0; i<mset->n; i++)
-	if(mset->array[i])
-	    check++;
-    assert(check==mset->support);
-    assert(SetCardinality(mset->set) == check);
+    // int i, check = 0;
+    // for(i=0; i<mset->n; i++)
+	// if(mset->array[i])
+	//     check++;
+    // assert(check==mset->support);
+    // assert(SetCardinality(mset->set) == check);
     return mset->support;
 }
 
