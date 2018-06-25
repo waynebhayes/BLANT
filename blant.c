@@ -1007,6 +1007,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     return 0;
 }
 
+/*
+** Fork a BLANT process and return a FILE pointer where it'll be sending stuff.
+** Caller is responsible for reading all the stuff from the returned FILE pointer,
+** detecting EOF on it, and fclose'ing it.
+*/
 FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 {
     int fds[2];
@@ -1025,6 +1030,8 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 	close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
 	RunBlantFromGraph(k, numSamples, G);
 	exit(0);
+	_exit(0);
+	Abort("Both exit() and _exit failed???");
     }
     else
 	Abort("fork failed");
