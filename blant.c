@@ -51,8 +51,8 @@ enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputOD
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
-enum CanonicalDisplayMode {ordinal, integer, binary};
-static enum CanonicalDisplayMode _displayMode = ordinal;
+enum CanonicalDisplayMode {undefined, ordinal, integer, binary};
+static enum CanonicalDisplayMode _displayMode = undefined;
 
 // A bit counter-intuitive: we need to allocate this many vectors each of length [_numNodes],
 // and then the degree for node v, graphlet/orbit g is _degreeVector[g][v], NOT [v][g].
@@ -846,7 +846,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	assert(0 <= GintCanon && GintCanon < _numCanon);
 #endif
 	int GintNumBits = k*(k-1)/2;
-	char GintBinary[GintNumBits+1];
+	char GintBinary[GintNumBits+1]; //Only used in -db output mode for indexing
 	switch(_outputMode)
 	{
 	    static SET* printed;
@@ -877,13 +877,14 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 		switch (_displayMode) {
+		case undefined:
 		case ordinal:
 		printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
 		break;
-		case integer:
+		case integer: //Prints the integer form of the canonical
 		printf("%d", _canonList[GintCanon]);
 		break;
-		case binary:
+		case binary: //Prints the bit representation of the canonical
 		for (j=0;j<GintNumBits;j++)
 		{GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
 		GintBinary[GintNumBits] = '\0';
@@ -1209,12 +1210,13 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 'd':
+		if (_displayMode != undefined) Fatal("tried to define canonical display mode twice");
 		switch(*optarg)
 		{
 		case 'o': _displayMode = ordinal; break;
 		case 'i': _displayMode = integer; break;
 		case 'b': _displayMode = binary; break;
-		default: Fatal("-d%c: unknown display mode:n"
+		default: Fatal("-d%c: unknown canonical display mode:n"
 			"\tmodes are o=ordinal, i=integer, b=binary", *optarg);
 		break;
 		}
