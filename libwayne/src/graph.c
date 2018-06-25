@@ -478,6 +478,7 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
     }
 #if SUPPORT_NODE_NAMES
     //printf("BINTREE Dictionary Dump\n");
+    int i;
     for(i=0; i<numNodes;i++)
     {
 	foint info;
@@ -486,9 +487,12 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
 	//printf("%d is %s which in turn is %d\n", i, names[i], info.i);
     }
 #else
-    numNodes++;	// increase it by one since so far it's been the biggest number seen.
+    numNodes++;	// increase it by one since so far it's simply been the biggest integer seen on the input.
 #endif
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, sparse);
+#if SUPPORT_NODE_NAMES
+    G->name = names;
+#endif
     Free(pairs);
     assert(G->maxEdges <= maxEdges);
     assert(G->numEdges <= numEdges);

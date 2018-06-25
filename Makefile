@@ -40,11 +40,14 @@ make-canon-maps: make-canon-maps.c blant.h libblant.c
 make-orbit-maps: make-orbit-maps.c blant.h canon-sift.c libblant.c
 	gcc -o make-orbit-maps libblant.c make-orbit-maps.c $(LIBWAYNE)
 
-blant: libwayne/made blant.c blant.h libblant.c convert.cpp
+blant: libwayne/made blant.c blant.h libblant.c convert.cpp libwayne/MT19937/mt19937.o
 	gcc -c libblant.c blant.c $(LIBWAYNE)
 	g++ -std=c++11 -c convert.cpp
-	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
+	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE) libwayne/MT19937/mt19937.o
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
+
+libwayne/MT19937/mt19937.o:
+	(cd libwayne/MT19937 && make)
 	
 compute-alphas: libblant.c blant.h compute-alphas.c
 	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
