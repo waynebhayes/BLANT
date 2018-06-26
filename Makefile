@@ -18,7 +18,7 @@ test_blant:
 canon_maps: libwayne/made canon_maps/canon_map7.txt blant.h test_maps subcanon_maps
 
 test_maps:
-	ls canon_maps.3-7 | fgrep -v README | awk '{printf "cmp canon_maps.3-7/%s canon_maps/%s\n",$$1,$$1}' | sh
+	ls canon_maps.3-7 | egrep -v 'README|graphlet_list' | awk '{printf "cmp canon_maps.3-7/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 canon_maps/canon_map7.txt: blant.h make-canon-maps libblant.c create-canon-map
 	mkdir -p canon_maps
