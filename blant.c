@@ -990,7 +990,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	int canon;
     case indexGraphlets: case indexOrbits:
 #if SAMPLE_METHOD == SAMPLE_MCMC
-	Warning("Sampling method MCMC overcounts graphlets by varying amounts.");
+	//Warning("Sampling method MCMC overcounts graphlets by varying amounts.");
 #endif
 	break; // already output on-the-fly above
     case graphletFrequency:

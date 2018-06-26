@@ -22,7 +22,7 @@ test_maps:
 
 canon_maps/canon_map7.txt: blant.h make-canon-maps libblant.c create-canon-map
 	mkdir -p canon_maps
-	for i in 3 4 5 6 7; do ./create-canon-map $$i | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list$$i.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature$$i.txt; ./make-orbit-maps $$i > canon_maps/orbit_map$$i.txt; gcc "-Dkk=$$i" "-DkString=\"$$i\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
+	for i in 3 4 5 6 7; do ./create-canon-map $$i | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;graphlet[n]=$$NF;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d\n", map[i],graphlet[i]}' | tee canon_maps/canon_list$$i.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$$i.txt; ./make-orbit-maps $$i > canon_maps/orbit_map$$i.txt; gcc "-Dkk=$$i" "-DkString=\"$$i\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
 	/bin/rm -f create-bin-data # it's not useful after this
 
 create-canon-map: create-canon-map.c blant.h canon-sift.c libblant.c make-orbit-maps
