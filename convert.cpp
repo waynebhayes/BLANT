@@ -49,6 +49,7 @@ void convert_leda(string filename){
 	ifstream ifs;
 	ifs.open(filename,ifstream::in);
 	string line;
+
 	regex pattern("(.*)(\\s)(.*)(\\s)(.*)(\\s)\\|\\{(.*)\\}\\|(.*)");
 	while(!ifs.eof()){
 		getline(ifs,line);
@@ -213,7 +214,6 @@ void convert_gml(string inp)
 }
 
 void convert_el(string filename){
-	cout << "el file" << endl;
 	regex pattern("(.)+(\\s)(.)+");
 	string line;
 	ifstream ifs;
@@ -222,7 +222,17 @@ void convert_el(string filename){
 	getline(ifs,line);
 	
 	if(regex_match(line,pattern)){
-		size_t pos = line.find(" ");
+		size_t pos = line.find("	");
+		if(pos !=  string::npos)
+		{
+			 string firstNode = line.substr(0,pos);
+			 string secondNode = line.substr(pos+1);
+			 stringEdge.push_back(firstNode);
+			 stringEdge.push_back(secondNode);
+			 numofEdges++;
+
+		}
+		pos = line.find(" ");
 		if(pos !=  string::npos)
 		{
 			 string firstNode = line.substr(0,pos);
@@ -268,16 +278,10 @@ void indexStringNodes(){
 		if(nodeIndex.find(s) == nodeIndex.end())
 		{
 			nodeIndex[s] = numofNodes;	
-	//		cout << *i << " " << numofNodes<<endl;
 			numofNodes++;
 			stringNode.push_back(s);
 		}		
 	}
-
- 	/*for (std::vector<string>::const_iterator x = stringNode.begin(); x != stringNode.end(); ++x)
-	{
-	cout << *x << endl;
-	}*/
 
 }
 

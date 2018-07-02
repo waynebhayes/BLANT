@@ -14,7 +14,7 @@
 **
 *************************************************************************/
 
-GRAPH *GraphAlloc(unsigned int n, Boolean sparse)
+GRAPH *GraphAlloc(unsigned int n, Boolean sparse, Boolean supportNodeNames)
 {
     static Boolean needStartup = 1;
     int i;
@@ -44,9 +44,8 @@ GRAPH *GraphAlloc(unsigned int n, Boolean sparse)
 	for(i=0; i<n; i++)
 	    G->A[i] = SetAlloc(n);
     }
-#if SUPPORT_NODE_NAMES
+    G->supportNodeNames = supportNodeNames;
     G->nameDict = NULL;
-#endif
     return G;
 }
 
@@ -74,7 +73,7 @@ GRAPH *GraphCopy(GRAPH *Gc, GRAPH *G)
     int i;
     if(Gc == G) return G;
     if(!Gc)
-	Gc = GraphAlloc(G->n, G->sparse);
+	Gc = GraphAlloc(G->n, G->sparse, G->supportNodeNames);
 
     Gc->sparse = G->sparse;
     if(G->n > Gc->n)
@@ -338,7 +337,7 @@ GRAPH *GraphReadAdjMatrix(FILE *fp, Boolean sparse)
     if(fscanf(fp, "%d", &n) != 1)
 	Fatal("GraphReadAdjMatrix: reading 'n' failed");
     assert(n >= 0);
-    G = GraphAlloc(n, sparse);
+    G = GraphAlloc(n, sparse, false); // no SUPPORT_NODE_NAMES at the moment
     for(i=0; i<n; i++) for(j=0; j<n; j++)
     {
 	int connected;
@@ -374,7 +373,7 @@ GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse)
     if(fscanf(fp, "%d", &n) != 1)
 	Fatal("GraphReadAdjList: failed to read 'n'");
     assert(n >= 0);
-    G = GraphAlloc(n, sparse);
+    G = GraphAlloc(n, sparse, false); // no SUPPORT_NODE_NAMES at the moment
     for(i=0; i<n; i++)
     {
 	if(fscanf(fp, "%d", &d) != 1)
@@ -399,7 +398,7 @@ GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse)
 GRAPH *GraphFromEdgeList(int n, int m, int *pairs, Boolean sparse)
 {
     int i;
-    GRAPH *G = GraphAlloc(n, sparse);
+    GRAPH *G = GraphAlloc(n, sparse, false); // will set names later
     assert(n == G->n);
     assert(G->degree);
     for(i=0;i<n;i++)
@@ -414,16 +413,22 @@ GRAPH *GraphFromEdgeList(int n, int m, int *pairs, Boolean sparse)
     return G;
 }
 
-GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
+GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
 {
     int numNodes=0;
     int numEdges=0, maxEdges=MIN_EDGELIST; // these will be increased as necessary during reading
     int *pairs = Malloc(2*maxEdges*sizeof(int));
-#if SUPPORT_NODE_NAMES
+
+    // SUPPORT_NODE_NAMES
     int maxNodes=MIN_EDGELIST;
-    char **names = Malloc(maxNodes*sizeof(char*));
-    BINTREE *nameDict = BinTreeAlloc(unbalanced, strcmp, strdup, free, NULL, NULL);
-#endif
+    char **names = NULL;
+    BINTREE *nameDict = NULL;
+    if(supportNodeNames)
+    {
+	names = Malloc(maxNodes*sizeof(char*));
+	nameDict = BinTreeAlloc(unbalanced, (pCmpFcn)strcmp, (pFointCopyFcn)strdup, (pFointFreeFcn)free, NULL, NULL);
+    }
+
     while(!feof(fp))
     {
 	int v1, v2;
@@ -433,36 +438,39 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
 	    maxEdges *=2;
 	    pairs = Realloc(pairs, 2*maxEdges*sizeof(int));
 	}
-#if SUPPORT_NODE_NAMES
-	assert(numNodes <= maxNodes);
-	if(numNodes+2 >= maxNodes) // -2 for a bit of extra space
+	if(supportNodeNames)
 	{
-	    maxNodes *=2;
-	    names = Realloc(names, maxNodes*sizeof(char*));
+	    assert(numNodes <= maxNodes);
+	    if(numNodes+2 >= maxNodes) // -2 for a bit of extra space
+	    {
+		maxNodes *=2;
+		names = Realloc(names, maxNodes*sizeof(char*));
+	    }
+	    char name1[BUFSIZ], name2[BUFSIZ];
+	    if(fscanf(fp, "%s%s ", name1, name2) != 2)
+		Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 strings\n", numEdges);
+	    foint f1, f2;
+	    if(!BinTreeLookup(nameDict, (foint)name1, &f1))
+	    {
+		names[numNodes] = strdup(name1);
+		f1.i = numNodes++;
+		BinTreeInsert(nameDict, (foint)name1, f1);
+	    }
+	    if(!BinTreeLookup(nameDict, (foint)name2, &f2))
+	    {
+		names[numNodes] = strdup(name2);
+		f2.i = numNodes++;
+		BinTreeInsert(nameDict, (foint)name2, f2);
+	    }
+	    v1 = f1.i; v2 = f2.i;
 	}
-	char name1[BUFSIZ], name2[BUFSIZ];
-	if(fscanf(fp, "%s%s ", name1, name2) != 2)
-	    Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 strings\n", numEdges);
-	foint f1, f2;
-	if(!BinTreeLookup(nameDict, (foint)name1, &f1))
+	else
 	{
-	    names[numNodes] = strdup(name1);
-	    f1.i = numNodes++;
-	    BinTreeInsert(nameDict, (foint)name1, f1);
+	    if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
+		Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 ints\n", numEdges);
+	    numNodes = MAX(numNodes, v1);
+	    numNodes = MAX(numNodes, v2);
 	}
-	if(!BinTreeLookup(nameDict, (foint)name2, &f2))
-	{
-	    names[numNodes] = strdup(name2);
-	    f2.i = numNodes++;
-	    BinTreeInsert(nameDict, (foint)name2, f2);
-	}
-	v1 = f1.i; v2 = f2.i;
-#else
-	if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
-	    Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 strings\n", numEdges);
-	numNodes = MAX(numNodes, v1);
-	numNodes = MAX(numNodes, v2);
-#endif
 	pairs[2*numEdges] = v1;
 	pairs[2*numEdges+1] = v2;
 	if(pairs[2*numEdges] == pairs[2*numEdges+1])
@@ -476,19 +484,24 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse)
 	assert(pairs[2*numEdges] < pairs[2*numEdges+1]);
 	numEdges++;
     }
-#if SUPPORT_NODE_NAMES
-    //printf("BINTREE Dictionary Dump\n");
-    for(i=0; i<numNodes;i++)
+    if(supportNodeNames)
     {
-	foint info;
-	assert(BinTreeLookup(nameDict, (foint)names[i], &info));
-	assert(i == info.i);
-	//printf("%d is %s which in turn is %d\n", i, names[i], info.i);
+	//printf("BINTREE Dictionary Dump\n");
+	int i;
+	for(i=0; i<numNodes;i++)
+	{
+	    foint info;
+	    assert(BinTreeLookup(nameDict, (foint)names[i], &info));
+	    assert(i == info.i);
+	    //printf("%d is %s which in turn is %d\n", i, names[i], info.i);
+	}
     }
-#else
-    numNodes++;	// increase it by one since so far it's been the biggest number seen.
-#endif
+    else
+	numNodes++;	// increase it by one since so far it's simply been the biggest integer seen on the input.
+
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, sparse);
+    if((G->supportNodeNames = supportNodeNames))
+	G->name = names;
     Free(pairs);
     assert(G->maxEdges <= maxEdges);
     assert(G->numEdges <= numEdges);
@@ -517,7 +530,7 @@ GRAPH *GraphReadConnections(FILE *fp, Boolean sparse)
     if(fscanf(fp, "%d", &n) != 1)
 	Fatal("GraphReadConnections: failed to read 'n'");
     assert(n >= 0);
-    G = GraphAlloc(n, sparse);
+    G = GraphAlloc(n, sparse, false);
     
     while((d=fscanf(fp, "%d %d", &i, &j)) == 2)
     {
@@ -542,7 +555,7 @@ GRAPH *GraphComplement(GRAPH *Gbar, GRAPH *G)
     int i, j;
     assert(Gbar != G);
     if(!Gbar)
-	Gbar = GraphAlloc(G->n, G->sparse);
+	Gbar = GraphAlloc(G->n, G->sparse, G->supportNodeNames);
 
     assert(Gbar->n == G->n);
 
@@ -566,7 +579,7 @@ GRAPH *GraphUnion(GRAPH *dest, GRAPH *G1, GRAPH *G2)
     if(dest)
 	dest->n = n;
     else
-	dest = GraphAlloc(n,G1->sparse);
+	dest = GraphAlloc(n,G1->sparse, G1->supportNodeNames);
 
     for(i=0; i < n; i++) for(j=i+1; j < n; j++)
 	if(GraphAreConnected(G1, i, j) || GraphAreConnected(G2, i, j))
@@ -700,7 +713,7 @@ GRAPH *GraphInduced(GRAPH *Gv, GRAPH *G, SET *V)
 	GraphEdgesAllDelete(Gv);
     }
     else
-	Gv = GraphAlloc(nV, G->sparse);
+	Gv = GraphAlloc(nV, G->sparse, G->supportNodeNames);
     for(i=0; i < nV; i++) for(j=i+1; j < nV; j++)
 	if(GraphAreConnected(G, array[i], array[j]))
 	    GraphConnect(Gv, i, j);
@@ -712,7 +725,7 @@ GRAPH *GraphInduced(GRAPH *Gv, GRAPH *G, SET *V)
 GRAPH *GraphInduced_NoVertexDelete(GRAPH *Gv, GRAPH *G, SET *V)
 {
     unsigned array[G->n], nV = SetToArray(array, V), i, j;
-    GRAPH *GGv = GraphAlloc(G->n, G->sparse);
+    GRAPH *GGv = GraphAlloc(G->n, G->sparse, G->supportNodeNames);
 
     for(i=0; i < nV; i++) for(j=i+1; j < nV; j++)
 	if(GraphAreConnected(G, array[i], array[j]))

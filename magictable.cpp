@@ -79,10 +79,11 @@ int canonListPopulate(char *BUF, int *canon_list, int k, char c) {
     if(!infile) {
         cerr << "Cannot open: " << ss.str() << "\n";
     }
-    int numCanon;
+    int numCanon, connected;
     infile >> numCanon;
     for (int i = 0; i < numCanon; i++) {
         infile >> canon_list[i];
+        infile >> connected;
     }
     infile.close();
     return numCanon;

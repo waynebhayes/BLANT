@@ -18,11 +18,11 @@ test_blant:
 canon_maps: libwayne/made canon_maps/canon_map7.txt blant.h test_maps subcanon_maps
 
 test_maps:
-	ls canon_maps.3-7 | fgrep -v README | awk '{printf "cmp canon_maps.3-7/%s canon_maps/%s\n",$$1,$$1}' | sh
+	ls canon_maps.3-7 | egrep -v 'README|graphlet_list' | awk '{printf "cmp canon_maps.3-7/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 canon_maps/canon_map7.txt: blant.h make-canon-maps libblant.c create-canon-map
 	mkdir -p canon_maps
-	for i in 3 4 5 6 7; do ./create-canon-map $$i | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list$$i.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature$$i.txt; ./make-orbit-maps $$i > canon_maps/orbit_map$$i.txt; gcc "-Dkk=$$i" "-DkString=\"$$i\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
+	for i in 3 4 5 6 7; do ./create-canon-map $$i | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;graphlet[n]=$$NF;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d\n", map[i],graphlet[i]}' | tee canon_maps/canon_list$$i.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$$i.txt; ./make-orbit-maps $$i > canon_maps/orbit_map$$i.txt; gcc "-Dkk=$$i" "-DkString=\"$$i\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
 	/bin/rm -f create-bin-data # it's not useful after this
 
 create-canon-map: create-canon-map.c blant.h canon-sift.c libblant.c make-orbit-maps
@@ -40,11 +40,14 @@ make-canon-maps: make-canon-maps.c blant.h libblant.c
 make-orbit-maps: make-orbit-maps.c blant.h canon-sift.c libblant.c
 	gcc -o make-orbit-maps libblant.c make-orbit-maps.c $(LIBWAYNE)
 
-blant: libwayne/made blant.c blant.h libblant.c convert.cpp
+blant: libwayne/made blant.c blant.h libblant.c convert.cpp libwayne/MT19937/mt19937.o
 	gcc -c libblant.c blant.c $(LIBWAYNE)
 	g++ -std=c++11 -c convert.cpp
-	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE)
+	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE) libwayne/MT19937/mt19937.o
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
+
+libwayne/MT19937/mt19937.o:
+	(cd libwayne/MT19937 && make)
 	
 compute-alphas: libblant.c blant.h compute-alphas.c
 	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
