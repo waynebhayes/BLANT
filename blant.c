@@ -883,6 +883,27 @@ void PrintNode(int v) {
 #endif
 }
 
+void PrintCanonical(int GintCanon)
+{
+    int j, GintNumBits = _k*(_k-1)/2;
+    char GintBinary[GintNumBits+1]; //Only used in -db output mode for indexing
+    switch (_displayMode) {
+    case undefined:
+    case ordinal:
+	printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	break;
+    case integer: //Prints the integer form of the canonical
+	printf("%d", _canonList[GintCanon]);
+	break;
+    case binary: //Prints the bit representation of the canonical
+	for (j=0;j<GintNumBits;j++)
+	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
+	GintBinary[GintNumBits] = '\0';
+	printf("%s", GintBinary);
+	break;
+    }
+}
+	    
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
@@ -891,8 +912,6 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 #if PARANOID_ASSERTS
 	assert(0 <= GintCanon && GintCanon < _numCanon);
 #endif
-	int GintNumBits = k*(k-1)/2;
-	char GintBinary[GintNumBits+1]; //Only used in -db output mode for indexing
 	switch(_outputMode)
 	{
 	    static SET* printed;
@@ -902,22 +921,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	case indexGraphlets:
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-	    switch (_displayMode) {
-	    case undefined:
-	    case ordinal:
-		printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
-		break;
-	    case integer: //Prints the integer form of the canonical
-		printf("%d", _canonList[GintCanon]);
-		break;
-	    case binary: //Prints the bit representation of the canonical
-		for (j=0;j<GintNumBits;j++)
-		{GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
-		GintBinary[GintNumBits] = '\0';
-		printf("%s", GintBinary);
-		break;
-	    }
-	    
+	    PrintCanonical(GintCanon);
 	    for(j=0;j<k;j++)
 		{printf(" "); PrintNode(Varray[(int)perm[j]]);}
 	    puts("");
@@ -927,7 +931,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    SetEmpty(printed);
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	    PrintCanonical(GintCanon);
 	    for(j=0;j<k;j++) if(!SetIn(printed,j))
 	    {
 		printf(" "); PrintNode(Varray[(int)perm[j]]);
