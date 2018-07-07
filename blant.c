@@ -136,6 +136,90 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
     return 1+numVisited;
 }
 
+static int _numConnectedComponents;
+static int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
+static int *_componentSize; // number of nodes in each CC
+static int **_componentList; // list of lists of components, largest to smallest.
+static double _totalCombinations, *_combinations, *_probOfComponent, *_cumulativeProb;
+
+void PrintNode(int v) {
+#if SHAWN_AND_ZICAN
+    printf("%s", _nodeNames[v]);
+#else
+    if(_supportNodeNames)
+	printf("%s", _nodeNames[v]);
+    else
+	printf("%d", v);
+#endif
+}
+
+static int InitializeConnectedComponents(GRAPH *G)
+{
+    static unsigned int v, *Varray, j, i;
+    assert(!Varray); // we only can be called once.
+    assert(_numConnectedComponents == 0);
+    SET *visited = SetAlloc(G->n);
+    Varray = Calloc(G->n, sizeof(int));
+    _whichComponent = Calloc(G->n, sizeof(int));
+    _componentSize = Calloc(G->n, sizeof(int)); // probably bigger than it needs to be but...
+    _componentList = Calloc(G->n, sizeof(int*)); // probably bigger...
+    _combinations = Calloc(G->n, sizeof(double*)); // probably bigger...
+    _probOfComponent = Calloc(G->n, sizeof(double*)); // probably bigger...
+    _cumulativeProb = Calloc(G->n, sizeof(double*)); // probably bigger...
+
+    int nextStart = 0;
+    _componentList[0] = Varray;
+    for(v=0; v < G->n; v++) if(!SetIn(visited, v))
+    {
+	_componentList[_numConnectedComponents] = Varray + nextStart;
+	GraphVisitCC(G, v, visited, Varray + nextStart, _componentSize + _numConnectedComponents);
+	for(j=0; j < _componentSize[_numConnectedComponents]; j++)
+	{
+	    assert(_whichComponent[Varray[nextStart + j]] == 0);
+	    _whichComponent[Varray[nextStart + j]] = _numConnectedComponents;
+	}
+	nextStart += _componentSize[_numConnectedComponents];
+	++_numConnectedComponents;
+    }
+    assert(nextStart == G->n);
+
+    _totalCombinations = 0.0;
+    for(i=0; i< _numConnectedComponents; i++)
+    {
+	//find the biggest one
+	int biggest = i;
+	for(j=i+1; j<_numConnectedComponents;j++)
+	    if(_componentSize[j] > _componentSize[i])
+		biggest = j;
+	// Now swap the biggest one into position i;
+	for(j=0; j < _componentSize[biggest]; j++)
+	    _whichComponent[_componentList[biggest][j]] = i;
+	int itmp, *pitmp;
+	itmp = _componentSize[i];
+	_componentSize[i] = _componentSize[biggest];
+	_componentSize[biggest] = itmp;
+	pitmp = _componentList[i];
+	_componentList[i] = _componentList[biggest];
+	_componentList[biggest] = pitmp;
+	_combinations[i] = CombinChooseDouble(_componentSize[i], _k);
+	_totalCombinations += _combinations[i];
+    }
+
+    double cumulativeProb = 0.0;
+    for(i=0; i< _numConnectedComponents; i++)
+    {
+	_probOfComponent[i] =  _combinations[i] / _totalCombinations;
+	_cumulativeProb[i] = cumulativeProb + _probOfComponent[i];
+	cumulativeProb = _cumulativeProb[i];
+	if(cumulativeProb > 1)
+	{
+	    assert(cumulativeProb - 1.0 < 1e-15);  // allow some roundoff error
+	    cumulativeProb = _cumulativeProb[i] = 1.0;
+	}
+	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
+    }
+}
+
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
@@ -857,6 +941,19 @@ void SetGlobalCanonMaps(void)
 }
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
+    static Boolean ccNeedsInit = true;
+    if(ccNeedsInit)
+    {
+	InitializeConnectedComponents(G);
+	ccNeedsInit = false;
+    }
+    int cc;
+    double randomComponent = RandomUniform();
+    for(cc=0; cc<_numConnectedComponents;cc++)
+	if(_cumulativeProb[cc] > randomComponent)
+	    break;
+    //printf("choosing from CC %d\n", cc);
+
 #if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
 	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW
 #elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
@@ -869,17 +966,6 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	SampleGraphletMCMC(V, Varray, G, k);
 #else
 #error unknown sampling method
-#endif
-}
-
-void PrintNode(int v) {
-#if SHAWN_AND_ZICAN
-    printf("%s", _nodeNames[v]);
-#else
-    if(_supportNodeNames)
-	printf("%s", _nodeNames[v]);
-    else
-	printf("%d", v);
 #endif
 }
 
@@ -983,8 +1069,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #endif
     for(i=0; i<numSamples; i++)
     {
-		SampleGraphlet(G, V, Varray, k);
-		ProcessGraphlet(G, V, Varray, perm, g, k);
+	SampleGraphlet(G, V, Varray, k);
+	ProcessGraphlet(G, V, Varray, perm, g, k);
     }
 #if SAMPLE_METHOD == SAMPLE_MCMC
 	finalizeMCMC();
