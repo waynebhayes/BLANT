@@ -1,6 +1,7 @@
 #include "misc.h"
 #include "sets.h"
 #include "combin.h"
+#include <math.h>
 
 /*
 ** _allPermutations: recursive helper function of CombinAllPermutations,
@@ -239,6 +240,48 @@ unsigned long long CombinChoose(int n, int m)
 	}
 	for(j=2; j <= low; j++)
 	    if(SetIn(denoms,j) && result % j == 0)
+	    {
+		result /= j;
+		SetDelete(denoms, j);
+	    }
+    }
+
+    assert(SetCardinality(denoms) == 0);
+    SetFree(denoms);
+    return result;
+}
+
+double CombinChooseDouble(int n, int m)
+{
+    double result = 1;
+    int low, high, i;
+    SET *denoms;
+
+    if(n < 0 || m < 0) return 0;
+    if(n == 0) return m == 0 ? 1 : 0;
+    if(m > n) return 0;
+
+    if(m < n-m) { low = m; high = n-m; }
+    else {low = n-m; high = m; }
+
+    denoms = SetAlloc(low+1);
+
+    for(i=2; i <= low; i++)
+	SetAdd(denoms, i);
+
+    for(i=n; i > high; i--)
+    {
+	int j;
+	double old = result;
+	result *= i;
+	if(result != result) // this is a test for NaN
+	{
+	    Warning("CombinChoose(%d,%d): overflow", n,m);
+	    SetFree(denoms);
+	    return 0;
+	}
+	for(j=2; j <= low; j++)
+	    if(SetIn(denoms,j) && (floor(result/j + .5))*j == result)
 	    {
 		result /= j;
 		SetDelete(denoms, j);
