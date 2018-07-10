@@ -136,6 +136,94 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
     return 1+numVisited;
 }
 
+static int _numConnectedComponents;
+static int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
+static int *_componentSize; // number of nodes in each CC
+static int **_componentList; // list of lists of components, largest to smallest.
+static double _totalCombinations, *_combinations, *_probOfComponent, *_cumulativeProb;
+static SET **_componentSet;
+
+void PrintNode(int v) {
+#if SHAWN_AND_ZICAN
+    printf("%s", _nodeNames[v]);
+#else
+    if(_supportNodeNames)
+	printf("%s", _nodeNames[v]);
+    else
+	printf("%d", v);
+#endif
+}
+
+static int InitializeConnectedComponents(GRAPH *G)
+{
+    static unsigned int v, *Varray, j, i;
+    assert(!Varray); // we only can be called once.
+    assert(_numConnectedComponents == 0);
+    SET *visited = SetAlloc(G->n);
+    Varray = Calloc(G->n, sizeof(int));
+    _whichComponent = Calloc(G->n, sizeof(int));
+    _componentSize = Calloc(G->n, sizeof(int)); // probably bigger than it needs to be but...
+    _componentList = Calloc(G->n, sizeof(int*)); // probably bigger...
+    _combinations = Calloc(G->n, sizeof(double*)); // probably bigger...
+    _probOfComponent = Calloc(G->n, sizeof(double*)); // probably bigger...
+    _cumulativeProb = Calloc(G->n, sizeof(double*)); // probably bigger...
+    _componentSet = Calloc(G->n, sizeof(SET*));
+
+    int nextStart = 0;
+    _componentList[0] = Varray;
+    for(v=0; v < G->n; v++) if(!SetIn(visited, v))
+    {
+	_componentSet[_numConnectedComponents] = SetAlloc(G->n);
+	_componentList[_numConnectedComponents] = Varray + nextStart;
+	GraphVisitCC(G, v, _componentSet[_numConnectedComponents], Varray + nextStart, _componentSize + _numConnectedComponents);
+	SetUnion(visited, visited, _componentSet[_numConnectedComponents]);
+	for(j=0; j < _componentSize[_numConnectedComponents]; j++)
+	{
+	    assert(_whichComponent[Varray[nextStart + j]] == 0);
+	    _whichComponent[Varray[nextStart + j]] = _numConnectedComponents;
+	}
+	nextStart += _componentSize[_numConnectedComponents];
+	++_numConnectedComponents;
+    }
+    assert(nextStart == G->n);
+
+    _totalCombinations = 0.0;
+    for(i=0; i< _numConnectedComponents; i++)
+    {
+	//find the biggest one
+	int biggest = i;
+	for(j=i+1; j<_numConnectedComponents;j++)
+	    if(_componentSize[j] > _componentSize[i])
+		biggest = j;
+	// Now swap the biggest one into position i;
+	for(j=0; j < _componentSize[biggest]; j++)
+	    _whichComponent[_componentList[biggest][j]] = i;
+	int itmp, *pitmp;
+	itmp = _componentSize[i];
+	_componentSize[i] = _componentSize[biggest];
+	_componentSize[biggest] = itmp;
+	pitmp = _componentList[i];
+	_componentList[i] = _componentList[biggest];
+	_componentList[biggest] = pitmp;
+	_combinations[i] = CombinChooseDouble(_componentSize[i], _k);
+	_totalCombinations += _combinations[i];
+    }
+
+    double cumulativeProb = 0.0;
+    for(i=0; i< _numConnectedComponents; i++)
+    {
+	_probOfComponent[i] =  _combinations[i] / _totalCombinations;
+	_cumulativeProb[i] = cumulativeProb + _probOfComponent[i];
+	cumulativeProb = _cumulativeProb[i];
+	if(cumulativeProb > 1)
+	{
+	    assert(cumulativeProb - 1.0 < 1e-15);  // allow some roundoff error
+	    cumulativeProb = _cumulativeProb[i] = 1.0;
+	}
+	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
+    }
+}
+
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
@@ -147,7 +235,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 // So the "outset" is the set of edges going to nodes exactly distance
 // one from the set V, as V is being built.
 
-static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k)
+static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
     static SET *outSet;
     static int numIsolatedNodes;
@@ -161,8 +249,11 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
     assert(V && V->n >= G->n);
     SetEmpty(V);
-    int edge = G->numEdges * RandomUniform();
-    v1 = G->edgeList[2*edge];
+    int edge;
+    do {
+	edge = G->numEdges * RandomUniform();
+	v1 = G->edgeList[2*edge];
+    } while(!SetIn(_componentSet[whichCC], v1));
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
@@ -204,7 +295,7 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    depth++;
 	    // must terminate eventually as long as there's at least one connected component with >=k nodes.
 	    assert(depth < MAX_TRIES); // graph is too disconnected
-	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k);
+	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
 	    return V;
 #endif
@@ -266,13 +357,16 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 ** is blinding speed at graphlet sampling, eg for building a graphlet database
 ** index, then this is the preferred method.
 */
-static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k)
+static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
-    int edge = G->numEdges * RandomUniform(), v1, v2;
+    int edge, v1, v2;
     assert(V && V->n >= G->n);
     SetEmpty(V);
     int nOut = 0;
-    v1 = G->edgeList[2*edge];
+    do {
+	edge = G->numEdges * RandomUniform();
+	v1 = G->edgeList[2*edge];
+    } while(!SetIn(_componentSet[whichCC], v1));
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
@@ -311,7 +405,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    static int depth;
 	    depth++;
 	    assert(depth < MAX_TRIES);
-	    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+	    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
 	    return V;
 #endif
@@ -353,7 +447,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		static int depth;
 		depth++;
 		assert(depth < MAX_TRIES);
-		V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+		V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
 		depth--;
 		return V;
 #endif
@@ -382,7 +476,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 // Note that they suggest *edge* based expansion to select the first k nodes, and then
 // use reservoir sampling for the rest. But we know edge-based expansion sucks, so we'll
 // start with a better starting guess, which is node-based expansion.
-static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k)
+static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
     // Start by getting the first k nodes using a previous method. Once you figure out which is
     // better, it's probably best to share variables so you don't have to recompute the outset here.
@@ -399,8 +493,11 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
     assert(V && V->n >= G->n);
     SetEmpty(V);
-    int edge = G->numEdges * RandomUniform();
-    v1 = G->edgeList[2*edge];
+    int edge;
+    do {
+	edge = G->numEdges * RandomUniform();
+	v1 = G->edgeList[2*edge];
+    } while(!SetIn(_componentSet[whichCC], v1));
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
@@ -440,7 +537,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    static int depth;
 	    depth++;
 	    assert(depth < MAX_TRIES); // graph is too disconnected
-	    V = SampleGraphletLuBressanReservoir(V, Varray, G, k);
+	    V = SampleGraphletLuBressanReservoir(V, Varray, G, k, whichCC);
 	    depth--;
 	    return V;
 #endif
@@ -515,7 +612,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	i++;
     }
 #else
-    SampleGraphletEdgeBasedExpansion(V, Varray, G, k);
+    SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
 #endif
 }
 
@@ -636,7 +733,7 @@ static int _numSamples = 0;
    predictable amount represented by alpha values in the _alphaList. During sampling sample frequency is divided by the alpha value
    plus the cardinality of the outset of the most recently sampled vertices. Finally, the frequencies are normalized into concentrations.
 */
-static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k) {
+static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
 	static Boolean setup = false;
 	static int currSamples = 0;
 	static MULTISET *XLS = NULL; //A multiset holding L dgraphlets as separate vertex integers
@@ -857,32 +954,55 @@ void SetGlobalCanonMaps(void)
 }
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
+    static Boolean ccNeedsInit = true;
+    if(ccNeedsInit)
+    {
+	InitializeConnectedComponents(G);
+	ccNeedsInit = false;
+    }
+    int cc;
+    double randomComponent = RandomUniform();
+    for(cc=0; cc<_numConnectedComponents;cc++)
+	if(_cumulativeProb[cc] > randomComponent)
+	    break;
+    //printf("choosing from CC %d\n", cc);
+
 #if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
-	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW
+	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW and doesn't need to use cc
 #elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
-	SampleGraphletNodeBasedExpansion(V, Varray, G, k);
+	SampleGraphletNodeBasedExpansion(V, Varray, G, k, cc);
 #elif SAMPLE_METHOD == SAMPLE_RESERVOIR
-	SampleGraphletLuBressanReservoir(V, Varray, G, k); // pretty slow but not as bad as unbiased
+	SampleGraphletLuBressanReservoir(V, Varray, G, k, cc); // pretty slow but not as bad as unbiased
 #elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
-	SampleGraphletEdgeBasedExpansion(V, Varray, G, k); // This one is faster but less well tested and less well understood.
+	SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // This one is faster but less well tested and less well understood.
 #elif SAMPLE_METHOD == SAMPLE_MCMC
-	SampleGraphletMCMC(V, Varray, G, k);
+	SampleGraphletMCMC(V, Varray, G, k, cc);
 #else
 #error unknown sampling method
 #endif
 }
 
-void PrintNode(int v) {
-#if SHAWN_AND_ZICAN
-    printf("%s", _nodeNames[v]);
-#else
-    if(_supportNodeNames)
-	printf("%s", _nodeNames[v]);
-    else
-	printf("%d", v);
-#endif
+void PrintCanonical(int GintCanon)
+{
+    int j, GintNumBits = _k*(_k-1)/2;
+    char GintBinary[GintNumBits+1]; //Only used in -db output mode for indexing
+    switch (_displayMode) {
+    case undefined:
+    case ordinal:
+	printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	break;
+    case integer: //Prints the integer form of the canonical
+	printf("%d", _canonList[GintCanon]);
+	break;
+    case binary: //Prints the bit representation of the canonical
+	for (j=0;j<GintNumBits;j++)
+	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
+	GintBinary[GintNumBits] = '\0';
+	printf("%s", GintBinary);
+	break;
+    }
 }
-
+	    
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
 	// We should probably figure out a faster sort? This requires a function call for every comparison.
 	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
@@ -891,8 +1011,6 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 #if PARANOID_ASSERTS
 	assert(0 <= GintCanon && GintCanon < _numCanon);
 #endif
-	int GintNumBits = k*(k-1)/2;
-	char GintBinary[GintNumBits+1]; //Only used in -db output mode for indexing
 	switch(_outputMode)
 	{
 	    static SET* printed;
@@ -902,22 +1020,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	case indexGraphlets:
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-	    switch (_displayMode) {
-	    case undefined:
-	    case ordinal:
-		printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
-		break;
-	    case integer: //Prints the integer form of the canonical
-		printf("%d", _canonList[GintCanon]);
-		break;
-	    case binary: //Prints the bit representation of the canonical
-		for (j=0;j<GintNumBits;j++)
-		{GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
-		GintBinary[GintNumBits] = '\0';
-		printf("%s", GintBinary);
-		break;
-	    }
-	    
+	    PrintCanonical(GintCanon);
 	    for(j=0;j<k;j++)
 		{printf(" "); PrintNode(Varray[(int)perm[j]]);}
 	    puts("");
@@ -927,7 +1030,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    SetEmpty(printed);
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-	    printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	    PrintCanonical(GintCanon);
 	    for(j=0;j<k;j++) if(!SetIn(printed,j))
 	    {
 		printf(" "); PrintNode(Varray[(int)perm[j]]);
@@ -979,8 +1082,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #endif
     for(i=0; i<numSamples; i++)
     {
-		SampleGraphlet(G, V, Varray, k);
-		ProcessGraphlet(G, V, Varray, perm, g, k);
+	SampleGraphlet(G, V, Varray, k);
+	ProcessGraphlet(G, V, Varray, perm, g, k);
     }
 #if SAMPLE_METHOD == SAMPLE_MCMC
 	finalizeMCMC();

@@ -32,6 +32,7 @@ Boolean CombinAssign(COMBIN *c, unsigned newCombin[c->m]);
 ** frequency of intermediate overflows. 
 */
 unsigned long long CombinChoose(int n, int m);
+double CombinChooseDouble(int n, int m);
 
 /*
 ** See p. -53 of Thesis Book 1.  The following two are the "Cumulative
