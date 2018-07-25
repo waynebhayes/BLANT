@@ -224,6 +224,22 @@ static int InitializeConnectedComponents(GRAPH *G)
     }
 }
 
+// Find and return the set of nodes which is a k-graphlet minimizen inside the window W
+static SET *FindMinimizerInWindow(SET *W, int *Warray, GRAPH *G, int k)
+{
+    assert(SetCardinality(W) >= k);
+    assert(k <= maxK);
+    SET *M = SetAlloc(G->n); // this will be the set that is the minimizer graphlet.
+    // pseudo-code:
+    // for each node v in W
+    //    for k-set of nodes K among all k-node DFS tree starting at v
+    //       if the canonical graphlet of K < M then set the new minimzer
+    //    end for
+    // end for
+    assert(SetCardinality(M) == k);
+    return M;
+}
+
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
