@@ -230,6 +230,7 @@ static SET *FindMinimizerInWindow(SET *W, int *Warray, GRAPH *G, int k)
     assert(SetCardinality(W) >= k);
     assert(k <= maxK);
     SET *M = SetAlloc(G->n); // this will be the set that is the minimizer graphlet.
+    GRAPH *GW = GraphInduced(NULL, G, W); // this graph is just the Window, so you can work on that without worrying about G.
     // pseudo-code:
     // for each node v in W
     //    for k-set of nodes K among all k-node DFS tree starting at v
@@ -237,6 +238,7 @@ static SET *FindMinimizerInWindow(SET *W, int *Warray, GRAPH *G, int k)
     //    end for
     // end for
     assert(SetCardinality(M) == k);
+    GraphFree(GW);
     return M;
 }
 
