@@ -315,6 +315,11 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    assert(depth < MAX_TRIES); // graph is too disconnected
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
+	    // Ensure the damn thing really *is* connected.
+	    TINY_GRAPH *T = TinyGraphAlloc(k);
+	    TinyGraphInducedFromGraph(T, G, Varray);
+	    assert(NumReachableNodes(T,0) == k);
+	    TinyGraphFree(T);
 	    return V;
 #endif
 	}
