@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 	int u1, u2, *pV1 = &(G[1]->edgeList[2*edge]), *pV2 = &(G[1]->edgeList[2*edge+1]);
 	do {
 	    u1 = drand48()*G[1]->n;
-	    u2 = drand48()*G[1]->n;
+	    do u2 = drand48()*G[1]->n; while(u1==u2);
 	} while(GraphAreConnected(G[1], u1, u2)); // find a non-edge
 	assert(GraphAreConnected(G[1], *pV1, *pV2));
 	GraphDisconnect(G[1], *pV1, *pV2); // remove edge e from Gs
@@ -187,8 +187,8 @@ int main(int argc, char *argv[])
 	// Hill Climbing for now
 	if(VecLength(_numCanon, newDiff) < VecLength(_numCanon, vecDiff))
 	{
-	    *pV1 = u1;
-	    *pV2 = u2;
+	    // *pV1 = MIN(u1,u2);
+	    // *pV2 = MAX(u1,u2);
 	}
 	else // revert
 	{

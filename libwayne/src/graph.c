@@ -29,10 +29,10 @@ GRAPH *GraphAlloc(unsigned int n, Boolean sparse, Boolean supportNodeNames)
     G->A = NULL;
     G->degree = Calloc(n, sizeof(G->degree[0]));
     G->maxEdges = MIN_EDGELIST;
-    G->edgeList = Malloc(2*G->maxEdges*sizeof(int));
-    G->numEdges = 0;
     if(sparse)
     {
+	G->edgeList = Malloc(2*G->maxEdges*sizeof(int));
+	G->numEdges = 0;
 	G->neighbor = Calloc(n, sizeof(G->neighbor[0]));
 #if SORT_NEIGHBORS
 	G->sorted = SetAlloc(G->n);
@@ -59,9 +59,11 @@ void GraphFree(GRAPH *G)
 	    SetFree(G->A[i]);
     }
     Free(G->degree);
-    Free(G->edgeList);
     if(G->sparse)
+    {
+	Free(G->edgeList);
 	Free(G->neighbor);
+    }
     else
 	Free(G->A);
     Free(G);
@@ -82,6 +84,14 @@ GRAPH *GraphCopy(GRAPH *Gc, GRAPH *G)
 	{
 	    Gc->A = NULL;
 	    Gc->neighbor = Realloc(Gc->neighbor, G->n * sizeof(Gc->neighbor[0]));
+	    Gc->numEdges = G->numEdges;
+	    Gc->maxEdges = G->maxEdges;
+	    Gc->edgeList = Realloc(Gc->edgeList, 2*G->maxEdges*sizeof(int));
+	    for(i=0;i < G->numEdges; i++)
+	    {
+		Gc->edgeList[2*i] = G->edgeList[2*i];
+		Gc->edgeList[2*i+1] = G->edgeList[2*i+1];
+	    }
 	}
 	else
 	    Gc->A = Realloc(Gc->A, G->n * sizeof(Gc->A[0]));
@@ -93,14 +103,6 @@ GRAPH *GraphCopy(GRAPH *Gc, GRAPH *G)
 		Gc->neighbor[i] = NULL;
 	    else
 		Gc->A[i] = NULL;
-	}
-	Gc->numEdges = G->numEdges;
-	Gc->maxEdges = G->maxEdges;
-	Gc->edgeList = Realloc(Gc->edgeList, 2*G->maxEdges*sizeof(int));
-	for(i=0;i < G->numEdges; i++)
-	{
-	    Gc->edgeList[2*i] = G->edgeList[2*i];
-	    Gc->edgeList[2*i+1] = G->edgeList[2*i+1];
 	}
     }
 
@@ -158,7 +160,7 @@ GRAPH *GraphConnect(GRAPH *G, int i, int j)
     if(G->sparse)
     {
 	G->neighbor[i] = Realloc(G->neighbor[i], (G->degree[i]+1)*sizeof(int));
-	G->neighbor[j] = Realloc(G->neighbor[j], (G->degree[j]+1)*sizeof(*G->neighbor[j]));
+	G->neighbor[j] = Realloc(G->neighbor[j], (G->degree[j]+1)*sizeof(int));
 	assert(G->neighbor[i]);
 	assert(G->neighbor[j]);
 	G->neighbor[i][G->degree[i]] = j;
@@ -167,6 +169,16 @@ GRAPH *GraphConnect(GRAPH *G, int i, int j)
 	SetDelete(G->sorted, i);
 	SetDelete(G->sorted, j);
 #endif
+	assert(G->numEdges <= G->maxEdges);
+	if(G->numEdges == G->maxEdges)
+	{
+	    G->maxEdges *= 2;
+	    G->edgeList = Realloc(G->edgeList, 2*G->maxEdges*sizeof(int));
+	    assert(G->edgeList);
+	}
+	G->edgeList[2*G->numEdges] = MIN(i,j);
+	G->edgeList[2*G->numEdges+1] = MAX(i,j);
+	G->numEdges++;
     }
     else
     {
@@ -175,16 +187,6 @@ GRAPH *GraphConnect(GRAPH *G, int i, int j)
     }
     ++G->degree[i];
     ++G->degree[j];
-    assert(G->numEdges <= G->maxEdges);
-    if(G->numEdges == G->maxEdges)
-    {
-	G->maxEdges *= 2;
-	G->edgeList = Realloc(G->edgeList, 2*G->maxEdges*sizeof(int));
-	assert(G->edgeList);
-    }
-    G->edgeList[2*G->numEdges] = MIN(i,j);
-    G->edgeList[2*G->numEdges+1] = MAX(i,j);
-    G->numEdges++;
     return G;
 }
 
@@ -202,7 +204,7 @@ GRAPH *GraphEdgesAllDelete(GRAPH *G)
     }
     G->numEdges = 0;
     G->maxEdges = MIN_EDGELIST;
-    G->edgeList = Realloc(G->edgeList, 2*G->maxEdges*sizeof(int));
+    if(G->sparse) G->edgeList = Realloc(G->edgeList, 2*G->maxEdges*sizeof(int));
     return G;
 }
 
@@ -215,10 +217,19 @@ GRAPH *GraphDisconnect(GRAPH *G, int i, int j)
     --G->degree[i];
     --G->degree[j];
 
+    if(!G->sparse)
+    {
+	SetDelete(G->A[i], j);
+	SetDelete(G->A[j], i);
+	return G;
+    }
+
+    assert(G->sparse);
     if(j < i)
     {
 	int tmp = i; i=j; j=tmp;
     }
+
     Boolean found=false;
     for(k=0; k < G->numEdges; k++)
     {
@@ -233,26 +244,18 @@ GRAPH *GraphDisconnect(GRAPH *G, int i, int j)
     }
     assert(found);
 
-    if(!G->sparse)
-    {
-	SetDelete(G->A[i], j);
-	SetDelete(G->A[j], i);
-	return G;
-    }
-
-    assert(G->sparse);
     /* now find and delete each other's neighbors */
     k=0;
     while(G->neighbor[i][k] != j)
 	k++;
     assert(k <= G->degree[i] && G->neighbor[i][k] == j); /* this is the new degree, so using "<=" is correct */
-    memmove(&(G->neighbor[i][k]), &(G->neighbor[i][k+1]), (G->degree[i]-k)*sizeof(G->neighbor[i][0]));
+    G->neighbor[i][k] = G->neighbor[i][G->degree[i]];
     
     k=0;
     while(G->neighbor[j][k] != i)
 	k++;
     assert(k <= G->degree[j] && G->neighbor[j][k] == i);
-    memmove(&(G->neighbor[j][k]), &(G->neighbor[j][k+1]), (G->degree[j]-k)*sizeof(G->neighbor[j][0]));
+    G->neighbor[j][k] = G->neighbor[j][G->degree[j]];
 #if SORT_NEIGHBORS
     SetDelete(G->sorted, i);
     SetDelete(G->sorted, j);
@@ -401,8 +404,9 @@ GRAPH *GraphFromEdgeList(int n, int m, int *pairs, Boolean sparse)
     GRAPH *G = GraphAlloc(n, sparse, false); // will set names later
     assert(n == G->n);
     assert(G->degree);
-    for(i=0;i<n;i++)
-	assert(!G->neighbor[i]);
+    if(sparse)
+	for(i=0;i<n;i++)
+	    assert(!G->neighbor[i]);
     for(i=0; i<m; i++)
 	GraphConnect(G, pairs[2*i], pairs[2*i+1]);
     if(sparse)
