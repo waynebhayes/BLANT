@@ -187,7 +187,13 @@ int main(int argc, char *argv[])
 	// Hill Climbing for now
 	if(VecLength(_numCanon, newDiff) < VecLength(_numCanon, vecDiff))
 	{
-	    fprintf(stderr, "%g ", VecLength(_numCanon, vecDiff)/normD0);
+	    static double oldVal, newVal;
+	    newVal = VecLength(_numCanon, vecDiff) / normD0;
+	    if(fabs(oldVal-newVal)>.01)
+	    {
+		fprintf(stderr, "%g ", newVal);
+		oldVal = newVal;
+	    }
 	    // *pV1 = MIN(u1,u2);
 	    // *pV2 = MAX(u1,u2);
 	}
