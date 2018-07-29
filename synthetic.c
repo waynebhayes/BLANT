@@ -12,7 +12,7 @@
 #include "blant.h"
 #include "sets.h"
 
-char USAGE[] = "synthetic -k k Gtarget.el Gsynth.el blant.Gt.index blant.Gs.index\n - output is new Gsynth.el\n";
+char USAGE[] = "synthetic -k k -s STAGNATED Gtarget.el Gsynth.el blant.Gt.index blant.Gs.index\n - output is new Gsynth.el\n";
 
 Boolean _supportNodeNames = false;
 
@@ -25,6 +25,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS];
 static int _numOrbits, _orbitList[MAX_CANONICALS][maxK], _numSamples;
+static int _stagnated = 1000;
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
@@ -115,12 +116,15 @@ int main(int argc, char *argv[])
 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "k:")) != -1)
+    while((opt = getopt(argc, argv, "k:s:")) != -1)
     {
 	switch(opt)
 	{
 	case 'k': _k = atoi(optarg);
 	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+	    break;
+	case 's': _stagnated = atoi(optarg);
+	    if(!(_stagnated>=10)) Fatal("STAGNATED must be > 10\n%s", USAGE);
 	    break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
@@ -209,8 +213,8 @@ int main(int argc, char *argv[])
 	GraphConnect(G[1], u1, u2);
 	ReBLANT(D[1], G[1], samples, Varrays, BLANT[1], u1, u2);
 
-	static int same;
 	double newScore = Objective(D);
+	static int same;
 	if(newScore < score)
 	{
 	    static double printVal;
@@ -230,7 +234,7 @@ int main(int argc, char *argv[])
 	    GraphConnect(G[1], v1, v2);
 	    ReBLANT(D[1], G[1], samples, Varrays, BLANT[1], v1, v2);
 	}
-	if(same > 1000) break;
+	if(same > _stagnated) break;
     }
     for(i=0; i < G[1]->numEdges; i++)
 	printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
