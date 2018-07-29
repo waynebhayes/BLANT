@@ -165,10 +165,11 @@ int main(int argc, char *argv[])
 	for(j=1; j<=_k; j++)
 	    SetAdd(samples[BLANT[1][line][j]], line);
 
+    double normD0 = VecLength(_numCanon, D[0]);
     // while(not done---either some number of iterations, or objective function says we're too far away)
-    while(VecLength(_numCanon, VecDiff(_numCanon, vecDiff, D[0], D[1])) > 0.1)
+    while(VecLength(_numCanon, VecDiff(_numCanon, vecDiff, D[0], D[1])) / normD0 > 0.1)
     {
-	putc('.', stderr); fflush(stderr);
+	fprintf(stderr, "%g\n", VecLength(_numCanon, vecDiff)/normD0);
 	int edge = drand48() * G[1]->numEdges;
 	int u1, u2, *pV1 = &(G[1]->edgeList[2*edge]), *pV2 = &(G[1]->edgeList[2*edge+1]);
 	do {
