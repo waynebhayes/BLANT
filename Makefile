@@ -46,6 +46,10 @@ blant: libwayne/made blant.c blant.h libblant.c convert.cpp libwayne/MT19937/mt1
 	g++ -o blant libblant.o blant.o convert.o $(LIBWAYNE) libwayne/MT19937/mt19937.o
 	gcc -o blant-sanity blant-sanity.c $(LIBWAYNE)
 
+synthetic: libwayne/made synthetic.c blant.h libblant.c
+	gcc -c libblant.c synthetic.c $(LIBWAYNE)
+	g++ -o synthetic libblant.o synthetic.o $(LIBWAYNE)
+
 libwayne/MT19937/mt19937.o:
 	(cd libwayne/MT19937 && make)
 	
