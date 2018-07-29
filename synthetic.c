@@ -185,8 +185,10 @@ int main(int argc, char *argv[])
 	// note we should do this "efficiently" using a delta rather than recomputing whole objective
 	VecDiff(_numCanon, newDiff, D[0], D[1]);
 	// Hill Climbing for now
+	static int same;
 	if(VecLength(_numCanon, newDiff) < VecLength(_numCanon, vecDiff))
 	{
+	    same = 0;
 	    static double oldVal, newVal;
 	    newVal = VecLength(_numCanon, vecDiff) / normD0;
 	    if(fabs(oldVal-newVal)>.01)
@@ -199,11 +201,13 @@ int main(int argc, char *argv[])
 	}
 	else // revert
 	{
+	    ++same;
 	    GraphDisconnect(G[1], u1, u2);
 	    ReBLANT(D[1], G[1], samples, BLANT[1], u1, u2);
 	    GraphConnect(G[1], v1, v2);
 	    ReBLANT(D[1], G[1], samples, BLANT[1], v1, v2);
 	}
+	if(same > 10) break;
     }
     for(i=0; i < G[1]->numEdges; i++)
 	printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
