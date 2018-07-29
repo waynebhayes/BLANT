@@ -5,12 +5,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
 #include "blant.h"
 #include "sets.h"
-#include "matvec.h" // for VecDiff, etc.
 
 char USAGE[] = "synthetic -k k Gtarget.el Gsynth.el blant.Gt.index blant.Gs.index\n - output is new Gsynth.el\n";
 
@@ -65,8 +65,15 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
     return Gv;
 }
 
-void ReBLANT(double *D, GRAPH *G, SET **samples, int **B, int v1, int v2)
+void ReBLANT(int *D, GRAPH *G, SET **samples, int **B, int v1, int v2)
 {
+    int j;
+    {
+	int testCount = 0;
+	for(j=0; j<_numCanon; j++) testCount += D[j];
+	assert(testCount == _numSamples);
+    }
+
     int line;
     static TINY_GRAPH *g;
     static int Varray[maxK];
@@ -79,6 +86,20 @@ void ReBLANT(double *D, GRAPH *G, SET **samples, int **B, int v1, int v2)
 	B[line][0] = _K[TinyGraph2Int(g, _k)];
 	++D[B[line][0]];
     }
+
+    {
+	int testCount = 0;
+	for(j=0; j<_numCanon; j++) testCount += D[j];
+	assert(testCount == _numSamples);
+    }
+}
+
+double Objective(int D[2][_numCanon])
+{
+    double sum2 = 0, d2 = 0;
+    int i;
+    for(i=0; i<_numCanon; i++) sum2 += SQR(D[0][i] - D[1][i])/SQR(D[0][i]+1);
+    return sqrt(sum2);
 }
 
 int main(int argc, char *argv[])
@@ -120,8 +141,7 @@ int main(int argc, char *argv[])
     }
 
     // The distribution of graphlets (squiggly plot vectors)
-    // NOTE we use DOUBLE not INT so we can use VecDiff from my libwayne/matvec
-    double D[2][_numCanon], vecDiff[_numCanon];
+    int D[2][_numCanon];
     for(i=0; i<_numCanon; i++) D[0][i] = D[1][i] = 0;
 
     int nSamples[2], **BLANT[2];
@@ -165,9 +185,9 @@ int main(int argc, char *argv[])
 	for(j=1; j<=_k; j++)
 	    SetAdd(samples[BLANT[1][line][j]], line);
 
-    double normD0 = VecLength(_numCanon, D[0]);
     // while(not done---either some number of iterations, or objective function says we're too far away)
-    while(VecLength(_numCanon, VecDiff(_numCanon, vecDiff, D[0], D[1])) / normD0 > 0.1)
+    double score = Objective(D);
+    while(score > 0.001)
     {
 	int edge = drand48() * G[1]->numEdges;
 	int u1, u2, v1 = G[1]->edgeList[2*edge], v2 = G[1]->edgeList[2*edge+1];
@@ -181,21 +201,18 @@ int main(int argc, char *argv[])
 	GraphConnect(G[1], u1, u2);
 	ReBLANT(D[1], G[1], samples, BLANT[1], u1, u2);
 
-	double newDiff[_numCanon];
-	// note we should do this "efficiently" using a delta rather than recomputing whole objective
-	VecDiff(_numCanon, newDiff, D[0], D[1]);
-	// Hill Climbing for now
 	static int same;
-	if(VecLength(_numCanon, newDiff) < VecLength(_numCanon, vecDiff))
+	double newScore = Objective(D);
+	if(newScore < score)
 	{
+	    static double printVal;
 	    same = 0;
-	    static double oldVal, newVal;
-	    newVal = VecLength(_numCanon, vecDiff) / normD0;
-	    if(fabs(oldVal-newVal)>.01)
+	    if(fabs(newScore - printVal)>=.00)
 	    {
-		fprintf(stderr, "%g ", newVal);
-		oldVal = newVal;
+		fprintf(stderr, "%g ", newScore);
+		printVal = newScore;
 	    }
+	    score = newScore;
 	    // *pV1 = MIN(u1,u2);
 	    // *pV2 = MAX(u1,u2);
 	}
@@ -207,8 +224,8 @@ int main(int argc, char *argv[])
 	    GraphConnect(G[1], v1, v2);
 	    ReBLANT(D[1], G[1], samples, BLANT[1], v1, v2);
 	}
-	if(same > 10) break;
+	if(same > 100) break;
     }
     for(i=0; i < G[1]->numEdges; i++)
-	printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
+	; //printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
 }
