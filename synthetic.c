@@ -65,7 +65,7 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
     return Gv;
 }
 
-void ReBLANT(int *D, GRAPH *G, SET **samples, int **B, int v1, int v2)
+void ReBLANT(int *D, GRAPH *G, SET **samples, int **Varrays, int **B, int v1, int v2)
 {
     int j;
     {
@@ -74,12 +74,12 @@ void ReBLANT(int *D, GRAPH *G, SET **samples, int **B, int v1, int v2)
 	assert(testCount == _numSamples);
     }
 
-    int line;
+    int line, s;
     static TINY_GRAPH *g;
     static int Varray[maxK];
     if(!g) g = TinyGraphAlloc(_k);
     
-    for(line = 0; line < _numSamples; line++) if(SetIn(samples[v1], line) && SetIn(samples[v2], line))
+    for(s=1; line = Varrays[v1][s], s<=Varrays[v1][0]; s++) if(SetIn(samples[v2], line))
     {
 	--D[B[line][0]];
 	TinyGraphInducedFromGraph(g, G, B[line]+1);
@@ -98,12 +98,13 @@ double Objective(int D[2][_numCanon])
 {
     double sum2 = 0, d2 = 0;
     int i;
-    for(i=0; i<_numCanon; i++) sum2 += SQR(D[0][i] - D[1][i])/SQR(D[0][i]+1);
+    for(i=0; i<_numCanon; i++) sum2 += SQR(D[0][i] - D[1][i]); ///SQR(D[0][i]+1);
     return sqrt(sum2);
 }
 
 int main(int argc, char *argv[])
 {
+    srand48(time(0)+getpid());
     int i, opt, j, line;
 
     if(argc == 1)
@@ -185,6 +186,13 @@ int main(int argc, char *argv[])
 	for(j=1; j<=_k; j++)
 	    SetAdd(samples[BLANT[1][line][j]], line);
 
+    int **Varrays = (int**)Malloc(G[1]->n * sizeof(int*));
+    for(i=0; i < G[1]->n; i++)
+    {
+	Varrays[i] = (int*)Malloc((1+SetCardinality(samples[i]))*sizeof(int));
+	Varrays[i][0] = SetToArray(Varrays[i]+1, samples[i]);
+    }
+
     // while(not done---either some number of iterations, or objective function says we're too far away)
     double score = Objective(D);
     while(score > 0.001)
@@ -197,35 +205,33 @@ int main(int argc, char *argv[])
 	} while(GraphAreConnected(G[1], u1, u2)); // find a non-edge
 	assert(GraphAreConnected(G[1], v1, v2));
 	GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
-	ReBLANT(D[1], G[1], samples, BLANT[1], v1, v2);
+	ReBLANT(D[1], G[1], samples, Varrays, BLANT[1], v1, v2);
 	GraphConnect(G[1], u1, u2);
-	ReBLANT(D[1], G[1], samples, BLANT[1], u1, u2);
+	ReBLANT(D[1], G[1], samples, Varrays, BLANT[1], u1, u2);
 
 	static int same;
 	double newScore = Objective(D);
 	if(newScore < score)
 	{
 	    static double printVal;
-	    same = 0;
-	    if(fabs(newScore - printVal)>=.00)
+	    if(fabs(newScore - printVal)/printVal >= 0.01)
 	    {
 		fprintf(stderr, "%g ", newScore);
 		printVal = newScore;
 	    }
 	    score = newScore;
-	    // *pV1 = MIN(u1,u2);
-	    // *pV2 = MAX(u1,u2);
+	    same = 0;
 	}
 	else // revert
 	{
 	    ++same;
 	    GraphDisconnect(G[1], u1, u2);
-	    ReBLANT(D[1], G[1], samples, BLANT[1], u1, u2);
+	    ReBLANT(D[1], G[1], samples, Varrays, BLANT[1], u1, u2);
 	    GraphConnect(G[1], v1, v2);
-	    ReBLANT(D[1], G[1], samples, BLANT[1], v1, v2);
+	    ReBLANT(D[1], G[1], samples, Varrays, BLANT[1], v1, v2);
 	}
-	if(same > 100) break;
+	if(same > 1000) break;
     }
     for(i=0; i < G[1]->numEdges; i++)
-	; //printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
+	printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
 }
