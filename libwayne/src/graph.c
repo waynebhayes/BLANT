@@ -235,9 +235,9 @@ GRAPH *GraphDisconnect(GRAPH *G, int i, int j)
     {
 	if(G->edgeList[2*k] == i && G->edgeList[2*k+1]==j)
 	{
-	    G->edgeList[2*k] = G->edgeList[2*(G->numEdges-1)];
-	    G->edgeList[2*k+1] = G->edgeList[2*(G->numEdges-1)+1];
 	    G->numEdges--;
+	    G->edgeList[2*k] = G->edgeList[2*G->numEdges];
+	    G->edgeList[2*k+1] = G->edgeList[2*G->numEdges+1];
 	    found=true;
 	    break;
 	}

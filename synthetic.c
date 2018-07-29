@@ -169,16 +169,15 @@ int main(int argc, char *argv[])
     // while(not done---either some number of iterations, or objective function says we're too far away)
     while(VecLength(_numCanon, VecDiff(_numCanon, vecDiff, D[0], D[1])) / normD0 > 0.1)
     {
-	fprintf(stderr, "%g\n", VecLength(_numCanon, vecDiff)/normD0);
 	int edge = drand48() * G[1]->numEdges;
-	int u1, u2, *pV1 = &(G[1]->edgeList[2*edge]), *pV2 = &(G[1]->edgeList[2*edge+1]);
+	int u1, u2, v1 = G[1]->edgeList[2*edge], v2 = G[1]->edgeList[2*edge+1];
 	do {
 	    u1 = drand48()*G[1]->n;
 	    do u2 = drand48()*G[1]->n; while(u1==u2);
 	} while(GraphAreConnected(G[1], u1, u2)); // find a non-edge
-	assert(GraphAreConnected(G[1], *pV1, *pV2));
-	GraphDisconnect(G[1], *pV1, *pV2); // remove edge e from Gs
-	ReBLANT(D[1], G[1], samples, BLANT[1], *pV1, *pV2);
+	assert(GraphAreConnected(G[1], v1, v2));
+	GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
+	ReBLANT(D[1], G[1], samples, BLANT[1], v1, v2);
 	GraphConnect(G[1], u1, u2);
 	ReBLANT(D[1], G[1], samples, BLANT[1], u1, u2);
 
@@ -188,6 +187,7 @@ int main(int argc, char *argv[])
 	// Hill Climbing for now
 	if(VecLength(_numCanon, newDiff) < VecLength(_numCanon, vecDiff))
 	{
+	    fprintf(stderr, "%g ", VecLength(_numCanon, vecDiff)/normD0);
 	    // *pV1 = MIN(u1,u2);
 	    // *pV2 = MAX(u1,u2);
 	}
@@ -195,8 +195,8 @@ int main(int argc, char *argv[])
 	{
 	    GraphDisconnect(G[1], u1, u2);
 	    ReBLANT(D[1], G[1], samples, BLANT[1], u1, u2);
-	    GraphConnect(G[1], *pV1, *pV2);
-	    ReBLANT(D[1], G[1], samples, BLANT[1], *pV1, *pV2);
+	    GraphConnect(G[1], v1, v2);
+	    ReBLANT(D[1], G[1], samples, BLANT[1], v1, v2);
 	}
     }
     for(i=0; i < G[1]->numEdges; i++)
