@@ -165,6 +165,15 @@ TINY_GRAPH *TinyGraphCopy(TINY_GRAPH *dest, TINY_GRAPH *G1)
 }
 
 
+int TinyGraphNumEdges(TINY_GRAPH *G)
+{
+    int total=0, i;
+    for(i=0; i<G->n; i++)
+	total += G->degree[i];
+    assert(total % 2 == 0); // should be divisible by 2
+    return total/2;
+}
+
 int TinyGraphBFS(TINY_GRAPH *G, int root, int distance, int *nodeArray, int *distArray)
 {
     QUEUE *BFSQ;
