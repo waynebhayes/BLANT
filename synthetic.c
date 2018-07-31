@@ -95,12 +95,29 @@ void ReBLANT(int *D, GRAPH *G, SET **samples, int **Varrays, int **B, int v1, in
     }
 }
 
+
+double PoissonDistribution(double l, int k)
+{
+    double r = exp(-l);
+    int i;
+    for(i=k; i>0; i--) // divide by k!
+	r *= l/i;
+    return r;
+}
+
 double Objective(int D[2][_numCanon])
 {
-    double sum2 = 0, d2 = 0;
     int i;
-    for(i=0; i<_numCanon; i++) sum2 += SQR(D[0][i] - D[1][i]); ///SQR(D[0][i]+1);
-    return sqrt(sum2);
+    double logP = 0, sum2 = 0;
+    for(i=0; i<_numCanon; i++)
+    {
+	double pd = PoissonDistribution(D[0][i], D[1][i]);
+	if(pd > 1)
+	    Fatal("umm.... PoissonDistribution returned a number greater than 1");
+	if(pd>0) logP += log(pd); // if we're close, use probability
+	sum2 += SQR(D[0][i] - D[1][i]); // use this one when we're so far away the probability is zero
+    }
+    return sqrt(sum2); //exp(logP);
 }
 
 int main(int argc, char *argv[])
@@ -198,8 +215,8 @@ int main(int argc, char *argv[])
     }
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
-    double score = Objective(D);
-    while(score > 0.001)
+    double score = Objective(D), startScore = score;
+    while(score > 0.6 * startScore) // that's enough progress otherwise we're over-optimizing at this sample size
     {
 	int edge = drand48() * G[1]->numEdges;
 	int u1, u2, v1 = G[1]->edgeList[2*edge], v2 = G[1]->edgeList[2*edge+1];
@@ -218,7 +235,7 @@ int main(int argc, char *argv[])
 	if(newScore < score)
 	{
 	    static double printVal;
-	    if(fabs(newScore - printVal)/printVal >= 0.01)
+	    if(fabs(newScore - printVal)/printVal >= 0.02)
 	    {
 		fprintf(stderr, "%g ", newScore);
 		printVal = newScore;
@@ -236,6 +253,7 @@ int main(int argc, char *argv[])
 	}
 	if(same > _stagnated) break;
     }
+    fprintf(stderr,"\n");
     for(i=0; i < G[1]->numEdges; i++)
 	printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
 }
