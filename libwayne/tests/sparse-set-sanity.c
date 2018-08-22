@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <assert.h>
 
-unsigned long SETSIZE = 4000000000;
-#define NUM_ADD (int)(SETSIZE/1000)
+unsigned long SETSIZE = 40;
+#define NUM_ADD (int)(SETSIZE/10)
 
 int main(void)
 {
@@ -18,7 +18,6 @@ int main(void)
     srand48(time(0) + getpid());
 
     printf("Add %d entries...", NUM_ADD); fflush(stdout);
-    system("sleep 3");
     for(i=0; i<NUM_ADD; i++)
     {
 	unsigned long newA = drand48() * SETSIZE, newB = drand48() * SETSIZE;

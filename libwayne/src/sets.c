@@ -166,6 +166,19 @@ SET *SetCopy(SET *dst, SET *src)
     return dst;
 }
 
+SPARSE_SET *SparseSetCopy(SPARSE_SET *dst, SPARSE_SET *src)
+{
+    int i;
+
+    if(!dst)
+	dst = SparseSetAlloc(src->n);
+    assert(dst->n == src->n);
+
+    for(i=0; i < dst->sqrt_n; i++)
+	SetCopy(dst->sets[i], src->sets[i]);
+    return dst;
+}
+
 
 /* Add an element to a set.  Returns the same set handle.
 */
@@ -266,6 +279,15 @@ Boolean SetEq(SET *A, SET *B)
 	    return false;
     return true;
 }
+Boolean SparseSetEq(SPARSE_SET *A, SPARSE_SET *B)
+{
+    int i;
+    assert(A->n == B->n);
+    for(i=0; i < A->sqrt_n; i++)
+	if(!SetEq(A->sets[i], B->sets[i]))
+	    return false;
+    return true;
+}
 
 
 /* See if A is a (non-proper) subset of B.
@@ -298,6 +320,14 @@ SET *SetUnion(SET *C, SET *A, SET *B)
 	C->array[i] = A->array[i] | B->array[i];
     return C;
 }
+SPARSE_SET *SparseSetUnion(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B)
+{
+    int i;
+    assert(A->n == B->n && B->n == C->n);
+    for(i=0; i < A->sqrt_n; i++)
+	SetUnion(C->sets[i], A->sets[i], B->sets[i]);
+    return C;
+}
 
 
 /* Intersection A and B into C.  Any or all may be the same pointer.
@@ -309,6 +339,14 @@ SET *SetIntersect(SET *C, SET *A, SET *B)
     assert(A->n == B->n && B->n == C->n);
     for(i=0; i < loop; i++)
 	C->array[i] = A->array[i] & B->array[i];
+    return C;
+}
+SPARSE_SET *SparseSetIntersect(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B)
+{
+    int i;
+    assert(A->n == B->n && B->n == C->n);
+    for(i=0; i < C->sqrt_n; i++)
+	SetIntersect(C->sets[i], A->sets[i], B->sets[i]);
     return C;
 }
 
