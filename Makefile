@@ -22,17 +22,16 @@ test_maps:
 
 canon_maps/canon_map7.txt: blant.h slow-canon-maps libblant.c fast-canon-map
 	mkdir -p canon_maps
-	for i in 3 4 5 6 7; do ./fast-canon-map $$i | cut -f2- | tee canon_maps/canon_map$$i.txt | awk '!seen[$$1]{seen[$$1]=1;numEdges[n]=$$4;connected[n]=$$3;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d %d\n", map[i],connected[i],numEdges[i]}' | tee canon_maps/canon_list$$i.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$$i.txt; ./make-orbit-maps $$i > canon_maps/orbit_map$$i.txt; gcc "-Dkk=$$i" "-DkString=\"$$i\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
+	for k in 3 4 5 6 7; do ./fast-canon-map $$k | cut -f2- | tee canon_maps/canon_map$$k.txt | awk '!seen[$$1]{seen[$$1]=1;numEdges[n]=$$4;connected[n]=$$3;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d %d\n", map[i],connected[i],numEdges[i]}' | tee canon_maps/canon_list$$k.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$$k.txt; ./make-orbit-maps $$k > canon_maps/orbit_map$$k.txt; gcc "-Dkk=$$k" "-DkString=\"$$k\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
 	/bin/rm -f create-bin-data # it's not useful after this
+
+canon_map8: blant.h libblant.c fast-canon-map
+	echo "Warning: this may take awhile (from 10 to about 100 minutes, depending upon your machine)"
+	# Copy this line from above but change the multiple values of k to just 8.
+	for k in 8; do ./fast-canon-map $$k | cut -f2- | tee canon_maps/canon_map$$k.txt | awk '!seen[$$1]{seen[$$1]=1;numEdges[n]=$$4;connected[n]=$$3;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d %d\n", map[i],connected[i],numEdges[i]}' | tee canon_maps/canon_list$$k.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$$k.txt; ./make-orbit-maps $$k > canon_maps/orbit_map$$k.txt; gcc "-Dkk=$$k" "-DkString=\"$$k\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
 
 fast-canon-map: fast-canon-map.c blant.h canon-sift.c libblant.c make-orbit-maps
 	gcc '-std=c99' -O2 -o fast-canon-map libblant.c fast-canon-map.c $(LIBWAYNE)
-
-canon_map8: blant.h libblant.c fast-canon-map
-	echo "Warning: this will take a few minutes"
-	./fast-canon-map 8 | cut -f2- | tee canon_maps/canon_map8.txt | awk '!seen[$$1]{seen[$$1]=1;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d ", map[i]; print ""}' | tee canon_maps/canon_list8.txt | awk 'NR==2{for(i=1;i<=NF;i++) print i-1, $$i}' > canon_maps/canon-ordinal-to-signature8.txt
-	./make-orbit-maps 8 > canon_maps/orbit_map8.txt;
-	gcc "-Dkk=8" "-DkString=\"8\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data
 
 slow-canon-maps: slow-canon-maps.c blant.h libblant.c
 	gcc -o slow-canon-maps libblant.c slow-canon-maps.c $(LIBWAYNE)
@@ -55,7 +54,7 @@ libwayne/MT19937/mt19937.o:
 	
 compute-alphas: libblant.c blant.h compute-alphas.c
 	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
-	for i in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$i.txt -a ! -f canon_maps/alpha_list$$i.txt ]; then ./compute-alphas $$i; fi; done
+	for k in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list$$k.txt ]; then ./compute-alphas $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)
@@ -68,7 +67,7 @@ libwayne/made:
 subcanon_maps: libwayne/made make-subcanon-maps.c blant.h libblant.c
 	mkdir -p canon_maps
 	gcc -Wall -o make-subcanon-maps make-subcanon-maps.c libblant.c $(LIBWAYNE)
-	for i in 4 5 6 7 8; do if [ -f canon_maps/canon_map$$i.bin -a -f canon_maps/canon_list$$i.txt ]; then  ./make-subcanon-maps $$i > canon_maps/subcanon_map$$i-$$((i-1)).txt; fi; done;
+	for k in 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin -a -f canon_maps/canon_list$$k.txt ]; then  ./make-subcanon-maps $$k > canon_maps/subcanon_map$$k-$$((k-1)).txt; fi; done;
 	/bin/rm -f make-subcanon-maps # it's not useful after this
 
 magic_table: magictable.cpp
