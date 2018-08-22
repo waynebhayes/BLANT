@@ -4,7 +4,8 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 
 most: canon_maps blant compute-alphas magic_table draw
 
-all: libwayne/made most canon_map8 test_blant test_maps
+all: libwayne/made most canon_maps/canon_map8.bin test_blant test_maps
+canon_maps/canon_map8.bin: canon_map8
 
 test_blant:
 	# First run blant-sanity for various values of k
@@ -27,7 +28,7 @@ canon_maps/canon_map7.txt: blant.h slow-canon-maps libblant.c fast-canon-map
 	for k in 3 4 5 6 7; do ./fast-canon-map $$k | cut -f2- | tee canon_maps/canon_map$$k.txt | awk '!seen[$$1]{seen[$$1]=1;numEdges[n]=$$4;connected[n]=$$3;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d %d\n", map[i],connected[i],numEdges[i]}' | tee canon_maps/canon_list$$k.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$$k.txt; ./make-orbit-maps $$k > canon_maps/orbit_map$$k.txt; gcc "-Dkk=$$k" "-DkString=\"$$k\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
 	/bin/rm -f create-bin-data # it's not useful after this
 
-canon_map8: blant.h libblant.c fast-canon-map canon_maps/canon_map8.bin
+canon_map8: blant.h libblant.c fast-canon-map
 	echo "Warning: this may take awhile (from 10 to about 100 minutes, depending upon your machine)"
 	# Copy this line from above but change the multiple values of k to just 8.
 	for k in 8; do ./fast-canon-map $$k | cut -f2- | tee canon_maps/canon_map$$k.txt | awk '!seen[$$1]{seen[$$1]=1;numEdges[n]=$$4;connected[n]=$$3;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d %d\n", map[i],connected[i],numEdges[i]}' | tee canon_maps/canon_list$$k.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$$k.txt; ./make-orbit-maps $$k > canon_maps/orbit_map$$k.txt; gcc "-Dkk=$$k" "-DkString=\"$$k\"" -o create-bin-data libblant.c create-bin-data.c $(LIBWAYNE); ./create-bin-data; done
