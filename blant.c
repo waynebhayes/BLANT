@@ -18,7 +18,7 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
-char **_nodeNames, _supportNodeNames = true;
+char **_nodeNames, _supportNodeNames = false;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
@@ -224,29 +224,22 @@ static int InitializeConnectedComponents(GRAPH *G)
     }
 }
 
-static unsigned long long _componentCombinTotal;
-static double *_componentCombinList;
-
-void componentChoose(int k)
+// Find and return the set of nodes which is a k-graphlet minimizen inside the window W
+static SET *FindMinimizerInWindow(SET *W, int *Warray, GRAPH *G, int k)
 {
-	assert(_componentCombinTotal == 0);
-	_componentCombinList = Calloc(_numConnectedComponents, sizeof(double*));
-	int i = 0;
-	for (i = 0; i < _numConnectedComponents; i++)
-	{
-		unsigned long long chosenComponent = CombinChoose(_componentSize[i], k);
-		_componentCombinTotal += chosenComponent;
-		_componentCombinList[i] = chosenComponent;
-		printf("Component %d has %d nodes choose %d is %llu\n", i, _componentSize[i], k, chosenComponent);
-	}
-
-	printf("\nThe Total is: %llu\n\n", _componentCombinTotal);
-
-	for (i = 0; i < _numConnectedComponents; i++)
-	{
-		_componentCombinList[i] /= _componentCombinTotal;
-		printf("Component %d has probability %f\n", i, _componentCombinList[i]);
-	}
+    assert(SetCardinality(W) >= k);
+    assert(k <= maxK);
+    SET *M = SetAlloc(G->n); // this will be the set that is the minimizer graphlet.
+    GRAPH *GW = GraphInduced(NULL, G, W); // this graph is just the Window, so you can work on that without worrying about G.
+    // pseudo-code:
+    // for each node v in W
+    //    for k-set of nodes K among all k-node DFS tree starting at v
+    //       if the canonical graphlet of K < M then set the new minimzer
+    //    end for
+    // end for
+    assert(SetCardinality(M) == k);
+    GraphFree(GW);
+    return M;
 }
 
 // Given the big graph G and an integer k, return a k-graphlet from G
@@ -322,6 +315,11 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    assert(depth < MAX_TRIES); // graph is too disconnected
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
+	    // Ensure the damn thing really *is* connected.
+	    TINY_GRAPH *T = TinyGraphAlloc(k);
+	    TinyGraphInducedFromGraph(T, G, Varray);
+	    assert(NumReachableNodes(T,0) == k);
+	    TinyGraphFree(T);
 	    return V;
 #endif
 	}

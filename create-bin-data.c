@@ -76,17 +76,17 @@ int main(int argc, char *argv[])
     assert(fp);
     int line;
     for(line=0; line < Bk; line++) {
-	int canonical, ordinal, isGraphlet, numRead;
+	int canonical, ordinal, isGraphlet, numRead, numEdges;
 	char perm[9];
 	fgets(buf, sizeof(buf), fp);
-	numRead = sscanf(buf, "%d %s %d", &canonical, perm, &isGraphlet);
-	assert(numRead == 2 || numRead == 3);
+	numRead = sscanf(buf, "%d %s %d %d", &canonical, perm, &isGraphlet, &numEdges);
+	assert(numRead == 2 || numRead == 4);
 	ordinal=canon2ordinal(numCanon, canon_list, canonical);
 	K[line]=ordinal;
 	for(i=0;i<kk;i++)perm[i] -= '0';
 	EncodePerm(&Permutations[line], perm);
 #if 0  // output sanity checking info?
-	if(numRead == 3) fputs(buf,stdout);
+	if(numRead == 4) fputs(buf,stdout);
 	for(i=0;i<kk;i++)perm[i]=0;
 	ExtractPerm(perm, line);
 	printf("K[%d]=%d;", line, K[line]);

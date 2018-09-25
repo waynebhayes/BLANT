@@ -23,6 +23,7 @@ TINY_GRAPH *TinyGraphConnect(TINY_GRAPH *G, int i, int j);
 TINY_GRAPH *TinyGraphDisconnect(TINY_GRAPH *G, int i, int j);
 TINY_GRAPH *TinyGraphComplement(TINY_GRAPH *Gbar, TINY_GRAPH *G);
 TINY_GRAPH *TinyGraphUnion(TINY_GRAPH *destination, TINY_GRAPH *G1, TINY_GRAPH *G2);
+int TinyGraphNumEdges(TINY_GRAPH *G); // total number of edges, just the sum of the degrees / 2.
 #define TinyGraphDegree(G,v) ((G)->degree[v])
 
 /* Returns number of nodes in the the distance-d neighborhood, including seed.

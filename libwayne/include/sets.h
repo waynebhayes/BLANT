@@ -83,6 +83,35 @@ char *SetToString(int len, char s[], SET *set);
 
 SET *SetPrimes(long n); /* return the set of all primes between 0 and n */
 
+/*
+*********  SPARSE_SET  ********
+*/
+typedef struct _sparseSetType {
+    unsigned long n;
+    unsigned sqrt_n;
+    SET **sets;
+} SPARSE_SET;
+SPARSE_SET *SparseSetAlloc(unsigned long n);
+void SparseSetFree(SPARSE_SET *set); /* free all memory used by a set */
+SPARSE_SET *SparseSetEmpty(SPARSE_SET *set);    /* make the set empty (set must be allocated )*/
+#define SetReset SetEmpty
+SPARSE_SET *SparseSetCopy(SPARSE_SET *dst, SPARSE_SET *src);  /* if dst is NULL, it will be alloc'd */
+SPARSE_SET *SparseSetAdd(SPARSE_SET *set, unsigned long element);    /* add single element to set */
+SPARSE_SET *SparseSetAddList(SPARSE_SET *set, ...); /* end list with (-1); uses varargs/stdarg */
+SPARSE_SET *SparseSetDelete(SPARSE_SET *set, unsigned long element); /* delete a single element */
+SPARSE_SET *SparseSetUnion(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B);  /* C = union of A and B */
+SPARSE_SET *SparseSetIntersect(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B);  /* C = intersection of A and B */
+SPARSE_SET *SparseSetXOR(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B);  /* C = XOR of A and B */
+SPARSE_SET *SparseSetComplement(SPARSE_SET *B, SPARSE_SET *A);  /* B = complement of A */
+unsigned long SparseSetCardinality(SPARSE_SET *A);    /* returns non-negative integer */
+Boolean SparseSetIn(SPARSE_SET *set, unsigned long element); /* boolean: 0 or 1 */
+Boolean SparseSetEq(SPARSE_SET *set1, SPARSE_SET *set2);
+Boolean SparseSetSubsetEq(SPARSE_SET *sub, SPARSE_SET *super); /* is sub <= super? */
+#define SparseSetSupersetEq(spr,sb) SparseSetSubsetEq((sb),(spr))
+Boolean SparseSetSubsetProper(SPARSE_SET *sub, SPARSE_SET *super);	/* proper subset */
+#define SparseSetSupersetProper(spr,sub) SetSubsetProper((sub),(spr))
+
+
 typedef unsigned long long SSET;    /* Small set */
 #define SSET1 1ULL
 #define SSET_NULLSET 0ULL

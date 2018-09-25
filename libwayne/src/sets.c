@@ -15,6 +15,7 @@
 #include "sets.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <math.h> // for sqrt(n) in SPARSE_SETs
 
 static unsigned setBits = sizeof(SETTYPE)*8;
 
@@ -65,6 +66,16 @@ SET *SetAlloc(unsigned n)
 }
 
 
+SPARSE_SET *SparseSetAlloc(unsigned long n)
+{
+    SPARSE_SET *set = (SPARSE_SET*) Calloc(1,sizeof(SPARSE_SET));
+    set->n = n;
+    set->sqrt_n = ceil(sqrt(n));
+    set->sets = (SET**) Calloc(set->sqrt_n,sizeof(SET*));
+    return set;
+}
+
+
 /*
 ** SetResize: re-size a set.
 */
@@ -96,6 +107,22 @@ SET *SetEmpty(SET *set)
 }
 
 
+/*
+** erase all members from a set, but don't free it's memory.
+*/
+SPARSE_SET *SparseSetEmpty(SPARSE_SET *set)
+{
+    int i;
+    for(i=0; i < set->sqrt_n; i++)
+	if(set->sets[i])
+	{
+	    SetFree(set->sets[i]);
+	    set->sets[i] = NULL;
+	}
+    return set;
+}
+
+
 /* free all space occupied by a set
 */
 void SetFree(SET *set)
@@ -106,6 +133,21 @@ void SetFree(SET *set)
 	    free(set->array);
 	free(set);
     }
+}
+
+
+/* free all space occupied by a set
+*/
+void SparseSetFree(SPARSE_SET *set)
+{
+    int i;
+    for(i=0; i < set->sqrt_n; i++)
+	if(set->sets[i])
+	{
+	    SetFree(set->sets[i]);
+	    set->sets[i] = NULL;
+	}
+    free(set);
 }
 
 
@@ -124,6 +166,19 @@ SET *SetCopy(SET *dst, SET *src)
     return dst;
 }
 
+SPARSE_SET *SparseSetCopy(SPARSE_SET *dst, SPARSE_SET *src)
+{
+    int i;
+
+    if(!dst)
+	dst = SparseSetAlloc(src->n);
+    assert(dst->n == src->n);
+
+    for(i=0; i < dst->sqrt_n; i++)
+	SetCopy(dst->sets[i], src->sets[i]);
+    return dst;
+}
+
 
 /* Add an element to a set.  Returns the same set handle.
 */
@@ -133,6 +188,17 @@ SET *SetAdd(SET *set, unsigned element)
     set->array[element/setBits] |= (1UL << (element % setBits));
     return set;
 }
+
+SPARSE_SET *SparseSetAdd(SPARSE_SET *set, unsigned long element)
+{
+    assert(element < set->n);
+    int which = element / set->sqrt_n;
+    if(!set->sets[which])
+	set->sets[which] = SetAlloc(set->sqrt_n);
+    SetAdd(set->sets[which], element - which*set->sqrt_n);
+    return set;
+}
+
 
 
 /* Add a bunch of elements to a set.  End the list with (-1).
@@ -166,6 +232,23 @@ SET *SetDelete(SET *set, unsigned element)
 }
 
 
+SPARSE_SET *SparseSetDelete(SPARSE_SET *set, unsigned long element)
+{
+    assert(element < set->n);
+    int which = element / set->sqrt_n;
+    if(set->sets[which])
+    {
+	SetDelete(set->sets[which], element - which*set->sqrt_n);
+	if(SetCardinality(set->sets[which]) == 0)
+	{
+	    SetFree(set->sets[which]);
+	    set->sets[which] = NULL;
+	}
+    }
+    return set;
+}
+
+
 /* query if an element is in a set; return 0 or non-zero.
 */
 Boolean SetIn(SET *set, unsigned element)
@@ -177,6 +260,12 @@ Boolean SetIn(SET *set, unsigned element)
 	return false;
 }
 
+Boolean SparseSetIn(SPARSE_SET *set, unsigned long element)
+{
+    assert(element < set->n);
+    int which = element / set->sqrt_n;
+    return set->sets[which] && SetIn(set->sets[which], element - which*set->sqrt_n);
+}
 
 /* See if A and B are the same set.
 */
@@ -187,6 +276,15 @@ Boolean SetEq(SET *A, SET *B)
     assert(A->n == B->n);
     for(i=0; i < loop; i++)
 	if(A->array[i] != B->array[i])
+	    return false;
+    return true;
+}
+Boolean SparseSetEq(SPARSE_SET *A, SPARSE_SET *B)
+{
+    int i;
+    assert(A->n == B->n);
+    for(i=0; i < A->sqrt_n; i++)
+	if(!SetEq(A->sets[i], B->sets[i]))
 	    return false;
     return true;
 }
@@ -222,6 +320,14 @@ SET *SetUnion(SET *C, SET *A, SET *B)
 	C->array[i] = A->array[i] | B->array[i];
     return C;
 }
+SPARSE_SET *SparseSetUnion(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B)
+{
+    int i;
+    assert(A->n == B->n && B->n == C->n);
+    for(i=0; i < A->sqrt_n; i++)
+	SetUnion(C->sets[i], A->sets[i], B->sets[i]);
+    return C;
+}
 
 
 /* Intersection A and B into C.  Any or all may be the same pointer.
@@ -233,6 +339,14 @@ SET *SetIntersect(SET *C, SET *A, SET *B)
     assert(A->n == B->n && B->n == C->n);
     for(i=0; i < loop; i++)
 	C->array[i] = A->array[i] & B->array[i];
+    return C;
+}
+SPARSE_SET *SparseSetIntersect(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B)
+{
+    int i;
+    assert(A->n == B->n && B->n == C->n);
+    for(i=0; i < C->sqrt_n; i++)
+	SetIntersect(C->sets[i], A->sets[i], B->sets[i]);
     return C;
 }
 
@@ -271,6 +385,16 @@ unsigned SetCardinality(SET *A)
     for(i=0; i < loop; i++)
 	if(A->array[i]) n += SetCountBits(A->array[i]);
     return n;
+}
+
+unsigned long SparseSetCardinality(SPARSE_SET *set)
+{
+    unsigned int i;
+    unsigned long sum=0;
+    for(i=0; i < set->sqrt_n; i++)
+	if(set->sets[i])
+	    sum += SetCardinality(set->sets[i]);
+    return sum;
 }
 
 /* populate the given array with the list of members currently present

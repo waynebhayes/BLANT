@@ -79,11 +79,15 @@ int canonListPopulate(char *BUF, int *canon_list, int k, char c) {
     if(!infile) {
         cerr << "Cannot open: " << ss.str() << "\n";
     }
-    int numCanon, connected;
+    int numCanon;
     infile >> numCanon;
     for (int i = 0; i < numCanon; i++) {
         infile >> canon_list[i];
+#if 0 // leave this out for now since magictable is using old canon_list files without the connected Boolean or numEdges.
+	int connected, numEdges;
         infile >> connected;
+        infile >> numEdges;
+#endif
     }
     infile.close();
     return numCanon;

@@ -272,7 +272,6 @@ double CombinChooseDouble(int n, int m)
     for(i=n; i > high; i--)
     {
 	int j;
-	double old = result;
 	result *= i;
 	if(result != result) // this is a test for NaN
 	{
