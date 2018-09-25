@@ -29,7 +29,7 @@ double RandomUniform(void) {
     if(!_mt19937) _mt19937 = Mt19937Alloc(_seed);
     return Mt19937NextDouble(_mt19937);
 }
-#else
+#else77
 #include "rand48.h"
 #define RandomUniform drand48
 #define RandomSeed srand48
@@ -222,6 +222,31 @@ static int InitializeConnectedComponents(GRAPH *G)
 	}
 	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
     }
+}
+
+static unsigned long long _componentCombinTotal;
+static double *_componentCombinList;
+
+void componentChoose(int k)
+{
+	assert(_componentCombinTotal == 0);
+	_componentCombinList = Calloc(_numConnectedComponents, sizeof(double*));
+	int i = 0;
+	for (i = 0; i < _numConnectedComponents; i++)
+	{
+		unsigned long long chosenComponent = CombinChoose(_componentSize[i], k);
+		_componentCombinTotal += chosenComponent;
+		_componentCombinList[i] = chosenComponent;
+		printf("Component %d has %d nodes choose %d is %llu\n", i, _componentSize[i], k, chosenComponent);
+	}
+
+	printf("\nThe Total is: %llu\n\n", _componentCombinTotal);
+
+	for (i = 0; i < _numConnectedComponents; i++)
+	{
+		_componentCombinList[i] /= _componentCombinTotal;
+		printf("Component %d has probability %f\n", i, _componentCombinList[i]);
+	}
 }
 
 // Given the big graph G and an integer k, return a k-graphlet from G
@@ -682,7 +707,7 @@ void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 // growing our sliding window until we have L graphlets in it.
 // Then, we slide our window until it has k distinct vertices. That represents our initial sampling
 // when we start/restart.
-void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
+void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
 {
 	MultisetEmpty(XLS);
 	QueueEmpty(XLQ);
@@ -692,9 +717,13 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
 		Fatal("mcmc_d must be set to 2 in blant.h for now");
 	} else {
 	//Pick a random edge. Add the vertices from it to our data structures
-	int edge = G->numEdges * RandomUniform();
-    X[0] = G->edgeList[2*edge];
+	int edge;
+    do {
+	edge = G->numEdges * RandomUniform();
+	X[0] = G->edgeList[2*edge];
+    } while(!SetIn(_componentSet[cc], X[0]));
     X[1] = G->edgeList[2*edge+1];
+
     MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
 	}
@@ -715,7 +744,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k)
 		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices restart
 			assert(depth++ < MAX_TRIES); //If we restart 100 times in a row without success give up
 
-			WalkLSteps(XLS,XLQ,X,G,k); //try again
+			WalkLSteps(XLS,XLQ,X,G,k,cc); //try again
 			depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
 			numTries = 0; //And our number of attempts to crawl one step
 			return;
@@ -738,7 +767,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	static int currSamples = 0;
 	static MULTISET *XLS = NULL; //A multiset holding L dgraphlets as separate vertex integers
 	static QUEUE *XLQ = NULL; //A queue holding L dgraphlets as separate vertex integers
-	static int Xcurrent[mcmc_d]; //holds the most recently walked d graphlet as an invariant
+	static int Xcurrent[mcmc_d]; //holds the most recently walked d graphlet as an invariant 
 	static TINY_GRAPH *g = NULL; //Tinygraph for computing overcounting;
 	if (!XLQ || !XLS || !g) {
 		//NON REENTRANT CODE
@@ -750,7 +779,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
 	if (!setup || (_numSamples/2 == currSamples++)) {
 		setup = true;
-		WalkLSteps(XLS, XLQ, Xcurrent, G, k);
+		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC);
 	} else {
 		//Keep crawling til we have k distinct vertices. Crawl at least once
 		do  {
@@ -770,6 +799,8 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int node, numNodes = 0, i, j, graphletDegree;
 	long long multiplier = 1;
 	SetEmpty(V);
+	double degArr[_MCMC_L];
+
 	for (i = 0; i < _MCMC_L; i++) {
 		graphletDegree = -2; //The edge between the vertices in the graphlet isn't included and is double counted
 		for (j = 0; j < mcmc_d; j++) {
@@ -778,29 +809,45 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 				Varray[numNodes++] = node;
 				SetAdd(V, node);
 			}
-			graphletDegree += G->degree[node];
+			
+			//graphletDegree += G->degree[node];
+			degArr[i] = G->degree[node];
 		}
 #if PARANOID_ASSERTS
 		assert(graphletDegree > 0);
 #endif
-		multiplier *= graphletDegree;
+
+		// previous multiplier kept here incase needed
+		/*
+		if (i != 0 && i != _MCMC_L) {
+			multiplier *= (graphletDegree);
+		}
 		assert(multiplier > 0);
+		*/
 	}
-	
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int GintCanon = _K[TinyGraph2Int(g, k)];
+
+	// divide each graphlet degree in array by alpha and get the total
+	for (i = 0; i < _MCMC_L; i++)
+	{
+		degArr[i] /= _alphaList[GintCanon];
+		graphletDegree += degArr[i];
+	}
+	
 #if PARANOID_ASSERTS
 	assert(numNodes == k); //Ensure we are returning k nodes
 #endif
 	if (_MCMC_L == 2) { //If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 		//The over counting ratio is the alpha value only.
-		_graphletConcentration[GintCanon] += 1.0/(_alphaList[GintCanon]);;
+		_graphletConcentration[GintCanon] += 1.0/(_alphaList[GintCanon]);
 	} else {
 		//The over counting ratio is the alpha value times the multiplier
 		//The multiplier is the product of the adjacent edges to each d graphlet in the sliding window
-
-		_graphletConcentration[GintCanon] += 1.0/((double)_alphaList[GintCanon]*(double)multiplier);
+		//_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
+		_graphletConcentration[GintCanon] += graphletDegree;
 	}
+
 #if PARANOID_ASSERTS
 	assert(_graphletConcentration[GintCanon] > 0);
 #endif
