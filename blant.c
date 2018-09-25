@@ -29,7 +29,7 @@ double RandomUniform(void) {
     if(!_mt19937) _mt19937 = Mt19937Alloc(_seed);
     return Mt19937NextDouble(_mt19937);
 }
-#else77
+#else
 #include "rand48.h"
 #define RandomUniform drand48
 #define RandomSeed srand48
