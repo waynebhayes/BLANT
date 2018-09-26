@@ -53,7 +53,7 @@ libwayne/MT19937/mt19937.o:
 	
 compute-alphas: #libblant.c blant.h compute-alphas.c canon_maps/alpha_list7.txt
 	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
-	if [ "$$EIGHT" -eq 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list$$k.txt ]; then ./compute-alphas $$k; fi; done
+	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list$$k.txt ]; then ./compute-alphas $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)
