@@ -21,7 +21,7 @@ sampleSize=1048576
 [ -f "$OUTPUT" ] || die "output graph $OUTPUT must already exist, and will be modified"
 ./blant -k $k -mi -s $sampleSize $INPUT > blant.$baseI.k$k
 ./blant -k $k -mi -s $sampleSize $OUTPUT > blant.$baseO.k$k
-score=`paste <(awk '{print $1}' blant.$baseI.k$k | sort -n | uniq -c) <(awk '{print $1}' blant.$baseO.k$k | sort -n | uniq -c) | hawk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
+score=`paste <(awk '{print $1}' blant.$baseI.k$k | sort -n | uniq -c) <(awk '{print $1}' blant.$baseO.k$k | sort -n | uniq -c) | awk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
 while [ $STAG -le 1048576 ]; do # 1 Mebisample
     make synthetic
     md5sum $OUTPUT
@@ -29,7 +29,7 @@ while [ $STAG -le 1048576 ]; do # 1 Mebisample
     mv /tmp/x$$ $OUTPUT
     ./blant -k $k -mi -s $sampleSize $OUTPUT > blant.$baseO.k$k
     ./blant -k $k -mi -s $sampleSize $INPUT > blant.$baseI.k$k
-    newScore=`paste <(awk '{print $1}' blant.$baseI.k$k | sort -n | uniq -c) <(awk '{print $1}' blant.$baseO.k$k | sort -n | uniq -c) | hawk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
+    newScore=`paste <(awk '{print $1}' blant.$baseI.k$k | sort -n | uniq -c) <(awk '{print $1}' blant.$baseO.k$k | sort -n | uniq -c) | awk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
     if [ $newScore -gt $score ]; then # improvement has stopped at this sample size.
 	STAG=`expr $STAG \* 4`
 	echo increasing STAG to $STAG
