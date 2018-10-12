@@ -797,7 +797,6 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int node, numNodes = 0, i, j, graphletDegree;
 	long long multiplier = 1;
 	SetEmpty(V);
-	double degArr[_MCMC_L];
 
 	for (i = 0; i < _MCMC_L; i++) {
 		graphletDegree = -2; //The edge between the vertices in the graphlet isn't included and is double counted
@@ -808,31 +807,21 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 				SetAdd(V, node);
 			}
 			
-			//graphletDegree += G->degree[node];
-			degArr[i] = G->degree[node];
+			graphletDegree += G->degree[node];
 		}
 #if PARANOID_ASSERTS
 		assert(graphletDegree > 0);
 #endif
 
 		// previous multiplier kept here incase needed
-		/*
 		if (i != 0 && i != _MCMC_L) {
 			multiplier *= (graphletDegree);
 		}
 		assert(multiplier > 0);
-		*/
 	}
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int GintCanon = _K[TinyGraph2Int(g, k)];
 
-	// divide each graphlet degree in array by alpha and get the total
-	for (i = 0; i < _MCMC_L; i++)
-	{
-		degArr[i] /= _alphaList[GintCanon];
-		graphletDegree += degArr[i];
-	}
-	
 #if PARANOID_ASSERTS
 	assert(numNodes == k); //Ensure we are returning k nodes
 #endif
@@ -842,8 +831,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	} else {
 		//The over counting ratio is the alpha value times the multiplier
 		//The multiplier is the product of the adjacent edges to each d graphlet in the sliding window
-		//_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
-		_graphletConcentration[GintCanon] += graphletDegree;
+		_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
 	}
 
 #if PARANOID_ASSERTS
