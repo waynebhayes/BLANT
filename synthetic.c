@@ -133,16 +133,19 @@ double Objective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     for (i=0; i<maxK; i++){
     	if (_k[i] == -1) break;
     	for (j=0; j<_numCanon[_k[i]-1]; j++){
-    		double pd = PoissonDistribution(D[0][_k[i]-1][j], D[1][_k[i]-1][j]);
-			if(pd > 1)
-			    Fatal("umm.... PoissonDistribution returned a number greater than 1");
-			if(pd>0) 
-				logP += log(pd); // if we're close, use probability
-			sum2 += SQR(D[0][_k[i]-1][j] - D[1][_k[i]-1][j]); // use this one when we're so far away the probability is zero
+	    double pd = PoissonDistribution(D[0][_k[i]-1][j], D[1][_k[i]-1][j]);
+	    if(pd > 1)
+		Fatal("umm.... PoissonDistribution returned a number greater than 1");
+	    if(pd>0) 
+		logP += log(pd); // if we're close, use probability
+	    // use this one when we're so far away the probability is zero
+	    double term = SQR((double)D[0][_k[i]-1][j] - D[1][_k[i]-1][j]);
+	    sum2 += term;
     	}
     }
-
-    return sqrt(sum2); //exp(logP);
+    double returnVal = sqrt(sum2);
+    assert(returnVal == returnVal);
+    return returnVal; //exp(logP);
 }
 
 int main(int argc, char *argv[])
@@ -288,8 +291,11 @@ int main(int argc, char *argv[])
 
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
-    double score = Objective(_maxNumCanon, D), startScore = score;
-    while(score > 0.6 * startScore) // that's enough progress otherwise we're over-optimizing at this sample size
+    double cost = Objective(_maxNumCanon, D), startCost = cost, newCost, maxCost = cost;
+    assert(cost == cost);
+    long int sa_iter = 0;
+    double temperature, pBad, unif_random;
+    while(fabs(cost - startCost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
     {
 	int edge = drand48() * G[1]->numEdges;
 	int u1, u2, v1 = G[1]->edgeList[2*edge], v2 = G[1]->edgeList[2*edge+1];
@@ -299,28 +305,54 @@ int main(int argc, char *argv[])
 	} while(GraphAreConnected(G[1], u1, u2)); // find a non-edge  u1,u2
 	assert(GraphAreConnected(G[1], v1, v2));  // find edge v1,v2
 
-
 	GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
 	ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], v1, v2);
 	
 	GraphConnect(G[1], u1, u2);
 	ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], u1, u2);
 
-	double newScore = Objective(_maxNumCanon, D);
+	newCost = Objective(_maxNumCanon, D);
+	maxCost = MAX(maxCost, newCost);
+	assert(newCost == newCost);
 	static int same;
-	if(newScore < score)
+#if 1 // HILLCLIMB
+	if(newCost < cost)
+#else
+#define SA_START_TEMP 1.0
+#define SA_DECAY 1e-4
+	temperature = SA_START_TEMP * exp(-SA_DECAY*sa_iter);
+	unif_random = drand48();
+	pBad = exp((-(newCost - cost)/maxCost)/temperature);
+	// assert (newCost < cost <=> pBad > 1)
+	assert((newCost < cost) == (pBad > 1));
+	if(newCost < cost || unif_random < pBad)
+#endif
 	{
-	    static double printVal;
-	    if(fabs(newScore - printVal)/printVal >= 0.02)
+	    fprintf(stderr,"A");fflush(stderr);
+	    static double printVal, printInterval;
+	    if(//fabs(newCost - printVal)/printVal >= 0.02 ||
+		++printInterval > 100)
 	    {
-		fprintf(stderr, "%g ", newScore);
-		printVal = newScore;
+		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g", temperature, cost, newCost, maxCost, pBad);
+		//fprintf(stderr, "%g ", newCost);
+		printVal = newCost;
+		printInterval = 0;
 	    }
-	    score = newScore;
+	    cost = newCost;
 	    same = 0;
 	}
 	else // revert
 	{
+	    fprintf(stderr,"R");fflush(stderr);
+	    static double printVal, printInterval;
+	    if(//fabs(newCost - printVal)/printVal >= 0.02 ||
+		++printInterval > 100)
+	    {
+		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g", temperature, cost, newCost, maxCost, pBad);
+		//fprintf(stderr, "%g ", newCost);
+		printVal = newCost;
+		printInterval = 0;
+	    }
 	    ++same;
 	    GraphDisconnect(G[1], u1, u2);
 	    ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], u1, u2);
@@ -328,6 +360,7 @@ int main(int argc, char *argv[])
 	    ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], v1, v2);
 	}
 	if(same > _stagnated) break;
+	++sa_iter;
     }
     fprintf(stderr,"\n");
     for(i=0; i < G[1]->numEdges; i++)
