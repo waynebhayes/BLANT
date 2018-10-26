@@ -29,7 +29,7 @@ static SET *_connectedCanonicals[maxK];
 static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
 static int _canonList[maxK][MAX_CANONICALS];
-static int _stagnated = 1000;
+static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
@@ -122,8 +122,12 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 newcost = FastObjective(newcost, olddelta, change);
 
     		TinyGraphInducedFromGraph(g[_k[i]-1], G, BLANT[_k[i]-1][line]+1);
+		Boolean wasConnected = SetIn(_connectedCanonicals[_k[i]-1], BLANT[_k[i]-1][line][0]);
     		BLANT[_k[i]-1][line][0] = _K[_k[i]-1][TinyGraph2Int(g[_k[i]-1], _k[i])];
-    			
+		Boolean isConnected = SetIn(_connectedCanonicals[_k[i]-1], BLANT[_k[i]-1][line][0]);
+		if(wasConnected && !isConnected) ++_numDisconnectedGraphlets;
+		if(!wasConnected && isConnected) --_numDisconnectedGraphlets;
+
                 // increment a graphlet
                 olddelta = D[1][_k[i]-1][BLANT[_k[i]-1][line][0]] - D[0][_k[i]-1][BLANT[_k[i]-1][line][0]];
                 ++D[1][_k[i]-1][BLANT[_k[i]-1][line][0]];
@@ -362,7 +366,7 @@ int main(int argc, char *argv[])
 	    if(//fabs(newCost - printVal)/printVal >= 0.02 ||
 		++printInterval > 100)
 	    {
-		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g", temperature, cost, newCost, maxCost, pBad);
+		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDiscon %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
 		//fprintf(stderr, "%g ", newCost);
 		printVal = newCost;
 		printInterval = 0;
@@ -377,7 +381,7 @@ int main(int argc, char *argv[])
 	    if(//fabs(newCost - printVal)/printVal >= 0.02 ||
 		++printInterval > 100)
 	    {
-		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g", temperature, cost, newCost, maxCost, pBad);
+		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
 		//fprintf(stderr, "%g ", newCost);
 		printVal = newCost;
 		printInterval = 0;
@@ -388,7 +392,7 @@ int main(int argc, char *argv[])
 	    GraphConnect(G[1], v1, v2);
 	    ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], v1, v2, newCost);  // ignore the returned newcost
 	}
-	if(same > _stagnated) break;
+	if(same > _stagnated || _numDisconnectedGraphlets > _numSamples/50) break;
 	++sa_iter;
     }
     fprintf(stderr,"\n");
