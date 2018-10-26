@@ -25,6 +25,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static int _k[maxK]; // stores what values of k have to be considered e.g. [3,4,5,6] or [3,4,5] or [2,7,8]. Will be followed by -1s
 static int _numCanon[maxK];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
+static SET *_connectedCanonicals[maxK];
 static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
 static int _canonList[maxK][MAX_CANONICALS];
@@ -54,7 +55,9 @@ void SetGlobalCanonMaps(void){
 		if ((_Bk * sizeof(short int)) < 8192)
 			_Bk = 8192 / sizeof(short int);  // aligned_alloc constraint
 		char BUF[BUFSIZ];
-		_numCanon[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _k[i]);
+		_connectedCanonicals[_k[i]-1] = SetAlloc(_Bk);
+		_numCanon[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _connectedCanonicals[_k[i]-1], _k[i]);
+		// Pushkar: need to add connectedCanonicals in above line
 		if (_numCanon[_k[i]-1] > _maxNumCanon)  // set max number of canonicals for a k
 			_maxNumCanon = _numCanon[_k[i]-1];
 		_K[_k[i]-1] = (short int*) aligned_alloc(8192, _Bk * sizeof(short int));

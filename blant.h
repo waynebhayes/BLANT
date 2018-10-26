@@ -1,4 +1,5 @@
 #include "tinygraph.h"
+#include "sets.h"
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
@@ -29,6 +30,6 @@
 void BuildGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 void mapCanonMap(char* BUF, short int *K, int k);
-int canonListPopulate(char *BUF, int *canon_list, int k);
+int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k);
 int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int k);
 char** convertToEL(char* file); // from convert.cpp

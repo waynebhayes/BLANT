@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
 
     //Create k canon list
     char BUF[BUFSIZ];
-    int numCanon = canonListPopulate(BUF, canon_list, k);
+    int numCanon = canonListPopulate(BUF, canon_list, NULL, k);
 
     //Create canon map for k-1
     mapCanonMap(BUF, K, k-1);

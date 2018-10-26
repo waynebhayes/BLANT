@@ -36,7 +36,7 @@ int N=10;
 int main(int argc, char *argv[])
 {
     char BUF[BUFSIZ];
-    int numCanon = canonListPopulate(BUF, canon_list, k);
+    int numCanon = canonListPopulate(BUF, canon_list, NULL, k);
 
     char perm[9];
     int Kfd = open(("data/canon_map" kString ".bin"), 0*O_RDONLY);

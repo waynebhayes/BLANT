@@ -59,6 +59,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS];
+static SET *_connectedCanonicals;
 static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
 
 enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputODV, outputGDV};
@@ -973,11 +974,12 @@ static int IntCmp(const void *a, const void *b)
 // arrays related to canonical mappings and permutations.
 void SetGlobalCanonMaps(void)
 {
+    int i;
+    char BUF[BUFSIZ];
     assert(3 <= _k && _k <= 8);
     _Bk = (1 <<(_k*(_k-1)/2));
-    char BUF[BUFSIZ];
-    int i;
-    _numCanon = canonListPopulate(BUF, _canonList, _k);
+    _connectedCanonicals = SetAlloc(_Bk);
+    _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, _k);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _k);
     mapCanonMap(BUF, _K, _k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);

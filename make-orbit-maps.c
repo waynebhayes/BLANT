@@ -182,7 +182,7 @@ void main(int argc, char* argv[]){
     char BUF[BUFSIZ], tmpName[BUFSIZ];
     tmpnam(tmpName);
     FILE *tmpfp = fopen(tmpName,"w");
-    int numCanon = canonListPopulate(BUF, canon_list, k);
+    int numCanon = canonListPopulate(BUF, canon_list, NULL, k);
     //making orbit_map file
     int numOrbits = 0, i, j;
     for(i=0; i<numCanon; i++){

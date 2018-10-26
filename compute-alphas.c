@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
     char BUF[BUFSIZ];
     TINY_GRAPH *gk = TinyGraphAlloc(k);
 	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-    int numCanon = canonListPopulate(BUF, _canonList, k);
+    int numCanon = canonListPopulate(BUF, _canonList, NULL, k);
     
     L = k - mcmc_d  + 1;
     unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet

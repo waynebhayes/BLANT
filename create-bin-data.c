@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 {
     int i;
     char buf[BUFSIZ];   
-    int numCanon = canonListPopulate(buf, canon_list, kk);
+    int numCanon = canonListPopulate(buf, canon_list, NULL, kk);
 
     FILE *fp=fopen(CANON_DIR "/canon_map" kString ".txt","r");
     assert(fp);
