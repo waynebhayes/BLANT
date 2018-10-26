@@ -27,7 +27,7 @@ static int _k[maxK]; // stores what values of k have to be considered e.g. [3,4,
 static int _numCanon[maxK];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
 static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
-static int _canonList[MAX_CANONICALS];  // <-- *todo* for every 'k'
+static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000;
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -54,7 +54,7 @@ void SetGlobalCanonMaps(void){
 		if ((_Bk * sizeof(short int)) < 8192)
 			_Bk = 8192 / sizeof(short int);  // aligned_alloc constraint
 		char BUF[BUFSIZ];
-		_numCanon[_k[i]-1] = canonListPopulate(BUF, _canonList, _k[i]);
+		_numCanon[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _k[i]);
 		if (_numCanon[_k[i]-1] > _maxNumCanon)  // set max number of canonicals for a k
 			_maxNumCanon = _numCanon[_k[i]-1];
 		_K[_k[i]-1] = (short int*) aligned_alloc(8192, _Bk * sizeof(short int));
@@ -78,11 +78,20 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
     return Gv;
 }
 
-void ReBLANT(int _maxNumCanon, int D[maxK][_maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, 
-					int _numSamples, int ***BLANT, int v1, int v2){
+double FastObjective(double oldcost, double olddelta, double change){
+    // olddelta is the difference in graphlet counts of D[0] and D[1] before the surgery
+    // change is the increment/decrement in count of a graphlet, which will be +1/-1
+    double unchanged = SQR(oldcost) - SQR(olddelta);
+    double newcost_sq = unchanged + SQR(olddelta+change);
+    return sqrt(newcost_sq);
+}
 
+double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost){
     int i, j, line, s;
     static TINY_GRAPH *g[maxK];
+
+    double olddelta, change;
+    double newcost = oldcost;
 
     for (i=0; i<maxK; i++){
     	if (_k[i] == -1)
@@ -92,32 +101,46 @@ void ReBLANT(int _maxNumCanon, int D[maxK][_maxNumCanon], GRAPH *G, SET ***sampl
     	if (!g[_k[i]-1]) 
     		g[_k[i]-1] = TinyGraphAlloc(_k[i]);
 
+        /*
     	{
     	int testCount = 0;
     	for(j=0; j<_numCanon[_k[i]-1]; j++)
-    		testCount += D[_k[i]-1][j];
+    		testCount += D[1][_k[i]-1][j];
     	assert(testCount == _numSamples);
-    	}
+    	}*/
 
     	for (s=1; line=Varrays[_k[i]-1][v1][s], s<=Varrays[_k[i]-1][v1][0]; s++)    		
     		if(SetIn(samples[_k[i]-1][v2], line)){
-    			--D[_k[i]-1][BLANT[_k[i]-1][line][0]];
-    			TinyGraphInducedFromGraph(g[_k[i]-1], G, BLANT[_k[i]-1][line]+1);
-    			BLANT[_k[i]-1][line][0] = _K[_k[i]-1][TinyGraph2Int(g[_k[i]-1], _k[i])];
-    			++D[_k[i]-1][BLANT[_k[i]-1][line][0]];
+    			
+                // decrement a graphlet
+                olddelta = D[1][_k[i]-1][BLANT[_k[i]-1][line][0]] - D[0][_k[i]-1][BLANT[_k[i]-1][line][0]];
+                --D[1][_k[i]-1][BLANT[_k[i]-1][line][0]];
+                change = -1;
+                newcost = FastObjective(newcost, olddelta, change);
+
+    		TinyGraphInducedFromGraph(g[_k[i]-1], G, BLANT[_k[i]-1][line]+1);
+    		BLANT[_k[i]-1][line][0] = _K[_k[i]-1][TinyGraph2Int(g[_k[i]-1], _k[i])];
+    			
+                // increment a graphlet
+                olddelta = D[1][_k[i]-1][BLANT[_k[i]-1][line][0]] - D[0][_k[i]-1][BLANT[_k[i]-1][line][0]];
+                ++D[1][_k[i]-1][BLANT[_k[i]-1][line][0]];
+                change = 1;
+                newcost = FastObjective(newcost, olddelta, change);
     		}
     	    	
     	{
     	int testCount = 0;
     	for(j=0; j<_numCanon[_k[i]-1]; j++)
-    		testCount += D[_k[i]-1][j];
+    		testCount += D[1][_k[i]-1][j];
     	assert(testCount == _numSamples);
     	}
     }
+
+    return newcost;
 }
 
 double PoissonDistribution(double l, int k){
-	//->   (e^(-l) x l^k) / k!
+    //->   (e^(-l) x l^k) / k!
     double r = exp(-l);
     int i;
     for(i=k; i>0; i--) // divide by k!
@@ -291,10 +314,11 @@ int main(int argc, char *argv[])
 
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
-    double cost = Objective(_maxNumCanon, D), startCost = cost, newCost, maxCost = cost;
+    double cost = Objective(_maxNumCanon, D), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start. 
     assert(cost == cost);
     long int sa_iter = 0;
     double temperature, pBad, unif_random;
+    
     while(fabs(cost - startCost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
     {
 	int edge = drand48() * G[1]->numEdges;
@@ -306,12 +330,14 @@ int main(int argc, char *argv[])
 	assert(GraphAreConnected(G[1], v1, v2));  // find edge v1,v2
 
 	GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
-	ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], v1, v2);
+	newCost = ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], v1, v2, cost);
+        //printf("compare fast-objective & objective, cost=%g, OCOST=%g\n", newCost, Objective(_maxNumCanon, D));
 	
-	GraphConnect(G[1], u1, u2);
-	ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], u1, u2);
+	GraphConnect(G[1], u1, u2); // add an edge to Gs
+	newCost = ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], u1, u2, newCost);
+        //printf("compare fast-objective & objective, cost=%g, OCOST=%g\n", newCost, Objective(_maxNumCanon, D));
 
-	newCost = Objective(_maxNumCanon, D);
+	//newCost = Objective(_maxNumCanon, D);
 	maxCost = MAX(maxCost, newCost);
 	assert(newCost == newCost);
 	static int same;
@@ -355,9 +381,9 @@ int main(int argc, char *argv[])
 	    }
 	    ++same;
 	    GraphDisconnect(G[1], u1, u2);
-	    ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], u1, u2);
+	    ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], u1, u2, newCost);  // ignore the returned newcost
 	    GraphConnect(G[1], v1, v2);
-	    ReBLANT(_maxNumCanon, D[1], G[1], samples, Varrays, _numSamples, BLANT[1], v1, v2);
+	    ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], v1, v2, newCost);  // ignore the returned newcost
 	}
 	if(same > _stagnated) break;
 	++sa_iter;
