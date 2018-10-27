@@ -21,7 +21,7 @@ baseI=`basename $INPUT`
 OUTPUT="$3"
 baseO=`basename $OUTPUT`
 STAG=1024
-sampleSize=1048576
+sampleSize=102400
 [ -f "$OUTPUT" ] || die "output graph $OUTPUT must already exist, and will be modified"
 BLANTFILES_IN=''
 BLANTFILES_OUT=''

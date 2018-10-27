@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
 	if(newCost < cost || unif_random < pBad)
 #endif
 	{
-	    fprintf(stderr,"A");fflush(stderr);
+	    //fprintf(stderr,"A");fflush(stderr);
 	    static double printVal, printInterval;
 	    if(//fabs(newCost - printVal)/printVal >= 0.02 ||
 		++printInterval > 100)
@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
 	}
 	else // revert
 	{
-	    fprintf(stderr,"R");fflush(stderr);
+	    //fprintf(stderr,"R");fflush(stderr);
 	    static double printVal, printInterval;
 	    if(//fabs(newCost - printVal)/printVal >= 0.02 ||
 		++printInterval > 100)
@@ -392,7 +392,7 @@ int main(int argc, char *argv[])
 	    GraphConnect(G[1], v1, v2);
 	    ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], v1, v2, newCost);  // ignore the returned newcost
 	}
-	if(same > _stagnated || _numDisconnectedGraphlets > _numSamples/50) break;
+	if(same > _stagnated || _numDisconnectedGraphlets > _numSamples/5) break;
 	++sa_iter;
     }
     fprintf(stderr,"\n");
