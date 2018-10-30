@@ -392,7 +392,7 @@ int main(int argc, char *argv[])
 	    GraphConnect(G[1], v1, v2);
 	    ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], v1, v2, newCost);  // ignore the returned newcost
 	}
-	if(same > _stagnated || _numDisconnectedGraphlets > _numSamples/5) break;
+	if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples) break;
 	++sa_iter;
     }
     fprintf(stderr,"\n");
