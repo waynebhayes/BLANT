@@ -2,7 +2,7 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-most: libwayne/made blant canon_maps compute-alphas magic_table draw
+most: libwayne/made blant canon_maps compute-alphas-MCMC magic_table draw
 
 all: most canon_map8 test_blant test_maps
 
@@ -51,9 +51,9 @@ synthetic: libwayne/made synthetic.c blant.h libblant.c
 libwayne/MT19937/mt19937.o:
 	(cd libwayne/MT19937 && make)
 	
-compute-alphas: #libblant.c blant.h compute-alphas.c canon_maps/alpha_list7.txt
-	gcc -Wall -O2 -o compute-alphas compute-alphas.c libblant.o $(LIBWAYNE)
-	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list$$k.txt ]; then ./compute-alphas $$k; fi; done
+compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_list7.txt
+	gcc -Wall -O2 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
+	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)
@@ -77,7 +77,7 @@ draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
 
 clean:
-	/bin/rm -f *.[oa] blant canon-sift fast-canon-map compute-alphas canon_maps/*[3-7]*
+	/bin/rm -f *.[oa] blant canon-sift fast-canon-map compute-alphas-MCMC canon_maps/*[3-7]*
 
 realclean: clean
 	cd libwayne; make clean
