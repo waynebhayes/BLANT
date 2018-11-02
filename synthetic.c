@@ -30,6 +30,7 @@ static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
+#define PRINT_INTERVAL 10000
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
@@ -135,13 +136,17 @@ double FastObjective(double oldcost, double olddelta, double change){
 }
 
 void Revert(int ***BLANT, int _maxNumCanon, int D[2][maxK][_maxNumCanon], RevertStack* rvStack){
-
     // restore the BLANT line
     // restore D vectors
-
     Change change;
     while (pop(rvStack, &change) == 0){
+        Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
+        Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
         BLANT[change.k-1][change.linenum][0] = change.original;
+		if(wasConnected && !isConnected) 
+			++_numDisconnectedGraphlets;
+		if(!wasConnected && isConnected) 
+			--_numDisconnectedGraphlets;
         --D[1][change.k-1][change.new];
         ++D[1][change.k-1][change.original];
     }
@@ -149,7 +154,6 @@ void Revert(int ***BLANT, int _maxNumCanon, int D[2][maxK][_maxNumCanon], Revert
 
 double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, 
                         int v1, int v2, double oldcost, RevertStack* rvStack){
-
     int i, j, line, s;
     static TINY_GRAPH *g[maxK];
 
@@ -159,57 +163,58 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
     for (i=0; i<maxK; i++){
         if (_k[i] == -1)
             break;
+		int k = _k[i];
         
         // allocate a tiny graph 
-        if (!g[_k[i]-1]) 
-            g[_k[i]-1] = TinyGraphAlloc(_k[i]);
+        if (!g[k-1]) 
+            g[k-1] = TinyGraphAlloc(k);
         
         /*{
         int testCount = 0;
-        for(j=0; j<_numCanon[_k[i]-1]; j++)
-            testCount += D[1][_k[i]-1][j];
+        for(j=0; j<_numCanon[k-1]; j++)
+            testCount += D[1][k-1][j];
         assert(testCount == _numSamples);
         }*/
 
-        for (s=1; line=Varrays[_k[i]-1][v1][s], s<=Varrays[_k[i]-1][v1][0]; s++)            
-            if(SetIn(samples[_k[i]-1][v2], line)){
+        for (s=1; line=Varrays[k-1][v1][s], s<=Varrays[k-1][v1][0]; s++)            
+            if(SetIn(samples[k-1][v2], line)){
                 
-                // decrement a graphlet
-                olddelta = D[1][_k[i]-1][BLANT[_k[i]-1][line][0]] - D[0][_k[i]-1][BLANT[_k[i]-1][line][0]];
-                --D[1][_k[i]-1][BLANT[_k[i]-1][line][0]];
+                // olddelta is for the Incremental Objective; this will change depending on the Objective
+                olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
+                --D[1][k-1][BLANT[k-1][line][0]];
                 change = -1;
                 newcost = FastObjective(newcost, olddelta, change);
 
                 // Change object (to be pushed on the stack)
                 Change newchange;
-                newchange.k = _k[i]; 
+                newchange.k = k; 
                 newchange.linenum = line; 
-                newchange.original = (int) BLANT[_k[i]-1][line][0];
+                newchange.original = (int) BLANT[k-1][line][0];
 
-                TinyGraphInducedFromGraph(g[_k[i]-1], G, BLANT[_k[i]-1][line]+1);
-                Boolean wasConnected = SetIn(_connectedCanonicals[_k[i]-1], BLANT[_k[i]-1][line][0]);
-                BLANT[_k[i]-1][line][0] = _K[_k[i]-1][TinyGraph2Int(g[_k[i]-1], _k[i])];
-                Boolean isConnected = SetIn(_connectedCanonicals[_k[i]-1], BLANT[_k[i]-1][line][0]);
+                TinyGraphInducedFromGraph(g[k-1], G, &(BLANT[k-1][line][1])); // address of the Varray without element 0
+                Boolean wasConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
+                BLANT[k-1][line][0] = _K[k-1][TinyGraph2Int(g[k-1], k)];
+                Boolean  isConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
                 if(wasConnected && !isConnected) 
                     ++_numDisconnectedGraphlets;
                 if(!wasConnected && isConnected) 
                     --_numDisconnectedGraphlets;
 
                 // increment a graphlet
-                olddelta = D[1][_k[i]-1][BLANT[_k[i]-1][line][0]] - D[0][_k[i]-1][BLANT[_k[i]-1][line][0]];
-                ++D[1][_k[i]-1][BLANT[_k[i]-1][line][0]];
+                olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
+                ++D[1][k-1][BLANT[k-1][line][0]];
                 change = 1;
                 newcost = FastObjective(newcost, olddelta, change);
 
                 // change object
-                newchange.new = (int) BLANT[_k[i]-1][line][0];
+                newchange.new = (int) BLANT[k-1][line][0];
                 assert(push(rvStack, newchange) == 0);
             }          
              
         {
         int testCount = 0;
-        for(j=0; j<_numCanon[_k[i]-1]; j++)
-            testCount += D[1][_k[i]-1][j];
+        for(j=0; j<_numCanon[k-1]; j++)
+            testCount += D[1][k-1][j];
         assert(testCount == _numSamples);
         }
     }
@@ -440,10 +445,9 @@ int main(int argc, char *argv[])
     {
         //fprintf(stderr,"A");fflush(stderr);
         static double printVal, printInterval;
-        if(//fabs(newCost - printVal)/printVal >= 0.02 ||
-        ++printInterval > 100)
+        if(fabs(newCost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
         {
-        fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDiscon %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
+        fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
         //fprintf(stderr, "%g ", newCost);
         printVal = newCost;
         printInterval = 0;
@@ -456,8 +460,7 @@ int main(int argc, char *argv[])
 
         //fprintf(stderr,"R");fflush(stderr);
         static double printVal, printInterval;
-        if(//fabs(newCost - printVal)/printVal >= 0.02 ||
-        ++printInterval > 100)
+        if(fabs(newCost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
         {
         fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
         //fprintf(stderr, "%g ", newCost);
@@ -479,7 +482,7 @@ int main(int argc, char *argv[])
         //fprintf(stderr, "oc=%g, actual=%g\n", oc, Objective(_maxNumCanon, D));
     }
 
-    if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples) break;
+    if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10) break;
     ++sa_iter;
     }
     fprintf(stderr,"\n");
