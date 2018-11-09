@@ -12,7 +12,7 @@
 die() { echo "$@" >&2; exit 1
 }
 TMPDIR=/tmp/synthetic$$
-trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15
+#trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15
 mkdir $TMPDIR
 
 k=$1
@@ -35,7 +35,7 @@ score=`for j in $(integers 3 $k); do paste <(awk '{print $1}' $TMPDIR/blant.$bas
 while [ $STAG -le 1048576 ]; do # 1 Mebisample
     make synthetic
     md5sum $OUTPUT
-    ./synthetic -s $STAG -k $j $INPUT $OUTPUT $BLANTFILES_IN $BLANTFILES_OUT > $TMPDIR/x
+    ./synthetic -s $STAG -k $j $INPUT $OUTPUT $BLANTFILES_IN $BLANTFILES_OUT > $TMPDIR/x || exit
     mv $TMPDIR/x $OUTPUT
     BLANTFILES_IN=''
     BLANTFILES_OUT=''
