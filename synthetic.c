@@ -165,12 +165,14 @@ double FastSGKObjective(double oldcost, int D0, int D1, int change){
         newratio = (double) m/M;
     }
     
+    oldcost = 1-oldcost;
     double unchanged = totalCanons * oldcost;
     assert(newTotalCanons > 0);
     double returnVal = (double) (unchanged - oldratio + newratio)/newTotalCanons;
     totalCanons = newTotalCanons;
+    returnVal = 1-returnVal;
 
-    assert(returnVal >= 0);
+    assert((returnVal >= 0) && (returnVal <= 1));
     return returnVal;
 }
 
@@ -369,7 +371,8 @@ double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
 
     assert(totalCanons > 0);
     double returnVal = sum/totalCanons;  // totalCanons is a global variable
-    assert(returnVal >= 0);
+    returnVal = 1-returnVal;
+    assert((returnVal>=0) && (returnVal<=1));
     return returnVal;
 }
 
@@ -599,10 +602,13 @@ int main(int argc, char *argv[])
     newcosts[0] = AdjustDegree(u1, u2, 1, G[1], maxdegree, Degree, newcosts[0]);
     newcosts[1] = ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts[1], &xy);
 
+    //fprintf(stderr, "\nthese 2 numbers should be the same - %g %g\n", newcosts[1], SGKObjective(_maxNumCanon, D));
+
     newCost = Objective(newcosts);
     maxCost = MAX(maxCost, newCost);
     assert(newCost == newCost);
     static int same;
+
 #if 1 // HILLCLIMB
     if(newCost < cost)
 #else
@@ -658,8 +664,10 @@ int main(int argc, char *argv[])
         Revert(BLANT[1], _maxNumCanon, D, &uv);
     }
 
-    if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10)
+    if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
+        //fprintf(stderr, "stagnated!\n");
         break;
+    }
     ++sa_iter;
     }
     fprintf(stderr,"\n");
