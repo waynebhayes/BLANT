@@ -529,10 +529,7 @@ int main(int argc, char *argv[])
 
     newCost = Objective(newcosts);
     maxCost = MAX(maxCost, newCost);
-    if (newCost != newCost){
-        fprintf(stderr, "newCost=%g\n", newCost);
-        assert(newCost == newCost);
-    }
+    assert(newCost == newCost);
     static int same;
 #if 1 // HILLCLIMB
     if(newCost < cost)
