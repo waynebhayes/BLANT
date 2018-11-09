@@ -460,8 +460,6 @@ int main(int argc, char *argv[])
     }
 
     // degree distribution vectors
-    
-    // get maxdegree possible
     int maxdegree = -1;
     for (i=0; i<2; i++)
         for (j=0; j < G[i]->n; j++)
