@@ -25,6 +25,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static int _k[maxK]; // stores what values of k have to be considered e.g. [3,4,5,6] or [3,4,5] or [2,7,8]. Will be followed by -1s
 static int _numCanon[maxK];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
+static int totalCanons;
 static SET *_connectedCanonicals[maxK];
 static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
@@ -129,11 +130,70 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
     return Gv;
 }
 
-// works for both degree-distribution & graphlet counts (as long we're using the euclidean distance b/w the vectors)
-double FastObjective(double oldcost, double olddelta, double change){
+double FastEuclideanObjective(double oldcost, double olddelta, double change){
     double unchanged = SQR(oldcost) - SQR(olddelta);
     double newcost_sq = unchanged + SQR(olddelta+change);
     return sqrt(newcost_sq);
+}
+
+double FastSGKObjective(double oldcost, int D0, int D1, int change){
+    double oldratio, newratio;
+    int m,M;
+
+    m = MIN(D0, D1);
+    M = MAX(D0, D1);
+    if (M==0) m=M=1;
+    newratio = (double) m/M;
+
+    D1 = D1 - change;  // if D1 was decremented, change=-1, else +1
+    m = MIN(D0, D1);
+    M = MAX(D0, D1);
+    if (M==0) m=M=1;
+    oldratio = (double) m/M;
+    
+    double unchanged = totalCanons * oldcost;
+    unchanged = unchanged - oldratio + newratio;
+
+    double returnVal = (double) unchanged/totalCanons;
+    assert(returnVal >= 0);
+    return returnVal;
+}
+
+double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int Degree[2][maxdegree+1], double oldcost){
+    // returns the new absolute cost of degree-distribution
+    // Should be called AFTER calling GraphConnect or GraphDisconnect
+
+    assert(abs(connected) == 1);  // connected = +1 if nodes were connected, else -1
+    assert(oldcost >= 0);
+    double newcost, olddelta, change;
+
+    // for node x
+    int old_deg_x = G->degree[x] - connected;
+    olddelta = Degree[1][old_deg_x] - Degree[0][old_deg_x];
+    newcost = FastEuclideanObjective(oldcost, olddelta, -1);
+    olddelta = Degree[1][G->degree[x]] - Degree[0][G->degree[x]];
+    newcost = FastEuclideanObjective(newcost, olddelta, 1);
+    Degree[1][old_deg_x] -= 1;
+    Degree[1][G->degree[x]] += 1;
+
+    // for node y
+    int old_deg_y = G->degree[y] - connected;
+    olddelta = Degree[1][old_deg_y] - Degree[0][old_deg_y];
+    newcost = FastEuclideanObjective(newcost, olddelta, -1);
+    olddelta = Degree[1][G->degree[y]] - Degree[0][G->degree[y]];
+    newcost = FastEuclideanObjective(newcost, olddelta, 1);
+    Degree[1][old_deg_y] -= 1;
+    Degree[1][G->degree[y]] += 1;
+
+    // sanity check
+    // number of elements
+    int i, elts=0;
+    for (i=0; i<=maxdegree; i++)
+        elts += Degree[1][i];
+    assert(elts == (G->n));
+
+    assert(newcost >= 0);
+    return newcost;
 }
 
 void Revert(int ***BLANT, int _maxNumCanon, int D[2][maxK][_maxNumCanon], RevertStack* rvStack){
@@ -151,43 +211,6 @@ void Revert(int ***BLANT, int _maxNumCanon, int D[2][maxK][_maxNumCanon], Revert
         --D[1][change.k-1][change.new];
         ++D[1][change.k-1][change.original];
     }
-}
-
-double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int Degree[2][maxdegree+1], double oldcost){
-    // returns the new absolute cost of degree-distribution
-    // Should be called AFTER calling GraphConnect or GraphDisconnect
-
-    assert(abs(connected) == 1);  // connected = +1 if nodes were connected, else -1
-    assert(oldcost >= 0);
-    double newcost, olddelta, change;
-
-    // for node x
-    int old_deg_x = G->degree[x] - connected;
-    olddelta = Degree[1][old_deg_x] - Degree[0][old_deg_x];
-    newcost = FastObjective(oldcost, olddelta, -1);
-    olddelta = Degree[1][G->degree[x]] - Degree[0][G->degree[x]];
-    newcost = FastObjective(newcost, olddelta, 1);
-    Degree[1][old_deg_x] -= 1;
-    Degree[1][G->degree[x]] += 1;
-
-    // for node y
-    int old_deg_y = G->degree[y] - connected;
-    olddelta = Degree[1][old_deg_y] - Degree[0][old_deg_y];
-    newcost = FastObjective(newcost, olddelta, -1);
-    olddelta = Degree[1][G->degree[y]] - Degree[0][G->degree[y]];
-    newcost = FastObjective(newcost, olddelta, 1);
-    Degree[1][old_deg_y] -= 1;
-    Degree[1][G->degree[y]] += 1;
-
-    // sanity check
-    // number of elements
-    int i, elts=0;
-    for (i=0; i<=maxdegree; i++)
-        elts += Degree[1][i];
-    assert(elts == (G->n));
-
-    assert(newcost >= 0);
-    return newcost;
 }
 
 double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost, RevertStack* rvStack){
@@ -213,7 +236,8 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 --D[1][k-1][BLANT[k-1][line][0]];
                 change = -1;
-                newcost = FastObjective(newcost, olddelta, change);
+                newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
+                //newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // Change object (to be pushed on the stack)
                 Change newchange;
@@ -234,7 +258,8 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 ++D[1][k-1][BLANT[k-1][line][0]];
                 change = 1;
-                newcost = FastObjective(newcost, olddelta, change);
+                newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
+                //newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // change object
                 newchange.new = (int) BLANT[k-1][line][0];
@@ -278,7 +303,6 @@ double Objective(double abscosts[NUMPROPS]){
     return cost;
 }
 
-
 double GraphletObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
@@ -301,6 +325,29 @@ double GraphletObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     assert(returnVal == returnVal);
     assert(returnVal >= 0);
     return returnVal; //exp(logP);
+}
+
+
+double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
+    // returns ABSOLUTE cost
+    int i,j;
+    double sum = 0;
+
+    for(i=0; i<maxK; i++){
+        int k = _k[i];
+        if (k == -1) break;
+        for (j=0; j<_numCanon[k-1]; j++){
+            int m,M;
+            m = MIN(D[0][k-1][j], D[1][k-1][j]);
+            M = MAX(D[0][k-1][j], D[1][k-1][j]);
+            if (M==0) m=M=1;
+            sum += ((double) m/M);
+        }
+    }
+
+    double returnVal = sum/totalCanons;  // totalCanons is a global variable
+    assert(returnVal >= 0);
+    return returnVal;
 }
 
 double DegreeDistObjective(int maxdegree, int Degree[2][maxdegree+1]){
@@ -374,6 +421,14 @@ int main(int argc, char *argv[])
     for(i=0; i<maxK;i++)
         for (j=0; j<_maxNumCanon; j++) 
             D[0][i][j] = D[1][i][j] = 0;
+
+    // set totalCanons
+    totalCanons = 0; 
+    for (i=0; i<maxK; i++){
+        if (_k[i] == -1) break;
+        assert(_numCanon[_k[i]-1] >= 0);
+        totalCanons += _numCanon[_k[i]-1];
+    }
 
 
     // expect 2 blant files (target & synthetic for every _k value)
@@ -490,8 +545,9 @@ int main(int argc, char *argv[])
     create_stack(&xy, maxK * _numSamples);
 
     max_abscosts[0] = DegreeDistObjective(maxdegree, Degree);
-    max_abscosts[1] = GraphletObjective(_maxNumCanon, D);
-
+    //max_abscosts[1] = GraphletObjective(_maxNumCanon, D);
+    max_abscosts[1] = SGKObjective(_maxNumCanon, D);
+ 
     double abscosts[NUMPROPS];
     abscosts[0] = max_abscosts[0];
     abscosts[1] = max_abscosts[1];
@@ -558,7 +614,7 @@ int main(int argc, char *argv[])
         same = 0;
 
         //fprintf(stderr, "\nabscosts[0]=%g, realcost=%g\n", abscosts[0], DegreeDistObjective(maxdegree, Degree));
-        //fprintf(stderr, "\nabscosts[1]=%g, realcost=%g\n", abscosts[1], GraphletObjective(_maxNumCanon, D));
+        //fprintf(stderr, "\nGRAPHLET abscosts[1]=%g, realcost=%g\n", abscosts[1], SGKObjective(_maxNumCanon, D));
     }
     else // revert
     {
