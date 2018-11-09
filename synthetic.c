@@ -253,8 +253,8 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 --D[1][k-1][BLANT[k-1][line][0]];
                 change = -1;
-                newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
+                newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // Change object (to be pushed on the stack)
                 Change newchange;
@@ -275,8 +275,8 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 ++D[1][k-1][BLANT[k-1][line][0]];
                 change = 1;
-                newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
+                newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // change object
                 newchange.new = (int) BLANT[k-1][line][0];
@@ -319,7 +319,7 @@ double Objective(double abscosts[NUMPROPS]){
     return cost;
 }
 
-double GraphletObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
+double GraphletEuclideanObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
     double logP = 0, sum2 = 0;
@@ -562,8 +562,8 @@ int main(int argc, char *argv[])
     create_stack(&xy, maxK * _numSamples);
 
     max_abscosts[0] = DegreeDistObjective(maxdegree, Degree);
-    //max_abscosts[1] = GraphletObjective(_maxNumCanon, D);
-    max_abscosts[1] = SGKObjective(_maxNumCanon, D);
+    max_abscosts[1] = GraphletEuclideanObjective(_maxNumCanon, D);
+    //max_abscosts[1] = SGKObjective(_maxNumCanon, D);
  
     double abscosts[NUMPROPS];
     abscosts[0] = max_abscosts[0];
