@@ -139,23 +139,37 @@ double FastEuclideanObjective(double oldcost, double olddelta, double change){
 double FastSGKObjective(double oldcost, int D0, int D1, int change){
     // D0 and D1 are the graphlet counts in D[0] and D[1] for a particular k and canonNum
     double oldratio, newratio;
+    int newTotalCanons = totalCanons;
     int m,M;
+    assert(abs(change) == 1);
 
+    // compute old ratio
+    D1 = D1 - change;
     m = MIN(D0, D1);
     M = MAX(D0, D1);
-    if (M==0) m=M=1;
-    newratio = (double) m/M;
+    if (M==0){
+        oldratio = 0;
+        if (change == 1) newTotalCanons++;
+    }else{
+        oldratio = (double) m/M;
+    }
 
-    D1 = D1 - change;  // if D1 was decremented, change=-1, else +1
+    // compute new ratio
+    D1 = D1 + change;
     m = MIN(D0, D1);
     M = MAX(D0, D1);
-    if (M==0) m=M=1;
-    oldratio = (double) m/M;
+    if (M==0){
+        newratio = 0;
+        if (change == -1) newTotalCanons--;
+    }else{
+        newratio = (double) m/M;
+    }
     
     double unchanged = totalCanons * oldcost;
-    unchanged = unchanged - oldratio + newratio;
+    assert(newTotalCanons > 0);
+    double returnVal = (double) (unchanged - oldratio + newratio)/newTotalCanons;
+    totalCanons = newTotalCanons;
 
-    double returnVal = (double) unchanged/totalCanons;
     assert(returnVal >= 0);
     return returnVal;
 }
@@ -288,7 +302,6 @@ double PoissonDistribution(double l, int k){
     return r;
 }
 
-
 double Objective(double abscosts[NUMPROPS]){
     // returns WEIGHTED and NORMALIZED total costs, given current absolute costs
     double cost = 0;
@@ -328,24 +341,33 @@ double GraphletObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     return returnVal; //exp(logP);
 }
 
-
 double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
     double sum = 0;
+    totalCanons = 0;
 
     for(i=0; i<maxK; i++){
         int k = _k[i];
-        if (k == -1) break;
+        if (k == -1) 
+            break;
+        
+        assert(_numCanon[k-1] >= 0);
+        totalCanons += _numCanon[k-1];
+
         for (j=0; j<_numCanon[k-1]; j++){
             int m,M;
             m = MIN(D[0][k-1][j], D[1][k-1][j]);
             M = MAX(D[0][k-1][j], D[1][k-1][j]);
-            if (M==0) m=M=1;
-            sum += ((double) m/M);
+            if (M==0)
+                totalCanons -= 1;  // ignore denominator, when M==0
+            else
+                sum += ((double) m/M);
+            
         }
     }
 
+    assert(totalCanons > 0);
     double returnVal = sum/totalCanons;  // totalCanons is a global variable
     assert(returnVal >= 0);
     return returnVal;
@@ -422,16 +444,7 @@ int main(int argc, char *argv[])
     for(i=0; i<maxK;i++)
         for (j=0; j<_maxNumCanon; j++) 
             D[0][i][j] = D[1][i][j] = 0;
-
-    // set totalCanons
-    totalCanons = 0; 
-    for (i=0; i<maxK; i++){
-        if (_k[i] == -1) break;
-        assert(_numCanon[_k[i]-1] >= 0);
-        totalCanons += _numCanon[_k[i]-1];
-    }
-
-
+    
     // expect 2 blant files (target & synthetic for every _k value)
     // assume all blant files have same number of samples = _numSamples
     int **BLANT[2][maxK];
@@ -615,7 +628,7 @@ int main(int argc, char *argv[])
         same = 0;
 
         //fprintf(stderr, "\nDEGREE abscosts[0]=%g, realcost=%g\n", abscosts[0], DegreeDistObjective(maxdegree, Degree));
-        //fprintf(stderr, "\nGRAPHLET abscosts[1]=%g, realcost=%g\n", abscosts[1], SGKObjective(_maxNumCanon, D));
+        //fprintf(stderr, "\nGRAPHLET abscosts[1]=%g, realcost=%g", abscosts[1], SGKObjective(_maxNumCanon, D));
     }
     else // revert
     {
