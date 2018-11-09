@@ -584,6 +584,8 @@ int main(int argc, char *argv[])
     } while(GraphAreConnected(G[1], u1, u2)); // find a non-edge  u1,u2
     assert(GraphAreConnected(G[1], v1, v2));  // find edge v1,v2
 
+    int original_totalCanons = totalCanons;
+
     // initialize new stacks
     assert(init_stack(&uv) == 0);
     assert(init_stack(&xy) == 0);
@@ -648,6 +650,8 @@ int main(int argc, char *argv[])
 
         GraphConnect(G[1], v1, v2);
         AdjustDegree(v1, v2, 1, G[1], maxdegree, Degree, newcosts[0]);
+
+        totalCanons = original_totalCanons;
 
         // revert changes to blant file and D vectors
         Revert(BLANT[1], _maxNumCanon, D, &xy);
