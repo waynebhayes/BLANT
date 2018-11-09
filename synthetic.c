@@ -137,6 +137,7 @@ double FastEuclideanObjective(double oldcost, double olddelta, double change){
 }
 
 double FastSGKObjective(double oldcost, int D0, int D1, int change){
+    // D0 and D1 are the graphlet counts in D[0] and D[1] for a particular k and canonNum
     double oldratio, newratio;
     int m,M;
 
@@ -157,6 +158,23 @@ double FastSGKObjective(double oldcost, int D0, int D1, int change){
     double returnVal = (double) unchanged/totalCanons;
     assert(returnVal >= 0);
     return returnVal;
+}
+
+void Revert(int ***BLANT, int _maxNumCanon, int D[2][maxK][_maxNumCanon], RevertStack* rvStack){
+    // restore the BLANT line
+    // restore D vectorS AND _numDisconnectedGraphlets
+    Change change;
+    while (pop(rvStack, &change) == 0){
+        Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
+        Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
+        BLANT[change.k-1][change.linenum][0] = change.original;
+        if(wasConnected && !isConnected) 
+            ++_numDisconnectedGraphlets;
+        if(!wasConnected && isConnected) 
+            --_numDisconnectedGraphlets;
+        --D[1][change.k-1][change.new];
+        ++D[1][change.k-1][change.original];
+    }
 }
 
 double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int Degree[2][maxdegree+1], double oldcost){
@@ -194,23 +212,6 @@ double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int De
 
     assert(newcost >= 0);
     return newcost;
-}
-
-void Revert(int ***BLANT, int _maxNumCanon, int D[2][maxK][_maxNumCanon], RevertStack* rvStack){
-    // restore the BLANT line
-    // restore D vectorS AND _numDisconnectedGraphlets
-    Change change;
-    while (pop(rvStack, &change) == 0){
-        Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
-        Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
-        BLANT[change.k-1][change.linenum][0] = change.original;
-        if(wasConnected && !isConnected) 
-            ++_numDisconnectedGraphlets;
-        if(!wasConnected && isConnected) 
-            --_numDisconnectedGraphlets;
-        --D[1][change.k-1][change.new];
-        ++D[1][change.k-1][change.original];
-    }
 }
 
 double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost, RevertStack* rvStack){
@@ -613,7 +614,7 @@ int main(int argc, char *argv[])
         memcpy(abscosts, newcosts, NUMPROPS * (sizeof(double)));
         same = 0;
 
-        //fprintf(stderr, "\nabscosts[0]=%g, realcost=%g\n", abscosts[0], DegreeDistObjective(maxdegree, Degree));
+        //fprintf(stderr, "\nDEGREE abscosts[0]=%g, realcost=%g\n", abscosts[0], DegreeDistObjective(maxdegree, Degree));
         //fprintf(stderr, "\nGRAPHLET abscosts[1]=%g, realcost=%g\n", abscosts[1], SGKObjective(_maxNumCanon, D));
     }
     else // revert
