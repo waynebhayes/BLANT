@@ -12,6 +12,7 @@
 #include "blant.h"
 #include "queue.h"
 #include "multisets.h"
+#include "sorts.h"
 
 #define PARANOID_ASSERTS 0	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
@@ -45,12 +46,13 @@ double RandomUniform(void) {
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_MCMC
+#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
 
+#define USE_INSERTION_SORT 0
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
 // For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
@@ -1039,9 +1041,14 @@ void PrintCanonical(int GintCanon)
 }
 	    
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
-	// We should probably figure out a faster sort? This requires a function call for every comparison.
-	qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
-	TinyGraphInducedFromGraph(g, G, Varray);
+    // We should probably figure out a faster sort? This requires a function call for every comparison.
+#if USE_INSERTION_SORT==1
+    InsertionSortInt(Varray,k);
+    //InsertionSort((void*)Varray,k,sizeof(Varray[0]),IntCmp);
+#elif USE_INSERTION_SORT==0
+    qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
+#endif
+    TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
 #if PARANOID_ASSERTS
 	assert(0 <= GintCanon && GintCanon < _numCanon);

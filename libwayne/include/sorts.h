@@ -24,7 +24,7 @@ extern SortFcn
     InsertionSort,  /* n^2 insertion sort, in-place. */
     PileSort,       /* Wayne's sorting method... HayesSort? */
     FredSort;       /* Fredrickson's O(n^2 log n) space*time algorithm */
-
+extern void InsertionSortInt(int A[],size_t k);
 /*
 ** PointerSort is useful for sorting large data items.  In that case, it's
 ** more efficient to create an array of pointers, sort the pointers, and
