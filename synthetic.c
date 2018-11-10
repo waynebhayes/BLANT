@@ -561,13 +561,13 @@ int main(int argc, char *argv[])
     create_stack(&uv, maxK * _numSamples);
     create_stack(&xy, maxK * _numSamples);
 
-    max_abscosts[0] = DegreeDistObjective(maxdegree, Degree);
-    max_abscosts[1] = GraphletEuclideanObjective(_maxNumCanon, D);
-    //max_abscosts[1] = SGKObjective(_maxNumCanon, D);
+    max_abscosts[0] = MAX(1, DegreeDistObjective(maxdegree, Degree));
+    //max_abscosts[1] = MAX(1, GraphletObjective(_maxNumCanon, D));
+    max_abscosts[1] = MAX(1, SGKObjective(_maxNumCanon, D));
  
     double abscosts[NUMPROPS];
-    abscosts[0] = max_abscosts[0];
-    abscosts[1] = max_abscosts[1];
+    abscosts[0] = DegreeDistObjective(maxdegree, Degree);
+    abscosts[1] = SGKObjective(_maxNumCanon, D);
 
     fprintf(stderr, "Starting ABSOLUTE costs, DegreeDist: %g, Graphlets: %g", abscosts[0], abscosts[1]);
 
