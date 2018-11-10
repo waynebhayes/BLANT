@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}
 
-    sprintf(BUF, CANON_DIR "/alpha_list%d.txt", k);
+    sprintf(BUF, CANON_DIR "/alpha_list_mcmc%d.txt", k);
     FILE *fp=fopen(BUF, "w");
     assert(fp);
 	fprintf(fp, "%d\n", numCanon);
