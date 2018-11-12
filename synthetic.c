@@ -136,83 +136,43 @@ double FastEuclideanObjective(double oldcost, double olddelta, double change){
     return sqrt(newcost_sq);
 }
 
-double FastDiffObjective(double oldcost, int k, int canonNum, int D0, int D1, int change){
-    double oldratio, newratio;
-    assert(abs(change) == 1);
-    int diff;
-
-    if (!SetIn(_connectedCanonicals[k-1], canonNum))  // for disconnected graphlets
-        return oldcost;
-
-    // compute old ratio
-    diff = abs(D1-change-D0);
-    if (D0 == 0){
-        if (diff == 0)
-            oldratio = (double) 1;  // 0/0
-        else
-            oldratio = (double) diff; // diff/0
-    }else{
-        oldratio = (double) diff/D0;  // diff/target
-    }
-
-    // compute new ratio
-    diff = abs(D1-D0);
-    if (D0 == 0){
-        if (diff == 0)
-            newratio = (double) 1;
-        else
-            newratio = (double) diff;
-    }else{
-        newratio = (double) diff/D0;
-    }
-
-    double returnVal = oldcost - oldratio + newratio;
-    return returnVal;
-}
-
 double FastSGKObjective(double oldcost, int D0, int D1, int change){
     // D0 and D1 are the graphlet counts in D[0] and D[1] for a particular k and canonNum
     double oldratio, newratio;
-    //int newTotalCanons = totalCanons;
+    int newTotalCanons = totalCanons;
     int m,M;
     assert(abs(change) == 1);
 
     // compute old ratio
-    m = MIN(D0, D1 - change);  // D1-change is the older value of D1 (D1 is the count after decrementing/incrementing in ReBLANT)
-    M = MAX(D0, D1 - change);
+    D1 = D1 - change;
+    m = MIN(D0, D1);
+    M = MAX(D0, D1);
     if (M==0){
-        //oldratio = 0;
-        //if (change == 1) newTotalCanons++;
-        oldratio = 1;
+        oldratio = 0;
+        if (change == 1) newTotalCanons++;
     }else{
         oldratio = (double) m/M;
     }
 
     // compute new ratio
+    D1 = D1 + change;
     m = MIN(D0, D1);
     M = MAX(D0, D1);
     if (M==0){
-        //newratio = 0;
-        //if (change == -1) newTotalCanons--;
-        newratio = 1;
+        newratio = 0;
+        if (change == -1) newTotalCanons--;
     }else{
         newratio = (double) m/M;
     }
     
-    oldcost = 1 - oldcost;
+    oldcost = 1-oldcost;
     double unchanged = totalCanons * oldcost;
-    //assert(newTotalCanons > 0);
-    //double returnVal = (double) (unchanged - oldratio + newratio)/newTotalCanons;
-    double returnVal = (unchanged - oldratio + newratio)/totalCanons;
-    //totalCanons = newTotalCanons;
-    returnVal = 1 - returnVal;
+    assert(newTotalCanons > 0);
+    double returnVal = (double) (unchanged - oldratio + newratio)/newTotalCanons;
+    totalCanons = newTotalCanons;
+    returnVal = 1-returnVal;
 
     assert((returnVal >= 0) && (returnVal <= 1));
-    /*
-    if ((returnVal < 0) || (returnVal > 1)){
-        printf("WRONG returnval in FastSGK: %g\n", returnVal);
-        assert((returnVal >= 0) && (returnVal <= 1));
-    }*/
     return returnVal;
 }
 
@@ -293,9 +253,8 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 --D[1][k-1][BLANT[k-1][line][0]];
                 change = -1;
-                newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
                 //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // Change object (to be pushed on the stack)
                 Change newchange;
@@ -316,9 +275,8 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 ++D[1][k-1][BLANT[k-1][line][0]];
                 change = 1;
-                newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
                 //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // change object
                 newchange.new = (int) BLANT[k-1][line][0];
@@ -385,34 +343,6 @@ double GraphletEuclideanObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]
     return returnVal; //exp(logP);
 }
 
-double DiffObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
-    // returns ABSOLUTE cost
-    int i,j;
-    double sum = 0;
-
-    for(i=0; i<maxK; i++){
-        int k = _k[i];
-        if (k == -1) 
-            break;        
-        for (j=0; j<_numCanon[k-1]; j++){
-            int diff = abs(D[0][k-1][j] - D[1][k-1][j]);
-            int target = D[0][k-1][j];
-            if (SetIn(_connectedCanonicals[k-1], j)){ // only count if canonical is connected
-                if (target == 0){
-                    if (diff == 0)
-                        sum += (double) 1;
-                    else
-                        sum += (double) diff;
-                }else{
-                    sum += (double) diff/target;
-                }
-            }
-        }
-    }
-
-    return sum;
-}
-
 double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
@@ -431,11 +361,8 @@ double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
             int m,M;
             m = MIN(D[0][k-1][j], D[1][k-1][j]);
             M = MAX(D[0][k-1][j], D[1][k-1][j]);
-            if (M==0){
-                m=M=1;
-                sum += 1;
-                //totalCanons -= 1;  // ignore denominator, when M==0
-            }
+            if (M==0)
+                totalCanons -= 1;  // ignore denominator, when M==0
             else
                 sum += ((double) m/M);
             
@@ -634,26 +561,23 @@ int main(int argc, char *argv[])
     create_stack(&uv, maxK * _numSamples);
     create_stack(&xy, maxK * _numSamples);
 
-    // okay to normalize by a number < 1
-    max_abscosts[0] = DegreeDistObjective(maxdegree, Degree);
-    //max_abscosts[1] = GraphletEuclideanObjective(_maxNumCanon, D);
-    //max_abscosts[1] = SGKObjective(_maxNumCanon, D);
-    max_abscosts[1] = DiffObjective(_maxNumCanon, D);
+    max_abscosts[0] = MAX(1, DegreeDistObjective(maxdegree, Degree));
+    //max_abscosts[1] = MAX(1, GraphletObjective(_maxNumCanon, D));
+    max_abscosts[1] = MAX(1, SGKObjective(_maxNumCanon, D));
  
     double abscosts[NUMPROPS];
-    abscosts[0] = max_abscosts[0];
-    abscosts[1] = max_abscosts[1];
+    abscosts[0] = DegreeDistObjective(maxdegree, Degree);
+    abscosts[1] = SGKObjective(_maxNumCanon, D);
 
-    fprintf(stderr, "Starting ABSOLUTE costs, DegreeDist: %g, Graphlets: %g\n", abscosts[0], abscosts[1]);
+    fprintf(stderr, "Starting ABSOLUTE costs, DegreeDist: %g, Graphlets: %g", abscosts[0], abscosts[1]);
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
     double cost = Objective(abscosts), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start. 
     assert(cost == cost);
     long int sa_iter = 0;
-    double pBad, unif_random;
-    float temperature;  // it's okay to overflow and become 0
+    double temperature, pBad, unif_random;
     
-    while((startCost - cost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
+    while(fabs(cost - startCost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
     {
     int edge = drand48() * G[1]->numEdges;
     int u1, u2, v1 = G[1]->edgeList[2*edge], v2 = G[1]->edgeList[2*edge+1];
@@ -663,7 +587,7 @@ int main(int argc, char *argv[])
     } while(GraphAreConnected(G[1], u1, u2)); // find a non-edge  u1,u2
     assert(GraphAreConnected(G[1], v1, v2));  // find edge v1,v2
 
-    //int original_totalCanons = totalCanons;
+    int original_totalCanons = totalCanons;
 
     // initialize new stacks
     assert(init_stack(&uv) == 0);
@@ -678,7 +602,7 @@ int main(int argc, char *argv[])
     newcosts[0] = AdjustDegree(u1, u2, 1, G[1], maxdegree, Degree, newcosts[0]);
     newcosts[1] = ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts[1], &xy);
 
-    //fprintf(stderr, "\nthese 2 numbers should be the same - %g %g", newcosts[1], DiffObjective(_maxNumCanon, D));
+    //fprintf(stderr, "\nthese 2 numbers should be the same - %g %g\n", newcosts[1], SGKObjective(_maxNumCanon, D));
 
     newCost = Objective(newcosts);
     maxCost = MAX(maxCost, newCost);
@@ -690,7 +614,7 @@ int main(int argc, char *argv[])
 #else
 #define SA_START_TEMP 1.0
 #define SA_DECAY 1e-4
-    temperature = SA_START_TEMP * exp(-SA_DECAY*500*sa_iter);
+    temperature = SA_START_TEMP * exp(-SA_DECAY*sa_iter);
     unif_random = drand48();
     pBad = exp((-(newCost - cost)/maxCost)/temperature);
     // assert (newCost < cost <=> pBad > 1)
@@ -733,7 +657,7 @@ int main(int argc, char *argv[])
         GraphConnect(G[1], v1, v2);
         AdjustDegree(v1, v2, 1, G[1], maxdegree, Degree, newcosts[0]);
 
-        //totalCanons = original_totalCanons;
+        totalCanons = original_totalCanons;
 
         // revert changes to blant file and D vectors
         Revert(BLANT[1], _maxNumCanon, D, &xy);
@@ -741,7 +665,7 @@ int main(int argc, char *argv[])
     }
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
-        fprintf(stderr, "stagnated!\n");
+        //fprintf(stderr, "stagnated!\n");
         break;
     }
     ++sa_iter;
