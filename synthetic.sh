@@ -28,8 +28,8 @@ BLANTFILES_OUT=''
 for j in `seq 3 $k`; do
     BLANTFILES_IN="$BLANTFILES_IN $TMPDIR/blant.$baseI.k$j"
     BLANTFILES_OUT="$BLANTFILES_OUT $TMPDIR/blant.$baseO.k$j"
-    ./blant -k $j -mi -s $sampleSize $INPUT > $TMPDIR/blant.$baseI.k$j
-    ./blant -k $j -mi -s $sampleSize $OUTPUT > $TMPDIR/blant.$baseO.k$j
+    ./blant -s NBE -k $j -mi -n $sampleSize $INPUT > $TMPDIR/blant.$baseI.k$j
+    ./blant -s NBE -k $j -mi -n $sampleSize $OUTPUT > $TMPDIR/blant.$baseO.k$j
 done
 score=`for j in $(seq 3 $k); do paste <(awk '{print $1}' $TMPDIR/blant.$baseI.k$j | sort -n | uniq -c) <(awk '{print $1}' $TMPDIR/blant.$baseO.k$j | sort -n | uniq -c); done | awk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
 while [ $STAG -le 1048576 ]; do # 1 Mebisample
@@ -42,8 +42,8 @@ while [ $STAG -le 1048576 ]; do # 1 Mebisample
     for j in `seq 3 $k`; do
     BLANTFILES_IN="$BLANTFILES_IN $TMPDIR/blant.$baseI.k$j"
     BLANTFILES_OUT="$BLANTFILES_OUT $TMPDIR/blant.$baseO.k$j"
-    ./blant -k $j -mi -s $sampleSize $OUTPUT > $TMPDIR/blant.$baseO.k$j
-    ./blant -k $j -mi -s $sampleSize $INPUT > $TMPDIR/blant.$baseI.k$j
+    ./blant -s NBE -k $j -mi -n $sampleSize $OUTPUT > $TMPDIR/blant.$baseO.k$j
+    ./blant -s NBE -k $j -mi -n $sampleSize $INPUT > $TMPDIR/blant.$baseI.k$j
     done
     newScore=`paste <(awk '{print $1}' $TMPDIR/blant.$baseI.k? | sort -n | uniq -c) <(awk '{print $1}' $TMPDIR/blant.$baseO.k? | sort -n | uniq -c) | awk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
     if [ $newScore -gt $score ]; then # improvement has stopped at this sample size.
@@ -51,8 +51,8 @@ while [ $STAG -le 1048576 ]; do # 1 Mebisample
     echo increasing STAG to $STAG
     score=$(($newScore*4))
     for j in `seq 3 $k`; do
-        ./blant -k $j -mi -s $sampleSize $OUTPUT > $TMPDIR/blant.$baseO.k$j
-        ./blant -k $j -mi -s $sampleSize $INPUT > $TMPDIR/blant.$baseI.k$j
+        ./blant -s NBE -k $j -mi -n $sampleSize $OUTPUT > $TMPDIR/blant.$baseO.k$j
+        ./blant -s NBE -k $j -mi -n $sampleSize $INPUT > $TMPDIR/blant.$baseI.k$j
     done
     else
     score="$newScore"

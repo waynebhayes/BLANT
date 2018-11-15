@@ -35,7 +35,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 #define NUMPROPS 2 // degree-distribution is 0th, graphlets is 1st
 
 // NORMALIZATION
-static double weights[NUMPROPS] = {0.5, 0.5};
+static double weights[NUMPROPS] = {0.004, 0.996};
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -293,9 +293,9 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 --D[1][k-1][BLANT[k-1][line][0]];
                 change = -1;
-                newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
+                //newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
                 //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // Change object (to be pushed on the stack)
                 Change newchange;
@@ -316,9 +316,9 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                 olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
                 ++D[1][k-1][BLANT[k-1][line][0]];
                 change = 1;
-                newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
+                //newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
                 //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                 // change object
                 newchange.new = (int) BLANT[k-1][line][0];
@@ -636,9 +636,9 @@ int main(int argc, char *argv[])
 
     // okay to normalize by a number < 1
     max_abscosts[0] = DegreeDistObjective(maxdegree, Degree);
-    //max_abscosts[1] = GraphletEuclideanObjective(_maxNumCanon, D);
+    max_abscosts[1] = GraphletEuclideanObjective(_maxNumCanon, D);
     //max_abscosts[1] = SGKObjective(_maxNumCanon, D);
-    max_abscosts[1] = DiffObjective(_maxNumCanon, D);
+    //max_abscosts[1] = DiffObjective(_maxNumCanon, D);
  
     double abscosts[NUMPROPS];
     abscosts[0] = max_abscosts[0];
