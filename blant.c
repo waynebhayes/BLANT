@@ -36,7 +36,9 @@ double RandomUniform(void) {
 #define RandomSeed srand48
 #endif
 
-// Below are the sampling methods; pick one on the last line
+int _sampleMethod = 0;
+
+// Below are the sampling methods
 #define SAMPLE_ACCEPT_REJECT 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
 #define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
@@ -46,7 +48,6 @@ double RandomUniform(void) {
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -1004,19 +1005,25 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	    break;
     //printf("choosing from CC %d\n", cc);
 
-#if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
-	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW and doesn't need to use cc
-#elif SAMPLE_METHOD == SAMPLE_NODE_EXPANSION
-	SampleGraphletNodeBasedExpansion(V, Varray, G, k, cc);
-#elif SAMPLE_METHOD == SAMPLE_RESERVOIR
-	SampleGraphletLuBressanReservoir(V, Varray, G, k, cc); // pretty slow but not as bad as unbiased
-#elif SAMPLE_METHOD == SAMPLE_EDGE_EXPANSION
-	SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // This one is faster but less well tested and less well understood.
-#elif SAMPLE_METHOD == SAMPLE_MCMC
-	SampleGraphletMCMC(V, Varray, G, k, cc);
-#else
-#error unknown sampling method
-#endif
+	switch (_sampleMethod) {
+		case SAMPLE_ACCEPT_REJECT:
+			SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW and doesn't need to use cc
+			break;
+		case SAMPLE_NODE_EXPANSION:
+			SampleGraphletNodeBasedExpansion(V, Varray, G, k, cc);
+			break;
+		case SAMPLE_RESERVOIR:
+			SampleGraphletLuBressanReservoir(V, Varray, G, k, cc); // pretty slow but not as bad as unbiased
+			break;
+		case SAMPLE_EDGE_EXPANSION:
+			SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // This one is faster but less well tested and less well understood.
+			break;
+		case SAMPLE_MCMC:
+			SampleGraphletMCMC(V, Varray, G, k, cc);
+			break;
+		default:
+			Fatal("unknown sampling method");
+	}
 }
 
 void PrintCanonical(int GintCanon)
@@ -1119,34 +1126,29 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     unsigned Varray[maxK+1];
-#if SAMPLE_METHOD == SAMPLE_MCMC
-	initializeMCMC(k, numSamples);
-#endif
+	if (_sampleMethod == SAMPLE_MCMC)
+		initializeMCMC(k, numSamples);
     for(i=0; i<numSamples; i++)
     {
 	SampleGraphlet(G, V, Varray, k);
 	ProcessGraphlet(G, V, Varray, perm, g, k);
     }
-#if SAMPLE_METHOD == SAMPLE_MCMC
-	finalizeMCMC();
-#endif
+	if (_sampleMethod == SAMPLE_MCMC)
+		finalizeMCMC();
     switch(_outputMode)
     {
 	int canon;
     case indexGraphlets: case indexOrbits:
-#if SAMPLE_METHOD == SAMPLE_MCMC
-	//Warning("Sampling method MCMC overcounts graphlets by varying amounts.");
-#endif
 	break; // already output on-the-fly above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
-#if SAMPLE_METHOD == SAMPLE_MCMC
-	BuildGraph(g, _canonList[canon]);
-	if (TinyGraphDFSConnected(g, 0))
-		printf("%lf %d\n", _graphletConcentration[canon], canon);
-#else
-	printf("%lu %d\n", _graphletCount[canon], canon);
-#endif
+	if (_sampleMethod == SAMPLE_MCMC) {
+		BuildGraph(g, _canonList[canon]);
+		if (TinyGraphDFSConnected(g, 0))
+			printf("%lf %d\n", _graphletConcentration[canon], canon);
+	}
+	else
+		printf("%lu %d\n", _graphletCount[canon], canon);
 	}
 	break;
     case outputGDV:
@@ -1173,9 +1175,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
 	Free(_orbitDegreeVector[i]);
 #endif
-#if SAMPLE_METHOD == SAMPLE_ACCEPT_REJECT
-    fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
-#endif
+	if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
+    	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
     return 0;
 }
 
@@ -1364,7 +1365,7 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:s:c:w:k:r:")) != -1)
+    while((opt = getopt(argc, argv, "m:d:t:s:c:w:k:r:n:")) != -1)
     {
 	switch(opt)
 	{
@@ -1397,9 +1398,19 @@ int main(int argc, char *argv[])
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
 	case 'r': _seed = atoi(optarg);
 	    break;
-	case 's': numSamples = atoi(optarg);
-	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
-	    break;
+	case 's':
+		if (_sampleMethod != 0) Fatal("Tried to define sampling method twice");
+		else if (strncmp(optarg, "NBE", 3) == 0)
+			_sampleMethod = SAMPLE_NODE_EXPANSION;
+		else if (strncmp(optarg, "EBE", 3) == 0)
+			_sampleMethod = SAMPLE_EDGE_EXPANSION;
+		else if (strncmp(optarg, "MCMC", 3) == 0)
+			_sampleMethod = SAMPLE_MCMC;
+		else if (strncmp(optarg, "RES", 3) == 0)
+			_sampleMethod = SAMPLE_RESERVOIR;
+		else
+			Fatal("Unrecognized sampling method specified: %s. Options are: {NBE|EBE|MCMC|RES}", optarg);
+		break;
 	case 'c': confidence = atof(optarg);
 	    if(confidence <= 0) Fatal("-c argument (confidence of confidence interval) must be positive\n%s", USAGE);
 	    break;
@@ -1408,6 +1419,9 @@ int main(int argc, char *argv[])
 	    break;
 	case 'k': _k = atoi(optarg);
 	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+	    break;
+	case 'n': numSamples = atoi(optarg);
+	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
