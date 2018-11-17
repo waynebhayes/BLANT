@@ -2,20 +2,20 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-most: libwayne/made blant canon_maps compute-alphas-MCMC magic_table draw
+most: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
 
 all: most canon_map8 test_blant test_maps
 
 test_blant:
 	# First run blant-sanity for various values of k
-	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -mi -s 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k networks/syeast.el; fi; done
+	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k networks/syeast.el; fi; done
 	# Test to see that for k=6, the most frequent 10 graphlets in syeast appear in the expected order in frequency
 	# Need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
-	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -mf -t 4 -s 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
+	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t 4 -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in 3 4 5 6 7 8; do export k; echo -n "$$k: "; ./blant -t 4 -mg -s 10000000 -k $$k networks/syeast.el | bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in 3 4 5 6 7 8; do export k; echo -n "$$k: "; ./blant -s NBE -t 4 -mg -n 10000000 -k $$k networks/syeast.el | bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
 test_maps:
 	ls canon_maps/ | egrep -v 'README|graphlet_list' | awk '{printf "cmp canon_maps.3-7/%s canon_maps/%s\n",$$1,$$1}' | sh
@@ -50,6 +50,10 @@ synthetic: libwayne/made synthetic.c blant.h libblant.c
 
 libwayne/MT19937/mt19937.o:
 	(cd libwayne/MT19937 && make)
+
+compute-alphas-NBE: #compute-alphas-NBE.c
+	gcc -Wall -O2 -o compute-alphas-NBE compute-alphas-NBE.c libblant.o $(LIBWAYNE)
+	for k in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_nbe$$k.txt ]; then ./compute-alphas-NBE $$k; fi; done
 	
 compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_list7.txt
 	gcc -Wall -O2 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
@@ -77,7 +81,7 @@ draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
 
 clean:
-	/bin/rm -f *.[oa] blant canon-sift fast-canon-map compute-alphas-MCMC canon_maps/*[3-7]*
+	/bin/rm -f *.[oa] blant canon-sift fast-canon-map compute-alphas-MCMC compute-alphas-NBE canon_maps/*[3-7]*
 
 realclean: clean
 	cd libwayne; make clean
