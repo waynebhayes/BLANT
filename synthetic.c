@@ -11,6 +11,7 @@
 #include "graph.h"
 #include "blant.h"
 #include "sets.h"
+#include "syntheticDS.h" // some data structures (Revert stacks, and GDV hash tables)
 
 char USAGE[] = "synthetic -k maxk -s STAGNATED Gtarget.el Gsynth.el [--blant.Gt.index files--] [--blant.Gs.index files--]\n - output is new Gsynth.el\n";
 
@@ -48,52 +49,6 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int* _K[maxK];
 
-
-//stack
-typedef struct change{
-    int k, linenum, original, new;
-} Change;
-
-typedef struct revertstack{
-    int tos, size;
-    Change* space;
-} RevertStack;
-
-int create_stack(RevertStack* stack, int size){
-    stack->tos = -1;
-    stack->size = size;  // usually size = k*_numSamples (atmost every line in BLANT can change)
-    stack->space = (Change*) Malloc(size * sizeof(Change));
-    if (stack->space != NULL)
-        return 0;
-    else
-        return -1;
-}
-
-int init_stack(RevertStack* stack){
-    stack->tos = -1;
-    if (stack->space != NULL)
-        return 0;
-    else
-        return -1;
-} 
-
-int push(RevertStack* stack, Change elt){
-    if (stack->tos == (stack->size-1))
-        return -1;
-    (stack->tos) += 1;
-    memcpy(&(stack->space)[stack->tos], &elt, sizeof(Change));
-    return 0;
-}
-
-int pop(RevertStack* stack, Change* elt){
-    if (stack->tos == -1)
-        return -1;
-    memcpy(elt, &(stack->space)[stack->tos], sizeof(Change));
-    stack->tos -= 1;
-    return 0;
-}
-
-
 // Assuming the global variable _k[] is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
 void SetGlobalCanonMaps(void){
@@ -107,9 +62,7 @@ void SetGlobalCanonMaps(void){
         char BUF[BUFSIZ];
         _connectedCanonicals[_k[i]-1] = SetAlloc(_Bk);
         _numCanon[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _connectedCanonicals[_k[i]-1], _k[i]);
-        // Pushkar: need to add connectedCanonicals in above line
-        if (_numCanon[_k[i]-1] > _maxNumCanon)  // set max number of canonicals for a k
-            _maxNumCanon = _numCanon[_k[i]-1];
+        _maxNumCanon = MAX(_maxNumCanon, _numCanon[_k[i]-1]);  // set max number of canonicals for a k
         _K[_k[i]-1] = (short int*) aligned_alloc(8192, MAX(_Bk * sizeof(short int), 8192));
         assert(_K[_k[i]-1] != NULL);
         mapCanonMap(BUF, _K[_k[i]-1], _k[i]);
@@ -449,6 +402,60 @@ double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     return returnVal;
 }
 
+double GDVObjective(int _maxNumCanon, Dictionary histograms[2][maxK][_maxNumCanon]){
+    // returns the cost b/w every graphlet's GDV histogram
+
+    double sum = 0;
+    int j,k,canon;
+    int key_tar, val_tar, key_syn, val_syn;
+
+    Dictionary hist_tar, hist_syn;
+    Storage *iter_tar, *iter_syn;
+
+    for(j=0; j<maxK; j++){
+        k = _k[j];
+        if (k == -1) break;
+        for(canon=0; canon< _numCanon[k-1]; canon++){
+            // the 2 histograms (target & synthetic)
+            hist_tar = histograms[0][k-1][canon];
+            iter_tar = getKeyValueIterator(&hist_tar);
+
+            hist_syn = histograms[1][k-1][canon];
+            iter_syn = getKeyValueIterator(&hist_syn);
+
+            double oldsum = sum;
+            // find 'difference' b/w the 2 histograms
+            // iterate over all keys in target (these could be in synthetic or not)
+            while(iter_tar != NULL){
+                getNext(iter_tar, &key_tar, &val_tar);
+                assert((key_tar >= 0) && (val_tar >= 0));
+                key_syn = key_tar;
+                val_syn = dictionary_get(&hist_syn, key_syn, 0);  // default value is 0
+                oldsum += (double) SQR(val_tar - val_syn);
+            }
+
+            // iterate over all keys *ONLY* in synthetic
+            while(iter_syn != NULL){
+                getNext(iter_syn, &key_syn, &val_syn);
+                assert((key_syn >= 0) && (val_syn >= 0));
+                key_tar = key_syn;
+                val_tar = dictionary_get(&hist_tar, key_tar, -1);  // -1 will only be returned if the key doesn't exist in target
+                if (val_tar == -1)
+                    oldsum += (double) SQR(val_syn);
+            }
+
+            assert(oldsum >= sum);  // sum cannot decrease
+            sum = oldsum;
+            assert(sum >= 0);
+        }
+    }
+
+    double returnval = (double) sqrt(sum);
+    assert(returnval == returnval);
+    assert(returnval >= 0);
+    return returnval;
+}
+
 double DegreeDistObjective(int maxdegree, int Degree[2][maxdegree+1]){
     // returns ABSOLUTE cost
     double sum = 0;
@@ -463,8 +470,7 @@ double DegreeDistObjective(int maxdegree, int Degree[2][maxdegree+1]){
 }
 
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
     srand48(time(0)+getpid());
     int i, opt, j, line;
 
@@ -520,7 +526,23 @@ int main(int argc, char *argv[])
     for(i=0; i<maxK;i++)
         for (j=0; j<_maxNumCanon; j++) 
             D[0][i][j] = D[1][i][j] = 0;
-    
+
+
+    // GDV matrices
+    int* GDV[2][maxK][_maxNumCanon];  // 4 dimensional
+    for(i=0; i++; i<2){
+        for(j=0; j<maxK; j++){
+            if (_k[j] == -1) break;
+            int l;
+            for (l=0; l<_numCanon[_k[j]-1]; l++){
+                GDV[i][_k[j]-1][l] = (int*) Malloc(G[i]->n * sizeof(int));
+                int m;
+                for (m=0; m < G[i]->n; m++)
+                    GDV[i][_k[j]-1][l][m] = 0;  // initialize to 0
+            }
+        }
+    }
+
     // expect 2 blant files (target & synthetic for every _k value)
     // assume all blant files have same number of samples = _numSamples
     int **BLANT[2][maxK];
@@ -550,8 +572,11 @@ int main(int argc, char *argv[])
             for (line=0; line<_numSamples; line++){
                 BLANT[i][_k[j]-1][line] = (int*) Malloc((maxK+1) * sizeof(int));
                 int l;
-                for (l=0; l<=_k[j]; l++)
+                for (l=0; l<=_k[j]; l++){
                     assert(1 == fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])));
+                    if (l)
+                        ++GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]]; // update the GDV 
+                }
                 assert(BLANT[i][_k[j]-1][line][0] < _maxNumCanon);
                 ++D[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]]; // squiggly plot
             }
@@ -560,6 +585,44 @@ int main(int argc, char *argv[])
             optind++;
         }
     
+    }
+
+    // sanity check for GDVs? --> sum of each GDV[i] matrix == _numSamples
+    for(i=0; i<2; i++){
+        int l,m;
+        for(j=0; j<maxK; j++){
+            int sum = 0;
+            if (_k[j] == -1) break;
+            for (l=0; l<_numCanon[_k[j]-1]; l++)
+                for (m=0; m<G[i]->n; m++)
+                    sum += GDV[i][_k[j]-1][l][m];
+            assert(sum == _numSamples);
+        }
+    }
+
+    // TODO
+    /* sanity check for hashTable implementation 
+    keys = [1,10], values = key+5
+    // store, multiple times, and then fetch and match
+    */
+
+    // Histograms, derived from GDV
+    Dictionary histograms[2][maxK][_maxNumCanon];  // not actually a histogram, but a hash-table
+    for(i=0; i<2; i++){
+        for(j=0; j<maxK; j++){
+            if (_k[j] == -1) break;
+            int l;
+            for(l=0; l<_numCanon[_k[j]-1]; l++){
+                Dictionary* this = &(histograms[i][_k[j]-1][l]); 
+                dictionary_create(this);
+                int n, key, prev;
+                for (n=0; n < G[i]->n; n++){  // traverse the nodes involved in a particular graphlet
+                    key = GDV[i][_k[j]-1][l];
+                    prev = dictionary_get(this, key, 0);
+                    dictionary_set(this, key, prev+1);
+                }
+            }
+        }
     }
 
     // check (squiggly vectors count == numsamples)
@@ -634,7 +697,6 @@ int main(int argc, char *argv[])
     create_stack(&uv, maxK * _numSamples);
     create_stack(&xy, maxK * _numSamples);
 
-    // okay to normalize by a number < 1
     max_abscosts[0] = DegreeDistObjective(maxdegree, Degree);
     max_abscosts[1] = GraphletEuclideanObjective(_maxNumCanon, D);
     //max_abscosts[1] = SGKObjective(_maxNumCanon, D);

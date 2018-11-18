@@ -48,6 +48,7 @@ int _sampleMethod = 0;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
+#define SAMPLE_METHOD SAMPLE_MCMC
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
