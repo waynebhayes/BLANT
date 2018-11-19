@@ -48,6 +48,7 @@ int _sampleMethod = 0;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
+#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -197,18 +198,22 @@ static int InitializeConnectedComponents(GRAPH *G)
 	//find the biggest one
 	int biggest = i;
 	for(j=i+1; j<_numConnectedComponents;j++)
-	    if(_componentSize[j] > _componentSize[i])
+	    if(_componentSize[j] > _componentSize[biggest])
 		biggest = j;
 	// Now swap the biggest one into position i;
 	for(j=0; j < _componentSize[biggest]; j++)
 	    _whichComponent[_componentList[biggest][j]] = i;
 	int itmp, *pitmp;
+    SET * stmp;
 	itmp = _componentSize[i];
 	_componentSize[i] = _componentSize[biggest];
 	_componentSize[biggest] = itmp;
 	pitmp = _componentList[i];
 	_componentList[i] = _componentList[biggest];
 	_componentList[biggest] = pitmp;
+    stmp = _componentSet[i];
+    _componentSet[i] = _componentSet[biggest];
+    _componentSet[biggest] = stmp;
 	_combinations[i] = CombinChooseDouble(_componentSize[i], _k);
 	_totalCombinations += _combinations[i];
     }
