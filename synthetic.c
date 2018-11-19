@@ -529,14 +529,11 @@ double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
             double newsum = sum;
             // find 'difference' b/w the 2 histograms
             // iterate over all keys in target (these could be in synthetic or not)
-            int kk1 = 0;
-            int kk2 = 0;
             while(getNext(&iter_tar, &key_tar, &val_tar) == 0){
                 assert((key_tar >= 0) && (val_tar >= 0));
                 key_syn = key_tar;
                 val_syn = dictionary_get(&hist_syn, key_syn, 0);  // default value is 0
                 newsum += (double) SQR(val_tar - val_syn);
-                kk1++;
             }
 
             // iterate over all keys *ONLY* in synthetic
@@ -546,10 +543,8 @@ double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
                 val_tar = dictionary_get(&hist_tar, key_tar, -1);  // -1 will only be returned if the key doesn't exist in target
                 if (val_tar == -1)
                     newsum += (double) SQR(val_syn);
-                kk2++;
             }
 
-            //fprintf(stderr, "keys in both loops = %d, %d ---- old sum=%g, new sum=%g\n", kk1, kk2, sum, newsum);
             assert(newsum >= sum);  // sum cannot decrease
             sum = newsum;
             assert(sum >= 0);
@@ -667,7 +662,6 @@ int main(int argc, char *argv[]){
                 for (l=0; l<=_k[j]; l++){
                     assert(1 == fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])));
                     if (l>0){
-                        assert(BLANT[i][_k[j]-1][line][l] < (G[i]->n));
                         GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]] += 1; // update the GDV 
                     }
                 }
@@ -728,7 +722,6 @@ int main(int argc, char *argv[]){
                     key = GDV[i][_k[j]-1][l][n];
                     prev = dictionary_get(this, key, 0);
                     dictionary_set(this, key, prev+1);
-                    assert((prev+1) == dictionary_get(this, key, prev));
                 }
 
                 // sanity check - histograms, using an iterator over the key:value pairs
