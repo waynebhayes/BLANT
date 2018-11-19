@@ -275,6 +275,7 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
             
                 // decrement a graphlet
                 canon = BLANT[k-1][line][0];
+                Boolean wasConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
                 --D[1][k-1][canon];
 
                 if (USING_GDV_OBJECTIVE){
@@ -288,7 +289,9 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         assert(value > 0);
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
                         dictionary_set(&(histograms[1][k-1][canon]), key, value-1);
-                        newcost = FastEuclideanObjective(newcost, olddelta, change);
+                        // count if connected
+                        if (wasConnected) 
+                            newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                         GDV[1][k-1][canon][node] -= 1;
                         assert(GDV[1][k-1][canon][node] >= 0);
@@ -299,7 +302,9 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         value = dictionary_get(&(histograms[1][k-1][canon]), key, 0);
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);
                         dictionary_set(&(histograms[1][k-1][canon]), key, value+1);
-                        newcost = FastEuclideanObjective(newcost, olddelta, change);
+                        // count if connected
+                        if (wasConnected) 
+                            newcost = FastEuclideanObjective(newcost, olddelta, change);
                     }
 
                 }else{
@@ -319,7 +324,7 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                 newchange.original = (int) canon;
 
                 TinyGraphInducedFromGraph(g[k-1], G, &(BLANT[k-1][line][1])); // address of the Varray without element 0
-                Boolean wasConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
+                //Boolean wasConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
                 BLANT[k-1][line][0] = _K[k-1][TinyGraph2Int(g[k-1], k)];
                 Boolean  isConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
                 if(wasConnected && !isConnected) 
@@ -342,7 +347,9 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         assert(value > 0);
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
                         dictionary_set(&(histograms[1][k-1][canon]), key, value-1);
-                        newcost = FastEuclideanObjective(newcost, olddelta, change);                 
+                        // count if connected
+                        if (isConnected) 
+                            newcost = FastEuclideanObjective(newcost, olddelta, change);               
 
                         GDV[1][k-1][canon][node] += 1;
 
@@ -352,7 +359,9 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         value = dictionary_get(&(histograms[1][k-1][canon]), key, 0);
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
                         dictionary_set(&(histograms[1][k-1][canon]), key, value+1);
-                        newcost = FastEuclideanObjective(newcost, olddelta, change);
+                        // count if connected
+                        if (isConnected) 
+                            newcost = FastEuclideanObjective(newcost, olddelta, change);
                     }
 
                 }else{
@@ -368,12 +377,12 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                 assert(push(rvStack, newchange) == 0);
             }          
              
-        {
+        /*{
         int testCount = 0;
         for(j=0; j<_numCanon[k-1]; j++)
             testCount += D[1][k-1][j];
         assert(testCount == _numSamples);
-        }
+        }*/
     }
 
     assert(newcost >= 0);
@@ -519,6 +528,11 @@ double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
         if (k == -1) break;
         
         for(canon=0; canon < _numCanon[k-1]; canon++){
+
+            // skip this canon if it is disconnected
+            if (!SetIn(_connectedCanonicals[k-1], canon)) 
+                continue;
+
             // the 2 histograms (target & synthetic)
             hist_tar = histograms[0][k-1][canon];
             iter_tar = getIterator(&hist_tar);
