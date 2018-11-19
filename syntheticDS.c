@@ -5,25 +5,11 @@
 #include "syntheticDS.h"
 
 // DICTIONARY
-// wrapper around uthash
+// wrapper around 'uthash'
 // https://raw.githubusercontent.com/troydhanson/uthash/master/src/uthash.h
-Storage* addToStore(Storage* head, Storage* tail, KeyValue* elt){
-	if (tail == NULL){
-		tail = (Storage*) malloc(sizeof(Storage));
-		head = tail;
-	}else{
-		tail->next = (Storage*) malloc(sizeof(Storage));
-		tail = tail->next;
-	}
-	memcpy(&(tail->node), elt, sizeof(KeyValue));
-	tail->next = NULL;
-	return tail;  // this pointer should not be pointed to another mem location
-}
 
 int dictionary_create(Dictionary* dictionary){
 	dictionary->hashTable = NULL;
-	dictionary->storage_head = NULL;
-	dictionary->storage_tail = NULL;
 }
 
 int dictionary_get(Dictionary* dictionary, int key, int default_value){
@@ -44,36 +30,35 @@ void dictionary_set(Dictionary* dictionary, int key, int value){
 		s = (KeyValue*) malloc(sizeof(KeyValue));
 		s->key = key;
 		s->value = value;
-		KeyValue* t = addToStore(dictionary->storage_head, dictionary->storage_tail, s);
-		HASH_ADD_INT(dictionary->hashTable, key, t);
+		HASH_ADD_INT(dictionary->hashTable, key, s);
 	}else{
 		// overwrite
 		s->value = value;
 	}
 }
 
-// iterator for key:value pairs
-Storage* getKeyValueIterator(Dictionary* dictionary){
-	Storage* iterator;
-	if (dictionary->storage_head != NULL)
-		memcpy(&iterator, &(dictionary->storage_head), sizeof(Storage*));
+// iterator
+
+KeyValue* getIterator(Dictionary* dictionary){
+	KeyValue* iterator = dictionary->hashTable;
 	return iterator;
 }
 
-void getNext(Storage* iterator, int* key, int* value){
-	if(iterator == NULL)
-		return;
-	memcpy(key, iterator->node.key, sizeof(key));
-	memcpy(value, iterator->node.value, sizeof(value));
-	iterator = iterator->next;
+int getNext(KeyValue** iterator, int* key, int* value){
+	if((iterator==NULL) || (*iterator == NULL))
+		return -1;
+	memcpy(key, &((*iterator)->key), sizeof(int));
+	memcpy(value, &((*iterator)->value), sizeof(int));
+	*iterator = (*iterator)->hh.next;
+	return 0;
 }
 
 
 // STACK
 int create_stack(RevertStack* stack, int size){
     stack->tos = -1;
-    stack->size = size;  // usually size = k*_numSamples (atmost every line in BLANT can change)
-    stack->space = (Change*) Malloc(size * sizeof(Change));
+    stack->size = size;
+    stack->space = (Change*) malloc(size * sizeof(Change));
     if (stack->space != NULL)
         return 0;
     else

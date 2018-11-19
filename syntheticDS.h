@@ -8,16 +8,8 @@ typedef struct keyvalue{
 	UT_hash_handle hh;
 } KeyValue;
 
-typedef struct storage{
-	struct storage* next;
-	KeyValue node;
-} Storage;
-
 typedef struct dictionary{
-	// int:int as key:value pairs
 	KeyValue* hashTable;
-	Storage* storage_head;
-	Storage* storage_tail;
 } Dictionary;
 
 typedef struct change{
@@ -32,13 +24,9 @@ typedef struct revertstack{
 int dictionary_create(Dictionary* dictionary);
 int dictionary_get(Dictionary* dictionary, int key, int default_value);
 void dictionary_set(Dictionary* dictionary, int key, int value);
-Storage* getKeyValueIterator(Dictionary* dictionary);
-void getNext(Storage* iterator, int* key, int* value);
+KeyValue* getIterator(Dictionary* dictionary);
+int getNext(KeyValue** iterator, int* key, int* value);
 int create_stack(RevertStack* stack, int size);
 int init_stack(RevertStack* stack);
 int push(RevertStack* stack, Change elt);
 int pop(RevertStack* stack, Change* elt);
-
-
-
-

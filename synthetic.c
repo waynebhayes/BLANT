@@ -30,13 +30,16 @@ static int totalCanons;
 static SET *_connectedCanonicals[maxK];
 static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
+static int _maxNodes = -1;
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
+
+#define USING_GDV_OBJECTIVE 1  // set to 0 to speed up ReBLANT when not using GDV as the objective
 #define PRINT_INTERVAL 10000
 #define NUMPROPS 2 // degree-distribution is 0th, graphlets is 1st
 
 // NORMALIZATION
-static double weights[NUMPROPS] = {0.004, 0.996};
+static double weights[NUMPROPS] = {0, 1};
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -161,19 +164,45 @@ double FastSGKObjective(double oldcost, int D0, int D1, int change){
     returnVal = 1 - returnVal;
 
     assert((returnVal >= 0) && (returnVal <= 1));
-    /*
-    if ((returnVal < 0) || (returnVal > 1)){
-        printf("WRONG returnval in FastSGK: %g\n", returnVal);
-        assert((returnVal >= 0) && (returnVal <= 1));
-    }*/
     return returnVal;
 }
 
-void Revert(int ***BLANT, int _maxNumCanon, int D[2][maxK][_maxNumCanon], RevertStack* rvStack){
+void Revert(int ***BLANT, int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], RevertStack* rvStack){
     // restore the BLANT line
     // restore D vectorS AND _numDisconnectedGraphlets
+    // restore GDV[1] matrix and the histograms
     Change change;
+    int n, node, key, value;
+
     while (pop(rvStack, &change) == 0){
+
+        if (USING_GDV_OBJECTIVE){
+            // GDV updates
+            for(n=1; n<=change.k; n++){
+                node = BLANT[change.k-1][change.linenum][n];            
+                
+                key = GDV[1][change.k-1][change.new][node];
+                value = dictionary_get(&histograms[1][change.k-1][change.new], key, 0);
+                assert(value > 0);
+                dictionary_set(&histograms[1][change.k-1][change.new], key, value-1);
+                GDV[1][change.k-1][change.new][node] -= 1; // main
+                key = GDV[1][change.k-1][change.new][node];
+                value = dictionary_get(&histograms[1][change.k-1][change.new], key, 0);
+                dictionary_set(&histograms[1][change.k-1][change.new], key, value+1);                
+
+
+                key = GDV[1][change.k-1][change.original][node];
+                value = dictionary_get(&histograms[1][change.k-1][change.original], key, 0);
+                assert(value >= 0);
+                dictionary_set(&histograms[1][change.k-1][change.original], key, value-1);
+                GDV[1][change.k-1][change.original][node] += 1; // main 
+                key = GDV[1][change.k-1][change.original][node];
+                value = dictionary_get(&histograms[1][change.k-1][change.original], key, 0);
+                dictionary_set(&histograms[1][change.k-1][change.original], key, value+1);
+
+            }
+        }
+
         Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
         Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
         BLANT[change.k-1][change.linenum][0] = change.original;
@@ -223,8 +252,67 @@ double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int De
     return newcost;
 }
 
-double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost, RevertStack* rvStack){
-    int i, j, line, s;
+double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
+    // returns the cost b/w every graphlet's GDV histogram
+    double sum = 0;
+    int j,k,canon;
+    int key_tar, val_tar, key_syn, val_syn;
+
+    Dictionary hist_tar, hist_syn;
+    KeyValue *iter_tar, *iter_syn;
+
+    for(j=0; j<maxK; j++){
+        k = _k[j];
+        if (k == -1) break;
+        
+        for(canon=0; canon < _numCanon[k-1]; canon++){
+            // the 2 histograms (target & synthetic)
+            hist_tar = histograms[0][k-1][canon];
+            iter_tar = getIterator(&hist_tar);
+
+            hist_syn = histograms[1][k-1][canon];
+            iter_syn = getIterator(&hist_syn);
+
+            double newsum = sum;
+            // find 'difference' b/w the 2 histograms
+            // iterate over all keys in target (these could be in synthetic or not)
+            int kk1 = 0;
+            int kk2 = 0;
+            while(getNext(&iter_tar, &key_tar, &val_tar) == 0){
+                assert((key_tar >= 0) && (val_tar >= 0));
+                key_syn = key_tar;
+                val_syn = dictionary_get(&hist_syn, key_syn, 0);  // default value is 0
+                newsum += (double) SQR(val_tar - val_syn);
+                kk1++;
+            }
+
+            // iterate over all keys *ONLY* in synthetic
+            while(getNext(&iter_syn, &key_syn, &val_syn) == 0){
+                assert((key_syn >= 0) && (val_syn >= 0));
+                key_tar = key_syn;
+                val_tar = dictionary_get(&hist_tar, key_tar, -1);  // -1 will only be returned if the key doesn't exist in target
+                if (val_tar == -1)
+                    newsum += (double) SQR(val_syn);
+                kk2++;
+            }
+
+            //fprintf(stderr, "keys in both loops = %d, %d ---- old sum=%g, new sum=%g\n", kk1, kk2, sum, newsum);
+            assert(newsum >= sum);  // sum cannot decrease
+            sum = newsum;
+            assert(sum >= 0);
+        }
+    }
+
+    double returnval = (double) sqrt(sum);
+    assert(returnval == returnval);
+    assert(returnval >= 0);
+    return returnval;
+}
+
+double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost, RevertStack* rvStack){
+
+    int i, j, line, s, n;
+    int canon, key, value, node;
     static TINY_GRAPH *g[maxK];
 
     double olddelta, change;
@@ -241,20 +329,51 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
 
         for (s=1; line=Varrays[k-1][v1][s], s<=Varrays[k-1][v1][0]; s++)            
             if(SetIn(samples[k-1][v2], line)){
-                
-                // olddelta is for the Incremental Objective; this will change depending on the Objective
-                olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
-                --D[1][k-1][BLANT[k-1][line][0]];
-                change = -1;
-                //newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                newcost = FastEuclideanObjective(newcost, olddelta, change);
+            
+                // decrement a graphlet
+                canon = BLANT[k-1][line][0];
+                --D[1][k-1][canon];
+
+                if (USING_GDV_OBJECTIVE){
+                    for (n=1; n<=k; n++){
+                        node = BLANT[k-1][line][n];
+
+                        // existing GDV key gets decremented
+                        change = -1;
+                        key = GDV[1][k-1][canon][node];
+                        value = dictionary_get(&(histograms[1][k-1][canon]), key, 0);
+                        assert(value > 0);
+                        olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
+                        dictionary_set(&(histograms[1][k-1][canon]), key, value-1);
+                        newcost = FastEuclideanObjective(newcost, olddelta, change);
+
+                        GDV[1][k-1][canon][node] -= 1;
+                        assert(GDV[1][k-1][canon][node] >= 0);
+
+                        // new GDV key gets incremented
+                        change = 1;
+                        key = GDV[1][k-1][canon][node];
+                        value = dictionary_get(&(histograms[1][k-1][canon]), key, 0);
+                        olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);
+                        dictionary_set(&(histograms[1][k-1][canon]), key, value+1);
+                        newcost = FastEuclideanObjective(newcost, olddelta, change);
+                    }
+
+                }else{
+                    // olddelta is for the Incremental Objective; this will change depending on the Objective
+                    change = -1;
+                    olddelta = (D[1][k-1][canon] + 1) - D[0][k-1][canon];
+
+                    //newcost = FastDiffObjective(newcost, k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
+                    //newcost = FastSGKObjective(newcost, D[0][k-1][canon], D[1][k-1][canon], change);
+                    //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                }
 
                 // Change object (to be pushed on the stack)
                 Change newchange;
                 newchange.k = k; 
                 newchange.linenum = line; 
-                newchange.original = (int) BLANT[k-1][line][0];
+                newchange.original = (int) canon;
 
                 TinyGraphInducedFromGraph(g[k-1], G, &(BLANT[k-1][line][1])); // address of the Varray without element 0
                 Boolean wasConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
@@ -266,15 +385,43 @@ double ReBLANT(int _maxNumCanon, int D[2][maxK][_maxNumCanon], GRAPH *G, SET ***
                     --_numDisconnectedGraphlets;
 
                 // increment a graphlet
-                olddelta = D[1][k-1][BLANT[k-1][line][0]] - D[0][k-1][BLANT[k-1][line][0]];
-                ++D[1][k-1][BLANT[k-1][line][0]];
-                change = 1;
-                //newcost = FastDiffObjective(newcost, k, BLANT[k-1][line][0], D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                //newcost = FastSGKObjective(newcost, D[0][k-1][BLANT[k-1][line][0]], D[1][k-1][BLANT[k-1][line][0]], change);
-                newcost = FastEuclideanObjective(newcost, olddelta, change);
+                canon = BLANT[k-1][line][0];
+                ++D[1][k-1][canon];
+
+                if (USING_GDV_OBJECTIVE){
+                    for (n=1; n<=k; n++){
+                        node = BLANT[k-1][line][n];
+
+                        // existing GDV key gets decremented
+                        change = -1;
+                        key = GDV[1][k-1][canon][node];
+                        value = dictionary_get(&(histograms[1][k-1][canon]), key, 0); 
+                        assert(value > 0);
+                        olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
+                        dictionary_set(&(histograms[1][k-1][canon]), key, value-1);
+                        newcost = FastEuclideanObjective(newcost, olddelta, change);                 
+
+                        GDV[1][k-1][canon][node] += 1;
+
+                        // new GDV key gets incremented
+                        change = 1;
+                        key = GDV[1][k-1][canon][node];
+                        value = dictionary_get(&(histograms[1][k-1][canon]), key, 0);
+                        olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
+                        dictionary_set(&(histograms[1][k-1][canon]), key, value+1);
+                        newcost = FastEuclideanObjective(newcost, olddelta, change);
+                    }
+
+                }else{
+                    change = 1;
+                    olddelta = (D[1][k-1][canon] - 1) - D[0][k-1][canon];
+                    //newcost = FastDiffObjective(newcost, k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
+                    //newcost = FastSGKObjective(newcost, D[0][k-1][canon], D[1][k-1][canon], change);
+                    //newcost = FastEuclideanObjective(newcost, olddelta, change);
+                }
 
                 // change object
-                newchange.new = (int) BLANT[k-1][line][0];
+                newchange.new = (int) canon;
                 assert(push(rvStack, newchange) == 0);
             }          
              
@@ -314,7 +461,7 @@ double Objective(double abscosts[NUMPROPS]){
     return cost;
 }
 
-double GraphletEuclideanObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
+double GraphletEuclideanObjective(int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
     double logP = 0, sum2 = 0;
@@ -338,7 +485,7 @@ double GraphletEuclideanObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]
     return returnVal; //exp(logP);
 }
 
-double DiffObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
+double DiffObjective(int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
     double sum = 0;
@@ -366,7 +513,7 @@ double DiffObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     return sum;
 }
 
-double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
+double SGKObjective(int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
     double sum = 0;
@@ -400,60 +547,6 @@ double SGKObjective(int _maxNumCanon, int D[2][maxK][_maxNumCanon]){
     returnVal = 1-returnVal;
     assert((returnVal>=0) && (returnVal<=1));
     return returnVal;
-}
-
-double GDVObjective(int _maxNumCanon, Dictionary histograms[2][maxK][_maxNumCanon]){
-    // returns the cost b/w every graphlet's GDV histogram
-
-    double sum = 0;
-    int j,k,canon;
-    int key_tar, val_tar, key_syn, val_syn;
-
-    Dictionary hist_tar, hist_syn;
-    Storage *iter_tar, *iter_syn;
-
-    for(j=0; j<maxK; j++){
-        k = _k[j];
-        if (k == -1) break;
-        for(canon=0; canon< _numCanon[k-1]; canon++){
-            // the 2 histograms (target & synthetic)
-            hist_tar = histograms[0][k-1][canon];
-            iter_tar = getKeyValueIterator(&hist_tar);
-
-            hist_syn = histograms[1][k-1][canon];
-            iter_syn = getKeyValueIterator(&hist_syn);
-
-            double oldsum = sum;
-            // find 'difference' b/w the 2 histograms
-            // iterate over all keys in target (these could be in synthetic or not)
-            while(iter_tar != NULL){
-                getNext(iter_tar, &key_tar, &val_tar);
-                assert((key_tar >= 0) && (val_tar >= 0));
-                key_syn = key_tar;
-                val_syn = dictionary_get(&hist_syn, key_syn, 0);  // default value is 0
-                oldsum += (double) SQR(val_tar - val_syn);
-            }
-
-            // iterate over all keys *ONLY* in synthetic
-            while(iter_syn != NULL){
-                getNext(iter_syn, &key_syn, &val_syn);
-                assert((key_syn >= 0) && (val_syn >= 0));
-                key_tar = key_syn;
-                val_tar = dictionary_get(&hist_tar, key_tar, -1);  // -1 will only be returned if the key doesn't exist in target
-                if (val_tar == -1)
-                    oldsum += (double) SQR(val_syn);
-            }
-
-            assert(oldsum >= sum);  // sum cannot decrease
-            sum = oldsum;
-            assert(sum >= 0);
-        }
-    }
-
-    double returnval = (double) sqrt(sum);
-    assert(returnval == returnval);
-    assert(returnval >= 0);
-    return returnval;
 }
 
 double DegreeDistObjective(int maxdegree, int Degree[2][maxdegree+1]){
@@ -527,15 +620,14 @@ int main(int argc, char *argv[]){
         for (j=0; j<_maxNumCanon; j++) 
             D[0][i][j] = D[1][i][j] = 0;
 
-
     // GDV matrices
-    int* GDV[2][maxK][_maxNumCanon];  // 4 dimensional
+    _maxNodes = MAX(G[0]->n, G[1]->n);
+    int GDV[2][maxK][_maxNumCanon][_maxNodes];  // 4 dimensional
     for(i=0; i++; i<2){
         for(j=0; j<maxK; j++){
             if (_k[j] == -1) break;
             int l;
             for (l=0; l<_numCanon[_k[j]-1]; l++){
-                GDV[i][_k[j]-1][l] = (int*) Malloc(G[i]->n * sizeof(int));
                 int m;
                 for (m=0; m < G[i]->n; m++)
                     GDV[i][_k[j]-1][l][m] = 0;  // initialize to 0
@@ -574,8 +666,10 @@ int main(int argc, char *argv[]){
                 int l;
                 for (l=0; l<=_k[j]; l++){
                     assert(1 == fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])));
-                    if (l)
-                        ++GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]]; // update the GDV 
+                    if (l>0){
+                        assert(BLANT[i][_k[j]-1][line][l] < (G[i]->n));
+                        GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]] += 1; // update the GDV 
+                    }
                 }
                 assert(BLANT[i][_k[j]-1][line][0] < _maxNumCanon);
                 ++D[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]]; // squiggly plot
@@ -587,45 +681,7 @@ int main(int argc, char *argv[]){
     
     }
 
-    // sanity check for GDVs? --> sum of each GDV[i] matrix == _numSamples
-    for(i=0; i<2; i++){
-        int l,m;
-        for(j=0; j<maxK; j++){
-            int sum = 0;
-            if (_k[j] == -1) break;
-            for (l=0; l<_numCanon[_k[j]-1]; l++)
-                for (m=0; m<G[i]->n; m++)
-                    sum += GDV[i][_k[j]-1][l][m];
-            assert(sum == _numSamples);
-        }
-    }
-
-    // TODO
-    /* sanity check for hashTable implementation 
-    keys = [1,10], values = key+5
-    // store, multiple times, and then fetch and match
-    */
-
-    // Histograms, derived from GDV
-    Dictionary histograms[2][maxK][_maxNumCanon];  // not actually a histogram, but a hash-table
-    for(i=0; i<2; i++){
-        for(j=0; j<maxK; j++){
-            if (_k[j] == -1) break;
-            int l;
-            for(l=0; l<_numCanon[_k[j]-1]; l++){
-                Dictionary* this = &(histograms[i][_k[j]-1][l]); 
-                dictionary_create(this);
-                int n, key, prev;
-                for (n=0; n < G[i]->n; n++){  // traverse the nodes involved in a particular graphlet
-                    key = GDV[i][_k[j]-1][l];
-                    prev = dictionary_get(this, key, 0);
-                    dictionary_set(this, key, prev+1);
-                }
-            }
-        }
-    }
-
-    // check (squiggly vectors count == numsamples)
+    // sanity check - squiggly vectors
     for(i=0; i<2; i++){
         for (j=0; j<maxK; j++){
             if (_k[j] == -1)
@@ -635,6 +691,54 @@ int main(int argc, char *argv[]){
             for (l=0; l<_numCanon[_k[j]-1]; l++)
                 testCount += D[i][_k[j]-1][l];
             assert(testCount == _numSamples);
+        }
+    }
+
+    // sanity check - GDV vectors
+    for(i=0; i<2; i++){
+        int l,m;
+        for(j=0; j<maxK; j++){
+            int matrixsum = 0;
+            if (_k[j] == -1) break;
+            for (l=0; l<_numCanon[_k[j]-1]; l++){
+                int columnsum = 0;
+                for (m=0; m < G[i]->n; m++){
+                    matrixsum += GDV[i][_k[j]-1][l][m];
+                    columnsum += GDV[i][_k[j]-1][l][m];
+                }
+                assert(columnsum == (D[i][_k[j]-1][l] * _k[j]));
+            }
+            assert(matrixsum == (_numSamples * _k[j]));
+        }
+    }
+
+    // Histograms, derived from GDV
+    Dictionary histograms[2][maxK][_maxNumCanon];  // histogram is implemented as a hashtable
+    for(i=0; i<2; i++){
+        for(j=0; j<maxK; j++){
+            if (_k[j] == -1) break;
+            int l;
+            for(l=0; l<_numCanon[_k[j]-1]; l++){ // for every graphlet
+                
+                Dictionary* this = &(histograms[i][_k[j]-1][l]); 
+                dictionary_create(this);
+                int n, key, prev;
+                
+                for (n=0; n < G[i]->n; n++){  // traverse the nodes involved in a particular graphlet
+                    key = GDV[i][_k[j]-1][l][n];
+                    prev = dictionary_get(this, key, 0);
+                    dictionary_set(this, key, prev+1);
+                    assert((prev+1) == dictionary_get(this, key, prev));
+                }
+
+                // sanity check - histograms, using an iterator over the key:value pairs
+                KeyValue* iterator = getIterator(this);
+                int sum = 0;
+                int k,v;
+                while(getNext(&iterator, &k, &v) == 0)
+                    sum += (k*v);
+                assert(sum == (D[i][_k[j]-1][l] * _k[j]));
+            }
         }
     }
 
@@ -698,9 +802,10 @@ int main(int argc, char *argv[]){
     create_stack(&xy, maxK * _numSamples);
 
     max_abscosts[0] = DegreeDistObjective(maxdegree, Degree);
-    max_abscosts[1] = GraphletEuclideanObjective(_maxNumCanon, D);
-    //max_abscosts[1] = SGKObjective(_maxNumCanon, D);
-    //max_abscosts[1] = DiffObjective(_maxNumCanon, D);
+    max_abscosts[1] = GDVObjective(histograms);
+    //max_abscosts[1] = GraphletEuclideanObjective(D);
+    //max_abscosts[1] = SGKObjective(D);
+    //max_abscosts[1] = DiffObjective(D);
  
     double abscosts[NUMPROPS];
     abscosts[0] = max_abscosts[0];
@@ -725,8 +830,6 @@ int main(int argc, char *argv[]){
     } while(GraphAreConnected(G[1], u1, u2)); // find a non-edge  u1,u2
     assert(GraphAreConnected(G[1], v1, v2));  // find edge v1,v2
 
-    //int original_totalCanons = totalCanons;
-
     // initialize new stacks
     assert(init_stack(&uv) == 0);
     assert(init_stack(&xy) == 0);
@@ -734,13 +837,13 @@ int main(int argc, char *argv[]){
 
     GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
     newcosts[0] = AdjustDegree(v1, v2, -1, G[1], maxdegree, Degree, abscosts[0]);
-    newcosts[1] = ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], v1, v2, abscosts[1], &uv);
+    newcosts[1] = ReBLANT(D, histograms, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, abscosts[1], &uv);
     
     GraphConnect(G[1], u1, u2); // add an edge to Gs
     newcosts[0] = AdjustDegree(u1, u2, 1, G[1], maxdegree, Degree, newcosts[0]);
-    newcosts[1] = ReBLANT(_maxNumCanon, D, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts[1], &xy);
+    newcosts[1] = ReBLANT(D, histograms, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts[1], &xy);
 
-    //fprintf(stderr, "\nthese 2 numbers should be the same - %g %g", newcosts[1], DiffObjective(_maxNumCanon, D));
+    //fprintf(stderr, "\nthese 2 numbers should be the same - %g %g", newcosts[1], GDVObjective(histograms));
 
     newCost = Objective(newcosts);
     maxCost = MAX(maxCost, newCost);
@@ -772,9 +875,6 @@ int main(int argc, char *argv[]){
         cost = newCost;
         memcpy(abscosts, newcosts, NUMPROPS * (sizeof(double)));
         same = 0;
-
-        //fprintf(stderr, "\nDEGREE abscosts[0]=%g, realcost=%g\n", abscosts[0], DegreeDistObjective(maxdegree, Degree));
-        //fprintf(stderr, "\nGRAPHLET abscosts[1]=%g, realcost=%g", abscosts[1], SGKObjective(_maxNumCanon, D));
     }
     else // revert
     {
@@ -795,11 +895,9 @@ int main(int argc, char *argv[]){
         GraphConnect(G[1], v1, v2);
         AdjustDegree(v1, v2, 1, G[1], maxdegree, Degree, newcosts[0]);
 
-        //totalCanons = original_totalCanons;
-
         // revert changes to blant file and D vectors
-        Revert(BLANT[1], _maxNumCanon, D, &xy);
-        Revert(BLANT[1], _maxNumCanon, D, &uv);
+        Revert(BLANT[1], D, histograms, GDV, &xy);
+        Revert(BLANT[1], D, histograms, GDV, &uv);
     }
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
