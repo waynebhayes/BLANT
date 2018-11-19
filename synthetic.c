@@ -34,7 +34,7 @@ static int _maxNodes = -1;
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
-#define IGNORE_DISCONNECTED_GRAPHLETS 1
+#define IGNORE_DISCONNECTED_GRAPHLETS 1  // Note: this param is implemented only for the GDV objective as of now
 #define USING_GDV_OBJECTIVE 1
 #define PRINT_INTERVAL 10000
 #define NUMPROPS 2 // degree-distribution is 0th, graphlets is 1st
