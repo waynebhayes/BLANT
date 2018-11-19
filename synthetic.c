@@ -252,63 +252,6 @@ double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int De
     return newcost;
 }
 
-double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
-    // returns the cost b/w every graphlet's GDV histogram
-    double sum = 0;
-    int j,k,canon;
-    int key_tar, val_tar, key_syn, val_syn;
-
-    Dictionary hist_tar, hist_syn;
-    KeyValue *iter_tar, *iter_syn;
-
-    for(j=0; j<maxK; j++){
-        k = _k[j];
-        if (k == -1) break;
-        
-        for(canon=0; canon < _numCanon[k-1]; canon++){
-            // the 2 histograms (target & synthetic)
-            hist_tar = histograms[0][k-1][canon];
-            iter_tar = getIterator(&hist_tar);
-
-            hist_syn = histograms[1][k-1][canon];
-            iter_syn = getIterator(&hist_syn);
-
-            double newsum = sum;
-            // find 'difference' b/w the 2 histograms
-            // iterate over all keys in target (these could be in synthetic or not)
-            int kk1 = 0;
-            int kk2 = 0;
-            while(getNext(&iter_tar, &key_tar, &val_tar) == 0){
-                assert((key_tar >= 0) && (val_tar >= 0));
-                key_syn = key_tar;
-                val_syn = dictionary_get(&hist_syn, key_syn, 0);  // default value is 0
-                newsum += (double) SQR(val_tar - val_syn);
-                kk1++;
-            }
-
-            // iterate over all keys *ONLY* in synthetic
-            while(getNext(&iter_syn, &key_syn, &val_syn) == 0){
-                assert((key_syn >= 0) && (val_syn >= 0));
-                key_tar = key_syn;
-                val_tar = dictionary_get(&hist_tar, key_tar, -1);  // -1 will only be returned if the key doesn't exist in target
-                if (val_tar == -1)
-                    newsum += (double) SQR(val_syn);
-                kk2++;
-            }
-
-            //fprintf(stderr, "keys in both loops = %d, %d ---- old sum=%g, new sum=%g\n", kk1, kk2, sum, newsum);
-            assert(newsum >= sum);  // sum cannot decrease
-            sum = newsum;
-            assert(sum >= 0);
-        }
-    }
-
-    double returnval = (double) sqrt(sum);
-    assert(returnval == returnval);
-    assert(returnval >= 0);
-    return returnval;
-}
-
 double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost, RevertStack* rvStack){
 
     int i, j, line, s, n;
@@ -560,6 +503,63 @@ double DegreeDistObjective(int maxdegree, int Degree[2][maxdegree+1]){
     assert(returnVal == returnVal);
     assert(returnVal >= 0);
     return returnVal;
+}
+
+double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
+    // returns the cost b/w every graphlet's GDV histogram
+    double sum = 0;
+    int j,k,canon;
+    int key_tar, val_tar, key_syn, val_syn;
+
+    Dictionary hist_tar, hist_syn;
+    KeyValue *iter_tar, *iter_syn;
+
+    for(j=0; j<maxK; j++){
+        k = _k[j];
+        if (k == -1) break;
+        
+        for(canon=0; canon < _numCanon[k-1]; canon++){
+            // the 2 histograms (target & synthetic)
+            hist_tar = histograms[0][k-1][canon];
+            iter_tar = getIterator(&hist_tar);
+
+            hist_syn = histograms[1][k-1][canon];
+            iter_syn = getIterator(&hist_syn);
+
+            double newsum = sum;
+            // find 'difference' b/w the 2 histograms
+            // iterate over all keys in target (these could be in synthetic or not)
+            int kk1 = 0;
+            int kk2 = 0;
+            while(getNext(&iter_tar, &key_tar, &val_tar) == 0){
+                assert((key_tar >= 0) && (val_tar >= 0));
+                key_syn = key_tar;
+                val_syn = dictionary_get(&hist_syn, key_syn, 0);  // default value is 0
+                newsum += (double) SQR(val_tar - val_syn);
+                kk1++;
+            }
+
+            // iterate over all keys *ONLY* in synthetic
+            while(getNext(&iter_syn, &key_syn, &val_syn) == 0){
+                assert((key_syn >= 0) && (val_syn >= 0));
+                key_tar = key_syn;
+                val_tar = dictionary_get(&hist_tar, key_tar, -1);  // -1 will only be returned if the key doesn't exist in target
+                if (val_tar == -1)
+                    newsum += (double) SQR(val_syn);
+                kk2++;
+            }
+
+            //fprintf(stderr, "keys in both loops = %d, %d ---- old sum=%g, new sum=%g\n", kk1, kk2, sum, newsum);
+            assert(newsum >= sum);  // sum cannot decrease
+            sum = newsum;
+            assert(sum >= 0);
+        }
+    }
+
+    double returnval = (double) sqrt(sum);
+    assert(returnval == returnval);
+    assert(returnval >= 0);
+    return returnval;
 }
 
 
