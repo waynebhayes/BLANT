@@ -34,6 +34,7 @@ static int _maxNodes = -1;
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
+#define IGNORE_DISCONNECTED_GRAPHLETS 1
 #define USING_GDV_OBJECTIVE 1
 #define PRINT_INTERVAL 10000
 #define NUMPROPS 2 // degree-distribution is 0th, graphlets is 1st
@@ -290,7 +291,7 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
                         dictionary_set(&(histograms[1][k-1][canon]), key, value-1);
                         // count if connected
-                        if (wasConnected) 
+                        if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected) 
                             newcost = FastEuclideanObjective(newcost, olddelta, change);
 
                         GDV[1][k-1][canon][node] -= 1;
@@ -303,7 +304,7 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);
                         dictionary_set(&(histograms[1][k-1][canon]), key, value+1);
                         // count if connected
-                        if (wasConnected) 
+                        if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected) 
                             newcost = FastEuclideanObjective(newcost, olddelta, change);
                     }
 
@@ -348,7 +349,7 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
                         dictionary_set(&(histograms[1][k-1][canon]), key, value-1);
                         // count if connected
-                        if (isConnected) 
+                        if ((!IGNORE_DISCONNECTED_GRAPHLETS) || isConnected)
                             newcost = FastEuclideanObjective(newcost, olddelta, change);               
 
                         GDV[1][k-1][canon][node] += 1;
@@ -360,7 +361,7 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
                         olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
                         dictionary_set(&(histograms[1][k-1][canon]), key, value+1);
                         // count if connected
-                        if (isConnected) 
+                        if ((!IGNORE_DISCONNECTED_GRAPHLETS) || isConnected)
                             newcost = FastEuclideanObjective(newcost, olddelta, change);
                     }
 
@@ -530,7 +531,7 @@ double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
         for(canon=0; canon < _numCanon[k-1]; canon++){
 
             // skip this canon if it is disconnected
-            if (!SetIn(_connectedCanonicals[k-1], canon)) 
+            if ((IGNORE_DISCONNECTED_GRAPHLETS) && (!SetIn(_connectedCanonicals[k-1], canon))) 
                 continue;
 
             // the 2 histograms (target & synthetic)
