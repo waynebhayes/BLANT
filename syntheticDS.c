@@ -38,7 +38,6 @@ void dictionary_set(Dictionary* dictionary, int key, int value){
 }
 
 // iterator
-
 KeyValue* getIterator(Dictionary* dictionary){
 	KeyValue* iterator = dictionary->hashTable;
 	return iterator;
@@ -88,3 +87,29 @@ int pop(RevertStack* stack, Change* elt){
     stack->tos -= 1;
     return 0;
 }
+
+
+// sort 
+// comparison function definition (to be used by qsort)
+int compare_ints(const void* a, const void* b){
+	// this function is from -> https://en.cppreference.com/w/c/algorithm/qsort
+    int arg1 = *(const int*)a;
+    int arg2 = *(const int*)b;
+ 
+    if (arg1 < arg2) return -1;
+    if (arg1 > arg2) return 1;
+    return 0;
+}
+
+// median
+int getMedian(int* nums, int start, int end){
+    // array must have MAX(start+1,end+1) elements
+    int n = end-start+1;
+    if (n%2 == 0){
+        return (nums[start + (n/2)] + nums[start + (n/2) - 1]) / 2.0;
+    }else{
+        return nums[start + (n/2)];
+    }
+}
+
+

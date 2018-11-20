@@ -30,3 +30,5 @@ int create_stack(RevertStack* stack, int size);
 int init_stack(RevertStack* stack);
 int push(RevertStack* stack, Change elt);
 int pop(RevertStack* stack, Change* elt);
+int compare_ints(const void* a, const void* b);
+int getMedian(int* nums, int start, int end);
