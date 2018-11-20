@@ -19,7 +19,7 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
-char **_nodeNames, _supportNodeNames = false;
+char **_nodeNames, _supportNodeNames = true;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
@@ -48,6 +48,7 @@ int _sampleMethod = 0;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
+#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -152,9 +153,9 @@ void PrintNode(int v) {
     printf("%s", _nodeNames[v]);
 #else
     if(_supportNodeNames)
-	printf("%s", _nodeNames[v]);
+		printf("%s", _nodeNames[v]);
     else
-	printf("%d", v);
+		printf("%d", v);
 #endif
 }
 
@@ -197,18 +198,22 @@ static int InitializeConnectedComponents(GRAPH *G)
 	//find the biggest one
 	int biggest = i;
 	for(j=i+1; j<_numConnectedComponents;j++)
-	    if(_componentSize[j] > _componentSize[i])
+	    if(_componentSize[j] > _componentSize[biggest])
 		biggest = j;
 	// Now swap the biggest one into position i;
 	for(j=0; j < _componentSize[biggest]; j++)
 	    _whichComponent[_componentList[biggest][j]] = i;
 	int itmp, *pitmp;
+    SET * stmp;
 	itmp = _componentSize[i];
 	_componentSize[i] = _componentSize[biggest];
 	_componentSize[biggest] = itmp;
 	pitmp = _componentList[i];
 	_componentList[i] = _componentList[biggest];
 	_componentList[biggest] = pitmp;
+    stmp = _componentSet[i];
+    _componentSet[i] = _componentSet[biggest];
+    _componentSet[biggest] = stmp;
 	_combinations[i] = CombinChooseDouble(_componentSize[i], _k);
 	_totalCombinations += _combinations[i];
     }
@@ -1154,14 +1159,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case outputGDV:
 	for(i=0; i < G->n; i++)
 	{
-	    printf("%lu", GDV(i,0));
-	    for(canon=1; canon < _numCanon; canon++)
-		printf(" %lu", GDV(i,canon));
+		if(_supportNodeNames) printf("%s",_nodeNames[i]);
+		else printf("%d",i);
+	    for(canon=0; canon < _numCanon; canon++)
+			printf(" %lu", GDV(i,canon));
 	    puts("");
 	}
 	break;
      case outputODV:
-        for(i=0; i<G->n; i++) {for(j=0; j<_numOrbits; j++) printf("%d ", ODV(i,j)); printf("\n");}
+        for(i=0; i<G->n; i++) {
+			if(_supportNodeNames) printf("%s",_nodeNames[i]);
+			else printf("%d",i);
+			for(j=0; j<_numOrbits; j++) printf(" %lu", ODV(i,j)); printf("\n");}
         break;
     default: Abort("unknown or un-implemented outputMode");
 	break;
@@ -1172,8 +1181,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     GraphFree(G);
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	Free(_graphletDegreeVector[i]);
-    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++)
-	Free(_orbitDegreeVector[i]);
+    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) Free(_orbitDegreeVector[i]);
 #endif
 	if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
     	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -1222,8 +1230,9 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
-	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
-	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;}
+		_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
+		for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+	}
 	
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
