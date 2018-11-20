@@ -295,21 +295,6 @@ double ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_max
     double olddelta, change;
     double newcost = oldcost;
 
-    /*
-    // sanity check on bin?
-    for (i=0; i<2; i++){
-        for(j=0; j<maxK; j++){
-            if (_k[j] == -1)
-                break;
-            int l=0;
-            for(l=0; l<_numCanon[_k[j]-1]; l++){
-                assert(binsize[i][_k[j]-1][l] > 0);
-            }
-        }
-    }*/
-
-    //fprintf(stderr, "in reblant, passed bin sanity!\n");
-
     for (i=0; i<maxK; i++){
         if (_k[i] == -1)
             break;
