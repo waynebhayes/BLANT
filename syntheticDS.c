@@ -38,10 +38,6 @@ void dictionary_set(Dictionary* dictionary, int key, int value){
 }
 
 // iterator
-<<<<<<< HEAD
-=======
-
->>>>>>> b5043c2c403bdcff6e100cc40eee02f2ad41e0d5
 KeyValue* getIterator(Dictionary* dictionary){
 	KeyValue* iterator = dictionary->hashTable;
 	return iterator;
@@ -91,7 +87,6 @@ int pop(RevertStack* stack, Change* elt){
     stack->tos -= 1;
     return 0;
 }
-<<<<<<< HEAD
 
 
 // sort 
@@ -118,5 +113,3 @@ int getMedian(int* nums, int start, int end){
 }
 
 
-=======
->>>>>>> b5043c2c403bdcff6e100cc40eee02f2ad41e0d5
