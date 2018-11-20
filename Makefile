@@ -53,7 +53,7 @@ libwayne/MT19937/mt19937.o:
 
 compute-alphas-NBE: #compute-alphas-NBE.c
 	gcc -Wall -O2 -o compute-alphas-NBE compute-alphas-NBE.c libblant.o $(LIBWAYNE)
-	for k in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_nbe$$k.txt ]; then ./compute-alphas-NBE $$k; fi; done
+	for k in 3 4 5 6 7 $$EIGHT; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_nbe$$k.txt ]; then ./compute-alphas-NBE $$k; fi; done
 	
 compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_list7.txt
 	gcc -Wall -O2 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
