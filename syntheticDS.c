@@ -112,4 +112,13 @@ int getMedian(int* nums, int start, int end){
     }
 }
 
+// poisson distribution
+double PoissonDistribution(double l, int k){
+    //->   (e^(-l) x l^k) / k!
+    double r = exp(-l);
+    int i;
+    for(i=k; i>0; i--) // divide by k!
+    r *= l/i;
+    return r;
+}
 
