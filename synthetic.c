@@ -30,17 +30,18 @@ static SET *_connectedCanonicals[maxK];
 static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
 static int _maxNodes = -1;
+static int maxdegree = -1;
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 #define IGNORE_DISCONNECTED_GRAPHLETS 1  // implemented for ALL objective functions
 // #define USING_GDV_OBJECTIVE 1  gdv should always be consistent
 #define PRINT_INTERVAL 10000
-#define NUMPROPS 5
+#define NUMPROPS 6
 
 // NORMALIZATION
-// weights: 0 GraphletEuclidean - 1 SGK - 2 Diff - 3 GDV - 4 DegreeDist
-static double weights[NUMPROPS] = {0.25,0,0.25,0.25,0.25};  // SGK should be avoided for now
+// weights: 0 GraphletEuclidean - 1 SGK - 2 SGKDiff - 3 GDV - 4 DegreeDist - 5 ClustCoff
+static double weights[NUMPROPS] = {0.2, 0, 0.1, 0.1, 0.3, 0.3};  // SGK should be avoided for now
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -126,7 +127,7 @@ double FastGDVObjective(double oldcost, int olddelta, double change){
     return sqrt(newcost_sq);
 }
 
-double FastDiffObjective(double oldcost, int k, int canonNum, int D0, int D1, int change){
+double FastSGKDiffObjective(double oldcost, int k, int canonNum, int D0, int D1, int change){
     double oldratio, newratio;
     assert(abs(change) == 1);
     int diff;
@@ -246,7 +247,7 @@ double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary histogr
     return newcost;
 }
 
-double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int Degree[2][maxdegree+1], double oldcost){
+double AdjustDegree(int x, int y, int connected, GRAPH* G, int Degree[2][maxdegree+1], double oldcost){
     // returns the new absolute cost of degree-distribution
     // Should be called AFTER calling GraphConnect or GraphDisconnect
 
@@ -283,6 +284,72 @@ double AdjustDegree(int x, int y, int connected, GRAPH* G, int maxdegree, int De
     return newcost;
 }
 
+double AdjustClustCoff(int x, int y, int connected, GRAPH* G, double localClustCoff[2][_maxNodes], double oldcost){
+
+    // Should be called AFTER calling GraphConnect or GraphDisconnect
+
+    assert(abs(connected) == 1);
+    int i, node, nodecount, c, nc2;
+
+    double sumchange = 0;
+    double newcc;
+
+    SET* xn = SetAlloc(G->n);
+    for(i=0; i < G->degree[x]; i++)
+        SetAdd(xn, G->neighbor[x][i]);
+    
+    nodecount = 0;  // nodes which are connected both to x & y
+    for(i=0; i < G->degree[y]; i++){
+        node = G->neighbor[y][i];
+        if ((node!=x) && (SetIn(xn, node))){
+            nodecount += 1;
+            assert(G->degree[node] >= 2);
+            nc2 = (G->degree[node] * (G->degree[node] - 1))/2;
+            c = (int) ceil(localClustCoff[1][node] * nc2);
+            c += connected;
+            newcc = (double) c/nc2;
+            sumchange += (newcc - localClustCoff[1][node]);
+            localClustCoff[1][node] = newcc;
+        }
+    }
+
+    // nodecount connections where destroyed (created) if xy were disconnected (connected)
+    
+    // for x
+    if ((G->degree[x] - connected) > 1){
+        nc2 = ((G->degree[x] - connected) * (G->degree[x] - connected - 1))/2;
+        c = (int) ceil(localClustCoff[1][x] * nc2);
+        c += (connected * nodecount);
+        if ((G->degree[x]) > 1){
+            nc2 = (G->degree[x] * (G->degree[x] - 1))/2;
+            newcc = (double) c/nc2;
+        }else
+            newcc = 0;
+
+        sumchange += (newcc - localClustCoff[1][x]);
+        localClustCoff[1][x] = newcc;
+    }
+
+    // for y
+    if ((G->degree[y] - connected) > 1){
+        nc2 = ((G->degree[y] - connected) * (G->degree[y] - connected - 1))/2;
+        c = (int) ceil(localClustCoff[1][y] * nc2);
+        c += (connected * nodecount);
+        if ((G->degree[y]) > 1){
+            nc2 = (G->degree[y] * (G->degree[y] - 1))/2;
+            newcc = (double) c/nc2;
+        }else
+            newcc = 0;
+
+        sumchange += (newcc - localClustCoff[1][y]);
+        localClustCoff[1][y] = newcc;
+    }
+
+    double returnVal = oldcost + (sumchange / (G->n));
+    assert(returnVal == returnVal);
+    return fabs(returnVal);
+}
+
 void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNumCanon], int binsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[4], RevertStack* rvStack){
 
     // updates cost ONLY for GraphletEuclidean, SGK, Diff, GDV
@@ -315,7 +382,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNu
                 if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
                     oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
                     oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
-                    oldcost[2] = FastDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
+                    oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
                     oldcost[3] = temp_gdv_newcost;
                 }
 
@@ -346,7 +413,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNu
                 if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
                     oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
                     oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
-                    oldcost[2] = FastDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
+                    oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
                     oldcost[3] = temp_gdv_newcost;
                 }
 
@@ -430,34 +497,6 @@ double GraphletEuclideanObjective(int D[2][maxK][_maxNumCanon]){
     return returnVal; //exp(logP);
 }
 
-double DiffObjective(int D[2][maxK][_maxNumCanon]){
-    // returns ABSOLUTE cost
-    int i,j;
-    double sum = 0;
-
-    for(i=0; i<maxK; i++){
-        int k = _k[i];
-        if (k == -1) 
-            break;        
-        for (j=0; j<_numCanon[k-1]; j++){
-            int diff = abs(D[0][k-1][j] - D[1][k-1][j]);
-            int target = D[0][k-1][j];
-            if (SetIn(_connectedCanonicals[k-1], j)){ // only count if canonical is connected
-                if (target == 0){
-                    if (diff == 0)
-                        sum += (double) 1;
-                    else
-                        sum += (double) diff;
-                }else{
-                    sum += (double) diff/target;
-                }
-            }
-        }
-    }
-
-    return sum;
-}
-
 double SGKObjective(int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
     int i,j;
@@ -494,17 +533,32 @@ double SGKObjective(int D[2][maxK][_maxNumCanon]){
     return returnVal;
 }
 
-double DegreeDistObjective(int maxdegree, int Degree[2][maxdegree+1]){
+double SGKDiffObjective(int D[2][maxK][_maxNumCanon]){
     // returns ABSOLUTE cost
+    int i,j;
     double sum = 0;
-    int i;
-    for(i=0; i<=maxdegree; i++)
-        sum += SQR((double) Degree[0][i] - Degree[1][i]);
 
-    double returnVal = sqrt(sum);
-    assert(returnVal == returnVal);
-    assert(returnVal >= 0);
-    return returnVal;
+    for(i=0; i<maxK; i++){
+        int k = _k[i];
+        if (k == -1) 
+            break;        
+        for (j=0; j<_numCanon[k-1]; j++){
+            int diff = abs(D[0][k-1][j] - D[1][k-1][j]);
+            int target = D[0][k-1][j];
+            if (SetIn(_connectedCanonicals[k-1], j)){ // only count if canonical is connected
+                if (target == 0){
+                    if (diff == 0)
+                        sum += (double) 1;
+                    else
+                        sum += (double) diff;
+                }else{
+                    sum += (double) diff/target;
+                }
+            }
+        }
+    }
+
+    return sum;
 }
 
 double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
@@ -562,6 +616,80 @@ double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
     assert(returnval == returnval);
     assert(returnval >= 0);
     return returnval;
+}
+
+double DegreeDistObjective(int Degree[2][maxdegree+1]){
+    // returns ABSOLUTE cost
+    double sum = 0;
+    int i;
+    for(i=0; i<=maxdegree; i++)
+        sum += SQR((double) Degree[0][i] - Degree[1][i]);
+
+    double returnVal = sqrt(sum);
+    assert(returnVal == returnVal);
+    assert(returnVal >= 0);
+    return returnVal;
+}
+
+void getClustCoff(GRAPH *G, double localClustCoff[G->n]){
+    // computes local clustering coefficient for every node
+    double cc;
+    int n, x, node, degree;
+    int i, j, edges, possible;
+    
+    int scratch[G->n];
+    for(i=0; i<G->n; i++)
+        scratch[i] = -1;
+
+    for(n=0; n < G->n; n++){
+        edges = 0;
+        degree = G->degree[n];
+        if (degree <= 1){
+            localClustCoff[n] = 0;
+            continue;
+        }
+        
+        for(i=0; i<degree; i++)
+            scratch[(G->neighbor[n])[i]] = n;
+        
+        for(i=0; i<degree; i++){
+            node = (G->neighbor[n])[i];
+            assert(node != n);
+            for(j=0; j < G->degree[node]; j++){
+                x = (G->neighbor[node])[j];
+                if ((x!=n) && (scratch[x] == n))
+                    edges += 1;
+            }
+        }
+
+        edges = edges/2;
+        possible = ((degree-1) * degree)/2;
+        cc = ((double) edges/ (double) possible);
+        assert(cc >= 0);
+        localClustCoff[n] = cc;
+    }
+}
+
+double ClustCoffObjective(GRAPH* G[2], double localClustCoff[2][_maxNodes]){
+
+    double cc_sum[2] = {0.0, 0.0};
+    int i, j;
+
+    for(i=0; i<2; i++){
+        for(j=0; j < G[i]->n; j++){
+            assert((localClustCoff[i][j] >= 0) && (localClustCoff[i][j] <= 1));
+            cc_sum[i] += localClustCoff[i][j];
+        }
+    }
+
+    double avg_cc[2];
+    avg_cc[0] = cc_sum[0] / G[0]->n;
+    avg_cc[1] = cc_sum[1] / G[1]->n;
+
+    fprintf(stderr, "Clustering coefficients, target=%g, synthetic=%g\n", avg_cc[0], avg_cc[1]);
+
+    double returnVal = (double) fabs(avg_cc[0] - avg_cc[1]);
+    return returnVal;
 }
 
 
@@ -792,7 +920,7 @@ int main(int argc, char *argv[]){
     }
 
     // degree distribution vectors
-    int maxdegree = MAX(G[0]->n, G[1]->n);
+    maxdegree = MAX(G[0]->n, G[1]->n);
     for (i=0; i<2; i++)
         for (j=0; j < G[i]->n; j++)
             assert((G[i]->degree[j]) < (G[i]->n));
@@ -814,20 +942,26 @@ int main(int argc, char *argv[]){
         assert(elts == (G[i]->n));
     }
 
+    // clustering coefficient
+    double localClustCoff[2][_maxNodes];
+    for (i=0; i<2; i++)
+        getClustCoff(G[i], localClustCoff[i]);   // populates the array with every nodes' local clustering coefficient
+
     RevertStack uv, xy;  // uv gets disconnected and xy gets connected
     create_stack(&uv, maxK * _numSamples);
     create_stack(&xy, maxK * _numSamples);
 
     max_abscosts[0] = GraphletEuclideanObjective(D);
     max_abscosts[1] = SGKObjective(D);
-    max_abscosts[2] = DiffObjective(D);
+    max_abscosts[2] = SGKDiffObjective(D);
     max_abscosts[3] = GDVObjective(histograms);
-    max_abscosts[4] = DegreeDistObjective(maxdegree, Degree);
+    max_abscosts[4] = DegreeDistObjective(Degree);
+    max_abscosts[5] = ClustCoffObjective(G, localClustCoff);
  
     double abscosts[NUMPROPS];
     memcpy(abscosts, max_abscosts, NUMPROPS * sizeof(double));
 
-    fprintf(stderr, "Starting ABSOLUTE costs: GraphEuclidean: %g, SGK: %g, GraphDiff: %g, GDV: %g, DegreeDist: %g\n", abscosts[0], abscosts[1], abscosts[2], abscosts[3], abscosts[4]);
+    fprintf(stderr, "Starting ABSOLUTE costs: GraphEuclidean: %g, SGK: %g, GraphDiff: %g, GDV: %g, DegreeDist: %g, ClustCoff: %g\n", abscosts[0], abscosts[1], abscosts[2], abscosts[3], abscosts[4], abscosts[5]);
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
     double cost = Objective(abscosts), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start. 
@@ -853,11 +987,13 @@ int main(int argc, char *argv[]){
     memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
 
     GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
-    newcosts[4] = AdjustDegree(v1, v2, -1, G[1], maxdegree, Degree, newcosts[4]);
+    newcosts[4] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
+    newcosts[5] = AdjustClustCoff(v1, v2, -1, G[1], localClustCoff, newcosts[5]);
     ReBLANT(D, histograms, binsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
     
     GraphConnect(G[1], u1, u2); // add an edge to Gs
-    newcosts[4] = AdjustDegree(u1, u2, 1, G[1], maxdegree, Degree, newcosts[4]);
+    newcosts[4] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
+    newcosts[5] = AdjustClustCoff(u1, u2, 1, G[1], localClustCoff, newcosts[5]);
     ReBLANT(D, histograms, binsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
 
     newCost = Objective(newcosts);
@@ -905,10 +1041,12 @@ int main(int argc, char *argv[]){
         ++same;
 
         GraphDisconnect(G[1], u1, u2);
-        AdjustDegree(u1, u2, -1, G[1], maxdegree, Degree, 1000);  // the 1000 has no meaning
+        AdjustDegree(u1, u2, -1, G[1], Degree, 1000);  // the 1000 has no meaning
+        AdjustClustCoff(u1, u2, -1, G[1], localClustCoff, 1000);
 
         GraphConnect(G[1], v1, v2);
-        AdjustDegree(v1, v2, 1, G[1], maxdegree, Degree, 1000);
+        AdjustDegree(v1, v2, 1, G[1], Degree, 1000);
+        AdjustClustCoff(v1, v2, 1, G[1], localClustCoff, 1000);
 
         // revert changes to blant file and D vectors
         Revert(BLANT[1], D, histograms, binsize, GDV, &xy);
