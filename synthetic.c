@@ -665,7 +665,7 @@ void getClustCoff(GRAPH *G, double localClustCoff[G->n]){
         edges = edges/2;
         possible = ((degree-1) * degree)/2;
         cc = ((double) edges/ (double) possible);
-        assert(cc >= 0);
+        assert((cc >= 0) && (cc <= 1));
         localClustCoff[n] = cc;
     }
 }
