@@ -57,7 +57,7 @@ compute-alphas-NBE: #compute-alphas-NBE.c
 	
 compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_list7.txt
 	gcc -Wall -O2 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
-	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
+	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)

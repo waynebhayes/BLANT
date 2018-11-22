@@ -651,7 +651,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
 	sprintf(BUF, CANON_DIR "/alpha_list_mcmc%d.txt", k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/alpha_list%d.txt\n", CANON_DIR, k);
+    if(!fp_ord) Fatal("cannot find %s/alpha_list_mcmc%d.txt\n", CANON_DIR, k);
     int numAlphas, i;
     fscanf(fp_ord, "%d",&numAlphas);
 	assert(numAlphas == _numCanon);
