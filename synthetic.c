@@ -361,7 +361,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
     sumchange += (newcc-oldcc);
 
     /*
-    // sanity check on the num of connections
+    // sanity check
     int ideal_con[G->n];
     getConnections(G, ideal_con); // slow!
     for(i=0; i<G->n; i++)
@@ -1081,8 +1081,6 @@ int main(int argc, char *argv[]){
         GraphConnect(G[1], v1, v2);
         AdjustDegree(v1, v2, 1, G[1], Degree, 1000);
         AdjustClustCoff(v1, v2, 1, G[1], localConnections, new_avg_cc);
-
-        //fprintf(stderr, "these nums should be same %g %g , and these should be same %g %g\n", avg_cc[0], new_avg_cc[0], avg_cc[1], new_avg_cc[1]);
 
         // revert changes to blant file and D vectors
         Revert(BLANT[1], D, histograms, binsize, GDV, &xy);
