@@ -284,19 +284,21 @@ double AdjustDegree(int x, int y, int connected, GRAPH* G, int Degree[2][maxdegr
     return newcost;
 }
 
-double AdjustClustCoff(int x, int y, int connected, GRAPH* G, double localClustCoff[2][_maxNodes], double oldcost){
+double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, int localConnections[2][_maxNodes], double avg_cc[2]){
 
     // Should be called AFTER calling GraphConnect or GraphDisconnect
+    // right now localConnections and avg_cc are in sync.
 
     assert(abs(connected) == 1);
-    int i, node, nodecount, c, nc2;
+    int i, j, node, nodecount, c, nc2;
 
-    double sumchange = 0;
-    double newcc;
+    double sumchange = 0.0;  // stores the "delta" in the value of avg_cc[1]
+    double oldcc, newcc;
 
     SET* xn = SetAlloc(G->n);
     for(i=0; i < G->degree[x]; i++)
-        SetAdd(xn, G->neighbor[x][i]);
+        if (G->neighbor[x][i] != y)
+            SetAdd(xn, G->neighbor[x][i]);
     
     nodecount = 0;  // nodes which are connected both to x & y
     for(i=0; i < G->degree[y]; i++){
@@ -305,49 +307,70 @@ double AdjustClustCoff(int x, int y, int connected, GRAPH* G, double localClustC
             nodecount += 1;
             assert(G->degree[node] >= 2);
             nc2 = (G->degree[node] * (G->degree[node] - 1))/2;
-            c = (int) ceil(localClustCoff[1][node] * nc2);
-            c += connected;
-            newcc = (double) c/nc2;
-            sumchange += (newcc - localClustCoff[1][node]);
-            localClustCoff[1][node] = newcc;
+            c = localConnections[1][node];  // the original num of connections
+            sumchange += (connected * (1/nc2));
+            localConnections[1][node] = c + connected;  // the new num of connections
         }
     }
 
-    // nodecount connections where destroyed (created) if xy were disconnected (connected)
-    
     // for x
-    if ((G->degree[x] - connected) > 1){
-        nc2 = ((G->degree[x] - connected) * (G->degree[x] - connected - 1))/2;
-        c = (int) ceil(localClustCoff[1][x] * nc2);
-        c += (connected * nodecount);
-        if ((G->degree[x]) > 1){
-            nc2 = (G->degree[x] * (G->degree[x] - 1))/2;
-            newcc = (double) c/nc2;
-        }else
-            newcc = 0;
-
-        sumchange += (newcc - localClustCoff[1][x]);
-        localClustCoff[1][x] = newcc;
+    if ((G->degree[x] - connected) < 2){ // original degree
+        c = localConnections[1][x];  // the old connections
+        assert(c == 0);
+        oldcc = 0;
+    }else{
+        nc2 = ((G->degree[x] - connected) * ((G->degree[x] - connected) - 1))/2;
+        c = localConnections[1][x];  // the old connections
+        oldcc = ((double) c) / ((double) nc2);
     }
+
+    if(G->degree[x] < 2){  // current degree
+        c += (connected * nodecount);
+        assert(c == 0);
+        newcc = 0;
+    }else{
+        nc2 = (G->degree[x] * (G->degree[x] - 1))/2;
+        c += (connected * nodecount);
+        newcc = ((double) c) / ((double) nc2);
+    }
+    localConnections[1][x] = c;
+    sumchange += (newcc-oldcc);
+
 
     // for y
-    if ((G->degree[y] - connected) > 1){
-        nc2 = ((G->degree[y] - connected) * (G->degree[y] - connected - 1))/2;
-        c = (int) ceil(localClustCoff[1][y] * nc2);
-        c += (connected * nodecount);
-        if ((G->degree[y]) > 1){
-            nc2 = (G->degree[y] * (G->degree[y] - 1))/2;
-            newcc = (double) c/nc2;
-        }else
-            newcc = 0;
-
-        sumchange += (newcc - localClustCoff[1][y]);
-        localClustCoff[1][y] = newcc;
+    if ((G->degree[y] - connected) < 2){ // original degree
+        c = localConnections[1][y];  // the old connections
+        assert(c == 0);
+        oldcc = 0;
+    }else{
+        nc2 = ((G->degree[y] - connected) * ((G->degree[y] - connected) - 1))/2;
+        c = localConnections[1][y];  // the old connections
+        oldcc = ((double) c) / ((double) nc2);
     }
 
-    double returnVal = oldcost + (sumchange / (G->n));
-    assert(returnVal == returnVal);
-    return fabs(returnVal);
+    if(G->degree[y] < 2){  // current degree
+        c += (connected * nodecount);
+        assert(c == 0);
+        newcc = 0;
+    }else{
+        nc2 = (G->degree[y] * (G->degree[y] - 1))/2;
+        c += (connected * nodecount);
+        newcc = ((double) c) / ((double) nc2);
+    }
+    localConnections[1][y] = c;
+    sumchange += (newcc-oldcc);
+
+    /*
+    // sanity check on the num of connections
+    int ideal_con[G->n];
+    getConnections(G, ideal_con); // slow!
+    for(i=0; i<G->n; i++)
+        assert(ideal_con[i] == localConnections[1][i]);
+    */
+
+    avg_cc[1] += (sumchange / G->n);
+    assert((avg_cc[1] >= 0) && (avg_cc[1] <= 1));
+    return fabs(avg_cc[1] - avg_cc[0]);
 }
 
 void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNumCanon], int binsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[4], RevertStack* rvStack){
@@ -422,12 +445,12 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNu
                 assert(push(rvStack, newchange) == 0);
             }          
              
-        {
+        /*{
         int testCount = 0;
         for(j=0; j<_numCanon[k-1]; j++)
             testCount += D[1][k-1][j];
         assert(testCount == _numSamples);
-        }
+        }*/
     }
 
     for(i=0; i<4; i++)
@@ -631,21 +654,24 @@ double DegreeDistObjective(int Degree[2][maxdegree+1]){
     return returnVal;
 }
 
-void getClustCoff(GRAPH *G, double localClustCoff[G->n]){
+void getConnections(GRAPH *G, int localConnections[G->n]){
     // computes local clustering coefficient for every node
-    double cc;
     int n, x, node, degree;
-    int i, j, edges, possible;
+    int i, j, edges;
     
+    // set for marking neighbors
     int scratch[G->n];
-    for(i=0; i<G->n; i++)
+    for(i=0; i<G->n; i++){
+        localConnections[i] = 0;
         scratch[i] = -1;
+    }
 
     for(n=0; n < G->n; n++){
         edges = 0;
         degree = G->degree[n];
-        if (degree <= 1){
-            localClustCoff[n] = 0;
+
+        if (degree < 2){
+            localConnections[n] = 0;
             continue;
         }
         
@@ -663,35 +689,38 @@ void getClustCoff(GRAPH *G, double localClustCoff[G->n]){
         }
 
         edges = edges/2;
-        possible = ((degree-1) * degree)/2;
-        cc = ((double) edges/ (double) possible);
-        assert((cc >= 0) && (cc <= 1));
-        localClustCoff[n] = cc;
+        localConnections[n] = edges;
     }
 }
 
-double ClustCoffObjective(GRAPH* G[2], double localClustCoff[2][_maxNodes]){
+double ClustCoffObjective(GRAPH* G[2], int localConnections[2][_maxNodes], double avg_cc[2]){
 
+    double t;
     double cc_sum[2] = {0.0, 0.0};
-    int i, j;
+    int i, j, degree, nc2;
 
     for(i=0; i<2; i++){
         for(j=0; j < G[i]->n; j++){
-            assert((localClustCoff[i][j] >= 0) && (localClustCoff[i][j] <= 1));
-            cc_sum[i] += localClustCoff[i][j];
+            degree = G[i]->degree[j];
+            nc2 = (degree * (degree-1)) / 2;
+            if (degree > 1)
+                t = ((double) localConnections[i][j]) / ((double) nc2);  // local clustering coefficient
+            else
+                t = 0.0;
+            
+            assert((t >= 0) && (t <= 1));
+            cc_sum[i] += t;
         }
     }
 
-    double avg_cc[2];
-    avg_cc[0] = cc_sum[0] / G[0]->n;
-    avg_cc[1] = cc_sum[1] / G[1]->n;
+    avg_cc[0] = cc_sum[0] / (G[0]->n);
+    avg_cc[1] = cc_sum[1] / (G[1]->n);
 
-    fprintf(stderr, "Clustering coefficients, target=%g, synthetic=%g\n", avg_cc[0], avg_cc[1]);
+    fprintf(stderr, "clustering coefficients: target=%g synthetic=%g\n", avg_cc[0], avg_cc[1]);
 
     double returnVal = (double) fabs(avg_cc[0] - avg_cc[1]);
     return returnVal;
 }
-
 
 int main(int argc, char *argv[]){
     srand48(time(0)+getpid());
@@ -943,9 +972,10 @@ int main(int argc, char *argv[]){
     }
 
     // clustering coefficient
-    double localClustCoff[2][_maxNodes];
+    int localConnections[2][_maxNodes];  // for every node, number of connections in it's neighborhood
+    double avg_cc[2];
     for (i=0; i<2; i++)
-        getClustCoff(G[i], localClustCoff[i]);   // populates the array with every nodes' local clustering coefficient
+        getConnections(G[i], localConnections[i]);   // populates the array with every nodes' local clustering coefficient
 
     RevertStack uv, xy;  // uv gets disconnected and xy gets connected
     create_stack(&uv, maxK * _numSamples);
@@ -956,7 +986,7 @@ int main(int argc, char *argv[]){
     max_abscosts[2] = SGKDiffObjective(D);
     max_abscosts[3] = GDVObjective(histograms);
     max_abscosts[4] = DegreeDistObjective(Degree);
-    max_abscosts[5] = ClustCoffObjective(G, localClustCoff);
+    max_abscosts[5] = ClustCoffObjective(G, localConnections, avg_cc);
  
     double abscosts[NUMPROPS];
     memcpy(abscosts, max_abscosts, NUMPROPS * sizeof(double));
@@ -970,6 +1000,9 @@ int main(int argc, char *argv[]){
     double pBad, unif_random;
     float temperature;  // it's okay to overflow and become 0
     
+    double newcosts[NUMPROPS];
+    double new_avg_cc[2];
+
     while((startCost - cost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
     {
     int edge = drand48() * G[1]->numEdges;
@@ -983,17 +1016,17 @@ int main(int argc, char *argv[]){
     // initialize new stacks
     assert(init_stack(&uv) == 0);
     assert(init_stack(&xy) == 0);
-    double newcosts[NUMPROPS];
     memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
+    memcpy(new_avg_cc, avg_cc, 2 * sizeof(double));
 
     GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
     newcosts[4] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
-    newcosts[5] = AdjustClustCoff(v1, v2, -1, G[1], localClustCoff, newcosts[5]);
+    newcosts[5] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, new_avg_cc);  // updates local connections, takes in old CC
     ReBLANT(D, histograms, binsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
-    
+
     GraphConnect(G[1], u1, u2); // add an edge to Gs
     newcosts[4] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
-    newcosts[5] = AdjustClustCoff(u1, u2, 1, G[1], localClustCoff, newcosts[5]);
+    newcosts[5] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, new_avg_cc);
     ReBLANT(D, histograms, binsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
 
     newCost = Objective(newcosts);
@@ -1024,7 +1057,8 @@ int main(int argc, char *argv[]){
         printInterval = 0;
         }
         cost = newCost;
-        memcpy(abscosts, newcosts, NUMPROPS * (sizeof(double)));
+        memcpy(abscosts, newcosts, NUMPROPS * sizeof(double));
+        memcpy(avg_cc, new_avg_cc, 2 * sizeof(double));
         same = 0;
     }
     else // revert
@@ -1042,11 +1076,13 @@ int main(int argc, char *argv[]){
 
         GraphDisconnect(G[1], u1, u2);
         AdjustDegree(u1, u2, -1, G[1], Degree, 1000);  // the 1000 has no meaning
-        AdjustClustCoff(u1, u2, -1, G[1], localClustCoff, 1000);
+        AdjustClustCoff(u1, u2, -1, G[1], localConnections, new_avg_cc);
 
         GraphConnect(G[1], v1, v2);
         AdjustDegree(v1, v2, 1, G[1], Degree, 1000);
-        AdjustClustCoff(v1, v2, 1, G[1], localClustCoff, 1000);
+        AdjustClustCoff(v1, v2, 1, G[1], localConnections, new_avg_cc);
+
+        //fprintf(stderr, "these nums should be same %g %g , and these should be same %g %g\n", avg_cc[0], new_avg_cc[0], avg_cc[1], new_avg_cc[1]);
 
         // revert changes to blant file and D vectors
         Revert(BLANT[1], D, histograms, binsize, GDV, &xy);
