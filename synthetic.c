@@ -292,7 +292,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
     assert(abs(connected) == 1);
     int i, j, node, nodecount, c, nc2;
 
-    double sumchange = 0.0;  // stores the "delta" in the value of avg_cc[1]
+    double sumchange = 0.0;
     double oldcc, newcc;
 
     SET* xn = SetAlloc(G->n);
