@@ -19,7 +19,7 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
-char **_nodeNames, _supportNodeNames = true;
+char **_nodeNames, _supportNodeNames = false;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
@@ -36,9 +36,13 @@ double RandomUniform(void) {
 #define RandomSeed srand48
 #endif
 
-int _sampleMethod = 0;
+int _sampleMethod = -1;
+FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
+char *_sampleFileName; 
+char _sampleFileEOF;
 
 // Below are the sampling methods
+#define SAMPLE_FROM_FILE 0
 #define SAMPLE_ACCEPT_REJECT 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
 #define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
@@ -48,7 +52,6 @@ int _sampleMethod = 0;
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.
 #define RESERVOIR_MULTIPLIER 8
 #endif
-#define SAMPLE_METHOD SAMPLE_NODE_EXPANSION
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
@@ -350,6 +353,36 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     assert(SetCardinality(V) == k);
     assert(nOut == SetCardinality(outSet));
 #endif
+    return V;
+}
+
+
+// Returns NULL if there are no more samples
+static SET *SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
+{
+    SetEmpty(V);
+	int i, numRead;
+	char line[BUFSIZ];
+	char *s = fgets(line, sizeof(line), _sampleFile);
+	if(!s){
+		_sampleFileEOF = 1; // forces exit below
+		return NULL;
+	}
+	switch(k)
+	{
+	case 3: numRead = sscanf(line, "%d%d%d",Varray,Varray+1,Varray+2); break;
+	case 4: numRead = sscanf(line, "%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3); break;
+	case 5: numRead = sscanf(line, "%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4); break;
+	case 6: numRead = sscanf(line, "%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5); break;
+	case 7: numRead = sscanf(line, "%d%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5,Varray+6); break;
+	case 8: numRead = sscanf(line, "%d%d%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5,Varray+6,Varray+7); break;
+	default: Fatal("unknown k value %d",k);
+	}
+	assert(numRead == k);
+	for(k=0;i<k;i++){
+		assert(Varray[i] >= 0 && Varray[i] < G->n);
+		SetAdd(V, Varray[i]);
+	}
     return V;
 }
 
@@ -1000,8 +1033,8 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     static Boolean ccNeedsInit = true;
     if(ccNeedsInit)
     {
-	InitializeConnectedComponents(G);
-	ccNeedsInit = false;
+		InitializeConnectedComponents(G);
+		ccNeedsInit = false;
     }
     int cc;
     double randomComponent = RandomUniform();
@@ -1021,10 +1054,13 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 			SampleGraphletLuBressanReservoir(V, Varray, G, k, cc); // pretty slow but not as bad as unbiased
 			break;
 		case SAMPLE_EDGE_EXPANSION:
-			SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // This one is faster but less well tested and less well understood.
+			SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // Faster than NBE but less well tested and understood.
 			break;
 		case SAMPLE_MCMC:
 			SampleGraphletMCMC(V, Varray, G, k, cc);
+			break;
+		case SAMPLE_FROM_FILE:
+			SampleGraphletFromFile(V, Varray, G, k);
 			break;
 		default:
 			Fatal("unknown sampling method");
@@ -1051,15 +1087,19 @@ void PrintCanonical(int GintCanon)
 	break;
     }
 }
-	    
-void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
-    // We should probably figure out a faster sort? This requires a function call for every comparison.
-#if USE_INSERTION_SORT==1
+
+void VarraySort(int *Varray, int k)
+{
+#if USE_INSERTION_SORT
     InsertionSortInt(Varray,k);
     //InsertionSort((void*)Varray,k,sizeof(Varray[0]),IntCmp);
-#elif USE_INSERTION_SORT==0
+#else
     qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 #endif
+}
+
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
+    // We should probably figure out a faster sort? This requires a function call for every comparison.
     TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
 #if PARANOID_ASSERTS
@@ -1072,14 +1112,15 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    ++_graphletCount[GintCanon];
 	    break;
 	case indexGraphlets:
+		VarraySort(Varray, k);
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 	    PrintCanonical(GintCanon);
-	    for(j=0;j<k;j++)
-		{printf(" "); PrintNode(Varray[(int)perm[j]]);}
+	    for(j=0;j<k;j++) {printf(" "); PrintNode(Varray[(int)perm[j]]);} //PrintNode(Varray[j]);}
 	    puts("");
 	    break;
 	case indexOrbits:
+		VarraySort(Varray, k);
 	    if(!printed) printed = SetAlloc(_k);
 	    SetEmpty(printed);
 	    memset(perm, 0, k);
@@ -1087,16 +1128,15 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    PrintCanonical(GintCanon);
 	    for(j=0;j<k;j++) if(!SetIn(printed,j))
 	    {
-		printf(" "); PrintNode(Varray[(int)perm[j]]);
-		SetAdd(printed, j);
-		int j1;
-		for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
-		{
-		    assert(!SetIn(printed, j1));
-		    printf(":"); PrintNode(Varray[(int)perm[j1]]);
-		    SetAdd(printed, j1);
-		}
-
+			printf(" "); PrintNode(Varray[(int)perm[j]]);
+			SetAdd(printed, j);
+			int j1;
+			for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
+			{
+				assert(!SetIn(printed, j1));
+				printf(":"); PrintNode(Varray[(int)perm[j1]]);
+				SetAdd(printed, j1);
+			}
 	    }
 	    puts("");
 	    break;
@@ -1133,10 +1173,10 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     unsigned Varray[maxK+1];
 	if (_sampleMethod == SAMPLE_MCMC)
 		initializeMCMC(k, numSamples);
-    for(i=0; i<numSamples; i++)
+    for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
     {
-	SampleGraphlet(G, V, Varray, k);
-	ProcessGraphlet(G, V, Varray, perm, g, k);
+		SampleGraphlet(G, V, Varray, k);
+		ProcessGraphlet(G, V, Varray, perm, g, k);
     }
 	if (_sampleMethod == SAMPLE_MCMC)
 		finalizeMCMC();
@@ -1408,7 +1448,7 @@ int main(int argc, char *argv[])
 	case 'r': _seed = atoi(optarg);
 	    break;
 	case 's':
-		if (_sampleMethod != 0) Fatal("Tried to define sampling method twice");
+		if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 		else if (strncmp(optarg, "NBE", 3) == 0)
 			_sampleMethod = SAMPLE_NODE_EXPANSION;
 		else if (strncmp(optarg, "EBE", 3) == 0)
@@ -1418,7 +1458,16 @@ int main(int argc, char *argv[])
 		else if (strncmp(optarg, "RES", 3) == 0)
 			_sampleMethod = SAMPLE_RESERVOIR;
 		else
-			Fatal("Unrecognized sampling method specified: %s. Options are: {NBE|EBE|MCMC|RES}", optarg);
+		{
+			_sampleFileName = optarg;
+			if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
+			else _sampleFile = fopen(_sampleFileName, "r");
+			if(!_sampleFile)
+				Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|{filename}}\n"
+					"If unrecognized, we try opening a file by the name '%s', but no such file exists",
+					_sampleFileName, _sampleFileName);
+			_sampleMethod = SAMPLE_FROM_FILE;
+		}
 		break;
 	case 'c': confidence = atof(optarg);
 	    if(confidence <= 0) Fatal("-c argument (confidence of confidence interval) must be positive\n%s", USAGE);
