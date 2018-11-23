@@ -40,7 +40,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 // NORMALIZATION
 // weights: 0 GraphletEuclidean - 1 SGK - 2 Diff - 3 GDV - 4 DegreeDist
-static double weights[NUMPROPS] = {0.25,0,0.25,0.25,0.25};  // SGK should be avoided for now
+static double weights[NUMPROPS] = {0.80,0,0.099,0.099,0.002};  // SGK should be avoided for now
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
