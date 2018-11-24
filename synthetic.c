@@ -40,8 +40,9 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 #define NUMPROPS 6
 
 // NORMALIZATION
-// weights: 0 GraphletEuclidean - 1 SGK - 2 SGKDiff - 3 GDV - 4 DegreeDist - 5 ClustCoff
-static double weights[NUMPROPS] = {0.2, 0, 0.1, 0.1, 0.3, 0.3};  // SGK should be avoided for now
+static double weights[NUMPROPS] =
+// weights: 0 GraphletEuclidean; 1 SGK; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
+	        {0.8,                0,     0.02,      0.02,   0.01,         0.15};  // SGK should be avoided for now
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -1048,14 +1049,6 @@ int main(int argc, char *argv[]){
 #endif
     {
         //fprintf(stderr,"A");fflush(stderr);
-        static double printVal, printInterval;
-        if(fabs(newCost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
-        {
-        fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
-        //fprintf(stderr, "%g ", newCost);
-        printVal = newCost;
-        printInterval = 0;
-        }
         cost = newCost;
         memcpy(abscosts, newcosts, NUMPROPS * sizeof(double));
         memcpy(avg_cc, new_avg_cc, 2 * sizeof(double));
@@ -1064,14 +1057,6 @@ int main(int argc, char *argv[]){
     else // revert
     {
         //fprintf(stderr,"R");fflush(stderr);
-        static double printVal, printInterval;
-        if(fabs(newCost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
-        {
-        fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
-        //fprintf(stderr, "%g ", newCost);
-        printVal = newCost;
-        printInterval = 0;
-        }
         ++same;
 
         GraphDisconnect(G[1], u1, u2);
@@ -1086,6 +1071,15 @@ int main(int argc, char *argv[]){
         Revert(BLANT[1], D, histograms, binsize, GDV, &xy);
         Revert(BLANT[1], D, histograms, binsize, GDV, &uv);
     }
+	static double printVal=1e30, printInterval;
+	if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
+	{
+		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
+		//fprintf(stderr, "%g ", newCost);
+		printVal = cost;
+		printInterval = 0;
+	}
+
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
         fprintf(stderr, "stagnated!\n");
