@@ -11,7 +11,7 @@
 #include "graph.h"
 #include "blant.h"
 #include "sets.h"
-#include "syntheticDS.h" // some data structures (Revert stacks, and GDV hash tables)
+#include "syntheticDS.h"
 
 char USAGE[] = "synthetic -k maxk -s STAGNATED Gtarget.el Gsynth.el [--blant.Gt.index files--] [--blant.Gs.index files--]\n - output is new Gsynth.el\n";
 
@@ -34,15 +34,20 @@ static int maxdegree = -1;
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
-#define IGNORE_DISCONNECTED_GRAPHLETS 1  // implemented for ALL objective functions
-// #define USING_GDV_OBJECTIVE 1  gdv should always be consistent
+#define IGNORE_DISCONNECTED_GRAPHLETS 1
 #define PRINT_INTERVAL 10000
-#define NUMPROPS 6
 
-// NORMALIZATION
+#define NUMPROPS 6
+#define GraphletEuclidean 0
+#define SGK 1
+#define SGKDiff 2
+#define GraphletGDV 3
+#define DegreeDist 4
+#define ClustCoff 5
+
 static double weights[NUMPROPS] =
 // weights: 0 GraphletEuclidean; 1 SGK; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
-	        {0.8,                0,     0.02,      0.02,   0.01,         0.15};  // SGK should be avoided for now
+            {0.8,                0,     0.02,      0.02,   0.01,         0.15};  // SGK should be avoided for now
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -77,33 +82,6 @@ void SetGlobalCanonMaps(void){
         kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
         assert(Pf == Permutations);
     }
-}
-
-int getBinSize(int n, int GDVcolumn[n], int* scratchspace){
-    // sort
-    // getIQR
-    // return  (2IQR)/(n^1/3)
-    assert(n>=5);
-
-    int* sorted = scratchspace;
-    memcpy(sorted, GDVcolumn, n * sizeof(int));
-    qsort(sorted, n, sizeof(int), compare_ints);
-
-    int q1,q3;
-
-    if (n%2 == 0){
-        q1 = getMedian(sorted, 0, (n/2)-1);
-        q3 = getMedian(sorted, n/2, n-1);
-    }else{
-        q1 = getMedian(sorted, 0, n/2);
-        q3 = getMedian(sorted, n/2, n-1);
-    }
-
-    assert(q3 >= q1);
-    double obs = ((double) (2 * (q3-q1)) / cbrt((double) n));
-    int returnVal = (int) ceil(obs);
-    returnVal = MAX(returnVal, 1);
-    return returnVal;
 }
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
@@ -203,7 +181,7 @@ double FastSGKObjective(double oldcost, int D0, int D1, int change){
     return returnVal;
 }
 
-double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary histograms[2][maxK][_maxNumCanon], int binsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], double oldcost){
+double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], double oldcost){
 
     // k and canon identify a graphlet
     // change = +1 if this graphlet is the "NEW" graphlet. -1 is this is the "OLD" graphlet (w.r.t ReBLANT code)
@@ -215,7 +193,7 @@ double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary histogr
     int n, b, c, node, key, value, olddelta;
     double newcost = oldcost;
 
-    b = binsize[1][k-1][canon];
+    b = GDVbinsize[1][k-1][canon];
 
     for (n=1; n<=k; n++){
         node = line[n];
@@ -224,10 +202,10 @@ double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary histogr
         c = -1;
         key = GDV[1][k-1][canon][node];
         key = (int) ((int) key/b) * b;
-        value = dictionary_get(&(histograms[1][k-1][canon]), key, 0);
+        value = dictionary_get(&(GDVhistograms[1][k-1][canon]), key, 0);
         assert(value > 0);
-        olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);  // difference in the histograms
-        dictionary_set(&(histograms[1][k-1][canon]), key, value-1);
+        olddelta = value - dictionary_get(&(GDVhistograms[0][k-1][canon]), key, 0);  // difference in the GDVhistograms
+        dictionary_set(&(GDVhistograms[1][k-1][canon]), key, value-1);
         newcost = FastGDVObjective(newcost, olddelta, c); // update cost
 
         GDV[1][k-1][canon][node] += change;
@@ -238,9 +216,9 @@ double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary histogr
         c = 1;
         key = GDV[1][k-1][canon][node];
         key = (int) ((int) key/b) * b;
-        value = dictionary_get(&(histograms[1][k-1][canon]), key, 0);
-        olddelta = value - dictionary_get(&(histograms[0][k-1][canon]), key, 0);
-        dictionary_set(&(histograms[1][k-1][canon]), key, value+1);
+        value = dictionary_get(&(GDVhistograms[1][k-1][canon]), key, 0);
+        olddelta = value - dictionary_get(&(GDVhistograms[0][k-1][canon]), key, 0);
+        dictionary_set(&(GDVhistograms[1][k-1][canon]), key, value+1);
         newcost = FastGDVObjective(newcost, olddelta, c);  // update cost
     }
 
@@ -248,7 +226,7 @@ double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary histogr
     return newcost;
 }
 
-double AdjustDegree(int x, int y, int connected, GRAPH* G, int Degree[2][maxdegree+1], double oldcost){
+double AdjustDegree(const int x, const int y, const int connected, GRAPH* G, int Degree[2][maxdegree+1], double oldcost){
     // returns the new absolute cost of degree-distribution
     // Should be called AFTER calling GraphConnect or GraphDisconnect
 
@@ -285,16 +263,14 @@ double AdjustDegree(int x, int y, int connected, GRAPH* G, int Degree[2][maxdegr
     return newcost;
 }
 
-double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, int localConnections[2][_maxNodes], double avg_cc[2]){
-
-    // Should be called AFTER calling GraphConnect or GraphDisconnect
-    // right now localConnections and avg_cc are in sync.
+double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, int localConnections[2][_maxNodes], int* CCHistograms[2], int CCHistograms_size[2], double CCbinsize[2], double oldcost){
 
     assert(abs(connected) == 1);
-    int i, j, node, nodecount, c, nc2;
+    assert(CCHistograms_size[0] == CCHistograms_size[1]);
+    int i, j, node, nodecount, c, nc2, oldkey, newkey;
 
-    double sumchange = 0.0;
     double oldcc, newcc;
+    double newcost = oldcost;
 
     SET* xn = SetAlloc(G->n);
     for(i=0; i < G->degree[x]; i++)
@@ -309,33 +285,63 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
             assert(G->degree[node] >= 2);
             nc2 = (G->degree[node] * (G->degree[node] - 1))/2;
             c = localConnections[1][node];  // the original num of connections
-            sumchange += (connected * (1/nc2));
             localConnections[1][node] = c + connected;  // the new num of connections
+            if (nc2 > 0){
+                oldcc = (double) c / (double) nc2;
+                oldkey = (int) (oldcc / CCbinsize[1]);
+                assert(oldkey < CCHistograms_size[1]);
+                newcc = (double) (c+connected) / (double) nc2;
+                newkey = (int) (newcc / CCbinsize[1]);
+                assert(newkey < CCHistograms_size[1]);
+            }
+            else{
+                oldcc = 0.0;
+                oldkey = 0;
+                newcc = 0.0;
+                newkey = 0;
+            }
+
+            newcost = FastEuclideanObjective(newcost, CCHistograms[1][oldkey] - CCHistograms[0][oldkey], -1);
+            CCHistograms[1][oldkey] -= 1;
+            newcost = FastEuclideanObjective(newcost, CCHistograms[1][newkey] - CCHistograms[0][newkey], 1);
+            CCHistograms[1][newkey] += 1;
         }
     }
+
+    SetFree(xn);
+
 
     // for x
     if ((G->degree[x] - connected) < 2){ // original degree
         c = localConnections[1][x];  // the old connections
         assert(c == 0);
         oldcc = 0;
+        oldkey = (int) (oldcc / CCbinsize[1]);
     }else{
         nc2 = ((G->degree[x] - connected) * ((G->degree[x] - connected) - 1))/2;
         c = localConnections[1][x];  // the old connections
         oldcc = ((double) c) / ((double) nc2);
+        oldkey = (int) (oldcc / CCbinsize[1]);
     }
 
     if(G->degree[x] < 2){  // current degree
         c += (connected * nodecount);
         assert(c == 0);
         newcc = 0;
+        newkey = (int) (newcc / CCbinsize[1]);
     }else{
         nc2 = (G->degree[x] * (G->degree[x] - 1))/2;
         c += (connected * nodecount);
         newcc = ((double) c) / ((double) nc2);
+        newkey = (int) (newcc / CCbinsize[1]);
     }
+
     localConnections[1][x] = c;
-    sumchange += (newcc-oldcc);
+
+    newcost = FastEuclideanObjective(newcost, CCHistograms[1][oldkey] - CCHistograms[0][oldkey], -1);
+    CCHistograms[1][oldkey] -= 1;
+    newcost = FastEuclideanObjective(newcost, CCHistograms[1][newkey] - CCHistograms[0][newkey], 1);
+    CCHistograms[1][newkey] += 1;
 
 
     // for y
@@ -343,38 +349,39 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
         c = localConnections[1][y];  // the old connections
         assert(c == 0);
         oldcc = 0;
+        oldkey = (int) (oldcc / CCbinsize[1]);
     }else{
         nc2 = ((G->degree[y] - connected) * ((G->degree[y] - connected) - 1))/2;
         c = localConnections[1][y];  // the old connections
         oldcc = ((double) c) / ((double) nc2);
+        oldkey = (int) (oldcc / CCbinsize[1]);
     }
 
     if(G->degree[y] < 2){  // current degree
         c += (connected * nodecount);
         assert(c == 0);
         newcc = 0;
+        newkey = (int) (newcc / CCbinsize[1]);
     }else{
         nc2 = (G->degree[y] * (G->degree[y] - 1))/2;
         c += (connected * nodecount);
         newcc = ((double) c) / ((double) nc2);
+        newkey = (int) (newcc / CCbinsize[1]);
     }
+
     localConnections[1][y] = c;
-    sumchange += (newcc-oldcc);
 
-    /*
-    // sanity check
-    int ideal_con[G->n];
-    getConnections(G, ideal_con); // slow!
-    for(i=0; i<G->n; i++)
-        assert(ideal_con[i] == localConnections[1][i]);
-    */
+    newcost = FastEuclideanObjective(newcost, CCHistograms[1][oldkey] - CCHistograms[0][oldkey], -1);
+    CCHistograms[1][oldkey] -= 1;
+    newcost = FastEuclideanObjective(newcost, CCHistograms[1][newkey] - CCHistograms[0][newkey], 1);
+    CCHistograms[1][newkey] += 1;
 
-    avg_cc[1] += (sumchange / G->n);
-    assert((avg_cc[1] >= 0) && (avg_cc[1] <= 1));
-    return fabs(avg_cc[1] - avg_cc[0]);
+    assert(newcost == newcost);
+    assert(newcost >= 0);
+    return newcost;
 }
 
-void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNumCanon], int binsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[4], RevertStack* rvStack){
+void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[4], RevertStack* rvStack){
 
     // updates cost ONLY for GraphletEuclidean, SGK, Diff, GDV
     int i, j, line, s, change;
@@ -402,7 +409,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNu
                 change = -1;
 
                 // recompute cost
-                temp_gdv_newcost = AdjustGDV(k, canon, change, BLANT[k-1][line], histograms, binsize, GDV, oldcost[3]);  // fix GDV
+                temp_gdv_newcost = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // fix GDV
                 if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
                     oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
                     oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
@@ -433,7 +440,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNu
                 change = 1;
 
                 // recompute cost
-                temp_gdv_newcost = AdjustGDV(k, canon, change, BLANT[k-1][line], histograms, binsize, GDV, oldcost[3]);  // fix GDV
+                temp_gdv_newcost = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // fix GDV
                 if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
                     oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
                     oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
@@ -458,21 +465,21 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNu
         assert(oldcost[i] >= 0);
 }
 
-void Revert(int ***BLANT, int D[2][maxK][_maxNumCanon], Dictionary histograms[2][maxK][_maxNumCanon], int binsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], RevertStack* rvStack){
+void Revert(int ***BLANT, int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], RevertStack* rvStack){
     // restore the BLANT line
     // restore D vectorS AND _numDisconnectedGraphlets
-    // restore GDV[1] matrix and the histograms
+    // restore GDV[1] matrix and the GDVhistograms
     Change change;
     int n, node, key, value, b;
     int* line;
 
     while (pop(rvStack, &change) == 0){
         line = BLANT[change.k-1][change.linenum];
-        AdjustGDV(change.k, change.new, -1, line, histograms, binsize, GDV, 1000);  // the 1000 has no meaning
+        AdjustGDV(change.k, change.new, -1, line, GDVhistograms, GDVbinsize, GDV, 1000);  // the 1000 has no meaning
         Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
         Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
         BLANT[change.k-1][change.linenum][0] = change.original;
-        AdjustGDV(change.k, change.original, 1, line, histograms, binsize, GDV, 1000);
+        AdjustGDV(change.k, change.original, 1, line, GDVhistograms, GDVbinsize, GDV, 1000);
         if(wasConnected && !isConnected) 
             ++_numDisconnectedGraphlets;
         if(!wasConnected && isConnected) 
@@ -585,7 +592,7 @@ double SGKDiffObjective(int D[2][maxK][_maxNumCanon]){
     return sum;
 }
 
-double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
+double GDVObjective(Dictionary GDVhistograms[2][maxK][_maxNumCanon]){
     // returns the cost b/w every graphlet's GDV histogram
     double sum = 0;
     int j,k,canon;
@@ -604,15 +611,15 @@ double GDVObjective(Dictionary histograms[2][maxK][_maxNumCanon]){
             if ((IGNORE_DISCONNECTED_GRAPHLETS) && (!SetIn(_connectedCanonicals[k-1], canon))) 
                 continue;
 
-            // the 2 histograms (target & synthetic)
-            hist_tar = histograms[0][k-1][canon];
+            // the 2 GDVhistograms (target & synthetic)
+            hist_tar = GDVhistograms[0][k-1][canon];
             iter_tar = getIterator(&hist_tar);
 
-            hist_syn = histograms[1][k-1][canon];
+            hist_syn = GDVhistograms[1][k-1][canon];
             iter_syn = getIterator(&hist_syn);
 
             double newsum = sum;
-            // find 'difference' b/w the 2 histograms
+            // find 'difference' b/w the 2 GDVhistograms
             // iterate over all keys in target (these could be in synthetic or not)
             while(getNext(&iter_tar, &key_tar, &val_tar) == 0){
                 assert((key_tar >= 0) && (val_tar >= 0));
@@ -655,7 +662,7 @@ double DegreeDistObjective(int Degree[2][maxdegree+1]){
     return returnVal;
 }
 
-void getConnections(GRAPH *G, int localConnections[G->n]){
+void GetConnections(GRAPH *G, int localConnections[G->n]){
     // computes local clustering coefficient for every node
     int n, x, node, degree;
     int i, j, edges;
@@ -694,32 +701,23 @@ void getConnections(GRAPH *G, int localConnections[G->n]){
     }
 }
 
-double ClustCoffObjective(GRAPH* G[2], int localConnections[2][_maxNodes], double avg_cc[2]){
+double ClustCoffObjective(int* CCHistograms[2], int CCHistograms_size[2]){
+    // new implementation : euclidean distance b/w the 2 histograms (arrays)
+    double cost = 0;
+    double temp;
+    int j;
+    
+    assert(CCHistograms_size[0] == CCHistograms_size[1]);
 
-    double t;
-    double cc_sum[2] = {0.0, 0.0};
-    int i, j, degree, nc2;
-
-    for(i=0; i<2; i++){
-        for(j=0; j < G[i]->n; j++){
-            degree = G[i]->degree[j];
-            nc2 = (degree * (degree-1)) / 2;
-            if (degree > 1)
-                t = ((double) localConnections[i][j]) / ((double) nc2);  // local clustering coefficient
-            else
-                t = 0.0;
-            
-            assert((t >= 0) && (t <= 1));
-            cc_sum[i] += t;
-        }
+    for(j=0; j < CCHistograms_size[0]; j++){
+        temp = (double) SQR(CCHistograms[0][j] - CCHistograms[1][j]);
+        assert(temp >= 0);
+        cost += temp;
     }
 
-    avg_cc[0] = cc_sum[0] / (G[0]->n);
-    avg_cc[1] = cc_sum[1] / (G[1]->n);
-
-    fprintf(stderr, "clustering coefficients: target=%g synthetic=%g\n", avg_cc[0], avg_cc[1]);
-
-    double returnVal = (double) fabs(avg_cc[0] - avg_cc[1]);
+    double returnVal = sqrt(cost);
+    assert(returnVal == returnVal);
+    assert(returnVal >= 0);
     return returnVal;
 }
 
@@ -871,8 +869,8 @@ int main(int argc, char *argv[]){
         }
     }
 
-    Dictionary histograms[2][maxK][_maxNumCanon];  // Histograms, derived from GDV
-    int binsize[2][maxK][_maxNumCanon];  // // Bin-size for these histograms
+    Dictionary GDVhistograms[2][maxK][_maxNumCanon];  // GDVhistograms, derived from GDV
+    int GDVbinsize[2][maxK][_maxNumCanon];  // // Bin-size for these GDVhistograms
 
     int* scratchspace = (int*) malloc(_maxNodes * sizeof(int));  // used for sorting the GDV column
     for(i=0; i<2; i++){
@@ -883,17 +881,17 @@ int main(int argc, char *argv[]){
             for(l=0; l<_numCanon[_k[j]-1]; l++){ // for every graphlet
 
                 if (i == 1)
-                    binsize[1][_k[j]-1][l] = binsize[0][_k[j]-1][l];  // synthetic gets the same binsize as the corresponding target
+                    GDVbinsize[1][_k[j]-1][l] = GDVbinsize[0][_k[j]-1][l];  // synthetic gets the same GDVbinsize as the corresponding target
                 else
                     if (!SetIn(_connectedCanonicals[_k[j]-1], l))
-                        binsize[0][_k[j]-1][l] = 1;  // disconnected graphlet. All GDV counts will be 0
+                        GDVbinsize[0][_k[j]-1][l] = 1;  // disconnected graphlet. All GDV counts will be 0
                     else
-                        binsize[0][_k[j]-1][l] = getBinSize(G[0]->n, GDV[0][_k[j]-1][l], scratchspace);
+                        GDVbinsize[0][_k[j]-1][l] = getIntegerBinSize(G[0]->n, GDV[0][_k[j]-1][l], scratchspace);
 
-                b = binsize[i][_k[j]-1][l];
+                b = GDVbinsize[i][_k[j]-1][l];
                 assert(b>0);
 
-                Dictionary* this = &(histograms[i][_k[j]-1][l]);
+                Dictionary* this = &(GDVhistograms[i][_k[j]-1][l]);
                 dictionary_create(this);
                 int n, key, prev;
                 
@@ -915,7 +913,7 @@ int main(int argc, char *argv[]){
                 break;
             int l=0;
             for(l=0; l<_numCanon[_k[j]-1]; l++){
-                assert(binsize[i][_k[j]-1][l] > 0);
+                assert(GDVbinsize[i][_k[j]-1][l] > 0);
             }
         }
     }
@@ -972,27 +970,64 @@ int main(int argc, char *argv[]){
         assert(elts == (G[i]->n));
     }
 
-    // clustering coefficient
+    // CLUSTERING COEFFICIENT
     int localConnections[2][_maxNodes];  // for every node, number of connections in it's neighborhood
-    double avg_cc[2];
+    //double avg_cc[2];
     for (i=0; i<2; i++)
-        getConnections(G[i], localConnections[i]);   // populates the array with every nodes' local clustering coefficient
+        GetConnections(G[i], localConnections[i]);   // populates the array with every nodes' local CONNECTIONS (not clustCoff)
+
+    int* CCHistograms[2];  // stores num of elts in a bin
+    int CCHistograms_size[2];  // stores num of bins
+    double CCbinsize[2];  // stores bin size/width
+    
+    for(i=0; i<2; i++){
+        int degree, nc2, key, value;
+        double local_cc, b, localClustCoff[G[i]->n], scratchspace[G[i]->n];
+        
+        for(j=0; j < G[i]->n; j++){  // get local_CCoff from local_connections
+            degree = G[i]->degree[j];
+            nc2 = (degree * (degree-1))/2;
+            if (nc2 <= 0) local_cc = 0;
+            else local_cc = (double) localConnections[i][j] / (double) nc2;
+            localClustCoff[j] = local_cc;
+        }
+
+        if(i == 0)
+            CCbinsize[i] = getDoubleBinSize(G[i]->n, localClustCoff, scratchspace);
+        else
+            CCbinsize[i] = CCbinsize[0];
+
+        b = CCbinsize[i];
+        assert(b > 0);
+
+        CCHistograms_size[i] = ((int) (1/b)) + 1;
+        CCHistograms[i] = (int*) Malloc(CCHistograms_size[i] * sizeof(int));
+        for(j=0; j < CCHistograms_size[i]; j++)
+            CCHistograms[i][j] = 0;
+
+        for(j=0; j < G[i]->n; j++){
+            key = (int) (localClustCoff[j]/b);
+            assert(key < CCHistograms_size[i]);
+            CCHistograms[i][key] += 1;
+        }
+    }
 
     RevertStack uv, xy;  // uv gets disconnected and xy gets connected
     create_stack(&uv, maxK * _numSamples);
     create_stack(&xy, maxK * _numSamples);
 
-    max_abscosts[0] = GraphletEuclideanObjective(D);
-    max_abscosts[1] = SGKObjective(D);
-    max_abscosts[2] = SGKDiffObjective(D);
-    max_abscosts[3] = GDVObjective(histograms);
-    max_abscosts[4] = DegreeDistObjective(Degree);
-    max_abscosts[5] = ClustCoffObjective(G, localConnections, avg_cc);
+    max_abscosts[GraphletEuclidean] = GraphletEuclideanObjective(D);
+    max_abscosts[SGK] = SGKObjective(D);
+    max_abscosts[SGKDiff] = SGKDiffObjective(D);
+    max_abscosts[GraphletGDV] = GDVObjective(GDVhistograms);
+    max_abscosts[DegreeDist] = DegreeDistObjective(Degree);
+    //max_abscosts[ClustCoff] = ClustCoffObjective(G, localConnections, avg_cc);
+    max_abscosts[ClustCoff] = ClustCoffObjective(CCHistograms, CCHistograms_size);
  
     double abscosts[NUMPROPS];
     memcpy(abscosts, max_abscosts, NUMPROPS * sizeof(double));
 
-    fprintf(stderr, "Starting ABSOLUTE costs: GraphEuclidean: %g, SGK: %g, GraphDiff: %g, GDV: %g, DegreeDist: %g, ClustCoff: %g\n", abscosts[0], abscosts[1], abscosts[2], abscosts[3], abscosts[4], abscosts[5]);
+    fprintf(stderr, "Starting ABSOLUTE costs: GraphletEuclidean: %g, SGK: %g, GraphDiff: %g, GDV: %g, DegreeDist: %g, ClustCoff: %g\n", abscosts[0], abscosts[1], abscosts[2], abscosts[3], abscosts[4], abscosts[5]);
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
     double cost = Objective(abscosts), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start. 
@@ -1002,7 +1037,7 @@ int main(int argc, char *argv[]){
     float temperature;  // it's okay to overflow and become 0
     
     double newcosts[NUMPROPS];
-    double new_avg_cc[2];
+    //double new_avg_cc[2];
 
     while((startCost - cost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
     {
@@ -1018,17 +1053,20 @@ int main(int argc, char *argv[]){
     assert(init_stack(&uv) == 0);
     assert(init_stack(&xy) == 0);
     memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
-    memcpy(new_avg_cc, avg_cc, 2 * sizeof(double));
+    //memcpy(new_avg_cc, avg_cc, 2 * sizeof(double));
 
     GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
-    newcosts[4] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
-    newcosts[5] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, new_avg_cc);  // updates local connections, takes in old CC
-    ReBLANT(D, histograms, binsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
+    newcosts[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
+    double c1 = newcosts[ClustCoff];
+    newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+    //newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, new_avg_cc);  // updates local connections, takes in old CC
+    ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
 
     GraphConnect(G[1], u1, u2); // add an edge to Gs
-    newcosts[4] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
-    newcosts[5] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, new_avg_cc);
-    ReBLANT(D, histograms, binsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
+    newcosts[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
+    newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+    //newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, new_avg_cc);
+    ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
 
     newCost = Objective(newcosts);
     maxCost = MAX(maxCost, newCost);
@@ -1049,37 +1087,46 @@ int main(int argc, char *argv[]){
 #endif
     {
         //fprintf(stderr,"A");fflush(stderr);
+        static double printVal=1e30, printInterval;
+        if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
+        {
+            fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
+            //fprintf(stderr, "%g ", newCost);
+            printVal = cost;
+            printInterval = 0;
+        }
         cost = newCost;
         memcpy(abscosts, newcosts, NUMPROPS * sizeof(double));
-        memcpy(avg_cc, new_avg_cc, 2 * sizeof(double));
+        //memcpy(avg_cc, new_avg_cc, 2 * sizeof(double));
         same = 0;
     }
     else // revert
     {
         //fprintf(stderr,"R");fflush(stderr);
+        static double printVal=1e30, printInterval;
+        if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
+        {
+            fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
+            //fprintf(stderr, "%g ", newCost);
+            printVal = cost;
+            printInterval = 0;
+        }
         ++same;
 
         GraphDisconnect(G[1], u1, u2);
         AdjustDegree(u1, u2, -1, G[1], Degree, 1000);  // the 1000 has no meaning
-        AdjustClustCoff(u1, u2, -1, G[1], localConnections, new_avg_cc);
+        AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, 1000);
+        //AdjustClustCoff(u1, u2, -1, G[1], localConnections, new_avg_cc);
 
         GraphConnect(G[1], v1, v2);
         AdjustDegree(v1, v2, 1, G[1], Degree, 1000);
-        AdjustClustCoff(v1, v2, 1, G[1], localConnections, new_avg_cc);
-
+        AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, 1000);
+        //AdjustClustCoff(v1, v2, 1, G[1], localConnections, new_avg_cc);
+        
         // revert changes to blant file and D vectors
-        Revert(BLANT[1], D, histograms, binsize, GDV, &xy);
-        Revert(BLANT[1], D, histograms, binsize, GDV, &uv);
+        Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &xy);
+        Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &uv);
     }
-	static double printVal=1e30, printInterval;
-	if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
-	{
-		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
-		//fprintf(stderr, "%g ", newCost);
-		printVal = cost;
-		printInterval = 0;
-	}
-
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
         fprintf(stderr, "stagnated!\n");
