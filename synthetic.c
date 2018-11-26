@@ -508,8 +508,11 @@ double Objective(double abscosts[NUMPROPS]){
     
     for(i=0; i<NUMPROPS; i++){
         assert(abscosts[i] >= 0);
-        assert(max_abscosts[i] > 0);
-        cost += ((double) weights[i] * (abscosts[i] / max_abscosts[i]));
+        assert(max_abscosts[i] >= 0);
+        if (max_abscosts[i] == 0)
+            cost += ((double) weights[i] * (abscosts[i] / 1));
+        else
+            cost += ((double) weights[i] * (abscosts[i] / max_abscosts[i]));
     }
     
     assert(cost >= 0);
