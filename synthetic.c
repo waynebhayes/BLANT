@@ -1113,6 +1113,10 @@ int main(int argc, char *argv[]){
         cost = newCost;
         memcpy(abscosts, newcosts, NUMPROPS * sizeof(double));
         //memcpy(avg_cc, new_avg_cc, 2 * sizeof(double));
+        // update max costs -- only if move is accepted
+        for(i=0; i<NUMPROPS; i++)
+            max_abscosts[i] = MAX(max_abscosts[i], abscosts[i]);
+
         same = 0;
     }
     else // revert
