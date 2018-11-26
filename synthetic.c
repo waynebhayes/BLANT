@@ -95,8 +95,10 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
 }
 
 double FastEuclideanObjective(double oldcost, double olddelta, double change){
-    double unchanged = SQR(oldcost) - SQR(olddelta);
+    double unchanged = (oldcost * oldcost) - (olddelta * olddelta);
+    unchanged = MAX(0, unchanged);
     double newcost_sq = unchanged + SQR(olddelta+change);
+    newcost_sq = MAX(0, newcost_sq);
     return sqrt(newcost_sq);
 }
 
@@ -271,6 +273,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
 
     double oldcc, newcc;
     double newcost = oldcost;
+    assert((newcost == newcost) && (newcost >= 0));
 
     SET* xn = SetAlloc(G->n);
     for(i=0; i < G->degree[x]; i++)
@@ -293,6 +296,14 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
                 newcc = (double) (c+connected) / (double) nc2;
                 newkey = (int) (newcc / CCbinsize[1]);
                 assert(newkey < CCHistograms_size[1]);
+
+                newcost = FastEuclideanObjective(newcost, (double) (CCHistograms[1][oldkey] - CCHistograms[0][oldkey]), (double) -1.0);
+                assert((newcost == newcost) && (newcost >= 0));
+                assert(CCHistograms[1][oldkey] > 0);
+                CCHistograms[1][oldkey] -= 1;
+                newcost = FastEuclideanObjective(newcost, (double) (CCHistograms[1][newkey] - CCHistograms[0][newkey]), (double) 1.0);
+                assert((newcost == newcost) && (newcost >= 0));
+                CCHistograms[1][newkey] += 1;
             }
             else{
                 oldcc = 0.0;
@@ -300,11 +311,6 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
                 newcc = 0.0;
                 newkey = 0;
             }
-
-            newcost = FastEuclideanObjective(newcost, CCHistograms[1][oldkey] - CCHistograms[0][oldkey], -1);
-            CCHistograms[1][oldkey] -= 1;
-            newcost = FastEuclideanObjective(newcost, CCHistograms[1][newkey] - CCHistograms[0][newkey], 1);
-            CCHistograms[1][newkey] += 1;
         }
     }
 
@@ -316,7 +322,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
         c = localConnections[1][x];  // the old connections
         assert(c == 0);
         oldcc = 0;
-        oldkey = (int) (oldcc / CCbinsize[1]);
+        oldkey = 0;
     }else{
         nc2 = ((G->degree[x] - connected) * ((G->degree[x] - connected) - 1))/2;
         c = localConnections[1][x];  // the old connections
@@ -328,7 +334,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
         c += (connected * nodecount);
         assert(c == 0);
         newcc = 0;
-        newkey = (int) (newcc / CCbinsize[1]);
+        newkey = 0;
     }else{
         nc2 = (G->degree[x] * (G->degree[x] - 1))/2;
         c += (connected * nodecount);
@@ -337,11 +343,15 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
     }
 
     localConnections[1][x] = c;
-
-    newcost = FastEuclideanObjective(newcost, CCHistograms[1][oldkey] - CCHistograms[0][oldkey], -1);
-    CCHistograms[1][oldkey] -= 1;
-    newcost = FastEuclideanObjective(newcost, CCHistograms[1][newkey] - CCHistograms[0][newkey], 1);
-    CCHistograms[1][newkey] += 1;
+    if(oldkey != newkey){
+        newcost = FastEuclideanObjective(newcost, (double) (CCHistograms[1][oldkey] - CCHistograms[0][oldkey]), (double) -1.0);
+        assert((newcost == newcost) && (newcost >= 0));
+        assert(CCHistograms[1][oldkey] > 0);
+        CCHistograms[1][oldkey] -= 1;
+        newcost = FastEuclideanObjective(newcost, (double) (CCHistograms[1][newkey] - CCHistograms[0][newkey]), (double) 1.0);
+        assert((newcost == newcost) && (newcost >= 0));
+        CCHistograms[1][newkey] += 1;
+    }
 
 
     // for y
@@ -349,7 +359,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
         c = localConnections[1][y];  // the old connections
         assert(c == 0);
         oldcc = 0;
-        oldkey = (int) (oldcc / CCbinsize[1]);
+        oldkey = 0;
     }else{
         nc2 = ((G->degree[y] - connected) * ((G->degree[y] - connected) - 1))/2;
         c = localConnections[1][y];  // the old connections
@@ -361,7 +371,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
         c += (connected * nodecount);
         assert(c == 0);
         newcc = 0;
-        newkey = (int) (newcc / CCbinsize[1]);
+        newkey = 0;
     }else{
         nc2 = (G->degree[y] * (G->degree[y] - 1))/2;
         c += (connected * nodecount);
@@ -370,14 +380,16 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
     }
 
     localConnections[1][y] = c;
+    if(oldkey != newkey){
+        newcost = FastEuclideanObjective(newcost, (double) (CCHistograms[1][oldkey] - CCHistograms[0][oldkey]), (double) -1.0);
+        assert((newcost == newcost) && (newcost >= 0));
+        assert(CCHistograms[1][oldkey] > 0);
+        CCHistograms[1][oldkey] -= 1;
+        newcost = FastEuclideanObjective(newcost, (double) (CCHistograms[1][newkey] - CCHistograms[0][newkey]), (double) 1.0);
+        assert((newcost == newcost) && (newcost >= 0));
+        CCHistograms[1][newkey] += 1;
+    }
 
-    newcost = FastEuclideanObjective(newcost, CCHistograms[1][oldkey] - CCHistograms[0][oldkey], -1);
-    CCHistograms[1][oldkey] -= 1;
-    newcost = FastEuclideanObjective(newcost, CCHistograms[1][newkey] - CCHistograms[0][newkey], 1);
-    CCHistograms[1][newkey] += 1;
-
-    assert(newcost == newcost);
-    assert(newcost >= 0);
     return newcost;
 }
 
@@ -1114,13 +1126,13 @@ int main(int argc, char *argv[]){
         ++same;
 
         GraphDisconnect(G[1], u1, u2);
-        AdjustDegree(u1, u2, -1, G[1], Degree, 1000);  // the 1000 has no meaning
-        AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, 1000);
+        newcosts[DegreeDist] = AdjustDegree(u1, u2, -1, G[1], Degree, newcosts[DegreeDist]);
+        newcosts[ClustCoff] = AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
         //AdjustClustCoff(u1, u2, -1, G[1], localConnections, new_avg_cc);
 
         GraphConnect(G[1], v1, v2);
-        AdjustDegree(v1, v2, 1, G[1], Degree, 1000);
-        AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, 1000);
+        newcosts[DegreeDist] = AdjustDegree(v1, v2, 1, G[1], Degree, newcosts[DegreeDist]);
+        newcosts[ClustCoff] = AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
         //AdjustClustCoff(v1, v2, 1, G[1], localConnections, new_avg_cc);
         
         // revert changes to blant file and D vectors
