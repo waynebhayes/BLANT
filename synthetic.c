@@ -796,7 +796,7 @@ int main(int argc, char *argv[]){
     // GDV matrices
     _maxNodes = MAX(G[0]->n, G[1]->n);
     int GDV[2][maxK][_maxNumCanon][_maxNodes];  // 4 dimensional
-    for(i=0; i++; i<2){
+    for(i=0; i<2; i++){
         for(j=0; j<maxK; j++){
             if (_k[j] == -1) break;
             int l;
@@ -870,17 +870,17 @@ int main(int argc, char *argv[]){
     for(i=0; i<2; i++){
         int l,m;
         for(j=0; j<maxK; j++){
-            int matrixsum = 0;
+            long matrixsum = 0;
             if (_k[j] == -1) break;
             for (l=0; l<_numCanon[_k[j]-1]; l++){
                 int columnsum = 0;
                 for (m=0; m < G[i]->n; m++){
-                    matrixsum += GDV[i][_k[j]-1][l][m];
+                    matrixsum += ((long) GDV[i][_k[j]-1][l][m]);
                     columnsum += GDV[i][_k[j]-1][l][m];
                 }
                 assert(columnsum == (D[i][_k[j]-1][l] * _k[j]));
             }
-            assert(matrixsum == (_numSamples * _k[j]));
+            assert(matrixsum == (((long)_numSamples) * _k[j]));
         }
     }
 
