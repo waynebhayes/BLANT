@@ -103,8 +103,10 @@ double FastEuclideanObjective(double oldcost, double olddelta, double change){
 }
 
 double FastGDVObjective(double oldcost, int olddelta, double change){
-    double unchanged = SQR(oldcost) - (double) SQR(olddelta);
+    double unchanged = (oldcost * oldcost) - (olddelta * olddelta);
+    unchanged = MAX(0, unchanged);
     double newcost_sq = unchanged + (double) SQR(olddelta+change);
+    newcost_sq = MAX(0, newcost_sq);
     return sqrt(newcost_sq);
 }
 
@@ -1005,6 +1007,7 @@ int main(int argc, char *argv[]){
             if (nc2 <= 0) local_cc = 0;
             else local_cc = (double) localConnections[i][j] / (double) nc2;
             localClustCoff[j] = local_cc;
+            assert(localClustCoff[j] >= 0);
         }
 
         if(i == 0)
@@ -1032,6 +1035,12 @@ int main(int argc, char *argv[]){
     create_stack(&xy, maxK * _numSamples);
 
     max_abscosts[GraphletEuclidean] = GraphletEuclideanObjective(D);
+    if(max_abscosts[GraphletEuclidean] < 0.001){
+        fprintf(stderr, "GraphletEuclidean cost=0\n");
+        for(i=0; i<_numCanon[4]; i++)
+            fprintf(stderr, "%d %d\n", D[0][4][i], D[1][4][i]);
+        assert(0);
+    }
     max_abscosts[SGK] = SGKObjective(D);
     max_abscosts[SGKDiff] = SGKDiffObjective(D);
     max_abscosts[GraphletGDV] = GDVObjective(GDVhistograms);

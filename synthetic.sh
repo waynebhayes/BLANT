@@ -14,6 +14,7 @@ die() { echo "$@" >&2; exit 1
 TMPDIR=/tmp/synthetic$$
 #trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15
 mkdir $TMPDIR
+ulimit -s unlimited
 
 k=$1
 INPUT="$2"
