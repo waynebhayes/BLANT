@@ -163,9 +163,12 @@ double getDoubleBinSize(int n, double localClustCoff[n], double* scratchspace){
         q3 = getDoubleMedian(sorted, n/2, n-1);
     }
 
-    //assert(q3 >= q1);
     double obs = ((double) (2 * (q3-q1)) / cbrt((double) n));
-    //assert(obs > 0);
+    if (obs < 0)
+        return obs;
+    if (obs < 0.0001)
+        return 0.05;
+
     return obs;
 }
 
