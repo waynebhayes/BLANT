@@ -47,9 +47,9 @@ while [ $STAG -le 1048576 ]; do # 1 Mebisample
     done
     newScore=`paste <(awk '{print $1}' $TMPDIR/blant.$baseI.k? | sort -n | uniq -c) <(awk '{print $1}' $TMPDIR/blant.$baseO.k? | sort -n | uniq -c) | awk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
     if [ $newScore -gt $score ]; then # improvement has stopped at this sample size.
-    STAG=`expr $STAG \* 4`
+    STAG=`expr $STAG \* 2`
     echo increasing STAG to $STAG
-    score=$(($newScore*4))
+    score=$(($newScore*2))
     for j in `seq 3 $k`; do
         ./blant -s NBE -k $j -mi -n $sampleSize $OUTPUT > $TMPDIR/blant.$baseO.k$j
         ./blant -s NBE -k $j -mi -n $sampleSize $INPUT > $TMPDIR/blant.$baseI.k$j
