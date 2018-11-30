@@ -1112,7 +1112,9 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    ++_graphletCount[GintCanon];
 	    break;
 	case indexGraphlets:
+#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 		VarraySort(Varray, k);
+#endif
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 	    PrintCanonical(GintCanon);
