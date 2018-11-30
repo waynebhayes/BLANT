@@ -1385,13 +1385,13 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
-
 const char const * const USAGE = \
 
-    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-s nSamples | -c confidence -w width} {-k k} {graphInputFile}\n" \
+    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-n nSamples | -c confidence -w width} {-k k} {-s samplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
+    "samplingMethod is one of: NBE (Node Based Expansion); EBE (Edge Based Expansion); MCMC (Markov chain Monte Carlo); RES (Lu Bressan's reservoir).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT.\n" \
     "k is the number of nodes in graphlets to be sampled." \
