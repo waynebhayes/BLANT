@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "uthash.h"
+#include "graph.h"
+#include "sets.h"
 
 typedef struct keyvalue{
 	int key, value;
@@ -21,6 +23,10 @@ typedef struct revertstack{
     Change* space;
 } RevertStack;
 
+typedef struct hops{
+	int valid, lower, upper;
+} Hops;
+
 int dictionary_create(Dictionary* dictionary);
 int dictionary_get(Dictionary* dictionary, int key, int default_value);
 void dictionary_set(Dictionary* dictionary, int key, int value);
@@ -37,3 +43,6 @@ double getDoubleMedian(double* nums, int start, int end);
 double PoissonDistribution(double l, int k);
 double getDoubleBinSize(int n, double localClustCoff[n], double* scratchspace);
 int getIntegerBinSize(int n, int GDVcolumn[n], int* scratchspace);
+int getRandomNode(GRAPH* G, int src, int hops);
+void sampleKHop(GRAPH* G, Dictionary* khop, double quality);
+void print_khop(Dictionary* khop);
