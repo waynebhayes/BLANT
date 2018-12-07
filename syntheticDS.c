@@ -3,6 +3,8 @@
 #include <string.h>
 #include "uthash.h"
 #include "syntheticDS.h"
+#include "graph.h"
+#include "sets.h"
 
 // DICTIONARY
 // wrapper around 'uthash'
@@ -203,6 +205,134 @@ int getIntegerBinSize(int n, int GDVcolumn[n], int* scratchspace){
         return 1;
     
     return returnVal;
+}
+
+int getRandomNode(GRAPH* G, int src, int d){
+
+    int i,j,k,start,end,maxd;
+    SET* visited = SetAlloc(G->n);
+    SetAdd(visited, src);
+    i = -1;
+    j = 0;
+
+    int* queue = (int*) malloc(sizeof(int) * G->n);
+    int* distance = (int*) malloc(sizeof(int) * G->n);
+
+    queue[j] = src;
+    distance[j] = 0;
+
+    maxd = 0;
+    start = end = 0;
+
+    while(i<j){
+        i += 1;
+        for(k=0; k < G->degree[queue[i]]; k++){
+            if(!SetIn(visited, (G->neighbor[queue[i]])[k])){
+                j += 1;
+                queue[j] = (G->neighbor[queue[i]])[k];
+                distance[j] = distance[i] + 1;
+                SetAdd(visited, (G->neighbor[queue[i]])[k]);
+
+                if(distance[j] > d)
+                    break;
+
+                if(distance[j] > maxd){
+                    maxd = distance[j];
+                    start = end = j;
+                }
+
+                if(distance[j] == maxd)
+                    end = j;
+
+            }
+        }
+    }
+
+    // return random vertex b/w start&end
+    int ans = start + (int)((end-start+1) * drand48());
+    ans = queue[ans];
+    free(queue);
+    free(distance);
+    return ans;
+}
+
+void sampleKHop(GRAPH* G, Dictionary* khop, double quality){
+
+    int n, i, j, k, d, p, q;
+    double random;
+    if (quality>1.0) quality = 0.999;
+    if (quality<0.0) quality = -1;
+
+    dictionary_create(khop);
+    int* queue = (int*) malloc(sizeof(int) * G->n);
+    int* distance = (int*) malloc(sizeof(int) * G->n);
+
+    for(n=0; n < (G->n); n++){ // outer loop (select source vertex)
+        random = drand48();
+        if (random > quality)
+            continue;
+
+        // do bfs on 'n'
+        SET* visited = SetAlloc(G->n);
+        SetAdd(visited, n);
+        i=-1;
+        j=0;
+        queue[j] = n;
+        distance[j] = 0;
+
+        while(i<j){
+            i += 1;
+            for(k=0; k < G->degree[queue[i]]; k++){
+                if(!SetIn(visited, (G->neighbor[queue[i]])[k])){
+                    j += 1;
+                    queue[j] = (G->neighbor[queue[i]])[k];
+                    distance[j] = distance[i] + 1;
+                    SetAdd(visited, (G->neighbor[queue[i]])[k]);
+                }
+            }
+        }
+
+        SetFree(visited);
+
+        // aggregate distances into khop dictioanry
+        p=0;
+        while(p<=j){
+            d = distance[p];
+            q = p;
+            while((q<=j) && (distance[q] == d))
+                q += 1;
+            dictionary_set(khop, d, dictionary_get(khop, d, 0) + (q-p+1));
+            p = q + 1;
+        }
+    }
+
+    free(queue);
+    free(distance);
+}
+
+void print_khop(Dictionary* khop){
+    /*NORMALIZED*/
+    KeyValue* iter = getIterator(khop);
+    int k,v;
+    int maxk = -1;
+    int valsum = 0;
+
+    while(getNext(&iter, &k, &v) == 0){
+        if(k > maxk)
+            maxk = k;
+        valsum += v;
+    }
+
+    if (valsum == 0){
+        fprintf(stderr, "0 0 0 0 0...0\n");
+        return;
+    }
+
+    int i;
+    for(i=0; i<=k; i++){
+        fprintf(stderr, "%g ", (double) dictionary_get(khop, i, 0)/ (double) valsum);
+    }
+    fprintf(stderr, "\n");
 }
 
 

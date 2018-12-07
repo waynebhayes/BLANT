@@ -36,6 +36,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 #define IGNORE_DISCONNECTED_GRAPHLETS 1
 #define PRINT_INTERVAL 10000
+#define KHOP_INTERVAL 5000
 
 #define NUMPROPS 6
 #define GraphletEuclidean 0
@@ -47,7 +48,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 static double weights[NUMPROPS] =
 // weights: 0 GraphletEuclidean; 1 SGK; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
-            {0.8,                0,     0.02,      0.02,   0.01,         0.15};  // SGK should be avoided for now
+            {1,                0,     0,      0,   0,         0};  // SGK should be avoided for now
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -738,6 +739,82 @@ double ClustCoffObjective(int* CCHistograms[2], int CCHistograms_size[2]){
     return returnVal;
 }
 
+void FindNodes(GRAPH* G, const Hops hops, int* u1, int* u2, int* v1, int* v2){
+    // v1 v2 should be disconnected
+    // u1 u2 should be connected
+    int edge, x, y, d;
+
+    // find existing edge
+    do{
+        edge = drand48() * G->numEdges;
+        x = G->edgeList[2*edge];
+        y = G->edgeList[2*edge+1]; 
+    } while((G->degree[x] == 1) || (G->degree[y] == 1));  // don't disconnect nodes with degree=1
+    assert(GraphAreConnected(G, x, y));
+    memcpy(v1, &x, sizeof(int));
+    memcpy(v2, &y, sizeof(int));
+
+    // find existing non-edge
+    if(hops.valid == 1){
+        d = hops.lower + (int)((hops.upper - hops.lower + 1) * drand48());
+        do {
+            x = drand48()*G->n;
+            y = getRandomNode(G, x, d);
+        }while(GraphAreConnected(G, x, y));
+    }else{
+        do {
+            x = drand48()*G->n;
+            do y = drand48()*G->n; while(x==y);
+        }while(GraphAreConnected(G, x, y));
+    }
+    assert(!GraphAreConnected(G, x, y));
+    memcpy(u1, &x, sizeof(int));
+    memcpy(u2, &y, sizeof(int));
+}
+
+void OptimumHops(Dictionary khop[2], Hops* hops){
+    KeyValue* iter;
+    int count, k, v, i, l, mi;
+
+    int medians[2];
+    int maxKeys[2] = {-1, -1};
+
+    for(i=0; i<2; i++){
+        count = 0;
+
+        iter = getIterator(&(khop[i]));
+        while((getNext(&iter, &k, &v)) == 0){
+            maxKeys[i] = MAX(maxKeys[i], k);
+            count += v;
+        }
+
+        mi = (int) count/2;
+        count = 0;
+        for(l=0; l<=maxKeys[i]; l++){
+            count += dictionary_get(&(khop[i]), l, 0);
+            if (count >= mi){
+                medians[i] = l;
+                break;
+            }
+        }
+    }
+
+    if(medians[0] < medians[1]){
+        // make synthetic MORE small-world
+        hops->valid = 1;
+        hops->lower = medians[1];
+        hops->upper = maxKeys[1];
+    }else if(medians[1] < medians[0]){
+        // make synthetic LESS small-world
+        hops->valid = 1;
+        hops->lower = 2;
+        hops->upper = medians[1];
+    }else{
+        // all hop values are equally likely
+        hops->valid = 0;
+    }
+}
+
 int main(int argc, char *argv[]){
     srand48(time(0)+getpid());
     int i, opt, j, line;
@@ -989,7 +1066,6 @@ int main(int argc, char *argv[]){
 
     // CLUSTERING COEFFICIENT
     int localConnections[2][_maxNodes];  // for every node, number of connections in it's neighborhood
-    //double avg_cc[2];
     for (i=0; i<2; i++)
         GetConnections(G[i], localConnections[i]);   // populates the array with every nodes' local CONNECTIONS (not clustCoff)
 
@@ -1030,22 +1106,18 @@ int main(int argc, char *argv[]){
         }
     }
 
+    Dictionary khop[2];
+    Hops hops;
+
     RevertStack uv, xy;  // uv gets disconnected and xy gets connected
     create_stack(&uv, maxK * _numSamples);
     create_stack(&xy, maxK * _numSamples);
 
     max_abscosts[GraphletEuclidean] = GraphletEuclideanObjective(D);
-    if(max_abscosts[GraphletEuclidean] < 0.001){
-        fprintf(stderr, "GraphletEuclidean cost=0\n");
-        for(i=0; i<_numCanon[4]; i++)
-            fprintf(stderr, "%d %d\n", D[0][4][i], D[1][4][i]);
-        assert(0);
-    }
     max_abscosts[SGK] = SGKObjective(D);
     max_abscosts[SGKDiff] = SGKDiffObjective(D);
     max_abscosts[GraphletGDV] = GDVObjective(GDVhistograms);
     max_abscosts[DegreeDist] = DegreeDistObjective(Degree);
-    //max_abscosts[ClustCoff] = ClustCoffObjective(G, localConnections, avg_cc);
     max_abscosts[ClustCoff] = ClustCoffObjective(CCHistograms, CCHistograms_size);
  
     double abscosts[NUMPROPS];
@@ -1061,35 +1133,32 @@ int main(int argc, char *argv[]){
     float temperature;  // it's okay to overflow and become 0
     
     double newcosts[NUMPROPS];
-    //double new_avg_cc[2];
 
     while((startCost - cost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
     {
-    int edge = drand48() * G[1]->numEdges;
-    int u1, u2, v1 = G[1]->edgeList[2*edge], v2 = G[1]->edgeList[2*edge+1];
-    do {
-        u1 = drand48()*G[1]->n;
-        do u2 = drand48()*G[1]->n; while(u1==u2);
-    } while(GraphAreConnected(G[1], u1, u2)); // find a non-edge  u1,u2
-    assert(GraphAreConnected(G[1], v1, v2));  // find edge v1,v2
+
+    int u1, u2, v1, v2;
+    if((sa_iter % KHOP_INTERVAL) == 0){  // compute k-hop
+        sampleKHop(G[0], &(khop[0]), 0.8);
+        sampleKHop(G[1], &(khop[1]), 0.8);
+        OptimumHops(khop, &hops);
+    }
+
+    FindNodes(G[1], hops, &u1, &u2, &v1, &v2);
 
     // initialize new stacks
     assert(init_stack(&uv) == 0);
     assert(init_stack(&xy) == 0);
     memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
-    //memcpy(new_avg_cc, avg_cc, 2 * sizeof(double));
 
     GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
     newcosts[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
-    double c1 = newcosts[ClustCoff];
     newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-    //newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, new_avg_cc);  // updates local connections, takes in old CC
     ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
 
     GraphConnect(G[1], u1, u2); // add an edge to Gs
     newcosts[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
     newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-    //newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, new_avg_cc);
     ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
 
     newCost = Objective(newcosts);
@@ -1121,7 +1190,6 @@ int main(int argc, char *argv[]){
         }
         cost = newCost;
         memcpy(abscosts, newcosts, NUMPROPS * sizeof(double));
-        //memcpy(avg_cc, new_avg_cc, 2 * sizeof(double));
         // update max costs -- only if move is accepted
         for(i=0; i<NUMPROPS; i++)
             max_abscosts[i] = MAX(max_abscosts[i], abscosts[i]);
@@ -1144,12 +1212,10 @@ int main(int argc, char *argv[]){
         GraphDisconnect(G[1], u1, u2);
         newcosts[DegreeDist] = AdjustDegree(u1, u2, -1, G[1], Degree, newcosts[DegreeDist]);
         newcosts[ClustCoff] = AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-        //AdjustClustCoff(u1, u2, -1, G[1], localConnections, new_avg_cc);
 
         GraphConnect(G[1], v1, v2);
         newcosts[DegreeDist] = AdjustDegree(v1, v2, 1, G[1], Degree, newcosts[DegreeDist]);
         newcosts[ClustCoff] = AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-        //AdjustClustCoff(v1, v2, 1, G[1], localConnections, new_avg_cc);
         
         // revert changes to blant file and D vectors
         Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &xy);
@@ -1157,7 +1223,7 @@ int main(int argc, char *argv[]){
     }
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
-        fprintf(stderr, "stagnated!\n");
+        fprintf(stderr, "stagnated!, iterations=%d\n", sa_iter);
         break;
     }
     ++sa_iter;
