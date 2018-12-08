@@ -811,7 +811,7 @@ void OptimumHops(Dictionary khop[2], Hops* hops){
         hops->lower = medians[1];
         hops->upper = MAX(maxKeys[0], maxKeys[1]);
     }else if(medians[1] < medians[0]){
-        // make synthetic LESS small-world -- this case kindof screws things up
+        // make synthetic LESS small-world 
         hops->valid = 1;
         hops->lower = 2;
         hops->upper = medians[1];
