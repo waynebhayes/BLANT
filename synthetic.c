@@ -37,6 +37,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 #define IGNORE_DISCONNECTED_GRAPHLETS 1
 #define PRINT_INTERVAL 10000
 #define KHOP_INTERVAL 5000
+#define KHOP_QUALITY 0.8
 
 #define NUMPROPS 6
 #define GraphletEuclidean 0
@@ -48,7 +49,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 static double weights[NUMPROPS] =
 // weights: 0 GraphletEuclidean; 1 SGK; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
-            {1,                0,     0,      0,   0,         0};  // SGK should be avoided for now
+           {1,                   0,     0,         0,      0,            0};  // SGK should be avoided for now
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -751,22 +752,25 @@ void FindNodes(GRAPH* G, const Hops hops, int* u1, int* u2, int* v1, int* v2){
         y = G->edgeList[2*edge+1]; 
     } while((G->degree[x] == 1) || (G->degree[y] == 1));  // don't disconnect nodes with degree=1
     assert(GraphAreConnected(G, x, y));
+    assert(x!=y);
     memcpy(v1, &x, sizeof(int));
     memcpy(v2, &y, sizeof(int));
 
     // find existing non-edge
     if(hops.valid == 1){
         d = hops.lower + (int)((hops.upper - hops.lower + 1) * drand48());
+        assert(d>1);
         do {
             x = drand48()*G->n;
             y = getRandomNode(G, x, d);
-        }while(GraphAreConnected(G, x, y));
+        }while((x==y) || (GraphAreConnected(G, x, y)));
     }else{
         do {
-            x = drand48()*G->n;
-            do y = drand48()*G->n; while(x==y);
-        }while(GraphAreConnected(G, x, y));
+            x = (int) (drand48()*G->n);
+            y = (int) (drand48()*G->n);
+        }while((x==y) || (GraphAreConnected(G, x, y)));
     }
+    assert(x!=y);
     assert(!GraphAreConnected(G, x, y));
     memcpy(u1, &x, sizeof(int));
     memcpy(u2, &y, sizeof(int));
@@ -799,13 +803,15 @@ void OptimumHops(Dictionary khop[2], Hops* hops){
         }
     }
 
+    fprintf(stderr, "\n new hop selection medians: %d %d\n", medians[0], medians[1]);
+
     if(medians[0] < medians[1]){
         // make synthetic MORE small-world
         hops->valid = 1;
         hops->lower = medians[1];
-        hops->upper = maxKeys[1];
+        hops->upper = MAX(maxKeys[0], maxKeys[1]);
     }else if(medians[1] < medians[0]){
-        // make synthetic LESS small-world
+        // make synthetic LESS small-world 
         hops->valid = 1;
         hops->lower = 2;
         hops->upper = medians[1];
@@ -819,8 +825,7 @@ int main(int argc, char *argv[]){
     srand48(time(0)+getpid());
     int i, opt, j, line;
 
-    if(argc == 1)
-    {
+    if(argc==1){
     fprintf(stderr, "%s\n", USAGE);
     exit(1);
     }
@@ -1107,6 +1112,7 @@ int main(int argc, char *argv[]){
     }
 
     Dictionary khop[2];
+    sampleKHop(G[0], &(khop[0]), KHOP_QUALITY);
     Hops hops;
 
     RevertStack uv, xy;  // uv gets disconnected and xy gets connected
@@ -1139,8 +1145,7 @@ int main(int argc, char *argv[]){
 
     int u1, u2, v1, v2;
     if((sa_iter % KHOP_INTERVAL) == 0){  // compute k-hop
-        sampleKHop(G[0], &(khop[0]), 0.8);
-        sampleKHop(G[1], &(khop[1]), 0.8);
+        sampleKHop(G[1], &(khop[1]), KHOP_QUALITY);
         OptimumHops(khop, &hops);
     }
 
