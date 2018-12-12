@@ -835,6 +835,33 @@ int main(int argc, char *argv[]){
         _k[i] = -1; 
 
     /*
+    Read weights
+    */
+    char* weightString = getenv("SYNTHETIC_GRAPHLET_WEIGHTS");
+    if(weightString){
+        i=0;
+        int n = strlen(weightString);
+        fprintf(stderr, "reading weights: %s\n", weightString);
+        int l;
+        for(j=0; j < n; j++){
+            if(weightString[j] == ' ')
+                continue;
+            i += 1;
+            l = j;
+            while((l<n) && (weightString[l] != ' '))
+                l += 1;
+            if (weightString[l] == ' '){
+                weightString[l] = '\0';
+                weights[i-1] = atof(weightString + j);
+                weightString[l] = ' ';
+            }else
+                weights[i-1] = atof(weightString + j);
+            j = l;
+        }
+        assert(i == NUMPROPS);
+    }
+
+    /*
     Read max k and stagnation
     */
     int kmax;
