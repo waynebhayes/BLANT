@@ -861,6 +861,7 @@ int main(int argc, char *argv[]){
         assert(i == NUMPROPS);
     }
 
+
     /*
     Read max k and stagnation
     */
