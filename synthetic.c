@@ -803,8 +803,6 @@ void OptimumHops(Dictionary khop[2], Hops* hops){
         }
     }
 
-    fprintf(stderr, "\n new hop selection medians: %d %d\n", medians[0], medians[1]);
-
     if(medians[0] < medians[1]){
         // make synthetic MORE small-world
         hops->valid = 1;
@@ -833,6 +831,33 @@ int main(int argc, char *argv[]){
     // initialize _k[]
     for(i=0; i<maxK; i++)
         _k[i] = -1; 
+
+    /*
+    Read weights
+    */
+    char* weightString = getenv("SYNTHETIC_GRAPHLET_WEIGHTS");
+    if(weightString){
+        i=0;
+        int n = strlen(weightString);
+        fprintf(stderr, "reading weights: %s\n", weightString);
+        int l;
+        for(j=0; j < n; j++){
+            if(weightString[j] == ' ')
+                continue;
+            i += 1;
+            l = j;
+            while((l<n) && (weightString[l] != ' '))
+                l += 1;
+            if (weightString[l] == ' '){
+                weightString[l] = '\0';
+                weights[i-1] = atof(weightString + j);
+                weightString[l] = ' ';
+            }else
+                weights[i-1] = atof(weightString + j);
+            j = l;
+        }
+        assert(i == NUMPROPS);
+    }
 
     /*
     Read max k and stagnation
@@ -1135,6 +1160,7 @@ int main(int argc, char *argv[]){
     double cost = Objective(abscosts), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start. 
     assert(cost == cost);
     long int sa_iter = 0;
+    long int a_iter = 0;  // accepted moves
     double pBad, unif_random;
     float temperature;  // it's okay to overflow and become 0
     
@@ -1144,7 +1170,7 @@ int main(int argc, char *argv[]){
     {
 
     int u1, u2, v1, v2;
-    if((sa_iter % KHOP_INTERVAL) == 0){  // compute k-hop
+    if((a_iter % KHOP_INTERVAL) == 0){  // compute k-hop
         sampleKHop(G[1], &(khop[1]), KHOP_QUALITY);
         OptimumHops(khop, &hops);
     }
@@ -1200,6 +1226,7 @@ int main(int argc, char *argv[]){
             max_abscosts[i] = MAX(max_abscosts[i], abscosts[i]);
 
         same = 0;
+        ++a_iter;
     }
     else // revert
     {
@@ -1228,7 +1255,7 @@ int main(int argc, char *argv[]){
     }
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
-        fprintf(stderr, "stagnated!, iterations=%d\n", sa_iter);
+        fprintf(stderr, "stagnated!, iterations=%d, accepted-iterations=%d\n", sa_iter, a_iter);
         break;
     }
     ++sa_iter;
