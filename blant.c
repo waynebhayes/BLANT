@@ -229,7 +229,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 	cumulativeProb = _cumulativeProb[i];
 	if(cumulativeProb > 1)
 	{
-	    assert(cumulativeProb - 1.0 < 1e-15);  // allow some roundoff error
+	    assert(cumulativeProb - 1.0 < _numConnectedComponents * 1e-15);  // allow some roundoff error
 	    cumulativeProb = _cumulativeProb[i] = 1.0;
 	}
 	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
