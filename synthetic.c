@@ -858,6 +858,10 @@ int main(int argc, char *argv[]){
         }
         assert(i == NUMPROPS);
     }
+	fprintf(stderr, "weights[]=");
+	for(i=0; i<NUMPROPS; i++)
+		fprintf(stderr, " %f", weights[i]);
+	fprintf(stderr, "\n");
 
     /*
     Read max k and stagnation

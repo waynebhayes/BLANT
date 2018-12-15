@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 # Near the start of a run, we need smaller samples (say 1,000) and shorter stagnation (eg, 100).
 # As things improve, we can up the samples to 100,000 and stagnation to eg 10,000.
 # Basic idea seems to be this: we initially want VERY few samples, so we can see which graphlets
@@ -34,10 +34,11 @@ for j in `seq 3 $k`; do
 done
 score=`for j in $(seq 3 $k); do paste <(awk '{print $1}' $TMPDIR/blant.$baseI.k$j | sort -n | uniq -c) <(awk '{print $1}' $TMPDIR/blant.$baseO.k$j | sort -n | uniq -c); done | awk '{sum2+=($3-$1)^2}END{print int(sqrt(sum2))}'`
 while [ $STAG -le 1048576 ]; do # 1 Mebisample
-    make synthetic
+    #make synthetic
     md5sum $OUTPUT
     ./synthetic -s $STAG -k $j $INPUT $OUTPUT $BLANTFILES_IN $BLANTFILES_OUT > $TMPDIR/x || exit
     mv $TMPDIR/x $OUTPUT
+	count.el networks/syeast.el $OUTPUT; for j in 3 4 5 6 7 8; do echo $j: $(paste <(./blant -mf -s MCMC -n 800000 -k $j networks/syeast.el) <(./blant -mf -s MCMC -n 800000 -k $j $OUTPUT)|hawk '$2==$4{print $2,$1,$3}' | grep -v ' 0 0$' | awk '$3!=0&&$2!=0{print $3/$2}' | stats -g); echo FUCKING PYHTON PIECE OF SHIT pushkar-graph-compare.sh networks/syeast.el $OUTPUT; done
     BLANTFILES_IN=''
     BLANTFILES_OUT=''
     for j in `seq 3 $k`; do
