@@ -34,11 +34,21 @@ static int maxdegree = -1;
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
-#define IGNORE_DISCONNECTED_GRAPHLETS 1
 #define PRINT_INTERVAL 10000
-#define KHOP_INTERVAL 5000
+
+// k-hop distribution
+#define DEFAULT_KHOP_INTERVAL 400
+#define FIX_KHOP_INTERVAL 200
 #define KHOP_QUALITY 0.8
 
+// node-selection
+#define ALWAYS_RANDOM 0
+#define BY_HOPS 1  // compute khop periodically, join & disconnect nodes which are a specific BFS hops apart to tune centrality measures
+#define BY_NODE_SP 2  // compute khop periodically, join & disconnect nodes which have more/less Shortest Paths going through them to tune centrality measures
+static int node_selection = BY_NODE_SP;
+
+// objective functions
+#define IGNORE_DISCONNECTED_GRAPHLETS 1
 #define NUMPROPS 6
 #define GraphletEuclidean 0
 #define SGK 1
@@ -49,7 +59,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 static double weights[NUMPROPS] =
 // weights: 0 GraphletEuclidean; 1 SGK; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
-           {1,                   0,     0,         0,      0,            0};  // SGK should be avoided for now
+           {1,                   0,     0,         0,      0,            0};  // SGK should be avoided
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -740,82 +750,109 @@ double ClustCoffObjective(int* CCHistograms[2], int CCHistograms_size[2]){
     return returnVal;
 }
 
-void FindNodes(GRAPH* G, const Hops hops, int* u1, int* u2, int* v1, int* v2){
+void GetNodes(GRAPH* G, const SmallWorld sw, int a_iter, int nodesBySp[G->n], int* u1, int* u2, int* v1, int* v2){
     // v1 v2 should be disconnected
     // u1 u2 should be connected
-    int edge, x, y, d;
+    int x, y;
 
-    // find existing edge
-    do{
-        edge = drand48() * G->numEdges;
-        x = G->edgeList[2*edge];
-        y = G->edgeList[2*edge+1]; 
-    } while((G->degree[x] == 1) || (G->degree[y] == 1));  // don't disconnect nodes with degree=1
-    assert(GraphAreConnected(G, x, y));
-    assert(x!=y);
-    memcpy(v1, &x, sizeof(int));
-    memcpy(v2, &y, sizeof(int));
 
-    // find existing non-edge
-    if(hops.valid == 1){
-        d = hops.lower + (int)((hops.upper - hops.lower + 1) * drand48());
-        assert(d>1);
+    if ((node_selection==ALWAYS_RANDOM) || (sw.make == 0)){
+        // random selection
+
+        // existing edge
+        do{
+            x = drand48()*G->n;
+            y = getRandomConnectedNode(G, x);
+        } while((G->degree[x] == 1) || (G->degree[y] == 1));
+        assert(GraphAreConnected(G, x, y));
+        assert(x!=y);
+        memcpy(v1, &x, sizeof(int));
+        memcpy(v2, &y, sizeof(int));
+
+        // existing non-edge
         do {
             x = drand48()*G->n;
-            y = getRandomNode(G, x, d);
+            y = drand48()*G->n;
         }while((x==y) || (GraphAreConnected(G, x, y)));
-    }else{
+        assert(!GraphAreConnected(G, x, y));
+        assert(x!=y);
+        memcpy(u1, &x, sizeof(int));
+        memcpy(u2, &y, sizeof(int));
+        return;
+    }
+
+    // for node selection by BFS hops
+    if(node_selection == BY_HOPS){
+        int d = sw.lowerHops + (int)((sw.upperHops - sw.lowerHops + 1) * drand48());
+        assert(d>1);
+
+        // existing edge
+        do{
+            x = drand48()*G->n;
+            y = getRandomConnectedNode(G, x);
+        } while((G->degree[x] == 1) || (G->degree[y] == 1));
+        assert(GraphAreConnected(G, x, y));
+        assert(x!=y);
+        memcpy(v1, &x, sizeof(int));
+        memcpy(v2, &y, sizeof(int));
+
+        // existing non-edge
         do {
-            x = (int) (drand48()*G->n);
-            y = (int) (drand48()*G->n);
+            x = drand48()*G->n;
+            y = getRandomNodeAtHops(G, x, d);
         }while((x==y) || (GraphAreConnected(G, x, y)));
+        assert(x!=y);
+        assert(!GraphAreConnected(G, x, y));
+        memcpy(u1, &x, sizeof(int));
+        memcpy(u2, &y, sizeof(int));
+        return;
     }
-    assert(x!=y);
-    assert(!GraphAreConnected(G, x, y));
-    memcpy(u1, &x, sizeof(int));
-    memcpy(u2, &y, sizeof(int));
-}
 
-void OptimumHops(Dictionary khop[2], Hops* hops){
-    KeyValue* iter;
-    int count, k, v, i, l, mi;
+    // for node selection by node ShortestPaths
+    if(node_selection == BY_NODE_SP){
+        double lower = 0.0;
+        double interval = 0.35;
+        int random;
 
-    int medians[2];
-    int maxKeys[2] = {-1, -1};
-
-    for(i=0; i<2; i++){
-        count = 0;
-
-        iter = getIterator(&(khop[i]));
-        while((getNext(&iter, &k, &v)) == 0){
-            maxKeys[i] = MAX(maxKeys[i], k);
-            count += v;
-        }
-
-        mi = (int) count/2;
-        count = 0;
-        for(l=0; l<=maxKeys[i]; l++){
-            count += dictionary_get(&(khop[i]), l, 0);
-            if (count >= mi){
-                medians[i] = l;
-                break;
+        // existing edge
+        do{
+            random = drand48() * interval * G->n;
+            if (sw.make == -1){  // make network LESS small-world
+                // disconnect a node with HIGH SP
+                x = nodesBySp[(G->n -1) - (int)(MAX(lower, 0.02) * G->n) - random];
+            }else if(sw.make == 1){  // make network MORE small-world
+                // disconnect a node with LOW SP
+                x = nodesBySp[0 + (int)(lower*G->n) + random];
             }
-        }
-    }
+            y = getRandomConnectedNode(G, x); // *TODO*
+        }while((G->degree[x] == 1) || (G->degree[y] == 1));
+        assert(GraphAreConnected(G, x, y));
+        assert(x!=y);
+        memcpy(v1, &x, sizeof(int));
+        memcpy(v2, &y, sizeof(int));
 
-    if(medians[0] < medians[1]){
-        // make synthetic MORE small-world
-        hops->valid = 1;
-        hops->lower = medians[1];
-        hops->upper = MAX(maxKeys[0], maxKeys[1]);
-    }else if(medians[1] < medians[0]){
-        // make synthetic LESS small-world 
-        hops->valid = 1;
-        hops->lower = 2;
-        hops->upper = medians[1];
-    }else{
-        // all hop values are equally likely
-        hops->valid = 0;
+
+        // existing non-edge
+        do{
+            if(sw.make == -1){  // make network LESS small world
+                // connect nodes with LOW SP
+                random = drand48() * interval * G->n;
+                x = nodesBySp[0 + (int)(lower*G->n) + random];
+                random = drand48() * interval * G->n;
+                y = nodesBySp[0 + (int)(lower*G->n) + random];
+            }else if(sw.make == 1){  // make network MORE small world
+                // connect nodes with HIGH SP
+                random = drand48() * interval * G->n;
+                x = nodesBySp[(G->n -1) - (int)(lower*G->n) - random];
+                random = drand48() * interval * G->n;
+                y = nodesBySp[(G->n -1) - (int)(lower*G->n) - random];
+            }   
+        }while((x==y) || (GraphAreConnected(G, x, y)));
+        assert(!GraphAreConnected(G, x, y));
+        assert(x!=y);
+        memcpy(u1, &x, sizeof(int));
+        memcpy(u2, &y, sizeof(int));
+        return;
     }
 }
 
@@ -858,10 +895,19 @@ int main(int argc, char *argv[]){
         }
         assert(i == NUMPROPS);
     }
-	fprintf(stderr, "weights[]=");
-	for(i=0; i<NUMPROPS; i++)
-		fprintf(stderr, " %f", weights[i]);
-	fprintf(stderr, "\n");
+    {
+        double wsum = 0;  // sum of weights should be 1.0
+        for(i=0; i<NUMPROPS; i++) wsum += weights[i];
+        assert(fabs(wsum-1) < 0.0001);
+    }
+
+    /*
+    Read node selection strategy, 0 for random | 1 for bfs-hops | 2 for nodes by ShortestPaths
+    */
+    char* nselect = getenv("SYNTHETIC_NODE_SELECTION");
+    if(nselect)
+        node_selection = atoi(nselect);
+    assert((node_selection>=0) && (node_selection<=2));
 
     /*
     Read max k and stagnation
@@ -1140,9 +1186,14 @@ int main(int argc, char *argv[]){
         }
     }
 
-    Dictionary khop[2];
-    sampleKHop(G[0], &(khop[0]), KHOP_QUALITY);
-    Hops hops;
+    Dictionary khop[2];  // khop distributions
+    int nodesBySp[2][_maxNodes];  // an array which contains nodes which have less SPs going through them at lower indexes (vice-versa)
+    sampleKHop(G[0], &(khop[0]), KHOP_QUALITY, nodesBySp[0]);
+
+    SmallWorld sw;
+    sw.khop_interval = DEFAULT_KHOP_INTERVAL;
+    sw.make = 0;
+    sw.lowerHops = sw.upperHops = -1;
 
     RevertStack uv, xy;  // uv gets disconnected and xy gets connected
     create_stack(&uv, maxK * _numSamples);
@@ -1158,6 +1209,7 @@ int main(int argc, char *argv[]){
     double abscosts[NUMPROPS];
     memcpy(abscosts, max_abscosts, NUMPROPS * sizeof(double));
 
+    fprintf(stderr, "BLANT samples=%d\n", _numSamples);
     fprintf(stderr, "Starting ABSOLUTE costs: GraphletEuclidean: %g, SGK: %g, GraphDiff: %g, GDV: %g, DegreeDist: %g, ClustCoff: %g\n", abscosts[0], abscosts[1], abscosts[2], abscosts[3], abscosts[4], abscosts[5]);
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
@@ -1174,12 +1226,36 @@ int main(int argc, char *argv[]){
     {
 
     int u1, u2, v1, v2;
-    if((a_iter % KHOP_INTERVAL) == 0){  // compute k-hop
-        sampleKHop(G[1], &(khop[1]), KHOP_QUALITY);
-        OptimumHops(khop, &hops);
+
+    // compute k-hop -> make synthetic more/less like a small-world
+    if((node_selection != ALWAYS_RANDOM) && ((a_iter % sw.khop_interval) == 0)){
+        sampleKHop(G[1], &(khop[1]), KHOP_QUALITY, nodesBySp);
+            
+        int medians[2];
+        int maxKeys[2];
+
+        int m = compareKHopByMedian(khop, medians, maxKeys);
+        assert(abs(m) <= 1);
+        if(m==0){
+            // make synthetic LESS small-world
+            sw.make = -1;
+            sw.khop_interval = FIX_KHOP_INTERVAL;
+            sw.lowerHops = 2;
+            sw.upperHops = medians[1];
+        }else if(m==1){
+            // make synthetic MORE small-world
+            sw.make = 1;
+            sw.khop_interval = FIX_KHOP_INTERVAL;
+            sw.lowerHops = medians[1];
+            sw.upperHops = MAX(maxKeys[0], maxKeys[1]);
+        }else if(m==-1){
+            // random node selection
+            sw.make = 0;
+            sw.khop_interval = DEFAULT_KHOP_INTERVAL;
+        }
     }
 
-    FindNodes(G[1], hops, &u1, &u2, &v1, &v2);
+    GetNodes(G[1], sw, a_iter, nodesBySp, &u1, &u2, &v1, &v2);
 
     // initialize new stacks
     assert(init_stack(&uv) == 0);
@@ -1259,7 +1335,7 @@ int main(int argc, char *argv[]){
     }
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
-        fprintf(stderr, "stagnated!, iterations=%d, accepted-iterations=%d\n", sa_iter, a_iter);
+        fprintf(stderr, "stagnated!, total-iterations=%d, accepted-iterations=%d\n", sa_iter, a_iter);
         break;
     }
     ++sa_iter;

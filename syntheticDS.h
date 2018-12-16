@@ -23,9 +23,15 @@ typedef struct revertstack{
     Change* space;
 } RevertStack;
 
-typedef struct hops{
-	int valid, lower, upper;
-} Hops;
+typedef struct int_tuple{
+	int nums[2];
+} IntTuple;
+
+typedef struct smallworld{
+	int make;  // +1 for make more small world, 0 for do nothing, -1 for make less small world
+	int khop_interval;
+	int lowerHops, upperHops;
+} SmallWorld;
 
 int dictionary_create(Dictionary* dictionary);
 int dictionary_get(Dictionary* dictionary, int key, int default_value);
@@ -43,6 +49,8 @@ double getDoubleMedian(double* nums, int start, int end);
 double PoissonDistribution(double l, int k);
 double getDoubleBinSize(int n, double localClustCoff[n], double* scratchspace);
 int getIntegerBinSize(int n, int GDVcolumn[n], int* scratchspace);
-int getRandomNode(GRAPH* G, int src, int hops);
-void sampleKHop(GRAPH* G, Dictionary* khop, double quality);
+int getRandomNodeAtHops(GRAPH* G, int src, int hops);
+int getRandomConnectedNode(GRAPH* G, int src);
+void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n]);
+int compareKHopByMedian(Dictionary* khop[2], int medians[2], int maxKeys[2]);
 void print_khop(Dictionary* khop);
