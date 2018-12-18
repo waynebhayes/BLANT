@@ -750,7 +750,7 @@ double ClustCoffObjective(int* CCHistograms[2], int CCHistograms_size[2]){
     return returnVal;
 }
 
-void GetNodes(GRAPH* G, const SmallWorld sw, int a_iter, int nodesBySp[G->n], int* u1, int* u2, int* v1, int* v2){
+void GetNodes(GRAPH* G, const SmallWorld sw, int a_iter, int nodesBySp[G->n], int index_in_nodesBySp[G->n], int* u1, int* u2, int* v1, int* v2){
     // v1 v2 should be disconnected
     // u1 u2 should be connected
     int x, y;
@@ -811,26 +811,33 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int a_iter, int nodesBySp[G->n], in
     // for node selection by node ShortestPaths
     if(node_selection == BY_NODE_SP){
         double lower = 0.0;
+        double pd_interval = 0.05;
         double interval = 0.35;
         int random;
+        int l, u, yi;
 
         // existing edge
         do{
             random = drand48() * interval * G->n;
             if (sw.make == -1){  // make network LESS small-world
                 // disconnect a node with HIGH SP
-                x = nodesBySp[(G->n -1) - (int)(MAX(lower, 0.02) * G->n) - random];
+                x = nodesBySp[(G->n -1) - (int)(MAX(lower, pd_interval) * G->n) - random];
+                l = (G->n -1) - (int)(MAX(lower, pd_interval) * G->n) - (interval * G->n);
+                u = G->n - 1;
             }else if(sw.make == 1){  // make network MORE small-world
                 // disconnect a node with LOW SP
                 x = nodesBySp[0 + (int)(lower*G->n) + random];
+                l = 0;
+                u = (int)(lower*G->n) + (interval * G->n);
             }
-            y = getRandomConnectedNode(G, x); // *TODO*
-        }while((G->degree[x] == 1) || (G->degree[y] == 1));
+            y = getRandomConnectedNode(G, x);
+            yi = index_in_nodesBySp[y];
+            assert((yi>=0) && (yi<G->n));
+        }while((G->degree[x] == 1) || (G->degree[y] == 1) || (yi<l) || (yi>u));
         assert(GraphAreConnected(G, x, y));
         assert(x!=y);
         memcpy(v1, &x, sizeof(int));
         memcpy(v2, &y, sizeof(int));
-
 
         // existing non-edge
         do{
@@ -908,7 +915,7 @@ int main(int argc, char *argv[]){
     if(nselect)
         node_selection = atoi(nselect);
     assert((node_selection>=0) && (node_selection<=2));
-
+    
     /*
     Read max k and stagnation
     */
@@ -1188,7 +1195,10 @@ int main(int argc, char *argv[]){
 
     Dictionary khop[2];  // khop distributions
     int nodesBySp[2][_maxNodes];  // an array which contains nodes which have less SPs going through them at lower indexes (vice-versa)
+    int index_in_nodesBySp[2][_maxNodes];  // index `i` gives the position of vertex `i` in nodesBySp
     sampleKHop(G[0], &(khop[0]), KHOP_QUALITY, nodesBySp[0]);
+    for(i=0; i<G[0]->n; i++)
+        index_in_nodesBySp[0][nodesBySp[0][i]] = i;
 
     SmallWorld sw;
     sw.khop_interval = DEFAULT_KHOP_INTERVAL;
@@ -1229,7 +1239,16 @@ int main(int argc, char *argv[]){
 
     // compute k-hop -> make synthetic more/less like a small-world
     if((node_selection != ALWAYS_RANDOM) && ((a_iter % sw.khop_interval) == 0)){
-        sampleKHop(G[1], &(khop[1]), KHOP_QUALITY, nodesBySp);
+        sampleKHop(G[1], &(khop[1]), KHOP_QUALITY, nodesBySp[1]);
+
+        // reverse lookup
+        for(i=0; i<G[1]->n; i++) 
+            index_in_nodesBySp[1][i] = -1;
+
+        for(i=0; i<G[1]->n; i++){
+            assert(index_in_nodesBySp[1][nodesBySp[1][i]] == -1);
+            index_in_nodesBySp[1][nodesBySp[1][i]] = i;
+        }//
             
         int medians[2];
         int maxKeys[2];
@@ -1255,7 +1274,7 @@ int main(int argc, char *argv[]){
         }
     }
 
-    GetNodes(G[1], sw, a_iter, nodesBySp, &u1, &u2, &v1, &v2);
+    GetNodes(G[1], sw, a_iter, nodesBySp[1], index_in_nodesBySp[1], &u1, &u2, &v1, &v2);
 
     // initialize new stacks
     assert(init_stack(&uv) == 0);
