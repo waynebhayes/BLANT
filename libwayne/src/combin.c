@@ -287,7 +287,8 @@ double CombinChooseDouble(int n, int m)
 	    }
     }
 
-    assert(SetCardinality(denoms) == 0);
+    if(SetCardinality(denoms) != 0)
+		Fatal("CombinChooseDouble(%d,%d) failed to use all denoms, SetCardinality is %d\n",n,m,SetCardinality(denoms));
     SetFree(denoms);
     return result;
 }
