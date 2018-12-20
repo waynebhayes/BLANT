@@ -444,7 +444,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_ma
                     if (!ISZERO(weights[SGKDiff]))
                         oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
                     if (!ISZERO(weights[GraphletGDV]))
-                        oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // GDV matrices can be out of sync is weight[GDV] != 0
+                        oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // GDV matrices might be out of sync from ideal if GDV weight = 0
                 }
 
                 // Change object (to be pushed on the stack)
@@ -478,7 +478,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_ma
                     if (!ISZERO(weights[SGKDiff]))
                         oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
                     if (!ISZERO(weights[GraphletGDV]))
-                        oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // GDV matrices can be out of sync is weight[GDV] != 0
+                        oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);
                 }
 
                 // change object
