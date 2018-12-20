@@ -35,6 +35,7 @@ static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 #define PRINT_INTERVAL 10000
+#define ISZERO(w) (fabs(w)<0.00001)
 
 // k-hop distribution
 #define DEFAULT_KHOP_INTERVAL 400
@@ -435,12 +436,15 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_ma
                 change = -1;
 
                 // recompute cost
-                temp_gdv_newcost = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // fix GDV
                 if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
-                    oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
-                    oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
-                    oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
-                    oldcost[3] = temp_gdv_newcost;
+                    if (!ISZERO(weights[GraphletEuclidean]))
+                        oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
+                    if (!ISZERO(weights[SGK]))
+                        oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
+                    if (!ISZERO(weights[SGKDiff]))
+                        oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
+                    if (!ISZERO(weights[GraphletGDV]))
+                        oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // GDV matrices might be out of sync from ideal if GDV weight = 0
                 }
 
                 // Change object (to be pushed on the stack)
@@ -466,12 +470,15 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_ma
                 change = 1;
 
                 // recompute cost
-                temp_gdv_newcost = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // fix GDV
                 if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
-                    oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
-                    oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
-                    oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
-                    oldcost[3] = temp_gdv_newcost;
+                    if (!ISZERO(weights[GraphletEuclidean]))
+                        oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
+                    if (!ISZERO(weights[SGK]))
+                        oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
+                    if (!ISZERO(weights[SGKDiff]))
+                        oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
+                    if (!ISZERO(weights[GraphletGDV]))
+                        oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);
                 }
 
                 // change object
@@ -501,11 +508,13 @@ void Revert(int ***BLANT, int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms
 
     while (pop(rvStack, &change) == 0){
         line = BLANT[change.k-1][change.linenum];
-        AdjustGDV(change.k, change.new, -1, line, GDVhistograms, GDVbinsize, GDV, 1000);  // the 1000 has no meaning
+        if (!ISZERO(weights[GraphletGDV]))
+            AdjustGDV(change.k, change.new, -1, line, GDVhistograms, GDVbinsize, GDV, 1000);  // the 1000 has no meaning
         Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
         Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
         BLANT[change.k-1][change.linenum][0] = change.original;
-        AdjustGDV(change.k, change.original, 1, line, GDVhistograms, GDVbinsize, GDV, 1000);
+        if (!ISZERO(weights[GraphletGDV]))
+            AdjustGDV(change.k, change.original, 1, line, GDVhistograms, GDVbinsize, GDV, 1000);
         if(wasConnected && !isConnected) 
             ++_numDisconnectedGraphlets;
         if(!wasConnected && isConnected) 
@@ -1282,13 +1291,17 @@ int main(int argc, char *argv[]){
     memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
 
     GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
-    newcosts[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
-    newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+    if (!ISZERO(weights[DegreeDist]))
+        newcosts[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
+    if (!ISZERO(weights[ClustCoff]))
+        newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
     ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
 
     GraphConnect(G[1], u1, u2); // add an edge to Gs
-    newcosts[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
-    newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+    if (!ISZERO(weights[DegreeDist]))
+        newcosts[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
+    if (!ISZERO(weights[ClustCoff]))
+        newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
     ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
 
     newCost = Objective(newcosts);
@@ -1341,12 +1354,16 @@ int main(int argc, char *argv[]){
         ++same;
 
         GraphDisconnect(G[1], u1, u2);
-        newcosts[DegreeDist] = AdjustDegree(u1, u2, -1, G[1], Degree, newcosts[DegreeDist]);
-        newcosts[ClustCoff] = AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+        if (!ISZERO(weights[DegreeDist]))
+            newcosts[DegreeDist] = AdjustDegree(u1, u2, -1, G[1], Degree, newcosts[DegreeDist]);
+        if (!ISZERO(weights[ClustCoff]))
+            newcosts[ClustCoff] = AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
 
         GraphConnect(G[1], v1, v2);
-        newcosts[DegreeDist] = AdjustDegree(v1, v2, 1, G[1], Degree, newcosts[DegreeDist]);
-        newcosts[ClustCoff] = AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+        if (!ISZERO(weights[DegreeDist]))
+            newcosts[DegreeDist] = AdjustDegree(v1, v2, 1, G[1], Degree, newcosts[DegreeDist]);
+        if (!ISZERO(weights[ClustCoff]))
+            newcosts[ClustCoff] = AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
         
         // revert changes to blant file and D vectors
         Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &xy);
