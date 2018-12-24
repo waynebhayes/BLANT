@@ -39,6 +39,7 @@ opt_clean:
 
 raw_clean:
 	/bin/rm -f src/*.[oa] $(LIBOUT) made
+	cd MT19937; make clean
 
 clean:
 	/bin/rm -f *.a

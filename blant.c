@@ -742,20 +742,17 @@ void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 	}
 }
 
-// WalkLSteps fills XLS, XLQ (the sliding window) with L dgraphlets
-// Given an empty sliding window, XLQ, XLS, walk along the graph starting at a random edge
-// growing our sliding window until we have L graphlets in it.
-// Then, we slide our window until it has k distinct vertices. That represents our initial sampling
-// when we start/restart.
-void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
+// Initialize a sliding window represented by a multiset and queue of vertices.
+// Sliding window is generated from a randomly selected edge from a predefined connected compenent and grown through edge walking.
+void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int cc, int windowSize)
 {
 	MultisetEmpty(XLS);
 	QueueEmpty(XLQ);
-	//For now d must be equal to 2 because we start by picking a random edge
-	int numNodes = 0;
-	if (mcmc_d != 2) {
-		Fatal("mcmc_d must be set to 2 in blant.h for now");
-	} else {
+
+	if (windowSize < 1) {
+		Fatal("Window Size must be at least 1");
+	}
+
 	//Pick a random edge. Add the vertices from it to our data structures
 	int edge;
     do {
@@ -766,17 +763,33 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
 
     MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
-	}
-
-	//Add L-1 d graphlets to our sliding window. The edge we added is the first d graphlet
+	
+	//Add windowSize-1 d graphlets to our sliding window. The edge we added is the first d graphlet
 	int i, j;
-	for (i = 1; i < _MCMC_L; i++) {
+	for (i = 1; i < windowSize; i++) {
 		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
 		for (j = 0; j < mcmc_d; j++) {
 			MultisetAdd(XLS, X[j]);
 			QueuePut(XLQ, (foint) X[j]);
 		}
 	}
+}
+
+// WalkLSteps fills XLS, XLQ (the sliding window) with L dgraphlets
+// Given an empty sliding window, XLQ, XLS, walk along the graph starting at a random edge
+// growing our sliding window until we have L graphlets in it.
+// Then, we slide our window until it has k distinct vertices. That represents our initial sampling
+// when we start/restart.
+void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
+{
+	
+	//For now d must be equal to 2 because we start by picking a random edge
+	if (mcmc_d != 2) {
+		Fatal("mcmc_d must be set to 2 in blant.h for now");
+	}
+
+	initializeSlidingWindow(XLS, XLQ, X, G, cc, _MCMC_L);
+
 	//Keep crawling til we have k distinct vertices
 	static int numTries = 0;
 	static int depth = 0;
