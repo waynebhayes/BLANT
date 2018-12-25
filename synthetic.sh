@@ -38,7 +38,7 @@ while [ $STAG -le 1048576 ]; do # 1 Mebisample
     md5sum $OUTPUT
     ./synthetic -s $STAG -k $j $INPUT $OUTPUT $BLANTFILES_IN $BLANTFILES_OUT > $TMPDIR/x || exit
     mv $TMPDIR/x $OUTPUT
-	count.el networks/syeast.el $OUTPUT; for j in 3 4 5 6 7 8; do echo $j: $(paste <(./blant -mf -s MCMC -n 800000 -k $j networks/syeast.el) <(./blant -mf -s MCMC -n 800000 -k $j $OUTPUT)|hawk '$2==$4{print $2,$1,$3}' | grep -v ' 0 0$' | awk '$3!=0&&$2!=0{print $3/$2}' | stats -g); done; pushkar-graph-compare.sh networks/syeast.el $OUTPUT
+	#ount.el networks/syeast.el $OUTPUT; for j in 3 4 5 6 7 8; do echo $j: $(paste <(./blant -mf -s MCMC -n 800000 -k $j networks/syeast.el) <(./blant -mf -s MCMC -n 800000 -k $j $OUTPUT)|hawk '$2==$4{print $2,$1,$3}' | grep -v ' 0 0$' | awk '$3!=0&&$2!=0{print $3/$2}' | stats -g); done; pushkar-graph-compare.sh networks/syeast.el $OUTPUT
     BLANTFILES_IN=''
     BLANTFILES_OUT=''
     for j in `seq 3 $k`; do
