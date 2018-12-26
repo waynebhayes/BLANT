@@ -877,8 +877,8 @@ int main(int argc, char *argv[]){
     int i, opt, j, line;
 
     if(argc==1){
-    fprintf(stderr, "%s\n", USAGE);
-    exit(1);
+	fprintf(stderr, "%s\n", USAGE);
+	exit(1);
     }
 
     // initialize _k[]
@@ -1108,7 +1108,7 @@ int main(int argc, char *argv[]){
         }
     }
 
-    // store what samples is a particular node-part of
+    // store what samples is a particular node part of
     SET **samples[maxK];
     for(i=0; i<maxK; i++){
         if (_k[i] == -1) break;
@@ -1244,137 +1244,137 @@ int main(int argc, char *argv[]){
     while((startCost - cost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
     {
 
-    int u1, u2, v1, v2;
+	int u1, u2, v1, v2;
 
-    // compute k-hop -> make synthetic more/less like a small-world
-    if((node_selection != ALWAYS_RANDOM) && ((a_iter % sw.khop_interval) == 0)){
-        sampleKHop(G[1], &(khop[1]), KHOP_QUALITY, nodesBySp[1]);
+	// compute k-hop -> make synthetic more/less like a small-world
+	if((node_selection != ALWAYS_RANDOM) && ((a_iter % sw.khop_interval) == 0)){
+	    sampleKHop(G[1], &(khop[1]), KHOP_QUALITY, nodesBySp[1]);
 
-        // reverse lookup
-        for(i=0; i<G[1]->n; i++) 
-            index_in_nodesBySp[1][i] = -1;
+	    // reverse lookup
+	    for(i=0; i<G[1]->n; i++) 
+		index_in_nodesBySp[1][i] = -1;
 
-        for(i=0; i<G[1]->n; i++){
-            assert(index_in_nodesBySp[1][nodesBySp[1][i]] == -1);
-            index_in_nodesBySp[1][nodesBySp[1][i]] = i;
-        }//
-            
-        int medians[2];
-        int maxKeys[2];
+	    for(i=0; i<G[1]->n; i++){
+		assert(index_in_nodesBySp[1][nodesBySp[1][i]] == -1);
+		index_in_nodesBySp[1][nodesBySp[1][i]] = i;
+	    }//
+		
+	    int medians[2];
+	    int maxKeys[2];
 
-        int m = compareKHopByMedian(khop, medians, maxKeys);
-        assert(abs(m) <= 1);
-        if(m==0){
-            // make synthetic LESS small-world
-            sw.make = -1;
-            sw.khop_interval = FIX_KHOP_INTERVAL;
-            sw.lowerHops = 2;
-            sw.upperHops = medians[1];
-        }else if(m==1){
-            // make synthetic MORE small-world
-            sw.make = 1;
-            sw.khop_interval = FIX_KHOP_INTERVAL;
-            sw.lowerHops = medians[1];
-            sw.upperHops = MAX(maxKeys[0], maxKeys[1]);
-        }else if(m==-1){
-            // random node selection
-            sw.make = 0;
-            sw.khop_interval = DEFAULT_KHOP_INTERVAL;
-        }
-    }
+	    int m = compareKHopByMedian(khop, medians, maxKeys);
+	    assert(abs(m) <= 1);
+	    if(m==0){
+		// make synthetic LESS small-world
+		sw.make = -1;
+		sw.khop_interval = FIX_KHOP_INTERVAL;
+		sw.lowerHops = 2;
+		sw.upperHops = medians[1];
+	    }else if(m==1){
+		// make synthetic MORE small-world
+		sw.make = 1;
+		sw.khop_interval = FIX_KHOP_INTERVAL;
+		sw.lowerHops = medians[1];
+		sw.upperHops = MAX(maxKeys[0], maxKeys[1]);
+	    }else if(m==-1){
+		// random node selection
+		sw.make = 0;
+		sw.khop_interval = DEFAULT_KHOP_INTERVAL;
+	    }
+	}
 
-    GetNodes(G[1], sw, a_iter, nodesBySp[1], index_in_nodesBySp[1], &u1, &u2, &v1, &v2);
+	GetNodes(G[1], sw, a_iter, nodesBySp[1], index_in_nodesBySp[1], &u1, &u2, &v1, &v2);
 
-    // initialize new stacks
-    assert(init_stack(&uv) == 0);
-    assert(init_stack(&xy) == 0);
-    memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
+	// initialize new stacks
+	assert(init_stack(&uv) == 0);
+	assert(init_stack(&xy) == 0);
+	memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
 
-    GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
-    if (!ISZERO(weights[DegreeDist]))
-        newcosts[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
-    if (!ISZERO(weights[ClustCoff]))
-        newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-    ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
+	GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
+	if (!ISZERO(weights[DegreeDist]))
+	    newcosts[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
+	if (!ISZERO(weights[ClustCoff]))
+	    newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+	ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
 
-    GraphConnect(G[1], u1, u2); // add an edge to Gs
-    if (!ISZERO(weights[DegreeDist]))
-        newcosts[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
-    if (!ISZERO(weights[ClustCoff]))
-        newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-    ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
+	GraphConnect(G[1], u1, u2); // add an edge to Gs
+	if (!ISZERO(weights[DegreeDist]))
+	    newcosts[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
+	if (!ISZERO(weights[ClustCoff]))
+	    newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+	ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
 
-    newCost = Objective(newcosts);
-    maxCost = MAX(maxCost, newCost);
-    assert(newCost == newCost);
-    static int same;
+	newCost = Objective(newcosts);
+	maxCost = MAX(maxCost, newCost);
+	assert(newCost == newCost);
+	static int same;
 
-#if 1 // HILLCLIMB
-    if(newCost < cost)
-#else
-#define SA_START_TEMP 1.0
-#define SA_DECAY 1e-4
-    temperature = SA_START_TEMP * exp(-SA_DECAY*500*sa_iter);
-    unif_random = drand48();
-    pBad = exp((-(newCost - cost)/maxCost)/temperature);
-    // assert (newCost < cost <=> pBad > 1)
-    assert((newCost < cost) == (pBad > 1));
-    if(newCost < cost || unif_random < pBad)
-#endif
-    {
-        //fprintf(stderr,"A");fflush(stderr);
-        static double printVal=1e30, printInterval;
-        if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
-        {
-            fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
-            //fprintf(stderr, "%g ", newCost);
-            printVal = cost;
-            printInterval = 0;
-        }
-        cost = newCost;
-        memcpy(abscosts, newcosts, NUMPROPS * sizeof(double));
-        // update max costs -- only if move is accepted
-        for(i=0; i<NUMPROPS; i++)
-            max_abscosts[i] = MAX(max_abscosts[i], abscosts[i]);
+    #if 1 // HILLCLIMB
+	if(newCost < cost)
+    #else
+    #define SA_START_TEMP 1.0
+    #define SA_DECAY 1e-4
+	temperature = SA_START_TEMP * exp(-SA_DECAY*500*sa_iter);
+	unif_random = drand48();
+	pBad = exp((-(newCost - cost)/maxCost)/temperature);
+	// assert (newCost < cost <=> pBad > 1)
+	assert((newCost < cost) == (pBad > 1));
+	if(newCost < cost || unif_random < pBad)
+    #endif
+	{
+	    //fprintf(stderr,"A");fflush(stderr);
+	    static double printVal=1e30, printInterval;
+	    if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
+	    {
+		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
+		//fprintf(stderr, "%g ", newCost);
+		printVal = cost;
+		printInterval = 0;
+	    }
+	    cost = newCost;
+	    memcpy(abscosts, newcosts, NUMPROPS * sizeof(double));
+	    // update max costs -- only if move is accepted
+	    for(i=0; i<NUMPROPS; i++)
+		max_abscosts[i] = MAX(max_abscosts[i], abscosts[i]);
 
-        same = 0;
-        ++a_iter;
-    }
-    else // revert
-    {
-        //fprintf(stderr,"R");fflush(stderr);
-        static double printVal=1e30, printInterval;
-        if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
-        {
-            fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
-            //fprintf(stderr, "%g ", newCost);
-            printVal = cost;
-            printInterval = 0;
-        }
-        ++same;
+	    same = 0;
+	    ++a_iter;
+	}
+	else // revert
+	{
+	    //fprintf(stderr,"R");fflush(stderr);
+	    static double printVal=1e30, printInterval;
+	    if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
+	    {
+		fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
+		//fprintf(stderr, "%g ", newCost);
+		printVal = cost;
+		printInterval = 0;
+	    }
+	    ++same;
 
-        GraphDisconnect(G[1], u1, u2);
-        if (!ISZERO(weights[DegreeDist]))
-            newcosts[DegreeDist] = AdjustDegree(u1, u2, -1, G[1], Degree, newcosts[DegreeDist]);
-        if (!ISZERO(weights[ClustCoff]))
-            newcosts[ClustCoff] = AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+	    GraphDisconnect(G[1], u1, u2);
+	    if (!ISZERO(weights[DegreeDist]))
+		newcosts[DegreeDist] = AdjustDegree(u1, u2, -1, G[1], Degree, newcosts[DegreeDist]);
+	    if (!ISZERO(weights[ClustCoff]))
+		newcosts[ClustCoff] = AdjustClustCoff(u1, u2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
 
-        GraphConnect(G[1], v1, v2);
-        if (!ISZERO(weights[DegreeDist]))
-            newcosts[DegreeDist] = AdjustDegree(v1, v2, 1, G[1], Degree, newcosts[DegreeDist]);
-        if (!ISZERO(weights[ClustCoff]))
-            newcosts[ClustCoff] = AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-        
-        // revert changes to blant file and D vectors
-        Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &xy);
-        Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &uv);
-    }
+	    GraphConnect(G[1], v1, v2);
+	    if (!ISZERO(weights[DegreeDist]))
+		newcosts[DegreeDist] = AdjustDegree(v1, v2, 1, G[1], Degree, newcosts[DegreeDist]);
+	    if (!ISZERO(weights[ClustCoff]))
+		newcosts[ClustCoff] = AdjustClustCoff(v1, v2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
+	    
+	    // revert changes to blant file and D vectors
+	    Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &xy);
+	    Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &uv);
+	}
 
-    if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
-        fprintf(stderr, "stagnated!, total-iterations=%d, accepted-iterations=%d\n", sa_iter, a_iter);
-        break;
-    }
-    ++sa_iter;
+	if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
+	    fprintf(stderr, "stagnated!, total-iterations=%d, accepted-iterations=%d\n", sa_iter, a_iter);
+	    break;
+	}
+	++sa_iter;
     }
     fprintf(stderr,"\n");
     for(i=0; i < G[1]->numEdges; i++)
