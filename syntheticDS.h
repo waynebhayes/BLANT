@@ -33,6 +33,10 @@ typedef struct smallworld{
 	int lowerHops, upperHops;
 } SmallWorld;
 
+typedef struct gkstate{
+	long udotv, sq_length_u, sq_length_v;
+} GKState;
+
 int dictionary_create(Dictionary* dictionary);
 int dictionary_get(Dictionary* dictionary, int key, int default_value);
 void dictionary_set(Dictionary* dictionary, int key, int value);

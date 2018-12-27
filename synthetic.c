@@ -52,15 +52,15 @@ static int node_selection = BY_NODE_SP;
 #define IGNORE_DISCONNECTED_GRAPHLETS 1
 #define NUMPROPS 6
 #define GraphletEuclidean 0
-#define SGK 1
+#define GraphletKernel 1
 #define SGKDiff 2
 #define GraphletGDV 3
 #define DegreeDist 4
 #define ClustCoff 5
 
 static double weights[NUMPROPS] =
-// weights: 0 GraphletEuclidean; 1 SGK; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
-           {1,                   0,     0,         0,      0,            0};  // SGK should be avoided
+// weights: 0 GraphletEuclidean; 1 GraphletKernel; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
+           {0,                   1,                0,         0,      0,            0};
 static double max_abscosts[NUMPROPS];
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -157,45 +157,23 @@ double FastSGKDiffObjective(double oldcost, int k, int canonNum, int D0, int D1,
     return returnVal;
 }
 
-double FastSGKObjective(double oldcost, int D0, int D1, int change){
+double AdjustGraphletKernel(int D0, int D1, int change, GKState* gkstate){
     // D0 and D1 are the graphlet counts in D[0] and D[1] for a particular k and canonNum
-    double oldratio, newratio;
-    //int newTotalCanons = totalCanons;
-    int m,M;
     assert(abs(change) == 1);
 
-    // compute old ratio
-    m = MIN(D0, D1 - change);  // D1-change is the older value of D1 (D1 is the count after decrementing/incrementing in ReBLANT)
-    M = MAX(D0, D1 - change);
-    if (M==0){
-        //oldratio = 0;
-        //if (change == 1) newTotalCanons++;
-        oldratio = 1;
-    }else{
-        oldratio = (double) m/M;
-    }
+    // update u dot v
+    gkstate->udotv += ((long) D0 * (long) change);  // expression after simplification :    += [(d1*d0) - ((d1-change)*d0)] 
 
-    // compute new ratio
-    m = MIN(D0, D1);
-    M = MAX(D0, D1);
-    if (M==0){
-        //newratio = 0;
-        //if (change == -1) newTotalCanons--;
-        newratio = 1;
-    }else{
-        newratio = (double) m/M;
-    }
-    
-    oldcost = 1 - oldcost;
-    double unchanged = totalCanons * oldcost;
-    //assert(newTotalCanons > 0);
-    //double returnVal = (double) (unchanged - oldratio + newratio)/newTotalCanons;
-    double returnVal = (unchanged - oldratio + newratio)/totalCanons;
-    //totalCanons = newTotalCanons;
-    returnVal = 1 - returnVal;
+    // update ||v|| ** 2
+    gkstate->sq_length_v += (long) ((2*D1*change) - 1);  //  += [-(d1-change)**2 + (d1)**2]
 
-    assert((returnVal >= 0) && (returnVal <= 1));
-    return returnVal;
+    assert(sqrt(gkstate->sq_length_u) >= 0);
+    assert(sqrt(gkstate->sq_length_v) >= 0);
+
+    double gk = ((double) gkstate->udotv) / (((double) sqrt(gkstate->sq_length_u)) * ((double) sqrt(gkstate->sq_length_v)));
+    double cost = 1-gk;
+    assert(ISZERO(cost) || ISZERO(1-cost) || ((cost>0) && (cost<1)));
+    return cost;
 }
 
 double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], double oldcost){
@@ -408,7 +386,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
     return newcost;
 }
 
-void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[4], RevertStack* rvStack){
+void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_maxNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[4], RevertStack* rvStack){
 
     // updates cost ONLY for GraphletEuclidean, SGK, Diff, GDV
     int i, j, line, s, change;
@@ -439,8 +417,8 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_ma
                 if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
                     if (!ISZERO(weights[GraphletEuclidean]))
                         oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
-                    if (!ISZERO(weights[SGK]))
-                        oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
+                    if (!ISZERO(weights[GraphletKernel]))
+                        oldcost[1] = AdjustGraphletKernel(D[0][k-1][canon], D[1][k-1][canon], change, gkstate);
                     if (!ISZERO(weights[SGKDiff]))
                         oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
                     if (!ISZERO(weights[GraphletGDV]))
@@ -470,11 +448,11 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms[2][maxK][_ma
                 change = 1;
 
                 // recompute cost
-                if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
+                if ((!IGNORE_DISCONNECTED_GRAPHLETS) || isConnected){
                     if (!ISZERO(weights[GraphletEuclidean]))
                         oldcost[0] = FastEuclideanObjective(oldcost[0], oldcanondiff, change);
-                    if (!ISZERO(weights[SGK]))
-                        oldcost[1] = FastSGKObjective(oldcost[1], D[0][k-1][canon], D[1][k-1][canon], change);
+                    if (!ISZERO(weights[GraphletKernel]))
+                        oldcost[1] = AdjustGraphletKernel(D[0][k-1][canon], D[1][k-1][canon], change, gkstate);
                     if (!ISZERO(weights[SGKDiff]))
                         oldcost[2] = FastSGKDiffObjective(oldcost[2], k, canon, D[0][k-1][canon], D[1][k-1][canon], change);
                     if (!ISZERO(weights[GraphletGDV]))
@@ -508,13 +486,20 @@ void Revert(int ***BLANT, int D[2][maxK][_maxNumCanon], Dictionary GDVhistograms
 
     while (pop(rvStack, &change) == 0){
         line = BLANT[change.k-1][change.linenum];
-        if (!ISZERO(weights[GraphletGDV]))
-            AdjustGDV(change.k, change.new, -1, line, GDVhistograms, GDVbinsize, GDV, 1000);  // the 1000 has no meaning
+        
         Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
+        if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
+            if (!ISZERO(weights[GraphletGDV]))
+                AdjustGDV(change.k, change.new, -1, line, GDVhistograms, GDVbinsize, GDV, 1000);  // the 1000 has no meaning
+        }
+
         Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
         BLANT[change.k-1][change.linenum][0] = change.original;
-        if (!ISZERO(weights[GraphletGDV]))
-            AdjustGDV(change.k, change.original, 1, line, GDVhistograms, GDVbinsize, GDV, 1000);
+        if ((!IGNORE_DISCONNECTED_GRAPHLETS) || isConnected){
+            if (!ISZERO(weights[GraphletGDV]))
+                AdjustGDV(change.k, change.original, 1, line, GDVhistograms, GDVbinsize, GDV, 1000);
+        }
+
         if(wasConnected && !isConnected) 
             ++_numDisconnectedGraphlets;
         if(!wasConnected && isConnected) 
@@ -566,40 +551,37 @@ double GraphletEuclideanObjective(int D[2][maxK][_maxNumCanon]){
     return returnVal; //exp(logP);
 }
 
-double SGKObjective(int D[2][maxK][_maxNumCanon]){
-    // returns ABSOLUTE cost
+double GraphletKernelObjective(const int D[2][maxK][_maxNumCanon], GKState* gkstate){
     int i,j;
-    double sum = 0;
-    totalCanons = 0;
+    gkstate->udotv = (long) 0;
+    gkstate->sq_length_u = (long) 0;
+    gkstate->sq_length_v = (long) 0;
 
     for(i=0; i<maxK; i++){
         int k = _k[i];
         if (k == -1) 
             break;
-        
-        assert(_numCanon[k-1] >= 0);
-        totalCanons += _numCanon[k-1];
 
-        for (j=0; j<_numCanon[k-1]; j++){
-            int m,M;
-            m = MIN(D[0][k-1][j], D[1][k-1][j]);
-            M = MAX(D[0][k-1][j], D[1][k-1][j]);
-            if (M==0){
-                m=M=1;
-                sum += 1;
-                //totalCanons -= 1;  // ignore denominator, when M==0
+        for(j=0; j<_numCanon[k-1]; j++){
+            if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_connectedCanonicals[k-1], j))){
+                gkstate->sq_length_u += SQR((long) D[0][k-1][j]);
+                assert(gkstate->sq_length_u >= 0);
+                gkstate->sq_length_v += SQR((long) D[1][k-1][j]);
+                assert(gkstate->sq_length_v >= (long) 0);
+                gkstate->udotv += ((long) D[0][k-1][j] * (long) D[1][k-1][j]);
+                assert(gkstate->udotv >= 0);
             }
-            else
-                sum += ((double) m/M);
-            
         }
     }
 
-    assert(totalCanons > 0);
-    double returnVal = sum/totalCanons;  // totalCanons is a global variable
-    returnVal = 1-returnVal;
-    assert((returnVal>=0) && (returnVal<=1));
-    return returnVal;
+    assert(sqrt(gkstate->sq_length_u) > 0);
+    assert(sqrt(gkstate->sq_length_v) > 0);
+    double gk = ((double) gkstate->udotv) / (((double) sqrt(gkstate->sq_length_u)) * ((double) sqrt(gkstate->sq_length_v)));
+    //fprintf(stderr, "ORIGINAL %ld %ld %ld\n", gkstate->udotv, gkstate->sq_length_u, gkstate->sq_length_v);
+    double cost = 1-gk;
+    //fprintf(stderr, "gk cost %g %g\n", gk, cost);
+    assert(ISZERO(cost) || ISZERO(1-cost) || ((cost>0) && (cost<1)));
+    return cost;
 }
 
 double SGKDiffObjective(int D[2][maxK][_maxNumCanon]){
@@ -614,7 +596,8 @@ double SGKDiffObjective(int D[2][maxK][_maxNumCanon]){
         for (j=0; j<_numCanon[k-1]; j++){
             int diff = abs(D[0][k-1][j] - D[1][k-1][j]);
             int target = D[0][k-1][j];
-            if (SetIn(_connectedCanonicals[k-1], j)){ // only count if canonical is connected
+            //if (SetIn(_connectedCanonicals[k-1], j)){ // only count if canonical is connected
+            if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_connectedCanonicals[k-1], j))){
                 if (target == 0){
                     if (diff == 0)
                         sum += (double) 1;
@@ -968,6 +951,10 @@ int main(int argc, char *argv[]){
         for (j=0; j<_maxNumCanon; j++) 
             D[0][i][j] = D[1][i][j] = 0;
 
+    // GraphletKernel
+    GKState gkstate, newGkstate;
+    gkstate.udotv = gkstate.sq_length_u = gkstate.sq_length_v = 0;
+
     // GDV matrices
     _maxNodes = MAX(G[0]->n, G[1]->n);
     int GDV[2][maxK][_maxNumCanon][_maxNodes];  // 4 dimensional
@@ -1219,7 +1206,7 @@ int main(int argc, char *argv[]){
     create_stack(&xy, maxK * _numSamples);
 
     max_abscosts[GraphletEuclidean] = GraphletEuclideanObjective(D);
-    max_abscosts[SGK] = SGKObjective(D);
+    max_abscosts[GraphletKernel] = GraphletKernelObjective(D, &gkstate);
     max_abscosts[SGKDiff] = SGKDiffObjective(D);
     max_abscosts[GraphletGDV] = GDVObjective(GDVhistograms);
     max_abscosts[DegreeDist] = DegreeDistObjective(Degree);
@@ -1228,8 +1215,9 @@ int main(int argc, char *argv[]){
     double abscosts[NUMPROPS];
     memcpy(abscosts, max_abscosts, NUMPROPS * sizeof(double));
 
+    fprintf(stderr, "STAG=%d\n", _stagnated);
     fprintf(stderr, "BLANT samples=%d\n", _numSamples);
-    fprintf(stderr, "Starting ABSOLUTE costs: GraphletEuclidean: %g, SGK: %g, GraphDiff: %g, GDV: %g, DegreeDist: %g, ClustCoff: %g\n", abscosts[0], abscosts[1], abscosts[2], abscosts[3], abscosts[4], abscosts[5]);
+    fprintf(stderr, "Starting ABSOLUTE costs: GraphletEuclidean: %g, GraphletKernel: %g, GraphDiff: %g, GDV: %g, DegreeDist: %g, ClustCoff: %g\n", abscosts[0], abscosts[1], abscosts[2], abscosts[3], abscosts[4], abscosts[5]);
 
     // while(not done---either some number of iterations, or objective function says we're too far away)
     double cost = Objective(abscosts), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start. 
@@ -1290,19 +1278,22 @@ int main(int argc, char *argv[]){
 	assert(init_stack(&xy) == 0);
 	memcpy(newcosts, abscosts, NUMPROPS * sizeof(double));
 
+    // graphletKernelObjective
+    memcpy(&newGkstate, &gkstate, sizeof(GKState));
+
 	GraphDisconnect(G[1], v1, v2); // remove edge e from Gs
 	if (!ISZERO(weights[DegreeDist]))
 	    newcosts[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcosts[4]);
 	if (!ISZERO(weights[ClustCoff]))
 	    newcosts[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-	ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
+	ReBLANT(D, &newGkstate, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcosts, &uv);
 
 	GraphConnect(G[1], u1, u2); // add an edge to Gs
 	if (!ISZERO(weights[DegreeDist]))
 	    newcosts[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcosts[4]);
 	if (!ISZERO(weights[ClustCoff]))
 	    newcosts[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, CCHistograms, CCHistograms_size, CCbinsize, newcosts[ClustCoff]);
-	ReBLANT(D, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
+	ReBLANT(D, &newGkstate, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcosts, &xy);
 
 	newCost = Objective(newcosts);
 	maxCost = MAX(maxCost, newCost);
@@ -1336,6 +1327,9 @@ int main(int argc, char *argv[]){
 	    // update max costs -- only if move is accepted
 	    for(i=0; i<NUMPROPS; i++)
 		max_abscosts[i] = MAX(max_abscosts[i], abscosts[i]);
+
+        // graphletKernel
+        memcpy(&gkstate, &newGkstate, sizeof(GKState));        
 
 	    same = 0;
 	    ++a_iter;
