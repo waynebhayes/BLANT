@@ -9,7 +9,7 @@
 
 // DICTIONARY
 // wrapper around 'uthash'
-// https://raw.githubusercontent.com/troydhanson/uthash/master/src/uthash.h
+// credits - https://raw.githubusercontent.com/troydhanson/uthash/master/src/uthash.h
 
 int dictionary_create(Dictionary* dictionary){
     dictionary->hashTable = NULL;
@@ -218,6 +218,8 @@ int getIntegerBinSize(int n, int GDVcolumn[n], int* scratchspace){
     return returnVal;
 }
 
+// returns a random node which is 'd' hops away from node 'src' - by doing a bfs traversal (till d levels)
+// incase there are no nodes at 'd' hops from 'src', then return the farthest random node
 int getRandomNodeAtHops(GRAPH* G, int src, int d){
 
     int i,j,k,start,end,maxd;
@@ -267,6 +269,7 @@ int getRandomNodeAtHops(GRAPH* G, int src, int d){
     return ans;
 }
 
+// returns a random neighbor
 int getRandomConnectedNode(GRAPH* G, int src){
     int degree = G->degree[src];
     if (degree == 0)
@@ -275,8 +278,33 @@ int getRandomConnectedNode(GRAPH* G, int src){
     return G->neighbor[src][random];
 }
 
-
+// khop distribution from a sample; also computes nodes sorted by num. of shortest paths
 void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n]){
+    /*
+    The exact khop distribution for any graph can be computed by (this is one possible algorithm) -
+
+    do a BFS starting from every node
+        -during this BFS, keep track of how many nodes are a distance 1/2/3/... away from the current source
+        -keep adding the number of nodes found at distance 1/2/3/... ; into a global array or dictionary
+    
+    But, we only use the median of the khop distribution (in the main calling code); so it's okay to take
+    a sample of the nodes (every node is selected with probability p=quality); and the above algorithm is executed. 
+
+    Now, this function also returns an array of nodes, sorted by the number of shortest paths going through them,
+    which can be computed in the same bfs traversal.
+
+    Once you do a bfs traversal and reach the leaf nodes (you now have a tree), 
+    you can backtrack to the source; while aggregating the shortest paths, using the following recursive algorithm
+    
+    do a BFS starting from every node (SOURCE)
+        - Now, for any node, the number of shortest paths going through it is: 1 + the sum of SPs going through it's child nodes (and just 1 for leaves)
+          (every node that is discovered is actually a terminating point of a SP from SOURCE)
+
+    Note: If there's an SP b/w nodes u & v, then the count for u and v (and all nodes b/w them in the path) is incremented TWICE (once during bfs from `u` and once from `v`)
+    Again, the exact count of SPs doesn't matter, as we're interested in the relative node counts.
+
+    Complexity: k * (2 * (n+m))   ,where k is the number of nodes a bfs is done for, n = nodes, m = edges
+    */
 
     int n, i, j, k, d, p, q, this, neigh;
     double random;
@@ -284,7 +312,7 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
     if (quality<0.0) quality = -1;
 
     for(i=0; i<G->n; i++)
-        nodesBySp[i] = 0;  // *TEMPORARILY* nodesBySp[i] stores num of shortest paths going through `i`th vertex 
+        nodesBySp[i] = 0;  // *TEMPORARILY*, before line 380, nodesBySp[i] stores num of shortest paths going through `i`th vertex 
                             // later, it will be sorted where nodes with lesser num of shortest paths going through have lower indexes
 
     dictionary_create(khop);
@@ -340,7 +368,7 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
             p = q + 1;
         }
 
-        // backtrack from outermost nodes towards the core, using parent pointers (to accumulate SPs going through each node)
+        // backtrack from outermost nodes towards the source, using parent pointers (to accumulate SPs going through each node)
         assert(i==j);
         while(j>=0){
             assert(nodesBySp_local[queue[j]] >= 0);
@@ -352,14 +380,6 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
             j -= 1;
         }
     }
-
-    /*
-    fprintf(stderr, "\n SPs going through each node: \n");
-    for(i=0; i<G->n; i+=10){
-        fprintf(stderr, "%d ", nodesBySp[i]);
-    }
-    fprintf(stderr, "\n");
-    */
 
     // sort nodesBySp
     IntTuple* scratch = (IntTuple*) malloc(sizeof(IntTuple) * G->n);
@@ -378,8 +398,9 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
     free(distance);
 }
 
-void print_khop(Dictionary* khop){
-    /*NORMALIZED*/
+// NORMALIZED by sum-of-values (let's say x nodes at 1 hop, y nodes at 2 hops, ...; then normalization constant = x+y+...)
+void print_khop_sample(Dictionary* khop){
+    // line 403 does the normalization
     KeyValue* iter = getIterator(khop);
     int k,v;
     int maxk = -1;
@@ -403,8 +424,8 @@ void print_khop(Dictionary* khop){
     fprintf(stderr, "\n");
 }
 
+// returns -1 if medians are equal, 0 if khop[0] has bigger median, 1 if khop[1] has bigger median
 int compareKHopByMedian(Dictionary* khop[2], int medians[2], int maxKeys[2]){
-    // returns -1 if equal medians, 0 if khop[0] has bigger median, 1 if khop[1] has bigger median
     KeyValue* iter;
     int count, k, v, i, l, mi;
 
@@ -438,3 +459,6 @@ int compareKHopByMedian(Dictionary* khop[2], int medians[2], int maxKeys[2]){
         return -1;
     }
 }
+
+
+
