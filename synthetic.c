@@ -869,7 +869,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
         do {
             x = drand48()*G->n;
             y = getRandomConnectedNode(G, x);
-        } while((G->degree[x] == 1) || (G->degree[y] == 1));
+        } while((G->degree[x] <= 1) || (G->degree[y] <= 1));
         assert(GraphAreConnected(G, x, y));
         assert(x!=y);
         memcpy(v1, &x, sizeof(int));
@@ -896,7 +896,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
         do{
             x = drand48()*G->n;
             y = getRandomConnectedNode(G, x);
-        } while((G->degree[x] == 1) || (G->degree[y] == 1));
+        } while((G->degree[x] <= 1) || (G->degree[y] <= 1));
         assert(GraphAreConnected(G, x, y));
         assert(x!=y);
         memcpy(v1, &x, sizeof(int));
@@ -939,7 +939,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
             y = getRandomConnectedNode(G, x);
             yi = index_in_nodesBySp[y];
             assert((yi>=0) && (yi<G->n));
-        }while((G->degree[x] == 1) || (G->degree[y] == 1) || (yi<l) || (yi>u));
+        }while((G->degree[x] <= 1) || (G->degree[y] <= 1) || (yi<l) || (yi>u));
         assert(GraphAreConnected(G, x, y));
         assert(x!=y);
         memcpy(v1, &x, sizeof(int));
