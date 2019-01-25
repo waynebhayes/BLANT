@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -68,6 +69,10 @@ static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual 
 static int _numCanon, _canonList[MAX_CANONICALS];
 static SET *_connectedCanonicals;
 static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
+
+//windowRep global Variables
+static int _windowSize = 0;
+static Boolean _windowRep = false;
 
 enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
@@ -1173,6 +1178,103 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	}
 }
 
+static int nChoosek(int n, int k) {
+	if(k>=n) return 0;
+	int a = 1, b = 1, i, j;
+	for(i=n; i >=n-k+1; i--) a*=i;
+	for(j=k; j>=1; j--) b*=j;
+	return a/b;
+}
+
+// Right now use least frequent windowRep canonicals 
+int FindWindowRepInWindow(GRAPH *G, SET *W, int (*windowReps)[_k], int *windowRepInt)
+{
+	int WArray[_windowSize];	// Window node array
+	Boolean isconnected = false; //Check whether there is any windowRep in the window
+	assert(SetToArray(WArray, W) == _windowSize);
+	int ca[_k], i, j, Gint, GintCanon, GintCanonInt;
+	MULTISET* ordinalMSET = MultisetAlloc(pow(2, _k * (_k - 1) / 2));
+	COMBIN *c = CombinZeroth(_windowSize, _k, ca);	// (W choose K) many k-node graphlets in Window
+	int Varray[_k], pending_windowRep[nChoosek(_windowSize, _k)][_k+1], count = 0, numWindowRep = 0; // pending_windowRep node array
+	// Combination steps
+	do
+	{
+		for(i=0; i<_k; i++) 
+		{
+			Varray[i] = WArray[ca[i]];
+			pending_windowRep[count][i+1] = WArray[ca[i]]; //Save the windwoRep nodes (reserve one space for windwoRepInt)
+		}
+		TINY_GRAPH *g = TinyGraphAlloc(_k);
+		TinyGraphInducedFromGraph(g, G, Varray);
+		if(TinyGraphDFSConnected(g, 1))
+		{
+			isconnected = true; // True if any connnected
+			Gint = TinyGraph2Int(g,_k);
+			GintCanon = _K[Gint];
+			GintCanonInt = _canonList[GintCanon];
+			// numEdges = TinyGraphNumEdges(combGraphlet);
+			// pending_D = abs(2 * numEdges - _k * (_k - 1) / 2);
+			MultisetAdd(ordinalMSET, GintCanon);
+			pending_windowRep[count++][0] = GintCanon;
+		} 
+	} while(CombinNext(c));
+	if(!isconnected) return numWindowRep; //Since every K-node graphlet in W is disconnected, We are done. 
+	// This is for the least frequent Canonical Method (if there is a tie, chooose the smaller one)
+	int ordinals[MultisetSupport(ordinalMSET)];
+	int pos = SetToArray(ordinals, ordinalMSET->set), freq = 2147483647, multiplicity;
+	*windowRepInt = 2147483647;
+	// Get the least frequent windwoRep int (if there is a tie, get the smaller one)
+	for(i = 0; i < pos; i++)
+	{
+		multiplicity = MultisetMultiplicity(ordinalMSET, ordinals[i]);
+		if(multiplicity == freq) 
+		{
+			if(ordinals[i] < *windowRepInt) 
+				*windowRepInt = ordinals[i];
+		}
+		else if(multiplicity < freq) 
+		{
+			*windowRepInt = ordinals[i];
+			freq = multiplicity;
+		}
+	}
+	// Select the windwoRep nodes with the determined windowRep Int
+	for(i = 0; i < count; i++)
+		if(pending_windowRep[i][0] == *windowRepInt)
+		{
+			for(j = 1; j < _k + 1; j++)
+				windowReps[numWindowRep][j] = pending_windowRep[i][j];
+			numWindowRep++;
+		}
+	MultisetFree(ordinalMSET);
+	return numWindowRep;
+}
+
+void ProcessWindowRep(int *Varray, int (*windowReps)[_k], int windowRepInt, int numWindowRep) {
+    // We should probably figure out a faster sort? This requires a function call for every comparison.
+    int i, j;
+	switch(_outputMode)
+	{
+		static SET* printed;
+		case graphletFrequency:
+		    _graphletCount[windowRepInt] += numWindowRep;
+		    break;
+		case indexGraphlets:
+		    for(i=0; i<_windowSize; i++) printf("%i ",Varray[i]); 
+		    printf("\n%i\n", windowRepInt);
+		    for(i=0; i<numWindowRep; i++)
+		    {
+		    	for(j=1; j<_k+1; j++)
+		    		printf("%i ",windowReps[i][j]); 
+		    	printf("\n");
+		    }
+			break;
+		default: Abort("unknown or un-implemented outputMode");
+	}
+}
+
+
+
 // This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
 // Call RunBlantInThreads instead, it's the top-level entry point to call once the
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
@@ -1185,15 +1287,27 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     RandomSeed(_seed);
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
-    unsigned Varray[maxK+1];
-	if (_sampleMethod == SAMPLE_MCMC)
+	int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
+    unsigned Varray[varraySize]; 
+	if (_sampleMethod == SAMPLE_MCMC && !_windowRep)
 		initializeMCMC(k, numSamples);
     for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
     {
-		SampleGraphlet(G, V, Varray, k);
-		ProcessGraphlet(G, V, Varray, perm, g, k);
+		if(_windowRep) 
+		{
+			SampleGraphlet(G, V, Varray, _windowSize);
+			int windowReps[nChoosek(_windowSize, _k)][_k], windowRepInt;
+			int numWindowRep = FindWindowRepInWindow(G, V, windowReps, &windowRepInt);
+			if(numWindowRep > 0)
+				ProcessWindowRep(Varray, windowReps, windowRepInt, numWindowRep);
+		}
+		else 
+		{
+			SampleGraphlet(G, V, Varray, k);
+			ProcessGraphlet(G, V, Varray, perm, g, k);
+		}
     }
-	if (_sampleMethod == SAMPLE_MCMC)
+	if (_sampleMethod == SAMPLE_MCMC && !_windowRep)
 		finalizeMCMC();
     switch(_outputMode)
     {
@@ -1229,7 +1343,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         break;
     default: Abort("unknown or un-implemented outputMode");
 	break;
-    }
+	}
+
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     TinyGraphFree(g);
     SetFree(V);
@@ -1339,6 +1454,9 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		break;
 	    case indexGraphlets: case indexOrbits:
 		fputs(line, stdout);
+		if(_windowRep) 
+			while(fgets(line, sizeof(line), fpThreads[thread])) 
+				fputs(line, stdout);
 		break;
 	    default:
 		Abort("oops... unknown _outputMode in RunBlantInThreads while reading child process");
@@ -1382,7 +1500,7 @@ void BlantAddEdge(int v1, int v2)
 
 int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
 {
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, true); // sparse = true
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, false); // sparse = true
     Free(_pairs);
     _nodeNames = nodeNames;
     return RunBlantInThreads(k, numSamples, G);
@@ -1402,7 +1520,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 const char const * const USAGE = \
 
-    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-n nSamples | -c confidence -w width} {-k k} {-s samplingMethod} {graphInputFile}\n" \
+    "USAGE: blant [-r seed] [-t threads (default=1)] [-w{windowSize}][-m{outputMode}] {-n nSamples | -c confidence -w width} {-k k} {-s samplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
@@ -1429,10 +1547,15 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:s:c:w:k:r:n:")) != -1)
+    while((opt = getopt(argc, argv, "w:m:d:t:s:c:k:r:n:")) != -1)
     {
 	switch(opt)
 	{
+	case 'w':
+		_windowRep = true;
+		_windowSize = atoi(optarg); 
+		if(_windowSize <= 0) Fatal("windowSize must be non-negative\n%s", USAGE);
+		break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
@@ -1487,9 +1610,9 @@ int main(int argc, char *argv[])
 	case 'c': confidence = atof(optarg);
 	    if(confidence <= 0) Fatal("-c argument (confidence of confidence interval) must be positive\n%s", USAGE);
 	    break;
-	case 'w': confWidth = atof(optarg);
-	    if(confWidth <= 0) Fatal("-w argument (width of confidence interval) must be positive\n%s", USAGE);
-	    break;
+	// case 'w': confWidth = atof(optarg);
+	//     if(confWidth <= 0) Fatal("-w argument (width of confidence interval) must be positive\n%s", USAGE);
+	//     break;
 	case 'k': _k = atoi(optarg);
 	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
