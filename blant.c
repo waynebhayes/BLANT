@@ -15,7 +15,8 @@
 #include "multisets.h"
 #include "sorts.h"
 
-#define PARANOID_ASSERTS 0	// turn on paranoid checking --- slows down execution by a factor of 2-3
+#define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
+#define SPARSE true // do not try false at the moment, it's broken
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
@@ -1555,7 +1556,7 @@ void BlantAddEdge(int v1, int v2)
 
 int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
 {
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, false); // sparse = false
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE);
     Free(_pairs);
     _nodeNames = nodeNames;
     return RunBlantInThreads(k, numSamples, G);
@@ -1568,7 +1569,7 @@ int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
 int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
 {
     assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, true); // sparse = true
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE);
     Free(pairs);
     return RunBlantInThreads(k, numSamples, G);
 }
@@ -1696,7 +1697,7 @@ int main(int argc, char *argv[])
     SetGlobalCanonMaps(); // needs _k to be set
 
 #if SHAWN_AND_ZICAN
-#if CPP_CALLS_C  // false by default
+  #if CPP_CALLS_C  // false by default
     while(!feof(fpGraph))
     {
 	static int line;
@@ -1707,23 +1708,23 @@ int main(int argc, char *argv[])
 	BlantAddEdge(v1, v2);
     }
     fclose(fpGraph);
-#else // Shawn + Zican see here:
+  #else // Shawn + Zican see here:
     fclose(fpGraph);
     _nodeNames = convertToEL(graphFileName);
     assert(_numNodes > 0);
     assert(_nodeNames && _nodeNames[0]);
     //assert(!_nodeNames[_numNodes]);
-#if 0
+    #if 0
     for(i=0; i < _numNodes; i++)
 	printf("nodeName[%d]=%s\n", i, _nodeNames[i]);
     exit(0);
-#endif
+    #endif
     // call clean maybe?
-#endif
+  #endif
     return RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
 #else
     // Read it in using native Graph routine.
-    GRAPH *G = GraphReadEdgeList(fpGraph, true, _supportNodeNames); // sparse=true
+    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames);
     if(_supportNodeNames)
     {
 	assert(G->name);
