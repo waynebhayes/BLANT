@@ -20,7 +20,9 @@ int main()
     {
 	int newA = lrand48() % SETSIZE, newB = lrand48() % SETSIZE;
 	SetAdd(A, newA);
+	assert(SetIn(A, newA));
 	SetAdd(B, newB);
+	assert(SetIn(B, newB));
 	printf("%3d %3d\n", newA, newB);
     }
 
