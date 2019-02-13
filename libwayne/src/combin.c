@@ -271,22 +271,32 @@ double CombinChooseDouble(int n, int m)
 
     for(i=n; i > high; i--)
     {
-	int j;
-	result *= i;
-	if(result != result) // this is a test for NaN
-	{
-	    Warning("CombinChoose(%d,%d): overflow", n,m);
-	    SetFree(denoms);
-	    return 0;
-	}
-	for(j=2; j <= low; j++)
-	    if(SetIn(denoms,j) && (floor(result/j + .5))*j == result)
-	    {
-		result /= j;
-		SetDelete(denoms, j);
-	    }
+		int j;
+		result *= i;
+		if(result != result) // this is a test for NaN
+		{
+			Warning("CombinChoose(%d,%d): overflow", n,m);
+			SetFree(denoms);
+			return 0;
+		}
+		for(j=2; j <= low; j++)
+			if(SetIn(denoms,j) && (floor(result/j + .5))*j == result)
+			{
+			result /= j;
+			SetDelete(denoms, j);
+			}
     }
 
+    if(SetCardinality(denoms) != 0)
+	{
+		Warning("CombinChooseDouble(%d,%d) failed to use all denoms, SetCardinality is %d\n",n,m,SetCardinality(denoms));
+		int j;
+		for(j=2; j <= low; j++) if(SetIn(denoms,j))
+		{
+			result /= j;
+			SetDelete(denoms, j);
+		}
+	}
     assert(SetCardinality(denoms) == 0);
     SetFree(denoms);
     return result;

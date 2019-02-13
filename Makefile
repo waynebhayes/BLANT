@@ -48,6 +48,10 @@ synthetic: libwayne/made synthetic.c syntheticDS.h syntheticDS.c blant.h libblan
 	gcc -c syntheticDS.c libblant.c synthetic.c $(LIBWAYNE)
 	g++ -o synthetic syntheticDS.o libblant.o synthetic.o $(LIBWAYNE)
 
+ehd: libwayne/made makeEHD.c blant.h libblant.c
+	gcc -c makeEHD.c libblant.c $(LIBWAYNE)
+	g++ -o makeEHD libblant.o makeEHD.o $(LIBWAYNE)
+
 libwayne/MT19937/mt19937.o:
 	(cd libwayne/MT19937 && make)
 
