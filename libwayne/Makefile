@@ -29,7 +29,7 @@ debug:
 libwayne:
 	make $(LIBOUT)
 	mv src/$(LIBOUT) .
-	ar r $(LIBOUT)
+	[ `arch` = Darwin ] || ar r $(LIBOUT)
 
 debug_clean:
 	make 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' raw_clean
