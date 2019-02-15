@@ -79,8 +79,11 @@ enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputOD
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
-enum CanonicalDisplayMode {undefined, ordinal, integer, binary};
+enum CanonicalDisplayMode {undefined, ordinal, integer, binary, orca, jesse};
 static enum CanonicalDisplayMode _displayMode = undefined;
+
+static int _magicTable[1044][12]; //Number of canonicals for k=7 by number of columns in magic table
+static int _outputMapping[1044];
 
 // A bit counter-intuitive: we need to allocate this many vectors each of length [_numNodes],
 // and then the degree for node v, graphlet/orbit g is _degreeVector[g][v], NOT [v][g].
@@ -778,7 +781,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
 
 	initializeSlidingWindow(XLS, XLQ, X, G, cc, _MCMC_L);
 
-	//Keep crawling til we have k distinct vertices
+	//Keep crawling until we have k distinct vertices
 	static int numTries = 0;
 	static int depth = 0;
 	while (MultisetSupport(XLS) < k) {
@@ -822,7 +825,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 		setup = true;
 		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC);
 	} else {
-		//Keep crawling til we have k distinct vertices. Crawl at least once
+		//Keep crawling until we have k distinct vertices. Crawl at least once
 		do  {
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
 		} while (MultisetSupport(XLS) != k);
@@ -905,7 +908,7 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 	} else {
 		do  {
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
-		} while (MultisetSupport(XLS) != W);  //Keep craling till we have W distinct vertices, Crawl at least once
+		} while (MultisetSupport(XLS) != W);  //Keep crawling until we have W distinct vertices, Crawl at least once
 	}
 	int node, numNodes = 0, i, j, graphletDegree;
 	SetEmpty(V);
@@ -1073,6 +1076,30 @@ void SetGlobalCanonMaps(void)
     assert(Pf == Permutations);
 }
 
+void LoadMagicTable()
+{
+	if ((_k < 3 ||_k > 7))
+	Fatal("k must be between 3 and 7 for orca and jesse graphlet display modes\n");
+	int i,j;
+	char BUF[BUFSIZ];
+	sprintf(BUF, "orca_jesse_blant_table/UpperToLower%d.txt", _k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find orca_jesse_blant_table/UpperToLower%d.txt\n", _k);
+	for(i=0; i<_numCanon; i++) {
+	for(j=0; j<12 ;j++) {
+	fscanf(fp_ord, "%d", &_magicTable[i][j]);
+	}}
+    fclose(fp_ord);
+	switch (_displayMode) {
+	case orca: // Load mapping from lower_ordinal to ORCA/Jesse ID into table for fast lookup
+	case jesse:
+	for (i=0; i < _numCanon; i++) {
+		_outputMapping[_magicTable[i][4]] = _outputMapping[_magicTable[i][7]];
+	}
+	break;
+	}
+}
+
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     static Boolean ccNeedsInit = true;
     if(ccNeedsInit)
@@ -1130,6 +1157,10 @@ void PrintCanonical(int GintCanon)
 	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';
 	printf("%s", GintBinary);
+	break;
+	case orca: //Prints the ORCA ID of the canonical. Jesse uses same number.
+	case jesse:
+	printf("%d", _outputMapping[GintCanon]);
 	break;
     }
 }
@@ -1374,11 +1405,17 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	for(canon=0; canon<_numCanon; canon++) {
 	if (_sampleMethod == SAMPLE_MCMC && !_windowRep) {
 		BuildGraph(g, _canonList[canon]);
-		if (TinyGraphDFSConnected(g, 0))
-			printf("%lf %d\n", _graphletConcentration[canon], canon);
+		if (TinyGraphDFSConnected(g, 0)) {
+			printf("%lf ", _graphletConcentration[canon]);
+			PrintCanonical(canon);
+			printf("\n");
+		}
 	}
-	else
-		printf("%lu %d\n", _graphletCount[canon], canon);
+	else {
+		printf("%lu ", _graphletCount[canon]);
+		PrintCanonical(canon);
+		printf("\n");
+	}
 	}
 	break;
     case outputGDV:
@@ -1628,8 +1665,10 @@ int main(int argc, char *argv[])
 		case 'o': _displayMode = ordinal; break;
 		case 'i': _displayMode = integer; break;
 		case 'b': _displayMode = binary; break;
+		case 'w': _displayMode = orca; break;
+		case 'j': _displayMode = jesse; break;
 		default: Fatal("-d%c: unknown canonical display mode:n"
-			"\tmodes are o=ordinal, i=integer, b=binary", *optarg);
+			"\tmodes are o=ordinal, i=integer, b=binary, w=orca, j=jesse", *optarg);
 		break;
 		}
 		break;
@@ -1695,6 +1734,7 @@ int main(int argc, char *argv[])
     assert(optind == argc);
 
     SetGlobalCanonMaps(); // needs _k to be set
+	LoadMagicTable(); // needs _k to be set
 
 #if SHAWN_AND_ZICAN
   #if CPP_CALLS_C  // false by default
