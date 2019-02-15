@@ -79,7 +79,7 @@ enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputOD
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
-enum CanonicalDisplayMode {undefined, ordinal, integer, binary, orca, jesse};
+enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
 static enum CanonicalDisplayMode _displayMode = undefined;
 
 static int _magicTable[1044][12]; //Number of canonicals for k=7 by number of columns in magic table
@@ -1149,7 +1149,7 @@ void PrintCanonical(int GintCanon)
     case ordinal:
 	printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
 	break;
-    case integer: //Prints the integer form of the canonical
+    case decimal: //Prints the decimal integer form of the canonical
 	printf("%d", _canonList[GintCanon]);
 	break;
     case binary: //Prints the bit representation of the canonical
@@ -1613,11 +1613,13 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 const char const * const USAGE = \
 
-    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] {-n nSamples | -c confidence -w width} {-k k} {-w windowSize} {-s samplingMethod} {graphInputFile}\n" \
+    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence -w width} {-k k} {-w windowSize} {-s samplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
     "samplingMethod is one of: NBE (Node Based Expansion); EBE (Edge Based Expansion); MCMC (Markov chain Monte Carlo); RES (Lu Bressan's reservoir).\n" \
+	"displayMode controls how the graphlet is displayed: options are:\n"\
+	"\ti (integer ordinal), d(decimal), b (binary), j (JESSE), o (ORCA).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT.\n" \
     "k is the number of nodes in graphlets to be sampled." \
@@ -1662,13 +1664,13 @@ int main(int argc, char *argv[])
 		if (_displayMode != undefined) Fatal("tried to define canonical display mode twice");
 		switch(*optarg)
 		{
-		case 'o': _displayMode = ordinal; break;
-		case 'i': _displayMode = integer; break;
 		case 'b': _displayMode = binary; break;
-		case 'w': _displayMode = orca; break;
+		case 'd': _displayMode = decimal; break;
+		case 'i': _displayMode = ordinal; break;
 		case 'j': _displayMode = jesse; break;
+		case 'o': _displayMode = orca; break;
 		default: Fatal("-d%c: unknown canonical display mode:n"
-			"\tmodes are o=ordinal, i=integer, b=binary, w=orca, j=jesse", *optarg);
+			"\tmodes are i=integer ordinal, d=decimal, b=binary, o=orca, j=jesse", *optarg);
 		break;
 		}
 		break;
