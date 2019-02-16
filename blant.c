@@ -1700,7 +1700,7 @@ int main(int argc, char *argv[])
 		}
 		break;
 	case 'c': confidence = atof(optarg);
-	    if(confidence <= 0) Fatal("-c argument (confidence of confidence interval) must be positive\n%s", USAGE);
+		Apology("confidence intervals not implemented yet");
 	    break;
 	// case 'w': confWidth = atof(optarg);
 	//     if(confWidth <= 0) Fatal("-w argument (width of confidence interval) must be positive\n%s", USAGE);
@@ -1720,10 +1720,6 @@ int main(int argc, char *argv[])
 	}
     }
     if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse use
-
-    if(confidence>0) assert(confWidth>0);
-    if(confWidth>0) assert(confidence>0);
-    if(confidence>0) Apology("confidence intervals not implemented yet");
 
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
