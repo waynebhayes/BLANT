@@ -73,6 +73,6 @@ int main(void)
 	ArrayAdd(A, (foint)d);
 	ArrayAdd(A, (foint)f);
 	// A = [0, 5, 3.14, 2.18]
-	printf("A(size: %i   maxsize: %i): %i %i %f %f\n", ArrayAt(A, 0).i, ArrayAt(A, 1).i, ArrayAt(A, 2).d, ArrayAt(A, 3).f);
+	printf("A(size: %i   maxsize: %i): %f %f\n", ArrayAt(A, 0).i, ArrayAt(A, 1).i, ArrayAt(A, 2).d, ArrayAt(A, 3).f);
 }
 
