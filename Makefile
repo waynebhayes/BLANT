@@ -79,7 +79,7 @@ subcanon_maps: #libwayne/made make-subcanon-maps.c blant.h libblant.c
 
 magic_table: magictable.cpp
 	g++ -std=c++11 -Wall -o make-orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
-	./make-orca-jesse-blant-table 7
+	./make-orca-jesse-blant-table 8
 
 draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot

@@ -1078,8 +1078,6 @@ void SetGlobalCanonMaps(void)
 
 void LoadMagicTable()
 {
-	if ((_k < 3 ||_k > 7))
-	Fatal("k must be between 3 and 7 for orca and jesse graphlet display modes\n");
 	int i,j;
 	char BUF[BUFSIZ];
 	sprintf(BUF, "orca_jesse_blant_table/UpperToLower%d.txt", _k);
