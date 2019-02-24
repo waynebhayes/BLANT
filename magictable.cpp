@@ -205,14 +205,14 @@ int main(int argc, char* argv[]) {
         ss.str("");
         ss << DIR << "num_nodes_first_orbit" << k << ".txt";
         orbitInfile.open(ss.str());
-        if (!orbitInfile) {
-            cerr << "Failed to open: " << ss.str() << "\n";
-            exit(EXIT_FAILURE);
+        if (orbitInfile) {
+            for (size_t i = 0; i < table.size(); i++) {
+                orbitInfile >> table[i][NUM_NODES_FIRST_ORBIT];
+            }
+            orbitInfile.close();
+        } else if (k < 8) {
+            cerr << "Warn: Expected to find num_nodes_first_orbit" << k << ".txt\n";
         }
-        for (size_t i = 0; i < table.size(); i++) {
-            orbitInfile >> table[i][NUM_NODES_FIRST_ORBIT];
-        }
-        orbitInfile.close();
 
         //Load upper orbit information
         unordered_set<int> orbits;
@@ -268,19 +268,20 @@ int main(int argc, char* argv[]) {
         ss << DIR << "orbit_map" << k << ".txt";
         orbitInfile.open(ss.str());
         if (!orbitInfile) {
-            cerr << "Failed to open: " << ss.str() << "\n";
-            exit(EXIT_FAILURE);
-        }
-        orbitInfile >> num;
-        while (orbitInfile) {
-            orbitTable.push_back(vector<int>(k, 0));
-            for (int j = 0; j < k; j++) {
-                orbitInfile >> orbitTable[i][j];
+            cerr << "Warn: Failed to open: " << ss.str() << "\n";
+        } else {
+            orbitInfile >> num;
+            while (orbitInfile) {
+                orbitTable.push_back(vector<int>(k, 0));
+                for (int j = 0; j < k; j++) {
+                    orbitInfile >> orbitTable[i][j];
+                }
+                i++;
             }
-            i++;
+            orbitTable.pop_back(); //Pop off empty vector
+            orbitInfile.close();
         }
-        orbitTable.pop_back(); //Pop off empty vector
-        orbitInfile.close();
+
         if (orbitTable.size() != table.size()) { //Sanity Assertion
             cerr << "Orbit table size: " << orbitTable.size() << " Table: " << table.size() << '\n';
             exit(EXIT_FAILURE);
