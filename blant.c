@@ -860,7 +860,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 #endif
 
 		// previous multiplier kept here incase needed
-		if (i != 0 && i != _MCMC_L) {
+		if (i != 0 && i != _MCMC_L-1) {
 			multiplier *= (graphletDegree);
 		}
 		assert(multiplier > 0);
