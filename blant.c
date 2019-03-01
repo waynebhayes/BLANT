@@ -684,7 +684,7 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     return numAlphas;
 }
 
-// MCMC getNeighbor Gets a random neighbor of a d graphlet as an array of vertices Xcurrent
+// Update the most recent d-graphlet to a random neighbor of it
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
 	if (mcmc_d == 2)
@@ -719,14 +719,14 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 	return Xcurrent;
 }
 
-//Crawls one step along the graph updating our sliding window
+// Crawls one step along the graph updating our sliding window
 void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 	int v, i;
-	for (i = 0; i < mcmc_d; i++) { //Remove oldest d graphlet from sliding window
+	for (i = 0; i < mcmc_d; i++) { // Remove oldest d graphlet from sliding window
 		v = QueueGet(XLQ).i;
 		MultisetDelete(XLS, v);
 	}
-	MCMCGetNeighbor(X, G); //Gets a neighbor graphlet of the most recent d vertices and add to sliding window
+	MCMCGetNeighbor(X, G); // Gets a neighbor graphlet of the most recent d vertices and add to sliding window
 	for (i = 0; i < mcmc_d; i++) {
 		MultisetAdd(XLS, X[i]);
 		QueuePut(XLQ, (foint) X[i]);
@@ -734,7 +734,7 @@ void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 }
 
 // Initialize a sliding window represented by a multiset and queue of vertices.
-// Sliding window is generated from a randomly selected edge from a predefined connected compenent and grown through edge walking.
+// Sliding window is generated from a randomly selected edge from a predefined connected component and grown through edge walking.
 void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int cc, int windowSize)
 {
 	MultisetEmpty(XLS);
@@ -744,7 +744,7 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int cc
 		Fatal("Window Size must be at least 1");
 	}
 
-	//Pick a random edge. Add the vertices from it to our data structures
+	// Pick a random edge. Add the vertices from it to our data structures
 	int edge;
     do {
 	edge = G->numEdges * RandomUniform();
@@ -755,10 +755,10 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int cc
     MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
 	
-	//Add windowSize-1 d graphlets to our sliding window. The edge we added is the first d graphlet
+	// Add windowSize-1 d graphlets to our sliding window. The edge we added is the first d graphlet
 	int i, j;
 	for (i = 1; i < windowSize; i++) {
-		MCMCGetNeighbor(X, G); //After each call latest graphlet is in X array
+		MCMCGetNeighbor(X, G); // After each call latest graphlet is in X array
 		for (j = 0; j < mcmc_d; j++) {
 			MultisetAdd(XLS, X[j]);
 			QueuePut(XLQ, (foint) X[j]);
@@ -781,15 +781,15 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
 
 	initializeSlidingWindow(XLS, XLQ, X, G, cc, _MCMC_L);
 
-	//Keep crawling until we have k distinct vertices
+	// Keep crawling until we have k distinct vertices
 	static int numTries = 0;
 	static int depth = 0;
 	while (MultisetSupport(XLS) < k) {
-		if (numTries++ > MAX_TRIES) { //If we crawl 100 steps without k distinct vertices restart
-			assert(depth++ < MAX_TRIES); //If we restart 100 times in a row without success give up
-			WalkLSteps(XLS,XLQ,X,G,k,cc); //try again
+		if (numTries++ > MAX_TRIES) { // If we crawl 100 steps without k distinct vertices restart
+			assert(depth++ < MAX_TRIES); // If we restart 100 times in a row without success give up
+			WalkLSteps(XLS,XLQ,X,G,k,cc); // try again
 			depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
-			numTries = 0; //And our number of attempts to crawl one step
+			numTries = 0; // And our number of attempts to crawl one step
 			return;
 		}
 		crawlOneStep(XLS, XLQ, X, G);
@@ -801,18 +801,19 @@ static int _numSamples = 0;
 /* SampleGraphletMCMC first starts with an edge in Walk L steps.
    It then walks along L = k-1 edges with MCMCGetNeighbor until it fills XLQ and XLS with L edges(their vertices are stored).
    XLQ and XLS always hold 2L vertices. They represent a window of the last L edges walked. If that window contains k
-   distinct vertices, a graphlet is returned. This random walk overcounts graphlets of different types by a precomputed
-   predictable amount represented by alpha values in the _alphaList. During sampling sample frequency is divided by the alpha value
-   plus the cardinality of the outset of the most recently sampled vertices. Finally, the frequencies are normalized into concentrations.
+   distinct vertices, a graphlet is returned.
+   This random walk predictably overcounts graphlets based on the alpha value and multipler.
+   The alpha value is precomputed per graphlet type and the multiplier is based on the degree of the graphlets inside of it.
+   After the algorithm is run the frequencies are normalized into concentrations.
 */
 
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
 	static Boolean setup = false;
 	static int currSamples = 0;
-	static MULTISET *XLS = NULL; //A multiset holding L dgraphlets as separate vertex integers
-	static QUEUE *XLQ = NULL; //A queue holding L dgraphlets as separate vertex integers
-	static int Xcurrent[mcmc_d]; //holds the most recently walked d graphlet as an invariant 
-	static TINY_GRAPH *g = NULL; //Tinygraph for computing overcounting;
+	static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
+	static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
+	static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
+	static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
 	if (!XLQ || !XLS || !g) {
 		//NON REENTRANT CODE
 		XLQ = QueueAlloc(k*mcmc_d);
@@ -820,32 +821,34 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 		g = TinyGraphAlloc(k);
 	}
 
-	//The first time we run this, or when we restart. We want to find our initial L d graphlets.
+	// The first time we run this, or when we restart. We want to find our initial L d graphlets.
 	if (!setup || (_numSamples/2 == currSamples++)) {
 		setup = true;
 		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC);
 	} else {
-		//Keep crawling until we have k distinct vertices. Crawl at least once
+		// Keep crawling until we have k distinct vertices(can sample a graphlet). Crawl at least once
 		do  {
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
 		} while (MultisetSupport(XLS) != k);
 	}
 #if PARANOID_ASSERTS
-		assert(MultisetSupport(XLS) == k); //very paranoid
-		assert(QueueSize(XLQ) == 2 *_MCMC_L); //very paranoid
+		assert(MultisetSupport(XLS) == k); // very paranoid
+		assert(QueueSize(XLQ) == 2 *_MCMC_L); // very paranoid
 #endif
 
-	//Our queue now contains k distinct nodes. Fill the set V and array Varray with them
-	//Also calculate the degree of all the vertices in the sliding window and multiply them together
-	//(The number of non internal edges)
-	//The multiplier is a shorthand for d graphlet degree product, It is obtained by multiplying the degrees
-	//of all the graphlets in the sliding window.
+	/*
+	Our sliding window now contains k distinct nodes. Fill the set V and array Varray with them
+	The multiplier is a shorthand for d graphlet degree product, It is the product of the degrees
+	of all the graphlets in the sliding window except the first and last.
+	The degree of a graphlet is the sum of its outgoing edges.
+	The alpha value is the number of ways to do a d-walk over the graphlet
+	*/
 	int node, numNodes = 0, i, j, graphletDegree;
 	long long multiplier = 1;
 	SetEmpty(V);
 
 	for (i = 0; i < _MCMC_L; i++) {
-		graphletDegree = -2; //The edge between the vertices in the graphlet isn't included and is double counted
+		graphletDegree = -2; // The edge between the vertices in the graphlet isn't included and is double counted
 		for (j = 0; j < mcmc_d; j++) {
 			node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
 			if (!SetIn(V, node)) {
@@ -859,7 +862,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 		assert(graphletDegree > 0);
 #endif
 
-		// previous multiplier kept here incase needed
+		// First and last graphlets in the window are skipped for multiplier product
 		if (i != 0 && i != _MCMC_L-1) {
 			multiplier *= (graphletDegree);
 		}
@@ -869,21 +872,20 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int GintCanon = _K[TinyGraph2Int(g, k)];
 
 #if PARANOID_ASSERTS
-	assert(numNodes == k); //Ensure we are returning k nodes
+	assert(numNodes == k); // Ensure we are returning k nodes
 #endif
-	if (_MCMC_L == 2) { //If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
-		//The over counting ratio is the alpha value only.
+	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
+		// The over counting ratio is the alpha value only.
 		_graphletConcentration[GintCanon] += 1.0/(_alphaList[GintCanon]);
 	} else {
-		//The over counting ratio is the alpha value times the multiplier
-		//The multiplier is the product of the adjacent edges to each d graphlet in the sliding window
+		// The over counting ratio is the alpha value divided by the multiplier
 		_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
 	}
 
 #if PARANOID_ASSERTS
 	assert(_graphletConcentration[GintCanon] > 0);
 #endif
-	return V; //and return the currently sampled graphlet
+	return V; // return the sampled graphlet
 }
 
 // Fit SampleGraphletMCMC for windowRep implementation (alphalist and overcounting is not used here)
@@ -926,7 +928,7 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 	return V;
 }
 
-//Converts the decimal frequencies of graphlets to concentrations (sum to 1).
+// Convert the graphlet frequencies to concentrations
 void finalizeMCMC() {
 	double totalConcentration = 0;
 	int i;
