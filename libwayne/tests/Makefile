@@ -5,7 +5,7 @@
 # If you think your change is spiffy, send it to me and maybe I'll include it
 # 
 # Wayne Hayes, wayne@csri.utoronto.ca (preffered), or wayne@csri.toronto.edu
-CC=../bin/wgcc
+CC=../bin/wgcc -static
 
 #% : %.c
 #	$(CC) -c $(CFLAGS) %.c
