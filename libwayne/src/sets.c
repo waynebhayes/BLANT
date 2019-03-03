@@ -35,10 +35,15 @@ static unsigned DumbCountBits(unsigned long i)
 }
 
 
+/* Currently this just initializes lookupBitCount[].
+** SetStartup doesn't perform startup more than once, so it's safe
+** (and costs little) to call it again if you're not sure.  It returns
+** 1 if it did the initialization, else 0.
+*/
 int SetStartup(void)
 {
-    assert(sizeof(SETTYPE) == 4);	// we assume 32-bit ints :-(
-    if(lookupBitCount[1])
+    assert(sizeof(SETTYPE) == 4);	// we assume 32-bit ints
+    if(setBits_1)
 	return 0;
     else
     {
@@ -57,6 +62,7 @@ int SetStartup(void)
 */
 SET *SetAlloc(unsigned n)
 {
+    if(!setBits_1) SetStartup();
     SET *set = (SET*) Calloc(1,sizeof(SET));
     set->n = n;
     set->smallestElement = n; // ie., invalid

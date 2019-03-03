@@ -21,7 +21,7 @@ all:
 	touch made
 
 opt:
-	$(MAKE) 'OPT=-O1' 'LIBOUT=libwayne.a' libwayne
+	$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' libwayne
 
 debug:
 	$(MAKE) 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' libwayne
@@ -35,7 +35,7 @@ debug_clean:
 	$(MAKE) 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' raw_clean
 
 opt_clean:
-	$(MAKE) 'OPT=-O1' 'LIBOUT=libwayne.a' raw_clean
+	$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' raw_clean
 
 raw_clean:
 	/bin/rm -f src/*.[oa] $(LIBOUT) made

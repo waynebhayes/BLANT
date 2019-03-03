@@ -25,8 +25,9 @@
 
 typedef unsigned int SETTYPE;
 extern unsigned setBits, setBits_1;
-#define SET_BIT(e) (1UL<<((e)%setBits))
-//#define SET_BIT(e) (1U<<((e)&setBits_1)) // Seems not to work, not sure why
+//static unsigned SET_BIT(unsigned e) {assert((e%setBits) == (e&setBits_1)); return (1U<<((e)%setBits));}
+//#define SET_BIT(e) (1U<<((e)%setBits))
+#define SET_BIT(e) (1U<<((e)&setBits_1))
 
 typedef struct _setType {
     unsigned int n; /* in bits */
@@ -34,22 +35,15 @@ typedef struct _setType {
     SETTYPE* array;
 } SET;
 
-/*
-** Currently this just initializes lookupBitCount[].
-** SetStartup doesn't perform startup more than once, so it's safe
-** (and costs little) to call it again if you're not sure.  It returns
-** 1 if it did the initialization, else 0.
-*/
-int SetStartup(void);
-
 #define LOOKUP_NBITS 16
 #define LOOKUP_SIZE (1 << LOOKUP_NBITS)
 #define LOOKUP_MASK (LOOKUP_SIZE - 1)
 extern unsigned int lookupBitCount[LOOKUP_SIZE];
 #define SetCountBits(i) \
-    (((lookupBitCount[1] ? 0 : SetStartup()), /* ensure initialization */ \
-	(lookupBitCount[((SETTYPE)(i)) & LOOKUP_MASK] + \
-	lookupBitCount[(((SETTYPE)(i)) >> LOOKUP_NBITS) & LOOKUP_MASK])))
+    (lookupBitCount[((SETTYPE)(i)) & LOOKUP_MASK] + \
+	lookupBitCount[(((SETTYPE)(i)) >> LOOKUP_NBITS) & LOOKUP_MASK])
+
+int SetStartup(void);
 
 /* allocate & return empty set capable of storing integers 0..n-1 inclusive */
 SET *SetAlloc(unsigned int n);
