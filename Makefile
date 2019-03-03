@@ -2,9 +2,10 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-most: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
+most1: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
+most2: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
 
-all: most canon_map8 test_blant test_maps
+all:  most1 canon_map8 most2    # just the same things a second time including k=8
 
 test_blant:
 	# First run blant-sanity for various values of k
@@ -63,7 +64,9 @@ compute-alphas-NBE: #compute-alphas-NBE.c
 	
 compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_list7.txt
 	gcc -Wall -O3 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
-	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
+	echo "computing MCMC alphas for k=8 takes days to just copy it"
+	cp -p canon_maps.correct/alpha_list_mcmc8.txt canon_maps/
+	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN $$EIGHT; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)
