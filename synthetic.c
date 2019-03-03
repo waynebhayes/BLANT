@@ -67,10 +67,10 @@ static int node_selection = BY_NODE_SP;
 #define ClustCoff 6  // binned histogram difference between LOCAL clustering coefficient distributions
 
 static double weights[NUMPROPS] =
-// weights: 0 GraphletEuclidean; 1 GraphletKernel; 2 SGKDiff; 3 GDV;  4 DegreeDist; 5 ClustCoff
-           {0.5,                   0.1,                0,         0.1,      0.1,            0.2};
+// weights: 0 GraphletEuclidean; 1 GraphletKernel; 2 SGKDiff; 3 GDV;  4 EdgeHammingDistance, 5 DegreeDist; 6 ClustCoff
+           {0,                   0,                0,         0,      1,                     0,            0};
 // weights can be set using an env variable
-// USAGE: export SYNTHETIC_GRAPHLET_WEIGHTS = 'a b c d e f'   #a+b+c+d+e+f == 1
+// USAGE: export SYNTHETIC_GRAPHLET_WEIGHTS = 'a b c d e f g'   #a+b+c+d+e+f+g == 1
 
 static double max_abscost[NUMPROPS];
 
@@ -84,9 +84,10 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static short int* _K[maxK];
 
-// TODO
-// get how many edges does this canonical have
-static int CanonicalEdges[maxK][_maxNumCanon];
+// For EdgeHammingDistance objective function
+static int CanonicalEdges[maxK][_maxNumCanon];  // given a canonical, get num edges
+static int EHD[maxK][_maxNumCanon][_maxNumCanon];  // get EHD b/w two canonicals
+static int EHDaway[maxK][_maxNumCanon][NC2(maxK)+1][1 + _maxNumCanon];  // given a canonical, get all canonicals, 'x' EHD away
 
 // Assuming the global variable _k[] is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
@@ -433,7 +434,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
 }
 
 // updates the BLANT sample, and updates the cost for the GRAPHLET BASED objective functions : GraphletEuclidean, GraphletKernel, SGKDiff, GDV
-void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_numNodes], EHD[maxK][__maxNumCanon][_maxNumCanon], int EHDaway[maxK][_maxNumCanon][NC2(maxK)+1][1 + _maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[NUMPROPS], RevertStack* rvStack){
+void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhistograms[2][maxK][_maxNumCanon], int GDVbinsize[2][maxK][_maxNumCanon], int GDV[2][maxK][_maxNumCanon][_numNodes], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[NUMPROPS], RevertStack* rvStack){
     // D stores the squiggly plot vectors
     // gkstate maintains variables for GraphletKernel objective
     // GDV histograms and matrices for GraphletGDV objective
@@ -479,7 +480,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhisto
                     if (!ISZERO(weights[GraphletGDV]))
                         oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);  // GDV matrices might be out of sync from ideal if GDV weight = 0
                     if (!ISZERO(weights[EdgeHammingDistance]))
-                        oldcost[4] = EHDObjective(EHD, EHDaway, D);
+                        oldcost[4] = EHDObjective(D);
                 }
 
                 // Change object (to be pushed on the stack)
@@ -515,20 +516,14 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhisto
                     if (!ISZERO(weights[GraphletGDV]))
                         oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);
                     if (!ISZERO(weights[EdgeHammingDistance]))
-                        oldcost[4] = EHDObjective(EHD, EHDaway, D);
+                        oldcost[4] = EHDObjective(D);
                 }
 
                 // change object
                 newchange.new = (int) canon;
                 assert(push(rvStack, newchange) == 0);
             }          
-             
-        /*{
-        int testCount = 0;
-        for(j=0; j<_numCanon[k-1]; j++)
-            testCount += D[1][k-1][j];
-        assert(testCount == _numSamples);
-        }*/
+            
     }
 
     for(i=0; i<4; i++)
@@ -749,7 +744,7 @@ double GDVObjective(Dictionary GDVhistograms[2][maxK][_maxNumCanon]){
 // EHD is a matrix which tells the ehd b/w 2 canonicals
 // EHDaway is a matrix which tells which canonicals are 'x' distance away from 'y'th canonical
 // D[ ] is the raw graphlet count matrix
-double EHDObjective(EHD[maxK][__maxNumCanon][_maxNumCanon], int EHDaway[maxK][_maxNumCanon][NC2(maxK)+1][1 + _maxNumCanon], int D[2][maxK][_maxNumCanon]){
+double EHDObjective(int D[2][maxK][_maxNumCanon]){
     int i,j,k,l,m,x,diff,temp;
     double sum = 0;
 
@@ -1295,31 +1290,64 @@ int main(int argc, char *argv[]){
     }
 
     // Edge-Hamming-Distances
+    // 0. Read canon_map.txt files to get canonical vs edges
     // 1. Read the ehdk.txt files
     // 2. Populate EHD[maxK][__maxNumCanon][_maxNumCanon]
     // 3. Populate EHDaway[maxK][_maxNumCanon][NC2(maxK)+1][1 + _maxNumCanon]
 
+    int CanonicalEdges[maxK][_maxNumCanon];
+    for(i=0; i<maxK; i++){
+        int k = _k[i];
+        if(k == -1) break;
+        char FILENAME[100];
+        sprintf(FILENAME, CANON_DIR "canon_map%d.txt", k);
+        FILE* fp = fopen(FILENAME, "r");
+        assert(fp);
+
+        int j, c, e;
+
+        // 3 columns
+        fscanf(fp, "%d", &e);
+        assert(e == _numCanon[k-1]);
+
+        for(c=0; c<_numCanon[k-1]; c++){
+            for(j=0; j<3; j++){
+                fscanf(fp, "%d", &e);
+                if (j == 2){
+                    CanonicalEdges[k-1][c] = e;
+                }
+            }
+        }
+
+        // check nothing left to read
+        assert(fscanf(fp, "%d", &e) < 1);
+        fclose(fp);
+    }
+
     int EHD[maxK][__maxNumCanon][_maxNumCanon];
     for (i=0; i<maxK; i++){
         if(_k[i] == -1) break;
-        char FILENAME[10];
-        sprintf(FILENAME, "ehd%d.txt", _k[i]);
+        char FILENAME[100];
+        sprintf(FILENAME, CANON_DIR "/EdgeHammingDistance%d.txt", _k[i]);
         FILE* fp = fopen(FILENAME, "r")
         assert(fp);
-        int x,y,c1,c2;
-        while(!feof(fp)){
-            y = 0;
-            fscanf(fp, "%d", &x);
-            if (x != '\n'){
-                if (y == 0)
-                    c1 = x;
-                else if (y == 1)
-                    c2 = x;
-                else if (y == 2)
-                    EHD[_k[i] - 1][c1][c2] = x;
-                y += 1;
+        int c1,c2, x,y,z;
+
+        // 3 columns
+        for(c1=0; c1<_numCanon[k-1]; c1++){
+            for(c2=0; c2<_numCanon[k-1]; c2++){
+                fscanf(fp, "%d", &x);
+                fscanf(fp, "%d", &y);
+                fscanf(fp, "%d", &z);
+                assert(x == c1);
+                assert(y == c2);
+                assert(z >= 0);
+                EHD[c1][c2] = z;
             }
         }
+
+        // check nothing left to read
+        assert(fscanf(fp, "%d", &x) < 1);
         fclose(fp);
     }
 
@@ -1425,7 +1453,7 @@ int main(int argc, char *argv[]){
     max_abscost[GraphletKernel] = GraphletKernelObjective(D, &gkstate);
     max_abscost[SGKDiff] = SGKDiffObjective(D);
     max_abscost[GraphletGDV] = GDVObjective(GDVhistograms);
-    max_abscost[EdgeHammingDistance] = EHDObjective(EHD, EHDaway, D);
+    max_abscost[EdgeHammingDistance] = EHDObjective(D);
     max_abscost[DegreeDist] = DegreeDistObjective(Degree);
     max_abscost[ClustCoff] = ClustCoffObjective(&ccstate);
  
@@ -1508,7 +1536,7 @@ int main(int argc, char *argv[]){
 	    newcost[DegreeDist] = AdjustDegree(v1, v2, -1, G[1], Degree, newcost[DegreeDist]);
 	if (!ISZERO(weights[ClustCoff]))
 	    newcost[ClustCoff] = AdjustClustCoff(v1, v2, -1, G[1], localConnections, &ccstate, newcost[ClustCoff]);
-	ReBLANT(D, &newGkstate, GDVhistograms, GDVbinsize, GDV, EHD, EHDaway, G[1], samples, Varrays, BLANT[1], v1, v2, newcost, &rvStack);
+	ReBLANT(D, &newGkstate, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], v1, v2, newcost, &rvStack);
 
     // Add an edge
 	GraphConnect(G[1], u1, u2);
@@ -1516,7 +1544,7 @@ int main(int argc, char *argv[]){
 	    newcost[DegreeDist] = AdjustDegree(u1, u2, 1, G[1], Degree, newcost[DegreeDist]);
 	if (!ISZERO(weights[ClustCoff]))
 	    newcost[ClustCoff] = AdjustClustCoff(u1, u2, 1, G[1], localConnections, &ccstate, newcost[ClustCoff]);
-	ReBLANT(D, &newGkstate, GDVhistograms, GDVbinsize, GDV, EHD, EHDaway, G[1], samples, Varrays, BLANT[1], u1, u2, newcost, &rvStack);
+	ReBLANT(D, &newGkstate, GDVhistograms, GDVbinsize, GDV, G[1], samples, Varrays, BLANT[1], u1, u2, newcost, &rvStack);
 
 	newCost = Objective(newcost);
 	maxCost = MAX(maxCost, newCost);
