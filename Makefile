@@ -5,7 +5,7 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 most1: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
 most2: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
 
-all:  most1 canon_map8 most2    # just the same things a second time including k=8
+all:  most1 canon_map8 most2 test_maps test_blant   # just the same things a second time including k=8
 
 test_blant:
 	# First run blant-sanity for various values of k
