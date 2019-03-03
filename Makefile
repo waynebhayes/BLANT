@@ -26,10 +26,10 @@ canon_maps: blant.h fast-canon-map libblant.c libwayne/made subcanon_maps
 
 canon_map8:
 	echo "Warning: this will take a few minutes to a few hours, depending upon your machine"
-	make 'EIGHT=8' canon_maps subcanon_maps ehd
+	$(MAKE) 'EIGHT=8' canon_maps subcanon_maps ehd
 
 fast-canon-map: fast-canon-map.c blant.h canon-sift.c libblant.c make-orbit-maps
-	gcc '-std=c99' -O2 -o fast-canon-map libblant.c fast-canon-map.c $(LIBWAYNE)
+	gcc '-std=c99' -O3 -o fast-canon-map libblant.c fast-canon-map.c $(LIBWAYNE)
 
 slow-canon-maps: slow-canon-maps.c blant.h libblant.c
 	gcc -o slow-canon-maps libblant.c slow-canon-maps.c $(LIBWAYNE)
@@ -56,11 +56,11 @@ libwayne/MT19937/mt19937.o:
 	(cd libwayne/MT19937 && make)
 
 compute-alphas-NBE: #compute-alphas-NBE.c
-	gcc -Wall -O2 -o compute-alphas-NBE compute-alphas-NBE.c libblant.o $(LIBWAYNE)
+	gcc -Wall -O3 -o compute-alphas-NBE compute-alphas-NBE.c libblant.o $(LIBWAYNE)
 	for k in 3 4 5 6 7 $$EIGHT; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_nbe$$k.txt ]; then ./compute-alphas-NBE $$k; fi; done
 	
 compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_list7.txt
-	gcc -Wall -O2 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
+	gcc -Wall -O3 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
 	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
@@ -69,7 +69,7 @@ CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	g++ -o CC libblant.o CC.o convert.o $(LIBWAYNE)
 
 libwayne/made:
-	cd libwayne; make all
+	cd libwayne; $(MAKE) all
 
 subcanon_maps: #libwayne/made make-subcanon-maps.c blant.h libblant.c
 	mkdir -p canon_maps
@@ -88,7 +88,7 @@ clean:
 	/bin/rm -f *.[oa] blant canon-sift fast-canon-map compute-alphas-MCMC compute-alphas-NBE canon_maps/*[3-7]*
 
 realclean: clean
-	cd libwayne; make clean
+	cd libwayne; $(MAKE) clean
 	/bin/rm -f canon_maps/*
 
 clean_canon_maps:
