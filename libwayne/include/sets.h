@@ -24,9 +24,13 @@
 #include "misc.h"
 
 typedef unsigned int SETTYPE;
+extern unsigned setBits, setBits_1;
+#define SET_BIT(e) (1UL<<((e)%setBits))
+//#define SET_BIT(e) (1U<<((e)&setBits_1)) // Seems not to work, not sure why
 
 typedef struct _setType {
     unsigned int n; /* in bits */
+    unsigned int smallestElement;
     SETTYPE* array;
 } SET;
 
@@ -62,7 +66,15 @@ SET *SetIntersect(SET *C, SET *A, SET *B);  /* C = intersection of A and B */
 SET *SetXOR(SET *C, SET *A, SET *B);  /* C = XOR of A and B */
 SET *SetComplement(SET *B, SET *A);  /* B = complement of A */
 unsigned SetCardinality(SET *A);    /* returns non-negative integer */
-Boolean SetIn(SET *set, unsigned element); /* boolean: 0 or 1 */
+Boolean SetInSafe(SET *set, unsigned element); /* boolean: 0 or 1 */
+#define SetSmallestElement(S) (S->smallestElement)
+#if 1 //NDEBUG || !PARANOID_ASSERTS
+// Note we do not check here if e is < set->n, which is dangerous
+#define SetIn(set,e) ((set)->array[(e)/setBits] & SET_BIT(e))
+//#define SetIn(set,e) ((e)>=0 && (e)<(set)->n && ((set)->array[(e)/setBits] & SET_BIT(e)))
+#else
+#define SetIn SetInSafe
+#endif
 Boolean SetEq(SET *set1, SET *set2);
 Boolean SetSubsetEq(SET *sub, SET *super); /* is sub <= super? */
 #define SetSupersetEq(spr,sb) SetSubsetEq((sb),(spr))
@@ -82,6 +94,7 @@ SET *SetFromArray(SET *s, int n, unsigned *array);
 char *SetToString(int len, char s[], SET *set);
 
 SET *SetPrimes(long n); /* return the set of all primes between 0 and n */
+void SetPrint(SET *A); /* print elements of the set */
 
 /*
 *********  SPARSE_SET  ********

@@ -13,9 +13,9 @@ test_blant:
 	# Need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
-	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t 1 -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
+	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t 4 -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in 3 4 5 6 7 8; do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t 1 -mg -n 10000000 -k $$k networks/syeast.el | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in 3 4 5 6 7 8; do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t 4 -mg -n 10000000 -k $$k networks/syeast.el | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
 test_maps:
 	ls canon_maps/ | egrep -v 'README|graphlet_list' | awk '{printf "cmp canon_maps.3-7/%s canon_maps/%s\n",$$1,$$1}' | sh
@@ -50,6 +50,8 @@ synthetic: libwayne/made synthetic.c syntheticDS.h syntheticDS.c blant.h libblan
 ehd: libwayne/made makeEHD.c blant.h libblant.c
 	gcc -c makeEHD.c libblant.c $(LIBWAYNE)
 	g++ -o makeEHD libblant.o makeEHD.o $(LIBWAYNE)
+	echo "EdgeHammingDistance8.txt takes about a week to generate; uncompressing instead"
+	unxz < canon_maps.correct/EdgeHammingDistance8.txt.xz > canon_maps/EdgeHammingDistance8.txt
 	for k in 3 4 5 6 7 $$EIGHT; do if [ ! -f canon_maps/EdgeHammingDistance$$k.txt ]; then ./makeEHD $$k > canon_maps/EdgeHammingDistance$$k.txt; fi; done
 
 libwayne/MT19937/mt19937.o:
