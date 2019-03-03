@@ -214,7 +214,7 @@ void MatMatMult(int n, int m, int p, double A[n][p],
     }
 #endif
 
-    if((double*)A != (double*)B && (double*)A != (double*)C)
+    if((double*)A != (double const*)B && (double*)A != (double const*)C)
     {
 	for(i=0; i<n; i++)
 	    for(k=0; k<p; k++)
