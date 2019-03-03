@@ -51,7 +51,8 @@ synthetic: libwayne/made synthetic.c syntheticDS.h syntheticDS.c blant.h libblan
 ehd: libwayne/made makeEHD.c blant.h libblant.c
 	gcc -c makeEHD.c libblant.c $(LIBWAYNE)
 	g++ -o makeEHD libblant.o makeEHD.o $(LIBWAYNE)
-	echo "EdgeHammingDistance8.txt takes about a week to generate; uncompressing instead"
+	echo "EdgeHammingDistance8.txt takes weeks to generate, and 7 can't be done on a 32-bit machine; uncompressing instead"
+	unxz < canon_maps.correct/EdgeHammingDistance7.txt.xz > canon_maps/EdgeHammingDistance7.txt
 	unxz < canon_maps.correct/EdgeHammingDistance8.txt.xz > canon_maps/EdgeHammingDistance8.txt
 	for k in 3 4 5 6 7 $$EIGHT; do if [ ! -f canon_maps/EdgeHammingDistance$$k.txt ]; then ./makeEHD $$k > canon_maps/EdgeHammingDistance$$k.txt; fi; done
 
