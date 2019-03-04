@@ -51,7 +51,7 @@ This has the effect of tuning the centrality measures - node eccentricity; node 
 #define ALWAYS_RANDOM 0
 #define BY_HOPS 1  // join & disconnect nodes which are a specific BFS hops apart (SLOW)
 #define BY_NODE_SP 2  // join & disconnect nodes which have more/less Shortest Paths going through them
-static int node_selection = BY_NODE_SP;
+static int node_selection = ALWAYS_RANDOM;
 // node-selection-strategy can be set using an env variable
 // USAGE: export SYNTHETIC_NODE_SELECTION = 0   # 0 for random, 1 for hops, 2 for shortestpaths
 
@@ -1313,7 +1313,6 @@ int main(int argc, char *argv[]){
                 fscanf(fp, "%d", &e);
                 if (j == 2){
                     CanonicalEdges[k-1][c] = e;
-                    fprintf(stderr, "edges for c=%d are %d\n", c, e);
                 }
             }
         }
