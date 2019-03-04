@@ -4,12 +4,12 @@
 #include "blant.h"
 
 /*
-** This file is intended to take the canon_maps/*.txt files and create binary
-** versions in whatever format your local machine uses; these binary versions
-** then allow BLANT/faye to work much faster at sampling.  NOTE however
-** that if we ever use a kk greater than 8 (ie., graphlets larger than 8)
-** then this code will need to be rewritten.  Right now it assumes the
-** very nice, compact representation that graphlets of maximum 8 nodes
+** This file is intended to take the *.txt files in canon_maps/ and create
+** binary versions in whatever format your local machine uses; these binary
+** versions then allow BLANT/faye to work much faster at sampling.  NOTE
+** however that if we ever use a kk greater than 8 (ie., graphlets larger
+** than 8) then this code will need to be rewritten.  Right now it assumes
+** the very nice, compact representation that graphlets of maximum 8 nodes
 ** allows: exactly 3 bits required per node to specify the permutation,
 ** times 8 nodes, is exactly 24 bits to specify a full permutation from a
 ** non-canonical to a canonical.  We also use this representation for kk<8,
