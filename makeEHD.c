@@ -16,13 +16,17 @@ static int _numCanon;
 static short int* _K;
 
 void SetGlobalCanonMaps(int k){
-    assert(3 <= k <= 8);
+    assert(3 <= k && k <= 8);
     unsigned int _Bk = (1 <<(k*(k-1)/2));
     char BUF[BUFSIZ];
     SET *_connectedCanonicals = SetAlloc(_Bk);
     int _canonList[MAX_CANONICALS];
     _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
+#if defined(__APPLE__)
+    _K = (short int*) valloc(MAX(_Bk * sizeof(short int), 8192));
+#else
     _K = (short int*) aligned_alloc(8192, MAX(_Bk * sizeof(short int), 8192));
+#endif
     assert(_K != NULL);
     mapCanonMap(BUF, _K, k);
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
