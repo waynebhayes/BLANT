@@ -17,11 +17,8 @@
 #include <stdarg.h>
 #include <math.h> // for sqrt(n) in SPARSE_SETs
 
-static unsigned setBits = sizeof(SETTYPE)*8;
-
-static int SIZE(int n)
-{ return (n+setBits-1)/setBits; }   /* number of array elements needed to store n bits */
-
+unsigned setBits = sizeof(SETTYPE)*8, setBits_1;
+static int SIZE(int n) { return (n+setBits-1)/setBits; }   /* number of array elements needed to store n bits */
 
 unsigned int lookupBitCount[LOOKUP_SIZE];
 /* count the number of 1 bits in a long
@@ -38,13 +35,19 @@ static unsigned DumbCountBits(unsigned long i)
 }
 
 
+/* Currently this just initializes lookupBitCount[].
+** SetStartup doesn't perform startup more than once, so it's safe
+** (and costs little) to call it again if you're not sure.  It returns
+** 1 if it did the initialization, else 0.
+*/
 int SetStartup(void)
 {
-    assert(sizeof(SETTYPE) == 4);	// we assume 32-bit ints :-(
-    if(lookupBitCount[1])
+    assert(sizeof(SETTYPE) == 4);	// we assume 32-bit ints
+    if(setBits_1)
 	return 0;
     else
     {
+	setBits_1 = setBits-1;
 	unsigned long i;
 	for(i=0; i<LOOKUP_SIZE; i++)
 	    lookupBitCount[i] = DumbCountBits(i);
@@ -59,8 +62,10 @@ int SetStartup(void)
 */
 SET *SetAlloc(unsigned n)
 {
+    if(!setBits_1) SetStartup();
     SET *set = (SET*) Calloc(1,sizeof(SET));
     set->n = n;
+    set->smallestElement = n; // ie., invalid
     set->array = (SETTYPE*) Calloc(sizeof(SETTYPE), SIZE(n));
     return set;
 }
@@ -96,6 +101,7 @@ SET *SetResize(SET *set, unsigned new_n)
 SET *SetEmpty(SET *set)
 {
     int arrayElem=SIZE(set->n);
+    set->smallestElement = set->n;
 #if 1
     memset(set->array, 0, arrayElem * sizeof(set->array[0]));
 #else
@@ -160,6 +166,7 @@ SET *SetCopy(SET *dst, SET *src)
     if(!dst)
 	dst = SetAlloc(src->n);
     assert(dst->n == src->n);
+    dst->smallestElement = src->smallestElement;
 
     for(i=0; i < numSrc; i++)
 	dst->array[i] = src->array[i];
@@ -185,7 +192,8 @@ SPARSE_SET *SparseSetCopy(SPARSE_SET *dst, SPARSE_SET *src)
 SET *SetAdd(SET *set, unsigned element)
 {
     assert(element < set->n);
-    set->array[element/setBits] |= (1UL << (element % setBits));
+    set->array[element/setBits] |= SET_BIT(element);
+    if(element < set->smallestElement) set->smallestElement = element;
     return set;
 }
 
@@ -222,12 +230,33 @@ SET *SetAddList(SET *set, ...)
 }
 
 
+unsigned int SetAssignSmallestElement1(SET *set)
+{
+    int i, arrayN = SIZE(set->n), old=set->smallestElement;
+    assert(old == set->n || !SetIn(set, old)); // it should not be in there!
+
+    for(i=SIZE(old);i<arrayN;i++)
+	if(set->array[i]) // the next smallest element is here
+	    break;
+    for(i=setBits * i; i<set->n; i++) if(SetIn(set, i))
+	break;
+    set->smallestElement = i; // note this works even if there was no new smallest element, so it's now set->n
+    if(i == set->n)
+	assert(SetCardinality(set) == 0);
+    return i;
+}
+
 /* Delete an element from a set.  Returns the same set handle.
 */
 SET *SetDelete(SET *set, unsigned element)
 {
     assert(element < set->n);
-    set->array[element/setBits] &= ~(1 << (element % setBits));
+    set->array[element/setBits] &= ~SET_BIT(element);
+    if(element == set->smallestElement)
+    {
+	SetAssignSmallestElement1(set);
+	assert(set->smallestElement > element);
+    }
     return set;
 }
 
@@ -251,13 +280,11 @@ SPARSE_SET *SparseSetDelete(SPARSE_SET *set, unsigned long element)
 
 /* query if an element is in a set; return 0 or non-zero.
 */
-Boolean SetIn(SET *set, unsigned element)
+#define SET_BIT_SAFE(e) (1UL<<((e)%setBits))
+Boolean SetInSafe(SET *set, unsigned element)
 {
     assert(element < set->n);
-    if(set->array[element/setBits] & (1UL << (element % setBits)))
-	return true;
-    else
-	return false;
+    return (set->array[element/setBits] & SET_BIT_SAFE(element));
 }
 
 Boolean SparseSetIn(SPARSE_SET *set, unsigned long element)
@@ -318,6 +345,7 @@ SET *SetUnion(SET *C, SET *A, SET *B)
     assert(A->n == B->n && B->n == C->n);
     for(i=0; i < loop; i++)
 	C->array[i] = A->array[i] | B->array[i];
+    C->smallestElement = MIN(A->smallestElement, B->smallestElement);
     return C;
 }
 SPARSE_SET *SparseSetUnion(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B)
@@ -330,6 +358,31 @@ SPARSE_SET *SparseSetUnion(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B)
 }
 
 
+unsigned int SetAssignSmallestElement3(SET *C,SET *A,SET *B)
+{
+    if(A->smallestElement == B->smallestElement)
+	C->smallestElement = A->smallestElement;
+    else if(SetIn(A, B->smallestElement))
+    {
+	assert(!SetIn(B, A->smallestElement));
+	assert(A->smallestElement < B->smallestElement);
+	C->smallestElement = A->smallestElement;
+    }
+    else if(SetIn(B, A->smallestElement))
+    {
+	assert(!SetIn(A, B->smallestElement));
+	assert(B->smallestElement < A->smallestElement);
+	C->smallestElement = B->smallestElement;
+    }
+    else
+    {
+	SetAssignSmallestElement1(C);
+	assert(C->smallestElement > A->smallestElement);
+	assert(C->smallestElement > B->smallestElement);
+    }
+    return C->smallestElement;
+}
+
 /* Intersection A and B into C.  Any or all may be the same pointer.
 */
 SET *SetIntersect(SET *C, SET *A, SET *B)
@@ -339,8 +392,10 @@ SET *SetIntersect(SET *C, SET *A, SET *B)
     assert(A->n == B->n && B->n == C->n);
     for(i=0; i < loop; i++)
 	C->array[i] = A->array[i] & B->array[i];
+    SetAssignSmallestElement3(C,A,B);
     return C;
 }
+
 SPARSE_SET *SparseSetIntersect(SPARSE_SET *C, SPARSE_SET *A, SPARSE_SET *B)
 {
     int i;
@@ -362,6 +417,7 @@ SET *SetXOR(SET *C, SET *A, SET *B)
     assert(A->n == B->n && B->n == C->n);
     for(i=0; i < loop; i++)
 	C->array[i] = A->array[i] ^ B->array[i];
+    SetAssignSmallestElement3(C,A,B);
     return C;
 }
 
@@ -375,6 +431,7 @@ SET *SetComplement(SET *B, SET *A)
     assert(A->n == B->n);
     for(i=0; i < loop; i++)
 	B->array[i] = ~A->array[i];
+    SetAssignSmallestElement1(B);
     return B;
 }
 
@@ -516,6 +573,13 @@ SET *SetPrimes(long n)
 	while(p <= n && !SetIn(primes, p));
     }
     return primes;
+}
+
+void SetPrint(SET *A)
+{
+    int i;
+    for(i=0;i<A->n;i++) if(SetIn(A,i)) printf("%d ", i);
+    printf("\n");
 }
 
 

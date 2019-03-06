@@ -2,9 +2,10 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-most: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
+most1: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
+most2: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
 
-all: most canon_map8 test_blant test_maps
+all:  most1 canon_map8 most2 test_maps test_blant   # just the same things a second time including k=8
 
 test_blant:
 	# First run blant-sanity for various values of k
@@ -15,10 +16,10 @@ test_blant:
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
 	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t 4 -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in 3 4 5 6 7 8; do export k; echo -n "$$k: "; ./blant -s NBE -t 4 -mg -n 10000000 -k $$k networks/syeast.el | bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in 3 4 5 6 7 8; do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t 4 -mg -n 10000000 -k $$k networks/syeast.el | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
 test_maps:
-	ls canon_maps/ | egrep -v 'README|graphlet_list' | awk '{printf "cmp canon_maps.3-7/%s canon_maps/%s\n",$$1,$$1}' | sh
+	ls canon_maps.correct/ | egrep -v 'README|\.xz' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 canon_maps: blant.h fast-canon-map libblant.c libwayne/made subcanon_maps
 	mkdir -p canon_maps
@@ -26,11 +27,10 @@ canon_maps: blant.h fast-canon-map libblant.c libwayne/made subcanon_maps
 
 canon_map8:
 	echo "Warning: this will take a few minutes to a few hours, depending upon your machine"
-	make 'EIGHT=8' canon_maps
-	make 'EIGHT=8' subcanon_maps
+	$(MAKE) 'EIGHT=8' canon_maps subcanon_maps ehd
 
 fast-canon-map: fast-canon-map.c blant.h canon-sift.c libblant.c make-orbit-maps
-	gcc '-std=c99' -O2 -o fast-canon-map libblant.c fast-canon-map.c $(LIBWAYNE)
+	gcc '-std=c99' -O3 -o fast-canon-map libblant.c fast-canon-map.c $(LIBWAYNE)
 
 slow-canon-maps: slow-canon-maps.c blant.h libblant.c
 	gcc -o slow-canon-maps libblant.c slow-canon-maps.c $(LIBWAYNE)
@@ -48,16 +48,26 @@ synthetic: libwayne/made synthetic.c syntheticDS.h syntheticDS.c blant.h libblan
 	gcc -c syntheticDS.c libblant.c synthetic.c $(LIBWAYNE)
 	g++ -o synthetic syntheticDS.o libblant.o synthetic.o $(LIBWAYNE)
 
+ehd: libwayne/made makeEHD.c blant.h libblant.c
+	gcc -c makeEHD.c libblant.c $(LIBWAYNE)
+	g++ -o makeEHD libblant.o makeEHD.o $(LIBWAYNE)
+	echo "EdgeHammingDistance8.txt takes weeks to generate, and 7 can't be done on a 32-bit machine; uncompressing instead"
+	unxz < canon_maps.correct/EdgeHammingDistance7.txt.xz > canon_maps/EdgeHammingDistance7.txt
+	unxz < canon_maps.correct/EdgeHammingDistance8.txt.xz > canon_maps/EdgeHammingDistance8.txt
+	for k in 3 4 5 6 7 $$EIGHT; do if [ ! -f canon_maps/EdgeHammingDistance$$k.txt ]; then ./makeEHD $$k > canon_maps/EdgeHammingDistance$$k.txt; fi; done
+
 libwayne/MT19937/mt19937.o:
 	(cd libwayne/MT19937 && make)
 
 compute-alphas-NBE: #compute-alphas-NBE.c
-	gcc -Wall -O2 -o compute-alphas-NBE compute-alphas-NBE.c libblant.o $(LIBWAYNE)
+	gcc -Wall -O3 -o compute-alphas-NBE compute-alphas-NBE.c libblant.o $(LIBWAYNE)
 	for k in 3 4 5 6 7 $$EIGHT; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_nbe$$k.txt ]; then ./compute-alphas-NBE $$k; fi; done
 	
 compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_list7.txt
-	gcc -Wall -O2 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
-	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
+	gcc -Wall -O3 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
+	echo "computing MCMC alphas for k=8 takes days to just copy it"
+	cp -p canon_maps.correct/alpha_list_mcmc8.txt canon_maps/
+	if [ "$$EIGHT" = 8 ]; then SEVEN=7; fi; for k in 3 4 5 6 $$SEVEN $$EIGHT; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)
@@ -65,7 +75,7 @@ CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	g++ -o CC libblant.o CC.o convert.o $(LIBWAYNE)
 
 libwayne/made:
-	cd libwayne; make all
+	cd libwayne; $(MAKE) all
 
 subcanon_maps: #libwayne/made make-subcanon-maps.c blant.h libblant.c
 	mkdir -p canon_maps
@@ -75,7 +85,7 @@ subcanon_maps: #libwayne/made make-subcanon-maps.c blant.h libblant.c
 
 magic_table: magictable.cpp
 	g++ -std=c++11 -Wall -o make-orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
-	./make-orca-jesse-blant-table 7
+	if [ -f canon_maps/canon_map8.bin -a -f canon_maps/canon_list8.txt ]; then ./make-orca-jesse-blant-table 8; else ./make-orca-jesse-blant-table 7; fi
 
 draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
@@ -84,7 +94,7 @@ clean:
 	/bin/rm -f *.[oa] blant canon-sift fast-canon-map compute-alphas-MCMC compute-alphas-NBE canon_maps/*[3-7]*
 
 realclean: clean
-	cd libwayne; make clean
+	cd libwayne; $(MAKE) clean
 	/bin/rm -f canon_maps/*
 
 clean_canon_maps:

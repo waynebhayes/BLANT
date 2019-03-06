@@ -12,14 +12,8 @@
 
 SMALL_GRAPH *SmallGraphAlloc(unsigned int n)
 {
-    static Boolean startup = 1;
     SMALL_GRAPH *G = Calloc(1, sizeof(SMALL_GRAPH));
     assert(n <= MAX_SSET);
-    if(startup)
-    {
-	startup = 0;
-	SetStartup();
-    }
     G->n = n;
     return G;
 }

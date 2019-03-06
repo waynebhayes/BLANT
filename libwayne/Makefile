@@ -2,52 +2,53 @@ CC=gcc $(OPT) $(DEBUG) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-st
 
 default:
 	# Make the same thing we made most recently
-	if ls -rtlL *.a | tail -1 | grep .-g; then make debug; else make opt; fi
+	if ls -rtlL *.a | tail -1 | grep .-g; then $(MAKE) debug; else $(MAKE) opt; fi
 
 all:
 	/bin/rm -f *.a
 	# Make the pg versions (for profiling)
-	make debug_clean
-	make 'PG=-pg' -j4 debug
-	make opt_clean
-	make 'PG=-pg' -j4 opt
+	$(MAKE) debug_clean
+	$(MAKE) -j 'PG=-pg' debug
+	$(MAKE) opt_clean
+	$(MAKE) -j 'PG=-pg' opt
 	for i in *.a; do b=`basename $$i .a`; mv $$i $$b-pg.a; done
 	# Make the non-pg versions (for profiling)
-	make debug_clean
-	make -j4 debug
-	make opt_clean
-	make -j4 opt
+	$(MAKE) debug_clean
+	$(MAKE) -j debug
+	$(MAKE) opt_clean
+	$(MAKE) -j opt
 	#(cd tests; make stats; mv stats ../bin)
 	touch made
 
 opt:
-	make 'OPT=-O1' 'LIBOUT=libwayne.a' libwayne
+	$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' libwayne
 
 debug:
-	make 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' libwayne
+	$(MAKE) 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' libwayne
 
 libwayne:
-	make $(LIBOUT)
+	$(MAKE) $(LIBOUT)
 	mv src/$(LIBOUT) .
-	ar r $(LIBOUT)
+	[ `arch` = Darwin ] || ar r $(LIBOUT)
 
 debug_clean:
-	make 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' raw_clean
+	$(MAKE) 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' raw_clean
 
 opt_clean:
-	make 'OPT=-O1' 'LIBOUT=libwayne.a' raw_clean
+	$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' raw_clean
 
 raw_clean:
 	/bin/rm -f src/*.[oa] $(LIBOUT) made
+	cd MT19937; $(MAKE) clean
 
 clean:
 	/bin/rm -f *.a
-	make debug_clean
-	make opt_clean
+	$(MAKE) debug_clean
+	$(MAKE) opt_clean
 	/bin/rm -f made
 
 $(LIBOUT): src/$(LIBOUT)
 	ranlib src/$(LIBOUT)
 
 src/$(LIBOUT):
-	cd src; make 'CC=$(CC)' 'LIBOUT=$(LIBOUT)' 'DEBUG=$(DEBUG)'
+	cd src; $(MAKE) 'CC=$(CC)' 'LIBOUT=$(LIBOUT)' 'DEBUG=$(DEBUG)'

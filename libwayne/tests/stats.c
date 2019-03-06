@@ -69,15 +69,15 @@ int main(int argc, char *argv[])
 	StatAddSample(st, sample);
 
     if(gain)
-	printf("# %d mean %.16g min %.16g max %.16g stdDev %.16g var %.16g gain %.16g\n",
+	printf("# %6d mean %.6g min %.6g max %.6g stdDev %.6g var %.6g gain %.6g\n",
 	    StatSampleSize(st), StatGeomMean(st), StatMin(st), StatMax(st),
 	    StatGeomStdDev(st), StatGeomVariance(st), exp(st->geomSum));
     else if(geom)
-	printf("# %d mean %.16g min %.16g max %.16g stdDev %.16g var %.16g\n",
+	printf("# %6d mean %.6g min %.6g max %.6g stdDev %.6g var %.6g\n",
 	    StatSampleSize(st), StatGeomMean(st), StatMin(st), StatMax(st),
 	    StatGeomStdDev(st), StatGeomVariance(st));
     else
-	printf("# %d mean %.16g min %.16g max %.16g stdDev %.16g var %.16g skew %.16g\n",
+	printf("# %6d mean %.6g min %.6g max %.6g stdDev %.6g var %.6g skew %.6g\n",
 	    StatSampleSize(st), StatMean(st), StatMin(st), StatMax(st),
 	    StatStdDev(st), StatVariance(st), StatSkew(st));
 

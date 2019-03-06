@@ -33,24 +33,43 @@ typedef struct smallworld{
 	int lowerHops, upperHops;
 } SmallWorld;
 
+typedef struct clustcoffstate{
+	int* histograms[2];  // stores num of elts in a bin
+	int histograms_size[2];  // stores num of bins
+	double histograms_bin_size[2];  // stores bin size/width
+} ClustCoffState;
+
+typedef struct gkstate{
+	long udotv, sq_length_u, sq_length_v;
+} GKState;
+
+// key:value hash helpers
 int dictionary_create(Dictionary* dictionary);
 int dictionary_get(Dictionary* dictionary, int key, int default_value);
 void dictionary_set(Dictionary* dictionary, int key, int value);
 KeyValue* getIterator(Dictionary* dictionary);
 int getNext(KeyValue** iterator, int* key, int* value);
+
+// revert stack helpers
 int create_stack(RevertStack* stack, int size);
 int init_stack(RevertStack* stack);
 int push(RevertStack* stack, Change elt);
 int pop(RevertStack* stack, Change* elt);
-int compare_ints(const void* a, const void* b);
-int compare_doubles(const void* a, const void* b);
+
+// math helpers
 int getIntMedian(int* nums, int start, int end);
 double getDoubleMedian(double* nums, int start, int end);
 double PoissonDistribution(double l, int k);
+
+// optimum histogram bin size 
 double getDoubleBinSize(int n, double localClustCoff[n], double* scratchspace);
 int getIntegerBinSize(int n, int GDVcolumn[n], int* scratchspace);
+
+// node selection helpers
 int getRandomNodeAtHops(GRAPH* G, int src, int hops);
 int getRandomConnectedNode(GRAPH* G, int src);
+
+// k-hop helpers
 void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n]);
 int compareKHopByMedian(Dictionary* khop[2], int medians[2], int maxKeys[2]);
-void print_khop(Dictionary* khop);
+void print_khop_sample(Dictionary* khop);

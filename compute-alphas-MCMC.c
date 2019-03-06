@@ -104,7 +104,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, unsigne
 	
 	CombinFree(Dcombin);
 	CombinFree(Lcombin);
-	return _alpha;
+	return _alpha / 2;
 }
 
 int main(int argc, char* argv[]) {
