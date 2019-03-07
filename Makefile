@@ -2,8 +2,8 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZE
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-most1: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
-most2: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table draw
+most1: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table Draw/graphette2dot
+most2: libwayne/made blant canon_maps compute-alphas-MCMC compute-alphas-NBE magic_table Draw/graphette2dot
 
 all:  most1 canon_map8 most2 test_maps test_blant   # just the same things a second time including k=8
 
@@ -87,7 +87,7 @@ magic_table: magictable.cpp
 	g++ -std=c++11 -Wall -o make-orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
 	if [ -f canon_maps/canon_map8.bin -a -f canon_maps/canon_list8.txt ]; then ./make-orca-jesse-blant-table 8; else ./make-orca-jesse-blant-table 7; fi
 
-draw: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
+Draw/graphette2dot: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
 
 clean:

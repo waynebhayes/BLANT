@@ -1,6 +1,8 @@
 #include <sys/file.h>
 #include "blant.h"
 
+char* _BLANT_DIR = DEFAULT_BLANT_DIR;
+
 // Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
 int TinyGraph2Int(TINY_GRAPH *g, int k)
 {
@@ -63,7 +65,7 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 */
 void mapCanonMap(char* BUF, short int *K, int k) {
     int Bk = (1 <<(k*(k-1)/2));
-    sprintf(BUF, CANON_DIR "/canon_map%d.bin", k);
+    sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
     assert(Kfd > 0);
     short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
@@ -71,9 +73,9 @@ void mapCanonMap(char* BUF, short int *K, int k) {
 }
 
 int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k) {
-    sprintf(BUF, CANON_DIR "/canon_list%d.txt", k);
+    sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/canon_list%d.txt\n", CANON_DIR, k);
+    if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numCanon, i, connected, numEdges;
     fscanf(fp_ord, "%d",&numCanon);
     for(i=0; i<numCanon; i++) {
@@ -85,9 +87,9 @@ int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int 
 }
 	
 int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int k) {
-    sprintf(BUF, CANON_DIR "/orbit_map%d.txt", k);
+    sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/orbit_map%d.txt\n", CANON_DIR, k);
+    if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numOrbit, i, j;
     fscanf(fp_ord, "%d",&numOrbit);
     for(i=0; i<numOrbit; i++) for(j=0; j<k; j++)fscanf(fp_ord, "%d", &orbit_list[i][j]);
