@@ -33,7 +33,7 @@ static int maxdegree = -1;  // equals _numNodes (a node can be connected to ever
 static int _canonList[maxK][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
-#define PRINT_INTERVAL 10000
+#define PRINT_INTERVAL 100000
 #define ISZERO(w) (fabs(w)<0.00001)
 #define NC2(n) ((n* (n-1)) / 2)
 
@@ -48,10 +48,10 @@ This has the effect of tuning the centrality measures - node eccentricity; node 
 #define KHOP_QUALITY 0.8  // pick these fraction of nodes, do a BFS on each of these nodes (for computing KHOP)
 
 // node-selection
-#define ALWAYS_RANDOM 0
-#define BY_HOPS 1  // join & disconnect nodes which are a specific BFS hops apart (SLOW)
-#define BY_NODE_SP 2  // join & disconnect nodes which have more/less Shortest Paths going through them
-static int node_selection = ALWAYS_RANDOM;
+#define NODE_SEL_ALWAYS_RANDOM 0
+#define NODE_SEL_BY_HOPS 1  // join & disconnect nodes which are a specific BFS hops apart (SLOW)
+#define NODE_SEL_SHORT_PATH 2  // join & disconnect nodes which have more/less Shortest Paths going through them
+static int node_selection = NODE_SEL_ALWAYS_RANDOM;
 // node-selection-strategy can be set using an env variable
 // USAGE: export SYNTHETIC_NODE_SELECTION = 0   # 0 for random, 1 for hops, 2 for shortestpaths
 
@@ -900,7 +900,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
 
     int x, y;
     
-    if ((node_selection==ALWAYS_RANDOM) || (sw.make == 0)){
+    if ((node_selection==NODE_SEL_ALWAYS_RANDOM) || (sw.make == 0)){
         // random selection
 
         // existing edge
@@ -926,7 +926,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
     }
 
     // for node selection by BFS hops
-    if(node_selection == BY_HOPS){
+    if(node_selection == NODE_SEL_BY_HOPS){
         int d = sw.lowerHops + (int)((sw.upperHops - sw.lowerHops + 1) * drand48());
         assert(d>1);
 
@@ -953,7 +953,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
     }
 
     // for node selection by node ShortestPaths
-    if(node_selection == BY_NODE_SP){
+    if(node_selection == NODE_SEL_SHORT_PATH){
         double lower = 0.0;
         double pd_interval = 0.05;
         double interval = 0.35;
@@ -1046,7 +1046,12 @@ int main(int argc, char *argv[]){
     }
     {
         double wsum = 0;  // sum of weights should be 1.0
-        for(i=0; i<NUMPROPS; i++) wsum += weights[i];
+	fprintf(stderr, "weights:");
+        for(i=0; i<NUMPROPS; i++){
+	    fprintf(stderr, " %g",weights[i]);
+	    wsum += weights[i];
+	}
+	fprintf(stderr,"\n");
         assert(fabs(wsum-1) < 0.0001);
     }
 
@@ -1328,7 +1333,7 @@ int main(int argc, char *argv[]){
         char FILENAME[100];
         sprintf(FILENAME, CANON_DIR "/EdgeHammingDistance%d.txt", k);
         FILE* fp = fopen(FILENAME, "r");
-        assert(fp);
+        if(!fp) Fatal("cannot open file %s\n", FILENAME);
         int c1,c2, x,y,z;
 
         // 3 columns
@@ -1474,13 +1479,13 @@ int main(int argc, char *argv[]){
 
     /* MAIN LOOP */
     // while(not done---either some number of iterations, or objective function says we're too far away)
-    while((startCost - cost)/startCost < 0.5) // that's enough progress otherwise we're over-optimizing at this sample size
+    while(cost/startCost > 0.45) // that's enough progress otherwise we're over-optimizing at this sample size
     {
 
 	int u1, u2, v1, v2;
 
 	// compute k-hop -> make synthetic more/less like a small-world
-	if((node_selection != ALWAYS_RANDOM) && ((a_iter % sw.khop_interval) == 0)){
+	if((node_selection != NODE_SEL_ALWAYS_RANDOM) && ((a_iter % sw.khop_interval) == 0)){
 	    sampleKHop(G[1], &(khop[1]), KHOP_QUALITY, nodesBySp[1]);
 
 	    // reverse lookup
