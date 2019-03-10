@@ -101,7 +101,7 @@ void SetGlobalCanonMaps(void){
         _K[_k[i]-1] = (short int*) aligned_alloc(8192, MAX(_Bk * sizeof(short int), 8192));
         assert(_K[_k[i]-1] != NULL);
         mapCanonMap(BUF, _K[_k[i]-1], _k[i]);
-        sprintf(BUF, "%s/%s/perm_map%s.bin", _BLANT_DIR, CANON_DIR, _k[i]);
+        sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k[i]);
         int pfd = open(BUF, 0*O_RDONLY);
         kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
         assert(Pf == Permutations);

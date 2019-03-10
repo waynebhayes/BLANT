@@ -1101,9 +1101,9 @@ void LoadMagicTable()
 }
 
 void SetBlantDir() {
-	char* temp = getenv("BLANT_DIR");
-	if (temp != NULL)
-		_BLANT_DIR = strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
+    char* temp = getenv("BLANT_DIR");
+    if (temp != NULL)
+	_BLANT_DIR = strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
 }
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
