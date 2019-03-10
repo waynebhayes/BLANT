@@ -673,9 +673,9 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 }
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
-	sprintf(BUF, CANON_DIR "/alpha_list_mcmc%d.txt", k);
+	sprintf(BUF, "%s/%s/alpha_list_mcmc%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s/alpha_list_mcmc%d.txt\n", CANON_DIR, k);
+    if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numAlphas, i;
     fscanf(fp_ord, "%d",&numAlphas);
 	assert(numAlphas == _numCanon);
@@ -1072,7 +1072,7 @@ void SetGlobalCanonMaps(void)
     _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, _k);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _k);
     mapCanonMap(BUF, _K, _k);
-    sprintf(BUF, CANON_DIR "/perm_map%d.bin", _k);
+	sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
     kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
     assert(Pf == Permutations);
@@ -1082,9 +1082,9 @@ void LoadMagicTable()
 {
 	int i,j;
 	char BUF[BUFSIZ];
-	sprintf(BUF, "orca_jesse_blant_table/UpperToLower%d.txt", _k);
+	sprintf(BUF, "%s/orca_jesse_blant_table/UpperToLower%d.txt", _BLANT_DIR, _k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find orca_jesse_blant_table/UpperToLower%d.txt\n", _k);
+    if(!fp_ord) Fatal("cannot find %s\n", BUF);
 	for(i=0; i<_numCanon; i++) {
 	for(j=0; j<12 ;j++) {
 	fscanf(fp_ord, "%d", &_magicTable[i][j]);
@@ -1098,6 +1098,12 @@ void LoadMagicTable()
 	}
 	break;
 	}
+}
+
+void SetBlantDir() {
+	char* temp = getenv("BLANT_DIR");
+	if (temp != NULL)
+		_BLANT_DIR = temp;
 }
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
@@ -1731,6 +1737,7 @@ int main(int argc, char *argv[])
     optind++;
     assert(optind == argc);
 
+	SetBlantDir(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
 	LoadMagicTable(); // needs _k to be set
 

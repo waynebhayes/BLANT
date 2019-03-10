@@ -27,6 +27,9 @@
 #define CANON_DIR "canon_maps"
 //#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
+#define DEFAULT_BLANT_DIR "."
+extern char* _BLANT_DIR;
+
 void BuildGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 void mapCanonMap(char* BUF, short int *K, int k);

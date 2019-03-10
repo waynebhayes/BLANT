@@ -71,8 +71,8 @@ int main(int argc, char *argv[])
     int i;
     char buf[BUFSIZ];   
     int numCanon = canonListPopulate(buf, canon_list, NULL, kk);
-
-    FILE *fp=fopen(CANON_DIR "/canon_map" kString ".txt","r");
+    sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, CANON_DIR, kString);
+    FILE *fp=fopen(buf,"r");
     assert(fp);
     int line;
     for(line=0; line < Bk; line++) {
@@ -95,10 +95,12 @@ int main(int argc, char *argv[])
 #endif
     }
     fclose(fp);
-    fp=fopen(CANON_DIR "/canon_map" kString ".bin","wb");
+    sprintf(buf, "%s/%s/canon_map%s.bin", _BLANT_DIR, CANON_DIR, kString);
+    fp=fopen(buf,"wb");
     fwrite((void*)K,sizeof(K[0]),Bk,fp);
     fclose(fp);
-    fp=fopen(CANON_DIR "/perm_map" kString ".bin","wb");
+    sprintf(buf, "%s/%s/perm_map%s.bin", _BLANT_DIR, CANON_DIR, kString);
+    fp=fopen(buf,"wb");
     fwrite((void*)Permutations,sizeof(Permutations[0]),Bk,fp);
     fclose(fp);
 }
