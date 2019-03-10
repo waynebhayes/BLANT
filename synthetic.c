@@ -68,7 +68,7 @@ static int node_selection = NODE_SEL_ALWAYS_RANDOM;
 
 static double weights[NUMPROPS] =
 // weights: 0 GraphletEuclidean; 1 GraphletKernel; 2 SGKDiff; 3 GDV;  4 EdgeHammingDistance, 5 DegreeDist; 6 ClustCoff
-           {0,                   0,                0,         0,      1,                     0,            0};
+           {1,                   0,                0,         0,      0,                     0,            0};
 // weights can be set using an env variable
 // USAGE: export SYNTHETIC_GRAPHLET_WEIGHTS = 'a b c d e f g'   #a+b+c+d+e+f+g == 1
 
@@ -548,8 +548,7 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhisto
                         oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);
                 }
 
-                // edge-hamming-distance, this is not computed incrementally
-                // once we have a Fast version, move this call above with the other objectives (both code blocks)
+                // move this call to the above code blocks (2), when we have a 'Fast' version
                 if (!ISZERO(weights[EdgeHammingDistance]))
                     oldcost[4] = EHDObjective(D, CanonicalEdges, EHD, EHDaway);
 
@@ -1596,7 +1595,7 @@ int main(int argc, char *argv[]){
         static double printVal=1e30, printInterval;
         if(fabs(cost - printVal)/printVal >= 0.02 || ++printInterval > PRINT_INTERVAL)
         {
-        fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d ehd %g", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
+        fprintf(stderr, "\ntemp %g cost %g newCost %g maxCost %g pBad %g numDis %d", temperature, cost, newCost, maxCost, pBad, _numDisconnectedGraphlets);
         //fprintf(stderr, "%g ", newCost);
         printVal = cost;
         printInterval = 0;
