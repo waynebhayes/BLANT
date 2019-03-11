@@ -49,9 +49,9 @@ This has the effect of tuning the centrality measures - node eccentricity; node 
 
 // node-selection
 #define NODE_SEL_ALWAYS_RANDOM 0
-#define NODE_SEL_BY_HOPS 1  // join & disconnect nodes which are a specific BFS hops apart (SLOW)
-#define NODE_SEL_SHORT_PATH 2  // join & disconnect nodes which have more/less Shortest Paths going through them
-static int node_selection = NODE_SEL_ALWAYS_RANDOM;
+#define NODE_SEL_SHORT_PATH 1  // join & disconnect nodes which have more/less Shortest Paths going through them
+#define NODE_SEL_BY_HOPS 2  // join & disconnect nodes which are a specific BFS hops apart (SLOW)
+static int node_selection = NODE_SEL_SHORT_PATH;
 // node-selection-strategy can be set using an env variable
 // USAGE: export SYNTHETIC_NODE_SELECTION = 0   # 0 for random, 1 for hops, 2 for shortestpaths
 
@@ -68,7 +68,7 @@ static int node_selection = NODE_SEL_ALWAYS_RANDOM;
 
 static double weights[NUMPROPS] =
 // weights: 0 GraphletEuclidean; 1 GraphletKernel; 2 SGKDiff; 3 GDV;  4 EdgeHammingDistance, 5 DegreeDist; 6 ClustCoff
-           {1,                   0,                0,         0,      0,                     0,            0};
+           {0.1,                 0,                0,         0,      0.35,                     0.05,            0.50};
 // weights can be set using an env variable
 // USAGE: export SYNTHETIC_GRAPHLET_WEIGHTS = 'a b c d e f g'   #a+b+c+d+e+f+g == 1
 
