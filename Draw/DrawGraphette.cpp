@@ -374,6 +374,6 @@ void writeEdgesLower(ofstream& outfile, const vector<string>& inputBitstrings, i
 
 void printGraphConversionInstruction(const string& filename) {
 	stringstream ss;
-	ss << "neato -n -Tpdf " << filename << ".dot -o " << filename << ".pdf";
+	ss << "neato -n -Tpdf \"" << filename << ".dot\" -o \"" << filename << ".pdf\"";
 	std::cout << ss.str() << std::endl;
 }
