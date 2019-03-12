@@ -1410,17 +1410,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
 	if (_sampleMethod == SAMPLE_MCMC && !_windowRep) {
-		BuildGraph(g, _canonList[canon]);
-		if (TinyGraphDFSConnected(g, 0)) {
+		if (SetIn(_connectedCanonicals, canon)) {
 			printf("%lf ", _graphletConcentration[canon]);
 			PrintCanonical(canon);
 			printf("\n");
 		}
 	}
 	else {
-		printf("%lu ", _graphletCount[canon]);
-		PrintCanonical(canon);
-		printf("\n");
+		if (SetIn(_connectedCanonicals, canon)) {
+			printf("%lu ", _graphletCount[canon]);
+			PrintCanonical(canon);
+			printf("\n");
+		}
 	}
 	}
 	break;
