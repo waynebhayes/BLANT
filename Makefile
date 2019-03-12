@@ -48,7 +48,7 @@ compute-alphas-MCMC: #libblant.c blant.h compute-alphas-MCMC.c canon_maps/alpha_
 	gcc -Wall -O3 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
 	echo "computing MCMC alphas for k=8 takes days to just copy it"
 	cp -p canon_maps.correct/alpha_list_mcmc8.txt canon_maps/
-	for k in 3 4 5 6 7 8; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
+	for k in 3 4 5 6 7; do if [ -f canon_maps/canon_list$$k.txt -a ! -f canon_maps/alpha_list_mcmc$$k.txt ]; then ./compute-alphas-MCMC $$k; fi; done
 
 CC: libwayne/made CC.c blant.h libblant.c convert.cpp
 	gcc -c libblant.c CC.c $(LIBWAYNE)

@@ -82,8 +82,8 @@ static unsigned long int _graphletCount[MAX_CANONICALS];
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
 static enum CanonicalDisplayMode _displayMode = undefined;
 
-static int _magicTable[1044][12]; //Number of canonicals for k=7 by number of columns in magic table
-static int _outputMapping[1044];
+static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
+static int _outputMapping[MAX_CANONICALS];
 
 // A bit counter-intuitive: we need to allocate this many vectors each of length [_numNodes],
 // and then the degree for node v, graphlet/orbit g is _degreeVector[g][v], NOT [v][g].
