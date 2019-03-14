@@ -53,7 +53,7 @@ This has the effect of tuning the centrality measures - node eccentricity; node 
 #define NODE_SEL_BY_HOPS 2  // join & disconnect nodes which are a specific BFS hops apart (SLOW)
 static int node_selection = NODE_SEL_SHORT_PATH;
 // node-selection-strategy can be set using an env variable
-// USAGE: export SYNTHETIC_NODE_SELECTION = 0   # 0 for random, 1 for hops, 2 for shortestpaths
+// USAGE: export SYNTHETIC_NODE_SELECTION = 0   # 0 for random, 1 for shortestpaths, 2 for hops
 
 // objective functions
 #define IGNORE_DISCONNECTED_GRAPHLETS 1
