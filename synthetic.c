@@ -548,9 +548,6 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhisto
                         oldcost[3] = AdjustGDV(k, canon, change, BLANT[k-1][line], GDVhistograms, GDVbinsize, GDV, oldcost[3]);
                 }
 
-                // move this call to the above code blocks (2), when we have a 'Fast' version
-                if (!ISZERO(weights[EdgeHammingDistance]))
-                    oldcost[4] = EHDObjective(D, CanonicalEdges, EHD, EHDaway);
 
                 // change object
                 newchange.new = (int) canon;
@@ -558,6 +555,12 @@ void ReBLANT(int D[2][maxK][_maxNumCanon], GKState* gkstate, Dictionary GDVhisto
             }          
             
     }
+
+    // recomputed from scratch, can be outside 'iterate over k' loop
+    if (!ISZERO(weights[EdgeHammingDistance]))
+        oldcost[4] = EHDObjective(D, CanonicalEdges, EHD, EHDaway);
+
+
 
     for(i=0; i<5; i++)
         assert(oldcost[i] >= 0);
