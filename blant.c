@@ -1316,7 +1316,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 	    PrintCanonical(GintCanon);
-	    for(j=0;j<k;j++) {printf(" "); PrintNode(Varray[(int)perm[j]]);} //PrintNode(Varray[j]);}
+	    for(j=0;j<k;j++) {printf(" "); PrintNode(Varray[(int)perm[j]]);}
 	    puts("");
 	    break;
 	case indexOrbits:
@@ -1543,18 +1543,20 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case outputGDV:
 	for(i=0; i < G->n; i++)
 	{
-		if(_supportNodeNames) printf("%s",_nodeNames[i]);
-		else printf("%d",i);
+	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
+	    else printf("%d",i);
 	    for(canon=0; canon < _numCanon; canon++)
-			printf(" %lu", GDV(i,canon));
+		printf(" %lu", GDV(i,canon));
 	    puts("");
 	}
 	break;
      case outputODV:
         for(i=0; i<G->n; i++) {
-			if(_supportNodeNames) printf("%s",_nodeNames[i]);
-			else printf("%d",i);
-			for(j=0; j<_numOrbits; j++) printf(" %lu", ODV(i,j)); printf("\n");}
+	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
+	    else printf("%d",i);
+	    for(j=0; j<_numOrbits; j++) printf(" %lu", ODV(i,j));
+	    printf("\n");
+	}
         break;
     default: Abort("unknown or un-implemented outputMode");
 	break;
@@ -1615,9 +1617,9 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
-		_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
-		for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
-	}
+	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
+	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+    }
 	
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
@@ -1646,7 +1648,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    }
 	    char *nextChar = line;
 	    unsigned long int count;
-	    int canon, numRead;
+	    int canon, orbit, numRead;
 	    switch(_outputMode)
 	    {
 	    case graphletFrequency:
@@ -1655,6 +1657,14 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		_graphletCount[canon] += count;
 		break;
 	    case outputGDV:
+		if(_supportNodeNames) Fatal("Oops, we don't yet support node names in multi-threaded ODV or GDV mode");
+		int nodeId;
+		assert(isdigit(*nextChar));
+		numRead = sscanf(nextChar, "%d", &nodeId);
+		assert(numRead == 1 && nodeId == lineNum);
+		while(isdigit(*nextChar)) nextChar++; // read past current integer
+		assert(*nextChar == ' ' || (canon == _numCanon-1 && *nextChar == '\n'));
+		nextChar++;
 		for(canon=0; canon < _numCanon; canon++)
 		{
 		    assert(isdigit(*nextChar));
@@ -1663,6 +1673,26 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		    GDV(lineNum,canon) += count;
 		    while(isdigit(*nextChar)) nextChar++; // read past current integer
 		    assert(*nextChar == ' ' || (canon == _numCanon-1 && *nextChar == '\n'));
+		    nextChar++;
+		}
+		assert(*nextChar == '\0');
+		break;
+	    case outputODV:
+		if(_supportNodeNames) Fatal("Oops, we don't yet support node names in multi-threaded ODV or GDV mode");
+		assert(isdigit(*nextChar));
+		numRead = sscanf(nextChar, "%d", &nodeId);
+		assert(numRead == 1 && nodeId == lineNum);
+		while(isdigit(*nextChar)) nextChar++; // read past current integer
+		assert(*nextChar == ' ' || (orbit == _numOrbits-1 && *nextChar == '\n'));
+		nextChar++;
+		for(orbit=0; orbit < _numOrbits; orbit++)
+		{
+		    assert(isdigit(*nextChar));
+		    numRead = sscanf(nextChar, "%lu", &count);
+		    assert(numRead == 1);
+		    ODV(lineNum,orbit) += count;
+		    while(isdigit(*nextChar)) nextChar++; // read past current integer
+		    assert(*nextChar == ' ' || (orbit == _numOrbits-1 && *nextChar == '\n'));
 		    nextChar++;
 		}
 		assert(*nextChar == '\0');
