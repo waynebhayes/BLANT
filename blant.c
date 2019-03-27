@@ -55,6 +55,8 @@ char _sampleFileEOF;
 #define RESERVOIR_MULTIPLIER 8
 #endif
 
+#define SAMPLE_FAYE 6
+
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
@@ -1237,6 +1239,8 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 		case SAMPLE_NODE_EXPANSION:
 			SampleGraphletNodeBasedExpansion(V, Varray, G, k, cc);
 			break;
+        case SAMPLE_FAYE:
+            SampleGraphletFaye(V, Varray, G, k, cc);
 		case SAMPLE_RESERVOIR:
 			SampleGraphletLuBressanReservoir(V, Varray, G, k, cc); // pretty slow but not as bad as unbiased
 			break;
@@ -1799,6 +1803,8 @@ int main(int argc, char *argv[])
 		if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 		else if (strncmp(optarg, "NBE", 3) == 0)
 			_sampleMethod = SAMPLE_NODE_EXPANSION;
+        else if (strncmp(optarg, "FAYE", 4) == 0) 
+            _sampleMethod = SAMPLE_FAYE;
 		else if (strncmp(optarg, "EBE", 3) == 0)
 			_sampleMethod = SAMPLE_EDGE_EXPANSION;
 		else if (strncmp(optarg, "MCMC", 3) == 0)
