@@ -1801,6 +1801,7 @@ const char const * const USAGE = \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
+	"-m{f}{frequencyDisplayMode} is allowed with frequencyDisplayMode being one of: i(integer or count) and d(decimal or concentration)\n" \
     "samplingMethod is one of: NBE (Node Based Expansion); EBE (Edge Based Expansion); MCMC (Markov chain Monte Carlo); RES (Lu Bressan's reservoir).\n" \
 	"displayMode controls how the graphlet is displayed: options are:\n"\
 	"\ti (integer ordinal), d(decimal), b (binary), j (JESSE), o (ORCA).\n" \
