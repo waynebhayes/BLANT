@@ -72,7 +72,7 @@ Draw/graphette2dot: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
 	g++ -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
 
 clean:
-	/bin/rm -f *.[oa] blant canon-sift fast-canon-map compute-alphas-MCMC compute-alphas-NBE
+	/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity 
 
 realclean: clean # also clean all canonical data and libwayne
 	cd libwayne; $(MAKE) clean
