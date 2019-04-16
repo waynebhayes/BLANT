@@ -1843,7 +1843,7 @@ int main(int argc, char *argv[])
 			case 'i': _freqDisplayMode = count; break;
 			case 'd': _freqDisplayMode = concentration; break;
 			case '\0': _freqDisplayMode = freq_display_mode_undef; break;
-			default: Fatal("-m%c: unknown frequency display mode;\n"
+			default: Fatal("-mf%c: unknown frequency display mode;\n"
 			"\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
 			break;
 		}
