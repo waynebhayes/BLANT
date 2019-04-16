@@ -84,6 +84,9 @@ static unsigned long int _graphletCount[MAX_CANONICALS];
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
 static enum CanonicalDisplayMode _displayMode = undefined;
 
+enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration};
+static enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
+
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
 static int _outputMapping[MAX_CANONICALS];
 
@@ -1481,6 +1484,32 @@ void ProcessWindowRep(int *Varray, int (*windowReps)[_k], int windowRepInt, int 
 	}
 }
 
+// This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
+void convertFrequencies(int numSamples)
+{
+	int i;
+	if (_sampleMethod == SAMPLE_MCMC) 
+	{
+		if (_freqDisplayMode == count) 
+		{
+			for (i = 0; i < _numCanon; i++) 
+			{
+				_graphletCount[i] = _graphletConcentration[i] * numSamples;
+			}
+		}
+	}
+	else
+	{
+		if (_freqDisplayMode == concentration)
+		{
+			for (i = 0; i < _numCanon; i++) 
+			{
+				_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
+			}
+		}
+	}
+}
+
 
 
 // This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
@@ -1515,8 +1544,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 			ProcessGraphlet(G, V, Varray, perm, g, k);
 		}
     }
+
 	if (_sampleMethod == SAMPLE_MCMC && !_windowRep)
 		finalizeMCMC();
+	if (_outputMode == graphletFrequency)
+		convertFrequencies(numSamples);
     switch(_outputMode)
     {
 	int canon;
@@ -1524,7 +1556,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break; // already output on-the-fly above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
-	if (_sampleMethod == SAMPLE_MCMC && !_windowRep) {
+	if (_freqDisplayMode == concentration) {
 		if (SetIn(_connectedCanonicals, canon)) {
 			printf("%lf ", _graphletConcentration[canon]);
 			PrintCanonical(canon);
@@ -1804,7 +1836,17 @@ int main(int argc, char *argv[])
 	    {
 	    case 'i': _outputMode = indexGraphlets; break;
 	    case 'j': _outputMode = indexOrbits; break;
-	    case 'f': _outputMode = graphletFrequency; break;
+	    case 'f': _outputMode = graphletFrequency;
+		switch (*(optarg + 1))
+		{
+			case 'i': _freqDisplayMode = count; break;
+			case 'd': _freqDisplayMode = concentration; break;
+			case '\0': _freqDisplayMode = freq_display_mode_undef; break;
+			default: Fatal("-m%c: unknown frequency display mode;\n"
+			"\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
+			break;
+		}
+		break;
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
 	    default: Fatal("-m%c: unknown output mode;\n"
@@ -1873,7 +1915,14 @@ int main(int argc, char *argv[])
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
-    if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse use
+    if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
+	if (_freqDisplayMode == freq_display_mode_undef) // Default to what makes the most sense for the sampling algorithm
+	{
+		if (_sampleMethod == SAMPLE_MCMC)
+			_freqDisplayMode = concentration;
+		else
+			_freqDisplayMode = count;
+	}
 
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
