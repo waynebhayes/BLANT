@@ -660,7 +660,7 @@ int GraphBFS(GRAPH *G, int root, int distance, int *nodeArray, int *distArray)
 }
 
 Boolean GraphCCatLeastK(GRAPH *G, int v, int k) {
-    SET* visited = SetAlloc(k);
+    SET* visited = SetAlloc(G->n);
     Boolean result = _GraphCCatLeastKHelper(G, visited, v, &k);
     SetFree(visited);
     return result;
