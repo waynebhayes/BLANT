@@ -1917,13 +1917,8 @@ int main(int argc, char *argv[])
 	}
     }
     if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
-	if (_freqDisplayMode == freq_display_mode_undef) // Default to what makes the most sense for the sampling algorithm
-	{
-		if (_sampleMethod == SAMPLE_MCMC)
-			_freqDisplayMode = concentration;
-		else
-			_freqDisplayMode = count;
-	}
+	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
+		_freqDisplayMode = count;
 
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
