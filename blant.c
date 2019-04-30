@@ -1802,7 +1802,7 @@ const char const * const USAGE = \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
 	"-m{f}{frequencyDisplayMode} is allowed with frequencyDisplayMode being one of: i(integer or count) and d(decimal or concentration)\n" \
-    "samplingMethod is one of: NBE (Node Based Expansion); EBE (Edge Based Expansion); MCMC (Markov chain Monte Carlo); RES (Lu Bressan's reservoir).\n" \
+    "samplingMethod is one of: NBE (Node Based Expansion); EBE (Edge Based Expansion); MCMC (Markov chain Monte Carlo); RES (Lu Bressan's reservoir); AR (Accept-Reject).\n" \
 	"displayMode controls how the graphlet is displayed: options are:\n"\
 	"\ti (integer ordinal), d(decimal), b (binary), j (JESSE), o (ORCA).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
@@ -1884,6 +1884,8 @@ int main(int argc, char *argv[])
 			_sampleMethod = SAMPLE_MCMC;
 		else if (strncmp(optarg, "RES", 3) == 0)
 			_sampleMethod = SAMPLE_RESERVOIR;
+		else if (strncmp(optarg, "AR", 2) == 0)
+			_sampleMethod = SAMPLE_ACCEPT_REJECT;
 		else
 		{
 			_sampleFileName = optarg;
