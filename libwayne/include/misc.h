@@ -110,6 +110,12 @@ double uTime(void);
 
 char *Int2BitString(char word[33], unsigned i);
 
+FILE* readFile(char* fileName, int* piped);
+const char* getDecompressionProgram(char* fileName);
+FILE* decompressFile(const char* decompProg, char* fileName);
+void closeFile(FILE* fp, int* isPiped);
+const char* getFileExtension(char* filename);
+
 /*
 ** Be careful!  These may not work as you think if i is not unsigned.
 ** Rotate s bits of i by n positions and mask out anything above bit s.

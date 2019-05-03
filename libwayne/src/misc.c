@@ -240,3 +240,43 @@ int PrimeFactors(int N, int count[])
     assert(prod == N);
     return total;
 }
+
+FILE* readFile(char* fileName, int* piped) {
+    FILE* fp;
+    const char* decompressionProg = getDecompressionProgram(fileName);
+    *piped = 0;
+    if(strcmp(decompressionProg, "") != 0) {
+        fp = decompressFile(decompressionProg, fileName);
+        *piped = 1;
+    }
+    else fp = fopen(fileName, "r");
+    return fp;
+}
+
+const char* getDecompressionProgram(char* fileName) {
+    const char* ext = getFileExtension(fileName);
+    if(strcmp(ext, "gz") == 0)
+        return "gunzip";
+    else if(strcmp(ext, "xz") == 0)
+        return "xzcat";
+    else if(strcmp(ext, "bz2") == 0)
+        return "bzip2 -dk";
+    return "";
+}
+FILE* decompressFile(const char* decompProg, char* fileName) {
+    char result[512] = {0};
+    snprintf(result, sizeof(result), "%s%s%s", decompProg, " < ", fileName); 
+    printf("Decompressing file %s using decompression program %s\n", fileName, decompProg);
+    return popen(result, "r");
+}
+void closeFile(FILE* fp, int* isPiped)
+{
+    if((*isPiped) == 1)
+        pclose(fp);
+    else fclose(fp);
+}
+const char* getFileExtension(char* filename) {
+    char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return "";
+    return dot + 1;
+}
