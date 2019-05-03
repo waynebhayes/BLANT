@@ -1927,8 +1927,8 @@ int main(int argc, char *argv[])
 
     if(!argv[optind]) Fatal("no input graph file specified\n%s", USAGE);
     char *graphFileName = argv[optind];
-    int* piped = (int *)malloc(sizeof(int));
-    FILE *fpGraph = readFile(argv[optind], piped);
+    int piped = 0;
+    FILE *fpGraph = readFile(argv[optind], &piped);
     if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
     optind++;
     assert(optind == argc);
@@ -1948,9 +1948,9 @@ int main(int argc, char *argv[])
 	    Fatal("can't find 2 ints on line %d\n", line);
 	BlantAddEdge(v1, v2);
     }
-    closeFile(fpGraph, piped);
+    closeFile(fpGraph, &piped);
   #else // Shawn + Zican see here:
-    closeFile(fpGraph, piped);
+    closeFile(fpGraph, &piped);
     _nodeNames = convertToEL(graphFileName);
     assert(_numNodes > 0);
     assert(_nodeNames && _nodeNames[0]);
@@ -1971,7 +1971,7 @@ int main(int argc, char *argv[])
 	assert(G->name);
 	_nodeNames = G->name;
     }
-    closeFile(fpGraph, piped);
+    closeFile(fpGraph, &piped);
     return RunBlantInThreads(_k, numSamples, G);
 #endif
 }
