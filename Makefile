@@ -30,50 +30,50 @@ all: most test_maps test_blant
 ### Executables ###
 
 fast-canon-map: libwayne/made fast-canon-map.c | blant.h libblant.o
-	$(CC) '-std=c99' -O3 -o fast-canon-map libblant.o fast-canon-map.c $(LIBWAYNE)
+	$(CC) '-std=c99' -O3 -o $@ libblant.o fast-canon-map.c $(LIBWAYNE)
 
 slow-canon-maps: libwayne/made slow-canon-maps.c | blant.h libblant.o
-	$(CC) -o slow-canon-maps libblant.o slow-canon-maps.c $(LIBWAYNE)
+	$(CC) -o $@ libblant.o slow-canon-maps.c $(LIBWAYNE)
 
 make-orbit-maps: libwayne/made make-orbit-maps.c | blant.h libblant.o
-	$(CC) -o make-orbit-maps libblant.o make-orbit-maps.c $(LIBWAYNE)
+	$(CC) -o $@ libblant.o make-orbit-maps.c $(LIBWAYNE)
 
 blant: libwayne/made blant.c blant.h convert.o | libwayne/MT19937/mt19937.o libblant.o 
 	$(CC) -c blant.c $(LIBWAYNE)
-	$(CXX) -o blant libblant.o blant.o convert.o $(LIBWAYNE) libwayne/MT19937/mt19937.o
+	$(CXX) -o $@ libblant.o blant.o convert.o $(LIBWAYNE) libwayne/MT19937/mt19937.o
 
 synthetic: libwayne/made synthetic.c syntheticDS.h syntheticDS.c | libblant.o
 	$(CC) -c syntheticDS.c synthetic.c $(LIBWAYNE)
-	$(CXX) -o synthetic syntheticDS.o libblant.o synthetic.o $(LIBWAYNE)
+	$(CXX) -o $@ syntheticDS.o libblant.o synthetic.o $(LIBWAYNE)
 
 CC: libwayne/made CC.c convert.o | blant.h libblant.o
-	$(CXX) -o CC libblant.o CC.o convert.o $(LIBWAYNE)
+	$(CXX) -o $@ libblant.o CC.o convert.o $(LIBWAYNE)
 
 makeEHD: libwayne/made makeEHD.c | libblant.o
 	$(CC) -c makeEHD.c $(LIBWAYNE)
-	$(CXX) -o makeEHD libblant.o makeEHD.o $(LIBWAYNE)
+	$(CXX) -o $@ libblant.o makeEHD.o $(LIBWAYNE)
 
 compute-alphas-NBE: libwayne/made compute-alphas-NBE.c | libblant.o
-	$(CC) -Wall -O3 -o compute-alphas-NBE compute-alphas-NBE.c libblant.o $(LIBWAYNE)
+	$(CC) -Wall -O3 -o $@ compute-alphas-NBE.c libblant.o $(LIBWAYNE)
 
 compute-alphas-MCMC: libwayne/made compute-alphas-MCMC.c | libblant.o
-	$(CC) -Wall -O3 -o compute-alphas-MCMC compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
+	$(CC) -Wall -O3 -o $@ compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
 
 Draw/graphette2dot: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
-	$(CXX) -std=c++11 Draw/DrawGraphette.cpp -o Draw/graphette2dot
+	$(CXX) -std=c++11 Draw/DrawGraphette.cpp -o $@
 
 make-subcanon-maps: libwayne/made make-subcanon-maps.c | libblant.o
-	$(CC) -Wall -o make-subcanon-maps make-subcanon-maps.c libblant.o $(LIBWAYNE)
+	$(CC) -Wall -o $@ make-subcanon-maps.c libblant.o $(LIBWAYNE)
 
 make-orca-jesse-blant-table: libwayne/made magictable.cpp | libblant.o
-	$(CXX) -std=c++11 -Wall -o make-orca-jesse-blant-table magictable.cpp libblant.o $(LIBWAYNE)
+	$(CXX) -std=c++11 -Wall -o $@ magictable.cpp libblant.o $(LIBWAYNE)
 
 ### Object Files/Prereqs ###
 
 convert.o: convert.cpp
 	$(CXX) -std=c++11 -c convert.cpp
 
-libwayne/MT19937/mt19937.o:
+libwayne/MT19937/mt19937.o: libwayne/made
 	cd libwayne/MT19937 && $(MAKE)
 
 libblant.o: libwayne/made libblant.c
@@ -119,7 +119,7 @@ $(magic_table_txts): .created-magic-tables
 ### Testing ###
 
 blant-sanity: libwayne/made blant-sanity.c
-	$(CC) -o blant-sanity blant-sanity.c $(LIBWAYNE)
+	$(CC) -o $@ blant-sanity.c $(LIBWAYNE)
 	
 test_blant: blant blant-sanity $(canon_map_bins)
 	# First run blant-sanity for various values of k
