@@ -7,6 +7,16 @@ holding
 machines.89
 make-canon-maps
 Makefile
+Draw/graphette2dot
+blant-sanity
+canon_maps/
+fast-canon-map
+libwayne/MT19937/mt19937
+libwayne/made
+make-orbit-maps
+makeEHD
+compute-alphas-MCMC
+compute-alphas-NBE
 
 tmp/
 ignore/
@@ -18,3 +28,7 @@ core*
 #Vi/vim swp files
 *.swp
 .un~
+
+orca_jesse_blant_table/UpperToLower*
+make-orca-jesse-blant-table
+make-subcanon-maps
