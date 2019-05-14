@@ -232,14 +232,12 @@ SET *SetAddList(SET *set, ...)
 
 unsigned int SetAssignSmallestElement1(SET *set)
 {
-    int i, arrayN = SIZE(set->n), old=set->smallestElement;
+    int i, old=set->smallestElement;
     assert(old == set->n || !SetIn(set, old)); // it should not be in there!
 
-    for(i=SIZE(old);i<arrayN;i++)
-	if(set->array[i]) // the next smallest element is here
-	    break;
-    for(i=setBits * i; i<set->n; i++) if(SetIn(set, i))
-	break;
+    for(i=old; i<set->n; i++) 
+        if(SetIn(set, i)) // the next smallest element is here
+	       break;
     set->smallestElement = i; // note this works even if there was no new smallest element, so it's now set->n
     if(i == set->n)
 	assert(SetCardinality(set) == 0);
