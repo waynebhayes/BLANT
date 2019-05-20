@@ -1726,7 +1726,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         for(i=0; i<G->n; i++) {
 	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
 	    else printf("%d",i);
-	    for(j=0; j<_numOrbits; j++) printf(" %lu", ODV(i,j));
+	    for(j=0; j<_numOrbits; j++) if (SetIn(_connectedCanonicals, _orbitCanonMapping[j])) printf(" %lu", ODV(i,j));
 	    printf("\n");
 	}
         break;
