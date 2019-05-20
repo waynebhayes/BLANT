@@ -72,6 +72,7 @@ static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual 
 static int _numCanon, _canonList[MAX_CANONICALS];
 static SET *_connectedCanonicals;
 static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
+static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 
 //windowRep global Variables
 #define WINDOW_SAMPLE_MIN 1 // Find the k-graphlet with minimal canonicalInt
@@ -1198,7 +1199,7 @@ void SetGlobalCanonMaps(void)
     _Bk = (1 <<(_k*(_k-1)/2));
     _connectedCanonicals = SetAlloc(_Bk);
     _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, _k);
-    _numOrbits = orbitListPopulate(BUF, _orbitList, _k);
+    _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, _k);
     mapCanonMap(BUF, _K, _k);
 	sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);

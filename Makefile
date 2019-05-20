@@ -38,7 +38,7 @@ slow-canon-maps: libwayne/made slow-canon-maps.c | blant.h libblant.o
 make-orbit-maps: libwayne/made make-orbit-maps.c | blant.h libblant.o
 	$(CC) -o $@ libblant.o make-orbit-maps.c $(LIBWAYNE)
 
-blant: libwayne/made blant.c blant.h convert.o | libwayne/MT19937/mt19937.o libblant.o 
+blant: libwayne/made blant.c blant.h convert.o libblant.o | libwayne/MT19937/mt19937.o
 	$(CC) -c blant.c $(LIBWAYNE)
 	$(CXX) -o $@ libblant.o blant.o convert.o $(LIBWAYNE) libwayne/MT19937/mt19937.o
 
@@ -47,7 +47,7 @@ synthetic: libwayne/made synthetic.c syntheticDS.h syntheticDS.c | libblant.o
 	$(CXX) -o $@ syntheticDS.o libblant.o synthetic.o $(LIBWAYNE)
 
 CC: libwayne/made CC.c convert.o | blant.h libblant.o
-	$(CXX) -o $@ libblant.o CC.o convert.o $(LIBWAYNE)
+	$(CXX) -o $@ libblant.o CC.c convert.o $(LIBWAYNE)
 
 makeEHD: libwayne/made makeEHD.c | libblant.o
 	$(CC) -c makeEHD.c $(LIBWAYNE)

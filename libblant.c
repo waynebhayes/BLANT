@@ -86,13 +86,13 @@ int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int 
     return numCanon;
 }
 	
-int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int k) {
+int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k) {
     sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numOrbit, i, j;
     fscanf(fp_ord, "%d",&numOrbit);
-    for(i=0; i<numOrbit; i++) for(j=0; j<k; j++)fscanf(fp_ord, "%d", &orbit_list[i][j]);
+    for(i=0; i<numCanon; i++) for(j=0; j<k; j++) { fscanf(fp_ord, "%d", &orbit_list[i][j]); orbit_canon_mapping[orbit_list[i][j]] = i; }
     fclose(fp_ord);
     return numOrbit;
 }
