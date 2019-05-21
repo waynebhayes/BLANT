@@ -1693,7 +1693,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     unsigned Varray[varraySize]; 
 	InitializeConnectedComponents(G);
 	if (_sampleMethod == SAMPLE_MCMC)
-		_windowRep? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
+		_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
     for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
     {
         if(_window) 
@@ -2004,7 +2004,7 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:s:c:k:w:p:r:n:u:")) != -1)
+    while((opt = getopt(argc, argv, "m:d:t:s:c:k:w:p:r:n:u")) != -1)
     {
 	switch(opt)
 	{
