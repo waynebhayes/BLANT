@@ -64,6 +64,7 @@ static Boolean _MCMC_UNIFORM = false; // Should MCMC restart at each edge
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
 
 #define USE_INSERTION_SORT 0
+
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
 // For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
@@ -112,6 +113,8 @@ static int _outputMapping[MAX_CANONICALS];
 // Only one of these actually get allocated, depending upon outputMode.
 static unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
 static unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
+static double *_doubleOrbitDegreeVector[MAX_ORBITS];
+
 // If you're squeemish then use this one to access the degrees:
 #define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
@@ -1031,22 +1034,30 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 		assert(multiplier > 0);
 	}
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int GintCanon = _K[TinyGraph2Int(g, k)];
+	int Gint = TinyGraph2Int(g, k);
+	int GintCanon = _K[Gint];
 
 #if PARANOID_ASSERTS
 	assert(numNodes == k); // Ensure we are returning k nodes
 #endif
+	double count;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 		// The over counting ratio is the alpha value only.
-		_graphletConcentration[GintCanon] += 1.0/(_alphaList[GintCanon]);
+		count += 1.0/(_alphaList[GintCanon]);
 	} else {
 		// The over counting ratio is the alpha value divided by the multiplier
-		_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
+		count += (double)multiplier/((double)_alphaList[GintCanon]);
 	}
+	if (_outputMode == outputODV) {
+		char perm[k];
+		memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+		for (j = 0; j < k; j++) {
+			_doubleOrbitDegreeVector[_orbitList[GintCanon][j]][Varray[(int)perm[j]]] += count;
+		}
+	} else
+		_graphletConcentration[GintCanon] += count;
 
-#if PARANOID_ASSERTS
-	assert(_graphletConcentration[GintCanon] > 0);
-#endif
 	return V; // return the sampled graphlet
 }
 
@@ -1762,7 +1773,10 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         for(i=0; i<G->n; i++) {
 	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
 	    else printf("%d",i);
-	    for(j=0; j<_numOrbits; j++) if (SetIn(_connectedCanonicals, _orbitCanonMapping[j])) printf(" %lu", ODV(i,j));
+	    for(j=0; j<_numOrbits; j++) if (SetIn(_connectedCanonicals, _orbitCanonMapping[j])) {
+		if (!_MCMC_UNIFORM) printf(" %lu", ODV(i,j));
+		else printf(" %.12f", _doubleOrbitDegreeVector[j][i]);
+		}
 	    printf("\n");
 	}
         break;
@@ -1777,6 +1791,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) Free(_orbitDegreeVector[i]);
+	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) Free(_doubleOrbitDegreeVector[i]);
 #endif
 	if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
     	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -1827,6 +1842,10 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+    }
+	if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++){
+	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
+	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
 	
     if(_THREADS == 1)
