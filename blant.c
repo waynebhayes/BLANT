@@ -1327,7 +1327,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    break;
 	case indexGraphlets:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
-		VarraySort(Varray, k);
+	    VarraySort(Varray, k);
 #endif
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
@@ -1336,7 +1336,9 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    puts("");
 	    break;
 	case indexOrbits:
-		VarraySort(Varray, k);
+#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
+	    VarraySort(Varray, k);
+#endif
 	    if(!printed) printed = SetAlloc(_k);
 	    SetEmpty(printed);
 	    memset(perm, 0, k);
@@ -1344,15 +1346,15 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    PrintCanonical(GintCanon);
 	    for(j=0;j<k;j++) if(!SetIn(printed,j))
 	    {
-			printf(" "); PrintNode(Varray[(int)perm[j]]);
-			SetAdd(printed, j);
-			int j1;
-			for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
-			{
-				assert(!SetIn(printed, j1));
-				printf(":"); PrintNode(Varray[(int)perm[j1]]);
-				SetAdd(printed, j1);
-			}
+		printf(" "); PrintNode(Varray[(int)perm[j]]);
+		SetAdd(printed, j);
+		int j1;
+		for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
+		{
+		    assert(!SetIn(printed, j1));
+		    printf(":"); PrintNode(Varray[(int)perm[j1]]);
+		    SetAdd(printed, j1);
+		}
 	    }
 	    puts("");
 	    break;
