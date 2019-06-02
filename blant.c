@@ -55,6 +55,8 @@ char _sampleFileEOF;
 #define RESERVOIR_MULTIPLIER 8
 #endif
 
+static Boolean _MCMC_UNIFORM = false; // Should MCMC restart at each edge
+
 #define SAMPLE_FAYE 6
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
@@ -62,6 +64,7 @@ char _sampleFileEOF;
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
 
 #define USE_INSERTION_SORT 0
+
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
 // For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
@@ -110,6 +113,8 @@ static int _outputMapping[MAX_CANONICALS];
 // Only one of these actually get allocated, depending upon outputMode.
 static unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
 static unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
+static double *_doubleOrbitDegreeVector[MAX_ORBITS];
+
 // If you're squeemish then use this one to access the degrees:
 #define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
@@ -863,8 +868,8 @@ void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 }
 
 // Initialize a sliding window represented by a multiset and queue of vertices.
-// Sliding window is generated from a randomly selected edge from a predefined connected component and grown through edge walking.
-void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int cc, int windowSize)
+// Sliding window is generated from a preselected edge from a predefined connected component and grown through edge walking.
+void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int windowSize, int edge)
 {
 	MultisetEmpty(XLS);
 	QueueEmpty(XLQ);
@@ -872,14 +877,12 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int cc
 	if (windowSize < 1) {
 		Fatal("Window Size must be at least 1");
 	}
+#if PARANOID_ASSERTS
+	assert(edge >= 0 && edge < G->numEdges);
+#endif
 
-	// Pick a random edge. Add the vertices from it to our data structures
-	int edge;
-    do {
-	edge = G->numEdges * RandomUniform();
-	X[0] = G->edgeList[2*edge];
-    } while(!SetIn(_componentSet[cc], X[0]));
-    X[1] = G->edgeList[2*edge+1];
+	X[0] = G->edgeList[2 * edge];
+	X[1] = G->edgeList[2 * edge + 1];
 
     MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
@@ -900,7 +903,7 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int cc
 // growing our sliding window until we have L graphlets in it.
 // Then, we slide our window until it has k distinct vertices. That represents our initial sampling
 // when we start/restart.
-void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
+void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge)
 {
 	
 	//For now d must be equal to 2 because we start by picking a random edge
@@ -908,7 +911,27 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
 		Fatal("mcmc_d must be set to 2 in blant.h for now");
 	}
 
-	initializeSlidingWindow(XLS, XLQ, X, G, cc, _MCMC_L);
+	if (edge < 0 && cc == -1) { // Pick a random edge from anywhere in the graph that has at least k nodes
+		do {
+		edge = G->numEdges * RandomUniform();
+		X[0] = G->edgeList[2*edge];
+		} while(!(_componentSize[_whichComponent[G->edgeList[2*edge]]] < k));
+		X[1] = G->edgeList[2*edge+1];
+	}
+	else if (edge < 0) { // Pick a random edge from within a chosen connected component
+		do {
+		edge = G->numEdges * RandomUniform();
+		X[0] = G->edgeList[2*edge];
+		} while(!SetIn(_componentSet[cc], X[0]));
+		X[1] = G->edgeList[2*edge+1];
+	}
+	// else start from the preselected edge
+
+#if PARANOID_ASSERTS
+	assert(_componentSize[_whichComponent[X[0]]] >= k); // Assert we can fill the window with the prechosen edge.
+#endif
+
+	initializeSlidingWindow(XLS, XLQ, X, G, _MCMC_L, edge);
 
 	// Keep crawling until we have k distinct vertices
 	static int numTries = 0;
@@ -916,7 +939,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
 	while (MultisetSupport(XLS) < k) {
 		if (numTries++ > MAX_TRIES) { // If we crawl 100 steps without k distinct vertices restart
 			assert(depth++ < MAX_TRIES); // If we restart 100 times in a row without success give up
-			WalkLSteps(XLS,XLQ,X,G,k,cc); // try again
+			WalkLSteps(XLS,XLQ,X,G,k,cc,edge); // try again
 			depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
 			numTries = 0; // And our number of attempts to crawl one step
 			return;
@@ -927,6 +950,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc)
 }
 
 static int _numSamples = 0;
+static int _samplesPerEdge = 0;
 /* SampleGraphletMCMC first starts with an edge in Walk L steps.
    It then walks along L = k-1 edges with MCMCGetNeighbor until it fills XLQ and XLS with L edges(their vertices are stored).
    XLQ and XLS always hold 2L vertices. They represent a window of the last L edges walked. If that window contains k
@@ -938,7 +962,8 @@ static int _numSamples = 0;
 
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
 	static Boolean setup = false;
-	static int currSamples = 0;
+	static int currSamples = 0; // Counts how many samples weve done at the current starting point
+	static int currEdge = 0; // Current edge we are starting at for uniform sampling
 	static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
 	static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
 	static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
@@ -951,14 +976,25 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	}
 
 	// The first time we run this, or when we restart. We want to find our initial L d graphlets.
-	if (!setup || (_numSamples/2 == currSamples++)) {
+	if (!setup && !_MCMC_UNIFORM) {
 		setup = true;
-		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC);
-	} else {
+		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, -1);
+	}
+	else if (_MCMC_UNIFORM && (!setup || currSamples >= _samplesPerEdge))
+	{
+		setup = true;
+		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, currEdge);
+		do {
+			currEdge++;
+		} while (_componentSize[_whichComponent[G->edgeList[2*currEdge]]] < k);
+		currSamples = 0;
+	}
+	else {
 		// Keep crawling until we have k distinct vertices(can sample a graphlet). Crawl at least once
 		do  {
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
 		} while (MultisetSupport(XLS) != k);
+		currSamples++;
 	}
 #if PARANOID_ASSERTS
 		assert(MultisetSupport(XLS) == k); // very paranoid
@@ -998,22 +1034,30 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 		assert(multiplier > 0);
 	}
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int GintCanon = _K[TinyGraph2Int(g, k)];
+	int Gint = TinyGraph2Int(g, k);
+	int GintCanon = _K[Gint];
 
 #if PARANOID_ASSERTS
 	assert(numNodes == k); // Ensure we are returning k nodes
 #endif
+	double count;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 		// The over counting ratio is the alpha value only.
-		_graphletConcentration[GintCanon] += 1.0/(_alphaList[GintCanon]);
+		count += 1.0/(_alphaList[GintCanon]);
 	} else {
 		// The over counting ratio is the alpha value divided by the multiplier
-		_graphletConcentration[GintCanon] += (double)multiplier/((double)_alphaList[GintCanon]);
+		count += (double)multiplier/((double)_alphaList[GintCanon]);
 	}
+	if (_outputMode == outputODV) {
+		char perm[k];
+		memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+		for (j = 0; j < k; j++) {
+			_doubleOrbitDegreeVector[_orbitList[GintCanon][j]][Varray[(int)perm[j]]] += count;
+		}
+	} else
+		_graphletConcentration[GintCanon] += count;
 
-#if PARANOID_ASSERTS
-	assert(_graphletConcentration[GintCanon] > 0);
-#endif
 	return V; // return the sampled graphlet
 }
 
@@ -1035,7 +1079,7 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 
 	if (!setup || (_numSamples/2 == currSamples++)) {
 		setup = true;
-		WalkLSteps(XLS, XLQ, Xcurrent, G, W, whichCC);
+		WalkLSteps(XLS, XLQ, Xcurrent, G, W, whichCC, -1);
 	} else {
 		do  {
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
@@ -1078,14 +1122,20 @@ void finalizeMCMC() {
 // _MCMC_L represents the length of the sliding window in d graphlets for sampling
 // Global variable _numSamples needed for the algorithm to reseed halfway through
 // Concentrations are initialized to 0
-void initializeMCMC(int k, int numSamples) {
+void initializeMCMC(GRAPH* G, int k, int numSamples) {
 	_MCMC_L = k - mcmc_d  + 1;
+	// Count the number of valid edges to start from
+	int i, validEdgeCount = 0;
+	for (i = 0; i < G->numEdges; i++)
+		if (_componentSize[_whichComponent[G->edgeList[2*i]]] >= k)
+			validEdgeCount++;
+	_samplesPerEdge =  (numSamples + (validEdgeCount / 2)) / validEdgeCount; // Division rounding up for samples per edge
+
 	char BUF[BUFSIZ];
 	_numSamples = numSamples;
 	if(!_window)
 	{
 		alphaListPopulate(BUF, _alphaList, k);
-		int i;
 		for (i = 0; i < _numCanon; i++)
 		{
 			_graphletConcentration[i] = 0.0;
@@ -1236,12 +1286,6 @@ void SetBlantDir() {
 }
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
-    static Boolean ccNeedsInit = true;
-    if(ccNeedsInit)
-    {
-		InitializeConnectedComponents(G);
-		ccNeedsInit = false;
-    }
     int cc;
     double randomComponent = RandomUniform();
     for(cc=0; cc<_numConnectedComponents;cc++)
@@ -1658,8 +1702,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     TINY_GRAPH *g = TinyGraphAlloc(k);
 	int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
     unsigned Varray[varraySize]; 
+	InitializeConnectedComponents(G);
 	if (_sampleMethod == SAMPLE_MCMC)
-		_window? initializeMCMC(_windowSize, numSamples) : initializeMCMC(k, numSamples);
+		_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
     for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
     {
         if(_window) 
@@ -1728,7 +1773,10 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         for(i=0; i<G->n; i++) {
 	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
 	    else printf("%d",i);
-	    for(j=0; j<_numOrbits; j++) if (SetIn(_connectedCanonicals, _orbitCanonMapping[j])) printf(" %lu", ODV(i,j));
+	    for(j=0; j<_numOrbits; j++) if (SetIn(_connectedCanonicals, _orbitCanonMapping[j])) {
+		if (!_MCMC_UNIFORM) printf(" %lu", ODV(i,j));
+		else printf(" %.12f", _doubleOrbitDegreeVector[j][i]);
+		}
 	    printf("\n");
 	}
         break;
@@ -1743,6 +1791,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) Free(_orbitDegreeVector[i]);
+	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) Free(_doubleOrbitDegreeVector[i]);
 #endif
 	if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
     	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -1793,6 +1842,10 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+    }
+	if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++){
+	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
+	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
 	
     if(_THREADS == 1)
@@ -1970,7 +2023,7 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:s:c:k:w:p:r:n:")) != -1)
+    while((opt = getopt(argc, argv, "m:d:t:s:c:k:w:p:r:n:u")) != -1)
     {
 	switch(opt)
 	{
@@ -2080,6 +2133,8 @@ int main(int argc, char *argv[])
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
+	case 'u': _MCMC_UNIFORM = true;
+		break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
