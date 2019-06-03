@@ -21,7 +21,7 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
-char **_nodeNames, _supportNodeNames = false;
+char **_nodeNames, _supportNodeNames = true;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
@@ -74,7 +74,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS];
 static SET *_connectedCanonicals;
-static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // Jens: this may not be the array we need, but something like this...
+static int _numOrbits, _orbitList[MAX_CANONICALS][maxK];
 static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 
 //windowRep global Variables
@@ -239,7 +239,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 	for(j=0; j < _componentSize[biggest]; j++)
 	    _whichComponent[_componentList[biggest][j]] = i;
 	int itmp, *pitmp;
-    SET * stmp;
+	SET * stmp;
 	itmp = _componentSize[i];
 	_componentSize[i] = _componentSize[biggest];
 	_componentSize[biggest] = itmp;
@@ -1390,17 +1390,17 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	    PrintCanonical(GintCanon);
 	    for(j=0;j<k;j++) if(!SetIn(printed,j))
 	    {
-		printf(" "); PrintNode(Varray[(int)perm[j]]);
+		putchar(' '); PrintNode(Varray[(int)perm[j]]);
 		SetAdd(printed, j);
 		int j1;
 		for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
 		{
 		    assert(!SetIn(printed, j1));
-		    printf(":"); PrintNode(Varray[(int)perm[j1]]);
+		    putchar(':'); PrintNode(Varray[(int)perm[j1]]);
 		    SetAdd(printed, j1);
 		}
 	    }
-	    puts("");
+	    putchar('\n');
 	    break;
 	case outputGDV:
 	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
@@ -1411,7 +1411,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 #if PERMS_CAN2NON            
 	    for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintCanon][j]);
 #else
-            for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
+	    for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
 #endif
 	    break;
 		
@@ -1498,9 +1498,9 @@ void updateWindowRep(int *windowRepInt, int *D, int GintCanon, int pending_D, in
 void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET) 
 {
     int ordinals[MultisetSupport(canonMSET)];
-    int pos = SetToArray(ordinals, canonMSET->set);
+    int i, pos = SetToArray(ordinals, canonMSET->set);
     int freq = _numWindowRep, multiplicity;
-    for(int i = 0; i < pos; i++)
+    for(i = 0; i < pos; i++)
     {
         multiplicity = MultisetMultiplicity(canonMSET, ordinals[i]);
         if(multiplicity == freq) {
@@ -1514,7 +1514,7 @@ void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET)
             freq = multiplicity;
         }
     }
-    int new_numWindowRep = 0, i, j;
+    int new_numWindowRep = 0, j;
     for(i=0; i < _numWindowRep; i++)
     {
         if(_windowReps[i][_k] == *windowRepInt) {
@@ -1700,11 +1700,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     RandomSeed(_seed);
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
-	int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
+    int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
     unsigned Varray[varraySize]; 
-	InitializeConnectedComponents(G);
-	if (_sampleMethod == SAMPLE_MCMC)
-		_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
+    InitializeConnectedComponents(G);
+    if (_sampleMethod == SAMPLE_MCMC)
+	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
     for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
     {
         if(_window) 
@@ -1732,10 +1732,10 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             free(_windowReps[i]);
         free(_windowReps);
     }
-	if (_sampleMethod == SAMPLE_MCMC && !_window)
-		finalizeMCMC();
-	if (_outputMode == graphletFrequency)
-		convertFrequencies(numSamples);
+    if (_sampleMethod == SAMPLE_MCMC && !_window)
+	finalizeMCMC();
+    if (_outputMode == graphletFrequency)
+	convertFrequencies(numSamples);
     switch(_outputMode)
     {
 	int canon;
@@ -1793,7 +1793,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) Free(_orbitDegreeVector[i]);
 	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) Free(_doubleOrbitDegreeVector[i]);
 #endif
-	if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
+    if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
     	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
     return 0;
 }
@@ -1843,7 +1843,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
     }
-	if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++){
+    if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++){
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
@@ -1927,8 +1927,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    case indexGraphlets: case indexOrbits:
 		fputs(line, stdout);
 		if(_window) 
-			while(fgets(line, sizeof(line), fpThreads[thread])) 
-				fputs(line, stdout);
+		    while(fgets(line, sizeof(line), fpThreads[thread])) 
+			fputs(line, stdout);
 		break;
 	    default:
 		Abort("oops... unknown _outputMode in RunBlantInThreads while reading child process");
@@ -2025,118 +2025,115 @@ int main(int argc, char *argv[])
 
     while((opt = getopt(argc, argv, "m:d:t:s:c:k:w:p:r:n:u")) != -1)
     {
-	switch(opt)
-	{
-	case 'm':
-	    if(_outputMode != undef) Fatal("tried to define output mode twice");
-	    switch(*optarg)
-	    {
-	    case 'i': _outputMode = indexGraphlets; break;
-	    case 'j': _outputMode = indexOrbits; break;
-	    case 'f': _outputMode = graphletFrequency;
-		switch (*(optarg + 1))
+		switch(opt)
 		{
-			case 'i': _freqDisplayMode = count; break;
-			case 'd': _freqDisplayMode = concentration; break;
-			case '\0': _freqDisplayMode = freq_display_mode_undef; break;
-			default: Fatal("-mf%c: unknown frequency display mode;\n"
-			"\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
+		case 'm':
+			if(_outputMode != undef) Fatal("tried to define output mode twice");
+			switch(*optarg)
+			{
+			case 'i': _outputMode = indexGraphlets; break;
+			case 'j': _outputMode = indexOrbits; break;
+			case 'f': _outputMode = graphletFrequency;
+			switch (*(optarg + 1))
+			{
+				case 'i': _freqDisplayMode = count; break;
+				case 'd': _freqDisplayMode = concentration; break;
+				case '\0': _freqDisplayMode = freq_display_mode_undef; break;
+				default: Fatal("-mf%c: unknown frequency display mode;\n"
+				"\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
+				break;
+			}
 			break;
+			case 'g': _outputMode = outputGDV; break;
+			case 'o': _outputMode = outputODV; break;
+			default: Fatal("-m%c: unknown output mode;\n"
+			   "\tmodes are i=indexGraphlets, j=indexOrbits, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+			break;
+			}
+			break;
+		case 'd':
+			if (_displayMode != undefined) Fatal("tried to define canonical display mode twice");
+			switch(*optarg)
+			{
+			case 'b': _displayMode = binary; break;
+			case 'd': _displayMode = decimal; break;
+			case 'i': _displayMode = ordinal; break;
+			case 'j': _displayMode = jesse; break;
+			case 'o': _displayMode = orca; break;
+			default: Fatal("-d%c: unknown canonical display mode:n"
+				"\tmodes are i=integer ordinal, d=decimal, b=binary, o=orca, j=jesse", *optarg);
+			break;
+			}
+			break;
+		case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
+		case 'r': _seed = atoi(optarg);
+			break;
+		case 's':
+			if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
+			else if (strncmp(optarg, "NBE", 3) == 0)
+				_sampleMethod = SAMPLE_NODE_EXPANSION;
+			else if (strncmp(optarg, "FAYE", 4) == 0) 
+				_sampleMethod = SAMPLE_FAYE;
+			else if (strncmp(optarg, "EBE", 3) == 0)
+				_sampleMethod = SAMPLE_EDGE_EXPANSION;
+			else if (strncmp(optarg, "MCMC", 3) == 0)
+				_sampleMethod = SAMPLE_MCMC;
+			else if (strncmp(optarg, "RES", 3) == 0)
+				_sampleMethod = SAMPLE_RESERVOIR;
+			else if (strncmp(optarg, "AR", 2) == 0)
+				_sampleMethod = SAMPLE_ACCEPT_REJECT;
+			else
+			{
+				_sampleFileName = optarg;
+				if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
+				else _sampleFile = fopen(_sampleFileName, "r");
+				if(!_sampleFile)
+					Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|FAYE|AR|{filename}}\n"
+						"If unrecognized, we try opening a file by the name '%s', but no such file exists",
+						_sampleFileName, _sampleFileName);
+				_sampleMethod = SAMPLE_FROM_FILE;
+			}
+			break;
+		case 'c': confidence = atof(optarg);
+			Apology("confidence intervals not implemented yet");
+			break;
+		case 'k': _k = atoi(optarg);
+			if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+			break;
+		case 'w':
+			_window = true;
+			_windowSize = atoi(optarg); 
+			if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
+			_MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
+			_windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
+			int i;
+			for(i=0; i<_MAXnumWindowRep; i++)
+				_windowReps[i] = Calloc(_k+1, sizeof(int));
+			break;
+		case 'p':
+			if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
+			else if (strncmp(optarg, "DMIN", 4) == 0)
+				_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
+			else if (strncmp(optarg, "DMAX", 4) == 0)
+				_windowSampleMethod = WINDOW_SAMPLE_MAX_D;
+			else if (strncmp(optarg, "MIN", 3) == 0)
+				_windowSampleMethod = WINDOW_SAMPLE_MIN;
+			else if (strncmp(optarg, "MAX", 3) == 0)
+				_windowSampleMethod = WINDOW_SAMPLE_MAX;
+			else if (strncmp(optarg, "LFMIN", 5) == 0)
+				_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
+			else if (strncmp(optarg, "LFMAX", 5) == 0)
+				_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
+			else
+				Fatal("Unrecognized window sampling method specified. Options are: {MAX|MIN|MAXD|MIND|LFMAX|LFMIN}\n");
+			break;
+		case 'n': numSamples = atoi(optarg);
+			if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
+			break;
+		case 'u': _MCMC_UNIFORM = true;
+			break;
+		default: Fatal("unknown option %c\n%s", opt, USAGE);
 		}
-		break;
-	    case 'g': _outputMode = outputGDV; break;
-	    case 'o': _outputMode = outputODV; break;
-	    default: Fatal("-m%c: unknown output mode;\n"
-		   "\tmodes are i=indexGraphlets, j=indexOrbits, f=graphletFrequency, g=GDV, o=ODV", *optarg);
-		break;
-	    }
-	    break;
-	case 'd':
-		if (_displayMode != undefined) Fatal("tried to define canonical display mode twice");
-		switch(*optarg)
-		{
-		case 'b': _displayMode = binary; break;
-		case 'd': _displayMode = decimal; break;
-		case 'i': _displayMode = ordinal; break;
-		case 'j': _displayMode = jesse; break;
-		case 'o': _displayMode = orca; break;
-		default: Fatal("-d%c: unknown canonical display mode:n"
-			"\tmodes are i=integer ordinal, d=decimal, b=binary, o=orca, j=jesse", *optarg);
-		break;
-		}
-		break;
-	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
-	case 'r': _seed = atoi(optarg);
-	    break;
-	case 's':
-		if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
-		else if (strncmp(optarg, "NBE", 3) == 0)
-			_sampleMethod = SAMPLE_NODE_EXPANSION;
-        else if (strncmp(optarg, "FAYE", 4) == 0) 
-            _sampleMethod = SAMPLE_FAYE;
-		else if (strncmp(optarg, "EBE", 3) == 0)
-			_sampleMethod = SAMPLE_EDGE_EXPANSION;
-		else if (strncmp(optarg, "MCMC", 3) == 0)
-			_sampleMethod = SAMPLE_MCMC;
-		else if (strncmp(optarg, "RES", 3) == 0)
-			_sampleMethod = SAMPLE_RESERVOIR;
-		else if (strncmp(optarg, "AR", 2) == 0)
-			_sampleMethod = SAMPLE_ACCEPT_REJECT;
-		else
-		{
-			_sampleFileName = optarg;
-			if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
-			else _sampleFile = fopen(_sampleFileName, "r");
-			if(!_sampleFile)
-				Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|{filename}}\n"
-					"If unrecognized, we try opening a file by the name '%s', but no such file exists",
-					_sampleFileName, _sampleFileName);
-			_sampleMethod = SAMPLE_FROM_FILE;
-		}
-		break;
-	case 'c': confidence = atof(optarg);
-		Apology("confidence intervals not implemented yet");
-	    break;
-	// case 'w': confWidth = atof(optarg);
-	//     if(confWidth <= 0) Fatal("-w argument (width of confidence interval) must be positive\n%s", USAGE);
-	//     break;
-	case 'k': _k = atoi(optarg);
-	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
-	    break;
-    case 'w':
-        _window = true;
-        _windowSize = atoi(optarg); 
-        if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
-        _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
-        _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
-        int i;
-        for(i=0; i<_MAXnumWindowRep; i++)
-            _windowReps[i] = Calloc(_k+1, sizeof(int));
-        break;
-    case 'p':
-        if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
-        else if (strncmp(optarg, "DMIN", 4) == 0)
-            _windowSampleMethod = WINDOW_SAMPLE_MIN_D;
-        else if (strncmp(optarg, "DMAX", 4) == 0)
-            _windowSampleMethod = WINDOW_SAMPLE_MAX_D;
-        else if (strncmp(optarg, "MIN", 3) == 0)
-            _windowSampleMethod = WINDOW_SAMPLE_MIN;
-        else if (strncmp(optarg, "MAX", 3) == 0)
-            _windowSampleMethod = WINDOW_SAMPLE_MAX;
-        else if (strncmp(optarg, "LFMIN", 5) == 0)
-            _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
-        else if (strncmp(optarg, "LFMAX", 5) == 0)
-            _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
-        else
-            Fatal("Unrecognized window sampling method specified. Options are: {MAX|MIN|MAXD|MIND|LFMAX|LFMIN}\n");
-        break;
-	case 'n': numSamples = atoi(optarg);
-	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
-	    break;
-	case 'u': _MCMC_UNIFORM = true;
-		break;
-	default: Fatal("unknown option %c\n%s", opt, USAGE);
-	}
     }
     if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
@@ -2145,7 +2142,7 @@ int main(int argc, char *argv[])
        Fatal("Haven't specified window sampling method. Options are: -p{MAX|MIN|MAXD|MIND|LFMAX|LFMIN}\n");   
 
     if(numSamples!=0 && confidence>0)
-	Fatal("cannot specify both -s (sample size) and confidence interval (-w, -c) pair");
+	Fatal("cannot specify both -s (sample size) and confidence interval");
 
     if(!argv[optind]) Fatal("no input graph file specified\n%s", USAGE);
     char *graphFileName = argv[optind];
