@@ -69,21 +69,20 @@ int main(int argc, char* argv[]) {
 	int i;
 	for (i = 0; i < numCanon; i++) {
 		BuildGraph(g, _canonList[i]);
-        if (!TinyGraphDFSConnected(g, 0))
+        if (!SetIn(_connectedCanonicals, i))
             _alphaList[i] = 0;
 		else 
             _alphaList[i] = ComputeAlphaNode(g, k);
 	}
 
-    sprintf(BUF, CANON_DIR "/alpha_list_nbe%d.txt", k);
-    FILE *fp=fopen(BUF, "w");
-    assert(fp);
-	fprintf(fp, "%d\n", numCanon);
+	printf("%d\n", numCanon);
 	for (i = 0; i < numCanon; i++) {
-		fprintf(fp, "%d ", _alphaList[i]);
+		printf("%d ", _alphaList[i]);
 	}
-	fputc('\n', fp);
-    fclose(fp);
+	printf("\n");
+
+    TinyGraphFree(g);
+	SetFree(_connectedCanonicals);
 
     return 0;
 }
