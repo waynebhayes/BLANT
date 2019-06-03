@@ -116,7 +116,9 @@ int main(int argc, char* argv[]) {
     char BUF[BUFSIZ];
     TINY_GRAPH *gk = TinyGraphAlloc(k);
 	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-    int numCanon = canonListPopulate(BUF, _canonList, NULL, k);
+	int _Bk = (1 <<(k*(k-1)/2));
+    SET* _connectedCanonicals = SetAlloc(_Bk);
+    int numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
     
     L = k - mcmc_d  + 1;
     unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
@@ -126,21 +128,17 @@ int main(int argc, char* argv[]) {
 	for (i = 0; i < numCanon; i++) {
 		BuildGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
-		if (TinyGraphDFSConnected(gk, 0)) {
+		if (SetIn(_connectedCanonicals, i)) {
 			_alphaList[i] = ComputeAlpha(gk, gd, combinArrayD, combinArrayL, k, L);
 		}
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}
 
-    sprintf(BUF, CANON_DIR "/alpha_list_mcmc%d.txt", k);
-    FILE *fp=fopen(BUF, "w");
-    assert(fp);
-	fprintf(fp, "%d\n", numCanon);
+    printf("%d\n", numCanon);
 	for (i = 0; i < numCanon; i++) {
-		fprintf(fp, "%d ", _alphaList[i]);
+		printf("%d ", _alphaList[i]);
 	}
-	fputc('\n', fp);
-    fclose(fp);
+	printf("\n");
 
 	TinyGraphFree(gk);
 	TinyGraphFree(gd);
