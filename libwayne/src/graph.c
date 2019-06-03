@@ -2,6 +2,7 @@
 #include "sets.h"
 #include "graph.h"
 #include "queue.h"
+#include "rand48.h"
 #include "Oalloc.h"
 #include <assert.h>
 #include <string.h>
@@ -415,6 +416,20 @@ GRAPH *GraphFromEdgeList(int n, int m, int *pairs, Boolean sparse)
 	GraphSort(G);
     }
     return G;
+}
+
+// Returns a *constant* string; you need to dup it if you want to keep it
+char *HashString(char *s)
+{
+    static char *hash;
+    static int buflen;
+    int n = strlen(s);
+    if(buflen < n+1){
+	buflen = 2*n+1;
+	hash = realloc(hash, buflen); // realloc accepts NULL
+	assert(hash);
+    }
+
 }
 
 GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
