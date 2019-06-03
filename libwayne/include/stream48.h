@@ -22,6 +22,7 @@ extern int _rand48streams;	/* default 1 */
 
 /* Must be setbefore ANY of the routines below are called. */
 #define Stream48Init(n) _rand48streams = (n)
+int Stream48Which(void);  // return current stream number.
 
 int Stream48(int n);	/* choose the current stream */
 
