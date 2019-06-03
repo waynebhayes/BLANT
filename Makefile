@@ -59,8 +59,8 @@ compute-alphas-NBE: libwayne/made compute-alphas-NBE.c | libblant.o
 compute-alphas-MCMC: libwayne/made compute-alphas-MCMC.c | libblant.o
 	$(CC) -Wall -O3 -o $@ compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
 
-Draw/graphette2dot: Draw/DrawGraphette.cpp Draw/graphette2dotutils.h
-	$(CXX) -std=c++11 Draw/DrawGraphette.cpp -o $@
+Draw/graphette2dot: libwayne/made Draw/DrawGraphette.cpp Draw/graphette2dotutils.h | blant.h libblant.o
+	$(CXX) -std=c++11 Draw/DrawGraphette.cpp libblant.o -o $@ $(LIBWAYNE)
 
 make-subcanon-maps: libwayne/made make-subcanon-maps.c | libblant.o
 	$(CC) -Wall -o $@ make-subcanon-maps.c libblant.o $(LIBWAYNE)
