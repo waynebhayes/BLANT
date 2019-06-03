@@ -93,7 +93,7 @@ static int** _windowReps;
 static int _MAXnumWindowRep = 0;
 static int _numWindowRep = 0;
 
-enum OutputMode {undef, indexGraphlets, indexOrbits, graphletFrequency, outputODV, outputGDV};
+enum OutputMode {undef, indexGraphlets, indexOrbits, indexKovacs, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
@@ -1292,33 +1292,34 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	if(_cumulativeProb[cc] > randomComponent)
 	    break;
     //printf("choosing from CC %d\n", cc);
-	switch (_sampleMethod) {
-		case SAMPLE_ACCEPT_REJECT:
-			SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW and doesn't need to use cc
-			break;
-		case SAMPLE_NODE_EXPANSION:
-			SampleGraphletNodeBasedExpansion(V, Varray, G, k, cc);
-			break;
-        case SAMPLE_FAYE:
-            SampleGraphletFaye(V, Varray, G, k, cc);
-		case SAMPLE_RESERVOIR:
-			SampleGraphletLuBressanReservoir(V, Varray, G, k, cc); // pretty slow but not as bad as unbiased
-			break;
-		case SAMPLE_EDGE_EXPANSION:
-			SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // Faster than NBE but less well tested and understood.
-			break;
-		case SAMPLE_MCMC:
-			if(!_window)
-				SampleGraphletMCMC(V, Varray, G, k, cc);
-			else
-				SampleWindowMCMC(V, Varray, G, k, cc);
-			break;
-		case SAMPLE_FROM_FILE:
-			SampleGraphletFromFile(V, Varray, G, k);
-			break;
-		default:
-			Fatal("unknown sampling method");
-	}
+    switch (_sampleMethod) {
+    case SAMPLE_ACCEPT_REJECT:
+	SampleGraphletAcceptReject(V, Varray, G, k);	// REALLY REALLY SLOW and doesn't need to use cc
+	break;
+    case SAMPLE_NODE_EXPANSION:
+	SampleGraphletNodeBasedExpansion(V, Varray, G, k, cc);
+	break;
+    case SAMPLE_FAYE:
+	SampleGraphletFaye(V, Varray, G, k, cc);
+	break;
+    case SAMPLE_RESERVOIR:
+	SampleGraphletLuBressanReservoir(V, Varray, G, k, cc); // pretty slow but not as bad as unbiased
+	break;
+    case SAMPLE_EDGE_EXPANSION:
+	SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // Faster than NBE but less well tested and understood.
+	break;
+    case SAMPLE_MCMC:
+	if(!_window)
+		SampleGraphletMCMC(V, Varray, G, k, cc);
+	else
+		SampleWindowMCMC(V, Varray, G, k, cc);
+	break;
+    case SAMPLE_FROM_FILE:
+	SampleGraphletFromFile(V, Varray, G, k);
+	break;
+    default:
+	Fatal("unknown sampling method");
+    }
 }
 
 void PrintCanonical(int GintCanon)
@@ -1359,65 +1360,68 @@ void VarraySort(int *Varray, int k)
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
     // We should probably figure out a faster sort? This requires a function call for every comparison.
     TinyGraphInducedFromGraph(g, G, Varray);
-	int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
+    int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
 #if PARANOID_ASSERTS
-	assert(0 <= GintCanon && GintCanon < _numCanon);
+    assert(0 <= GintCanon && GintCanon < _numCanon);
 #endif
-	switch(_outputMode)
+    switch(_outputMode)
+    {
+	static SET* printed;
+    case graphletFrequency:
+	++_graphletCount[GintCanon];
+	break;
+    case indexGraphlets: case indexKovacs:
+#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
+	VarraySort(Varray, k);
+#endif
+	memset(perm, 0, k);
+	ExtractPerm(perm, Gint);
+	PrintCanonical(GintCanon);
+	for(j=0;j<k;j++) {printf(" "); PrintNode(Varray[(int)perm[j]]);}
+	if(indexKovacs)
+	    Fatal("Kovacs not yet implemented");
+	    //ProcessKovacs(GintCanon,Varray,perm);
+	puts("");
+	break;
+    case indexOrbits:
+#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
+	VarraySort(Varray, k);
+#endif
+	if(!printed) printed = SetAlloc(_k);
+	SetEmpty(printed);
+	memset(perm, 0, k);
+	ExtractPerm(perm, Gint);
+	PrintCanonical(GintCanon);
+	for(j=0;j<k;j++) if(!SetIn(printed,j))
 	{
-	    static SET* printed;
-	case graphletFrequency:
-	    ++_graphletCount[GintCanon];
-	    break;
-	case indexGraphlets:
-#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
-	    VarraySort(Varray, k);
-#endif
-	    memset(perm, 0, k);
-	    ExtractPerm(perm, Gint);
-	    PrintCanonical(GintCanon);
-	    for(j=0;j<k;j++) {printf(" "); PrintNode(Varray[(int)perm[j]]);}
-	    puts("");
-	    break;
-	case indexOrbits:
-#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
-	    VarraySort(Varray, k);
-#endif
-	    if(!printed) printed = SetAlloc(_k);
-	    SetEmpty(printed);
-	    memset(perm, 0, k);
-	    ExtractPerm(perm, Gint);
-	    PrintCanonical(GintCanon);
-	    for(j=0;j<k;j++) if(!SetIn(printed,j))
+	    putchar(' '); PrintNode(Varray[(int)perm[j]]);
+	    SetAdd(printed, j);
+	    int j1;
+	    for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
 	    {
-		putchar(' '); PrintNode(Varray[(int)perm[j]]);
-		SetAdd(printed, j);
-		int j1;
-		for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
-		{
-		    assert(!SetIn(printed, j1));
-		    putchar(':'); PrintNode(Varray[(int)perm[j1]]);
-		    SetAdd(printed, j1);
-		}
+		assert(!SetIn(printed, j1));
+		putchar(':'); PrintNode(Varray[(int)perm[j1]]);
+		SetAdd(printed, j1);
 	    }
-	    putchar('\n');
-	    break;
-	case outputGDV:
-	    for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
-	    break;
-	case outputODV:
-	    memset(perm, 0, k);
-	    ExtractPerm(perm, Gint);
-#if PERMS_CAN2NON            
-	    for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintCanon][j]);
-#else
-	    for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
-#endif
-	    break;
-		
-	default: Abort("unknown or un-implemented outputMode");
-	    break;
 	}
+	putchar('\n');
+	break;
+    case outputGDV:
+	for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
+	break;
+    case outputODV:
+	memset(perm, 0, k);
+	ExtractPerm(perm, Gint);
+#if PERMS_CAN2NON            
+	for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintCanon][j]);
+#else
+	for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
+#endif
+	break;
+	    
+    default: Abort("unknown or un-implemented outputMode");
+	break;
+    }
 }
 
 
@@ -1924,14 +1928,14 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		}
 		assert(*nextChar == '\0');
 		break;
-	    case indexGraphlets: case indexOrbits:
+	    case indexGraphlets: case indexOrbits: case indexKovacs:
 		fputs(line, stdout);
 		if(_window) 
 		    while(fgets(line, sizeof(line), fpThreads[thread])) 
 			fputs(line, stdout);
 		break;
 	    default:
-		Abort("oops... unknown _outputMode in RunBlantInThreads while reading child process");
+		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
 		break;
 	    }
 	}
@@ -2033,6 +2037,7 @@ int main(int argc, char *argv[])
 			{
 			case 'i': _outputMode = indexGraphlets; break;
 			case 'j': _outputMode = indexOrbits; break;
+			case 'k': _outputMode = indexKovacs; break;
 			case 'f': _outputMode = graphletFrequency;
 			switch (*(optarg + 1))
 			{
@@ -2047,7 +2052,7 @@ int main(int argc, char *argv[])
 			case 'g': _outputMode = outputGDV; break;
 			case 'o': _outputMode = outputODV; break;
 			default: Fatal("-m%c: unknown output mode;\n"
-			   "\tmodes are i=indexGraphlets, j=indexOrbits, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+			   "\tmodes are i=indexGraphlets, j=indexOrbits, k=indexKovacs, f=graphletFrequency, g=GDV, o=ODV", *optarg);
 			break;
 			}
 			break;
