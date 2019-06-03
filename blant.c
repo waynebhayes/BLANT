@@ -93,7 +93,7 @@ static int** _windowReps;
 static int _MAXnumWindowRep = 0;
 static int _numWindowRep = 0;
 
-enum OutputMode {undef, indexGraphlets, indexOrbits, indexKovacs, graphletFrequency, outputODV, outputGDV};
+enum OutputMode {undef, indexGraphlets, kovacsPairs, indexOrbits, graphletFrequency, outputODV, outputGDV};
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
 
@@ -1357,6 +1357,55 @@ void VarraySort(int *Varray, int k)
 #endif
 }
 
+int _kovacsCanonical = -1;
+int _kovacsOrbit1 = -1, _kovacsOrbit2=-1; // the columns (ie orbits) you want
+int **_KovacsCount; // will be allocated n by n matrix of motif counts
+
+// Recursively count the specified orbits in the specified canonical motifs of g.
+void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
+{
+    static int depth;
+#if PARANOID_ASSERTS
+    assert(g->n == _k);
+    assert(TinyGraphDFSConnected(g, 0));
+#endif
+
+    int i,j, Gint = TinyGraph2Int(g,_k), GintCanon=_K[Gint];
+    // Check to see if the whole thing is the cononical of interest before we start removing edges.
+    if(GintCanon == _kovacsCanonical) {
+	char perm[maxK];
+	memset(perm, 0, _k);
+	ExtractPerm(perm, Gint);
+	for(i=0;i<_k-1;i++)
+	    if(_orbitList[GintCanon][i] == _kovacsOrbit1)
+		for(j=i+1;j<_k;j++)
+		    if(_orbitList[GintCanon][j] == _kovacsOrbit2)
+			++_KovacsCount[Varray[(int)perm[i]]][Varray[(int)perm[j]]];
+#if 0
+	printf("\tM %d ",depth);
+	PrintCanonical(GintCanon);
+	for(l=0;l<_k;l++) {printf(" "); PrintNode(Varray[(int)perm[l]]);}
+	putchar('\n');
+#endif
+	// Stop the recursion since removing more edges can't possibly get the canonical again.
+	return;
+    }
+    // Now go about deleting edges recursively.
+    for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
+    {
+	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it.
+	{
+	    TinyGraphDisconnect(g,i,j);
+	    if(TinyGraphDFSConnected(g,0)) {
+		++depth;
+		ProcessKovacs(g,Varray);
+		--depth;
+	    }
+	    TinyGraphConnect(g,i,j);
+	}
+    }
+}
+
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
     // We should probably figure out a faster sort? This requires a function call for every comparison.
     TinyGraphInducedFromGraph(g, G, Varray);
@@ -1370,7 +1419,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
     case graphletFrequency:
 	++_graphletCount[GintCanon];
 	break;
-    case indexGraphlets: case indexKovacs:
+    case indexGraphlets:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
@@ -1378,10 +1427,10 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	ExtractPerm(perm, Gint);
 	PrintCanonical(GintCanon);
 	for(j=0;j<k;j++) {printf(" "); PrintNode(Varray[(int)perm[j]]);}
-	if(indexKovacs)
-	    Fatal("Kovacs not yet implemented");
-	    //ProcessKovacs(GintCanon,Varray,perm);
 	puts("");
+	break;
+    case kovacsPairs:
+	ProcessKovacs(g,Varray);
 	break;
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
@@ -1748,19 +1797,29 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
 	if (_freqDisplayMode == concentration) {
-		if (SetIn(_connectedCanonicals, canon)) {
-			printf("%lf ", _graphletConcentration[canon]);
-			PrintCanonical(canon);
-			printf("\n");
-		}
+	    if (SetIn(_connectedCanonicals, canon)) {
+		printf("%lf ", _graphletConcentration[canon]);
+		PrintCanonical(canon);
+		printf("\n");
+	    }
 	}
 	else {
-		if (SetIn(_connectedCanonicals, canon)) {
-			printf("%lu ", _graphletCount[canon]);
-			PrintCanonical(canon);
-			printf("\n");
-		}
+	    if (SetIn(_connectedCanonicals, canon)) {
+		printf("%lu ", _graphletCount[canon]);
+		PrintCanonical(canon);
+		printf("\n");
+	    }
 	}
+	}
+	break;
+    case kovacsPairs:
+	for(i=0; i < G->n-1; i++) for(j=i+1;j < G->n; j++)
+	{
+	    int total = _KovacsCount[i][j]+_KovacsCount[j][i];
+	    if(total == 0) continue;
+	    if(_supportNodeNames) printf("%s %s",_nodeNames[i],_nodeNames[j]);
+	    else printf("%d %d",i,j);
+	    printf(" %d\n",total);
 	}
 	break;
     case outputGDV:
@@ -1789,13 +1848,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
-    TinyGraphFree(g);
-    SetFree(V);
-    GraphFree(G);
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) Free(_orbitDegreeVector[i]);
 	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) Free(_doubleOrbitDegreeVector[i]);
+    if(_outputMode == kovacsPairs) {
+	int i;
+	for(i=0; i<G->n;i++) Free(_KovacsCount[i]);
+	Free(_KovacsCount);
+    }
+    TinyGraphFree(g);
+    SetFree(V);
+    GraphFree(G);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
     	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -1850,6 +1914,15 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++){
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
+    }
+    if(_outputMode == kovacsPairs) {
+	_KovacsCount = Calloc(G->n, sizeof(*_KovacsCount));
+	for(i=0; i<G->n;i++) _KovacsCount[i] = Calloc(G->n, sizeof(**_KovacsCount));
+	// The user uses the orbitID *relative* to the first "true" orbit listed in the orbit map,
+	// so now convert that relative orbit ID to an absolute one.
+	_kovacsOrbit1 += _orbitList[_kovacsCanonical][0];
+	_kovacsOrbit2 += _orbitList[_kovacsCanonical][0];
+	//printf("kC %d k1 %d k2 %d\n",_kovacsCanonical,_kovacsOrbit1,_kovacsOrbit2);
     }
 	
     if(_THREADS == 1)
@@ -1928,12 +2001,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		}
 		assert(*nextChar == '\0');
 		break;
-	    case indexGraphlets: case indexOrbits: case indexKovacs:
+	    case indexGraphlets: case indexOrbits:
 		fputs(line, stdout);
 		if(_window) 
 		    while(fgets(line, sizeof(line), fpThreads[thread])) 
 			fputs(line, stdout);
 		break;
+	    case kovacsPairs:
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
 		break;
@@ -2029,116 +2103,129 @@ int main(int argc, char *argv[])
 
     while((opt = getopt(argc, argv, "m:d:t:s:c:k:w:p:r:n:u")) != -1)
     {
-		switch(opt)
-		{
-		case 'm':
-			if(_outputMode != undef) Fatal("tried to define output mode twice");
-			switch(*optarg)
-			{
-			case 'i': _outputMode = indexGraphlets; break;
-			case 'j': _outputMode = indexOrbits; break;
-			case 'k': _outputMode = indexKovacs; break;
-			case 'f': _outputMode = graphletFrequency;
-			switch (*(optarg + 1))
-			{
-				case 'i': _freqDisplayMode = count; break;
-				case 'd': _freqDisplayMode = concentration; break;
-				case '\0': _freqDisplayMode = freq_display_mode_undef; break;
-				default: Fatal("-mf%c: unknown frequency display mode;\n"
-				"\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
-				break;
-			}
-			break;
-			case 'g': _outputMode = outputGDV; break;
-			case 'o': _outputMode = outputODV; break;
-			default: Fatal("-m%c: unknown output mode;\n"
-			   "\tmodes are i=indexGraphlets, j=indexOrbits, k=indexKovacs, f=graphletFrequency, g=GDV, o=ODV", *optarg);
-			break;
-			}
-			break;
-		case 'd':
-			if (_displayMode != undefined) Fatal("tried to define canonical display mode twice");
-			switch(*optarg)
-			{
-			case 'b': _displayMode = binary; break;
-			case 'd': _displayMode = decimal; break;
-			case 'i': _displayMode = ordinal; break;
-			case 'j': _displayMode = jesse; break;
-			case 'o': _displayMode = orca; break;
-			default: Fatal("-d%c: unknown canonical display mode:n"
-				"\tmodes are i=integer ordinal, d=decimal, b=binary, o=orca, j=jesse", *optarg);
-			break;
-			}
-			break;
-		case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
-		case 'r': _seed = atoi(optarg);
-			break;
-		case 's':
-			if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
-			else if (strncmp(optarg, "NBE", 3) == 0)
-				_sampleMethod = SAMPLE_NODE_EXPANSION;
-			else if (strncmp(optarg, "FAYE", 4) == 0) 
-				_sampleMethod = SAMPLE_FAYE;
-			else if (strncmp(optarg, "EBE", 3) == 0)
-				_sampleMethod = SAMPLE_EDGE_EXPANSION;
-			else if (strncmp(optarg, "MCMC", 3) == 0)
-				_sampleMethod = SAMPLE_MCMC;
-			else if (strncmp(optarg, "RES", 3) == 0)
-				_sampleMethod = SAMPLE_RESERVOIR;
-			else if (strncmp(optarg, "AR", 2) == 0)
-				_sampleMethod = SAMPLE_ACCEPT_REJECT;
-			else
-			{
-				_sampleFileName = optarg;
-				if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
-				else _sampleFile = fopen(_sampleFileName, "r");
-				if(!_sampleFile)
-					Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|FAYE|AR|{filename}}\n"
-						"If unrecognized, we try opening a file by the name '%s', but no such file exists",
-						_sampleFileName, _sampleFileName);
-				_sampleMethod = SAMPLE_FROM_FILE;
-			}
-			break;
-		case 'c': confidence = atof(optarg);
-			Apology("confidence intervals not implemented yet");
-			break;
-		case 'k': _k = atoi(optarg);
-			if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
-			break;
-		case 'w':
-			_window = true;
-			_windowSize = atoi(optarg); 
-			if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
-			_MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
-			_windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
-			int i;
-			for(i=0; i<_MAXnumWindowRep; i++)
-				_windowReps[i] = Calloc(_k+1, sizeof(int));
-			break;
-		case 'p':
-			if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
-			else if (strncmp(optarg, "DMIN", 4) == 0)
-				_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
-			else if (strncmp(optarg, "DMAX", 4) == 0)
-				_windowSampleMethod = WINDOW_SAMPLE_MAX_D;
-			else if (strncmp(optarg, "MIN", 3) == 0)
-				_windowSampleMethod = WINDOW_SAMPLE_MIN;
-			else if (strncmp(optarg, "MAX", 3) == 0)
-				_windowSampleMethod = WINDOW_SAMPLE_MAX;
-			else if (strncmp(optarg, "LFMIN", 5) == 0)
-				_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
-			else if (strncmp(optarg, "LFMAX", 5) == 0)
-				_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
-			else
-				Fatal("Unrecognized window sampling method specified. Options are: {MAX|MIN|MAXD|MIND|LFMAX|LFMIN}\n");
-			break;
-		case 'n': numSamples = atoi(optarg);
-			if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
-			break;
-		case 'u': _MCMC_UNIFORM = true;
-			break;
-		default: Fatal("unknown option %c\n%s", opt, USAGE);
+	switch(opt)
+	{
+	case 'm':
+	    if(_outputMode != undef) Fatal("tried to define output mode twice");
+	    switch(*optarg)
+	    {
+	    case 'i': _outputMode = indexGraphlets; break;
+	    case 'j': _outputMode = indexOrbits; break;
+	    case 'k': _outputMode = kovacsPairs;
+		char *s = optarg+1;
+		_kovacsCanonical=atoi(s);
+		until(*s++==',') ;
+		_kovacsOrbit1 = atoi(s);
+		until(*s++==',') ;
+		_kovacsOrbit2 = atoi(s);
+		if(_kovacsOrbit2 < _kovacsOrbit1) {
+		    int tmp = _kovacsOrbit2;
+		    _kovacsOrbit2 = _kovacsOrbit1;
+		    _kovacsOrbit1 = tmp;
 		}
+		assert(_kovacsOrbit1 <= _kovacsOrbit2);
+		break;
+	    case 'f': _outputMode = graphletFrequency;
+		switch (*(optarg + 1))
+		{
+		    case 'i': _freqDisplayMode = count; break;
+		    case 'd': _freqDisplayMode = concentration; break;
+		    case '\0': _freqDisplayMode = freq_display_mode_undef; break;
+		    default: Fatal("-mf%c: unknown frequency display mode;\n"
+		    "\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
+		    break;
+		}
+	    break;
+	    case 'g': _outputMode = outputGDV; break;
+	    case 'o': _outputMode = outputODV; break;
+	    default: Fatal("-m%c: unknown output mode;\n"
+	       "\tmodes are i=indexGraphlets, j=indexOrbits, kINT,i,j=kovacsPairs of canonical INT columns i and j, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+	    break;
+	    }
+	    break;
+	case 'd':
+	    if (_displayMode != undefined) Fatal("tried to define canonical display mode twice");
+	    switch(*optarg)
+	    {
+	    case 'b': _displayMode = binary; break;
+	    case 'd': _displayMode = decimal; break;
+	    case 'i': _displayMode = ordinal; break;
+	    case 'j': _displayMode = jesse; break;
+	    case 'o': _displayMode = orca; break;
+	    default: Fatal("-d%c: unknown canonical display mode:n"
+		    "\tmodes are i=integer ordinal, d=decimal, b=binary, o=orca, j=jesse", *optarg);
+	    break;
+	    }
+	    break;
+	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
+	case 'r': _seed = atoi(optarg);
+	    break;
+	case 's':
+	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
+	    else if (strncmp(optarg, "NBE", 3) == 0)
+		    _sampleMethod = SAMPLE_NODE_EXPANSION;
+	    else if (strncmp(optarg, "FAYE", 4) == 0) 
+		    _sampleMethod = SAMPLE_FAYE;
+	    else if (strncmp(optarg, "EBE", 3) == 0)
+		    _sampleMethod = SAMPLE_EDGE_EXPANSION;
+	    else if (strncmp(optarg, "MCMC", 3) == 0)
+		    _sampleMethod = SAMPLE_MCMC;
+	    else if (strncmp(optarg, "RES", 3) == 0)
+		    _sampleMethod = SAMPLE_RESERVOIR;
+	    else if (strncmp(optarg, "AR", 2) == 0)
+		    _sampleMethod = SAMPLE_ACCEPT_REJECT;
+	    else
+	    {
+		    _sampleFileName = optarg;
+		    if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
+		    else _sampleFile = fopen(_sampleFileName, "r");
+		    if(!_sampleFile)
+			    Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|FAYE|AR|{filename}}\n"
+				    "If unrecognized, we try opening a file by the name '%s', but no such file exists",
+				    _sampleFileName, _sampleFileName);
+		    _sampleMethod = SAMPLE_FROM_FILE;
+	    }
+	    break;
+	case 'c': confidence = atof(optarg);
+	    Apology("confidence intervals not implemented yet");
+	    break;
+	case 'k': _k = atoi(optarg);
+	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+	    break;
+	case 'w':
+	    _window = true;
+	    _windowSize = atoi(optarg); 
+	    if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
+	    _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
+	    _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
+	    int i;
+	    for(i=0; i<_MAXnumWindowRep; i++)
+		    _windowReps[i] = Calloc(_k+1, sizeof(int));
+	    break;
+	case 'p':
+	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
+	    else if (strncmp(optarg, "DMIN", 4) == 0)
+		    _windowSampleMethod = WINDOW_SAMPLE_MIN_D;
+	    else if (strncmp(optarg, "DMAX", 4) == 0)
+		    _windowSampleMethod = WINDOW_SAMPLE_MAX_D;
+	    else if (strncmp(optarg, "MIN", 3) == 0)
+		    _windowSampleMethod = WINDOW_SAMPLE_MIN;
+	    else if (strncmp(optarg, "MAX", 3) == 0)
+		    _windowSampleMethod = WINDOW_SAMPLE_MAX;
+	    else if (strncmp(optarg, "LFMIN", 5) == 0)
+		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
+	    else if (strncmp(optarg, "LFMAX", 5) == 0)
+		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
+	    else
+		    Fatal("Unrecognized window sampling method specified. Options are: {MAX|MIN|MAXD|MIND|LFMAX|LFMIN}\n");
+	    break;
+	case 'n': numSamples = atoi(optarg);
+	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
+	    break;
+	case 'u': _MCMC_UNIFORM = true;
+	    break;
+	default: Fatal("unknown option %c\n%s", opt, USAGE);
+	}
     }
     if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
