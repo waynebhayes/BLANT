@@ -1357,36 +1357,36 @@ void VarraySort(int *Varray, int k)
 #endif
 }
 
-int _kovacsCanonical = -1;
-int _kovacsOrbit1 = -1, _kovacsOrbit2=-1; // the columns (ie orbits) you want
-int **_KovacsCount; // will be allocated n by n matrix of motif counts
+static int _kovacsCanonical = -1;
+static int _kovacsOrbit1 = -1, _kovacsOrbit2=-1; // the columns (ie orbits) you want
+static int **_KovacsCount; // will be allocated n by n matrix of motif counts
+static int _KovacsMotifCount[MAX_CANONICALS][maxK][maxK]; //pre-computed matrices only take 6MB
 
 // Recursively count the specified orbits in the specified canonical motifs of g.
-void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
+void PreProcessKovacs(TINY_GRAPH *g, int topCanon)
 {
     static int depth;
 #if PARANOID_ASSERTS
     assert(g->n == _k);
     assert(TinyGraphDFSConnected(g, 0));
 #endif
-
     int i,j, Gint = TinyGraph2Int(g,_k), GintCanon=_K[Gint];
     // Check to see if the whole thing is the cononical of interest before we start removing edges.
     if(GintCanon == _kovacsCanonical) {
 	char perm[maxK];
 	memset(perm, 0, _k);
 	ExtractPerm(perm, Gint);
+#if PARANOID_ASSERTS
+	if(depth == 0) {
+	    //assert(Gint == GintCanon); // we should only be called on canonicals
+	    for(i=0;i<_k;i++) assert(perm[i]==i);
+	}
+#endif
 	for(i=0;i<_k-1;i++)
 	    if(_orbitList[GintCanon][i] == _kovacsOrbit1)
 		for(j=i+1;j<_k;j++)
 		    if(_orbitList[GintCanon][j] == _kovacsOrbit2)
-			++_KovacsCount[Varray[(int)perm[i]]][Varray[(int)perm[j]]];
-#if 0
-	printf("\tM %d ",depth);
-	PrintCanonical(GintCanon);
-	for(l=0;l<_k;l++) {printf(" "); PrintNode(Varray[(int)perm[l]]);}
-	putchar('\n');
-#endif
+			++_KovacsMotifCount[topCanon][(int)perm[i]][(int)perm[j]];
 	// Stop the recursion since removing more edges can't possibly get the canonical again.
 	return;
     }
@@ -1398,12 +1398,29 @@ void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
 	    TinyGraphDisconnect(g,i,j);
 	    if(TinyGraphDFSConnected(g,0)) {
 		++depth;
-		ProcessKovacs(g,Varray);
+		PreProcessKovacs(g,topCanon);
 		--depth;
 	    }
 	    TinyGraphConnect(g,i,j);
 	}
     }
+}
+
+void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
+{
+    static int depth;
+#if PARANOID_ASSERTS
+    assert(g->n == _k);
+    assert(TinyGraphDFSConnected(g, 0));
+#endif
+
+    int i,j, Gint = TinyGraph2Int(g,_k), GintCanon=_K[Gint];
+    char perm[maxK];
+    memset(perm, 0, _k);
+    ExtractPerm(perm, Gint);
+    for(i=0;i<_k-1;i++)
+	for(j=i+1;j<_k;j++)
+	    _KovacsCount[Varray[(int)perm[i]]][Varray[(int)perm[j]]] += _KovacsMotifCount[GintCanon][i][j];
 }
 
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
@@ -1923,6 +1940,17 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_kovacsOrbit1 += _orbitList[_kovacsCanonical][0];
 	_kovacsOrbit2 += _orbitList[_kovacsCanonical][0];
 	//printf("kC %d k1 %d k2 %d\n",_kovacsCanonical,_kovacsOrbit1,_kovacsOrbit2);
+	//printf("Kord %d Kcanon %d _K %d\n",_kovacsCanonical, _canonList[_kovacsCanonical], _K[_canonList[_kovacsCanonical]]);
+	TINY_GRAPH *T = TinyGraphAlloc(_k);
+	for(i=0; i<_numCanon; i++) {
+	    if(!SetIn(_connectedCanonicals, i)) continue;
+	    int GintCanonInt = _canonList[i];
+	    assert(_K[GintCanonInt] == i);
+	    TinyGraphEdgesAllDelete(T);
+	    BuildGraph(T, GintCanonInt);
+	    if(TinyGraphDFSConnected(T,0))
+		PreProcessKovacs(T, i);
+	}
     }
 	
     if(_THREADS == 1)
