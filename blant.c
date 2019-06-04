@@ -21,7 +21,7 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
-char **_nodeNames, _supportNodeNames = true;
+char **_nodeNames, _supportNodeNames = false;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
