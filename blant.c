@@ -21,7 +21,7 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
-char **_nodeNames, _supportNodeNames = false;
+char **_nodeNames, _supportNodeNames = true;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
@@ -188,9 +188,9 @@ void PrintNode(int v) {
     printf("%s", _nodeNames[v]);
 #else
     if(_supportNodeNames)
-		printf("%s", _nodeNames[v]);
+	printf("%s", _nodeNames[v]);
     else
-		printf("%d", v);
+	printf("%d", v);
 #endif
 }
 
@@ -1035,28 +1035,28 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	}
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g, k);
-	int GintCanon = _K[Gint];
+	int GintOrdinal = _K[Gint];
 
 #if PARANOID_ASSERTS
 	assert(numNodes == k); // Ensure we are returning k nodes
 #endif
 	double count;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
-		// The over counting ratio is the alpha value only.
-		count += 1.0/(_alphaList[GintCanon]);
+	    // The over counting ratio is the alpha value only.
+	    count += 1.0/(_alphaList[GintOrdinal]);
 	} else {
-		// The over counting ratio is the alpha value divided by the multiplier
-		count += (double)multiplier/((double)_alphaList[GintCanon]);
+	    // The over counting ratio is the alpha value divided by the multiplier
+	    count += (double)multiplier/((double)_alphaList[GintOrdinal]);
 	}
 	if (_outputMode == outputODV) {
-		char perm[k];
-		memset(perm, 0, k);
+	    char perm[k];
+	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
-		for (j = 0; j < k; j++) {
-			_doubleOrbitDegreeVector[_orbitList[GintCanon][j]][Varray[(int)perm[j]]] += count;
-		}
+	    for (j = 0; j < k; j++) {
+		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += count;
+	    }
 	} else
-		_graphletConcentration[GintCanon] += count;
+	    _graphletConcentration[GintOrdinal] += count;
 
 	return V; // return the sampled graphlet
 }
@@ -1322,27 +1322,27 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     }
 }
 
-void PrintCanonical(int GintCanon)
+void PrintCanonical(int GintOrdinal)
 {
     int j, GintNumBits = _k*(_k-1)/2;
     char GintBinary[GintNumBits+1]; //Only used in -db output mode for indexing
     switch (_displayMode) {
     case undefined:
     case ordinal:
-	printf("%d", GintCanon); // Note this is the ordinal of the canonical, not its bit representation
+	printf("%d", GintOrdinal); // Note this is the ordinal of the canonical, not its bit representation
 	break;
     case decimal: //Prints the decimal integer form of the canonical
-	printf("%d", _canonList[GintCanon]);
+	printf("%d", _canonList[GintOrdinal]);
 	break;
     case binary: //Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
-	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintCanon] >> j) & 1 ? '1' : '0');}
+	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';
 	printf("%s", GintBinary);
 	break;
 	case orca: //Prints the ORCA ID of the canonical. Jesse uses same number.
 	case jesse:
-	printf("%d", _outputMapping[GintCanon]);
+	printf("%d", _outputMapping[GintOrdinal]);
 	break;
     }
 }
@@ -1357,48 +1357,62 @@ void VarraySort(int *Varray, int k)
 #endif
 }
 
-static int _kovacsCanonical = -1;
+static int _kovacsOrdinal = -1;
 static int _kovacsOrbit1 = -1, _kovacsOrbit2=-1; // the columns (ie orbits) you want
-static int **_KovacsCount; // will be allocated n by n matrix of motif counts
-static int _KovacsMotifCount[MAX_CANONICALS][maxK][maxK]; //pre-computed matrices only take 6MB
+static int **_KovacsCount; // will be allocated lower triangle of n by n matrix of node-pair counts
+static int _KovacsMotifCount[MAX_CANONICALS][maxK][maxK]; //pre-computed matrices of 64-bit ints take only about 6MB
 
 // Recursively count the specified orbits in the specified canonical motifs of g.
-void PreProcessKovacs(TINY_GRAPH *g, int topCanon)
+// The topOrdinal is the canonical graphlet who's count we're computing as we descend the recursion to
+// enumerate all the counts of the One True Motif's node pairs the user has given us (eg, the L3).
+// The perm array tells us how to map nodes in g all the way back to nodes in topCanon.
+void PreProcessKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
 {
     static int depth;
 #if PARANOID_ASSERTS
     assert(g->n == _k);
     assert(TinyGraphDFSConnected(g, 0));
 #endif
-    int i,j, Gint = TinyGraph2Int(g,_k), GintCanon=_K[Gint];
-    // Check to see if the whole thing is the cononical of interest before we start removing edges.
-    if(GintCanon == _kovacsCanonical) {
-	char perm[maxK];
-	memset(perm, 0, _k);
-	ExtractPerm(perm, Gint);
+    int i,j, Gint = TinyGraph2Int(g,_k), GintOrdinal=_K[Gint];
+    char gPerm[maxK], permComposed[maxK];
+    memset(gPerm, 0, _k);
+    ExtractPerm(gPerm, Gint);
+    if(depth == 0) {
 #if PARANOID_ASSERTS
-	if(depth == 0) {
-	    //assert(Gint == GintCanon); // we should only be called on canonicals
-	    for(i=0;i<_k;i++) assert(perm[i]==i);
-	}
+	assert(GintOrdinal == topOrdinal && Gint == _canonList[topOrdinal]); // we should only be called on canonicals
+	for(i=0;i<_k;i++) assert(gPerm[i]==i && perm[i] == i);
 #endif
-	for(i=0;i<_k-1;i++)
-	    if(_orbitList[GintCanon][i] == _kovacsOrbit1)
-		for(j=i+1;j<_k;j++)
-		    if(_orbitList[GintCanon][j] == _kovacsOrbit2)
-			++_KovacsMotifCount[topCanon][(int)perm[i]][(int)perm[j]];
-	// Stop the recursion since removing more edges can't possibly get the canonical again.
+    } else {
+	// OK, think carefully here: gPerm maps the nodes in this g back to the graphlet one level up,
+	// which contains the extra edge we've had deleted. Our gPerm maps the nodes in *this* canonical
+	// back up to nodes one level up; that one in turn maps up another level. We want to increment the
+	// values of the node pair all the way up in topCanon. So, we need to compose our gPerm with the
+	// one we were passed:
+	assert(PERMS_CAN2NON);
+	for(i=0;i<_k;i++) permComposed[i] = perm[gPerm[i]];
+    }
+   
+    // Check to see if the whole thing is the cononical of interest before we start removing edges.
+    if(GintOrdinal == _kovacsOrdinal) {
+	assert(PERMS_CAN2NON);
+        for(i=0;i<_k-1;i++)
+            if(_orbitList[GintOrdinal][i] == _kovacsOrbit1)
+                for(j=i+1;j<_k;j++)
+                    if(_orbitList[GintOrdinal][j] == _kovacsOrbit2)
+			if(!TinyGraphAreConnected(g,i,j)) // increment the count if there's no edge already here in the *MOTIF*
+			    ++_KovacsMotifCount[topOrdinal][(int)permComposed[i]][(int)permComposed[j]];
+	// Stop the recursion since removing more edges can't possibly get the _kovacsOrdinal again.
 	return;
     }
     // Now go about deleting edges recursively.
     for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
     {
-	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it.
+	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it and recurse.
 	{
 	    TinyGraphDisconnect(g,i,j);
 	    if(TinyGraphDFSConnected(g,0)) {
 		++depth;
-		PreProcessKovacs(g,topCanon);
+		PreProcessKovacs(g,topOrdinal,permComposed);
 		--depth;
 	    }
 	    TinyGraphConnect(g,i,j);
@@ -1414,27 +1428,33 @@ void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
     assert(TinyGraphDFSConnected(g, 0));
 #endif
 
-    int i,j, Gint = TinyGraph2Int(g,_k), GintCanon=_K[Gint];
+    int i,j, Gint = TinyGraph2Int(g,_k), GintOrdinal=_K[Gint];
     char perm[maxK];
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);
     for(i=0;i<_k-1;i++)
 	for(j=i+1;j<_k;j++)
-	    _KovacsCount[Varray[(int)perm[i]]][Varray[(int)perm[j]]] += _KovacsMotifCount[GintCanon][i][j];
+	{
+	    assert(PERMS_CAN2NON);
+	    int u = Varray[(int)perm[i]], v = Varray[(int)perm[j]];
+	    assert(u!=v);
+	    // Order of nodes doesn't matter, and _KovacsCount is only the lower triangle of node pairs.
+	    _KovacsCount[MAX(u,v)][MIN(u,v)] += _KovacsMotifCount[GintOrdinal][i][j];
+	}
 }
 
-void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
-    // We should probably figure out a faster sort? This requires a function call for every comparison.
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k)
+{
     TinyGraphInducedFromGraph(g, G, Varray);
-    int Gint = TinyGraph2Int(g,k), j, GintCanon=_K[Gint];
+    int Gint = TinyGraph2Int(g,k), j, GintOrdinal=_K[Gint];
 #if PARANOID_ASSERTS
-    assert(0 <= GintCanon && GintCanon < _numCanon);
+    assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
     switch(_outputMode)
     {
 	static SET* printed;
     case graphletFrequency:
-	++_graphletCount[GintCanon];
+	++_graphletCount[GintOrdinal];
 	break;
     case indexGraphlets:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
@@ -1442,8 +1462,12 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 #endif
 	memset(perm, 0, k);
 	ExtractPerm(perm, Gint);
-	PrintCanonical(GintCanon);
-	for(j=0;j<k;j++) {printf(" "); PrintNode(Varray[(int)perm[j]]);}
+	PrintCanonical(GintOrdinal);
+	for(j=0;j<k;j++) {
+	    printf(" ");
+	    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+	    PrintNode(Varray[(int)perm[j]]);
+	}
 	puts("");
 	break;
     case kovacsPairs:
@@ -1457,13 +1481,15 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	SetEmpty(printed);
 	memset(perm, 0, k);
 	ExtractPerm(perm, Gint);
-	PrintCanonical(GintCanon);
+	PrintCanonical(GintOrdinal);
 	for(j=0;j<k;j++) if(!SetIn(printed,j))
 	{
-	    putchar(' '); PrintNode(Varray[(int)perm[j]]);
+	    putchar(' ');
+	    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+	    PrintNode(Varray[(int)perm[j]]);
 	    SetAdd(printed, j);
 	    int j1;
-	    for(j1=j+1;j1<k;j1++) if(_orbitList[GintCanon][j1] == _orbitList[GintCanon][j])
+	    for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
 	    {
 		assert(!SetIn(printed, j1));
 		putchar(':'); PrintNode(Varray[(int)perm[j1]]);
@@ -1473,15 +1499,16 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	putchar('\n');
 	break;
     case outputGDV:
-	for(j=0;j<k;j++) ++GDV(Varray[j], GintCanon);
+	assert(PERMS_CAN2NON);
+	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
 	break;
     case outputODV:
 	memset(perm, 0, k);
 	ExtractPerm(perm, Gint);
 #if PERMS_CAN2NON            
-	for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintCanon][j]);
+	for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ]);
 #else
-	for(j=0;j<k;j++) ++ODV(Varray[j], _orbitList[GintCanon][(int)perm[j]]);
+	for(j=0;j<k;j++) ++ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]]);
 #endif
 	break;
 	    
@@ -1527,16 +1554,16 @@ int getD(int num_of_edges)
 }
 
 
-void updateWindowRep(int *windowRepInt, int *D, int GintCanon, int pending_D, int *WArray, int *VArray, MULTISET *canonMSET)
+void updateWindowRep(int *windowRepInt, int *D, int GintOrdinal, int pending_D, int *WArray, int *VArray, MULTISET *canonMSET)
 {
     int i;
     if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
     {
         if(_windowSampleMethod == WINDOW_SAMPLE_MIN)
-            if(GintCanon < *windowRepInt) {*windowRepInt = GintCanon; _numWindowRep = 0;}
+            if(GintOrdinal < *windowRepInt) {*windowRepInt = GintOrdinal; _numWindowRep = 0;}
         if(_windowSampleMethod == WINDOW_SAMPLE_MAX)
-            if(GintCanon > *windowRepInt) {*windowRepInt = GintCanon; _numWindowRep = 0;}
-        if(GintCanon == *windowRepInt)
+            if(GintOrdinal > *windowRepInt) {*windowRepInt = GintOrdinal; _numWindowRep = 0;}
+        if(GintOrdinal == *windowRepInt)
         {
             for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[i]];
             _numWindowRep++;
@@ -1545,10 +1572,10 @@ void updateWindowRep(int *windowRepInt, int *D, int GintCanon, int pending_D, in
     else if (_windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_MAX_D)
     {
         if (_windowSampleMethod == WINDOW_SAMPLE_MIN_D) 
-            if(pending_D < *D || pending_D == *D && GintCanon < *windowRepInt) {*windowRepInt = GintCanon; *D = pending_D; _numWindowRep = 0;}
+            if(pending_D < *D || pending_D == *D && GintOrdinal < *windowRepInt) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
         if (_windowSampleMethod == WINDOW_SAMPLE_MAX_D)
-            if(pending_D < *D || pending_D == *D && GintCanon > *windowRepInt) {*windowRepInt = GintCanon; *D = pending_D; _numWindowRep = 0;}
-        if(pending_D == *D && GintCanon == *windowRepInt)
+            if(pending_D < *D || pending_D == *D && GintOrdinal > *windowRepInt) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
+        if(pending_D == *D && GintOrdinal == *windowRepInt)
         {
             for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[i]];
             _numWindowRep++;
@@ -1557,8 +1584,8 @@ void updateWindowRep(int *windowRepInt, int *D, int GintCanon, int pending_D, in
     else if (_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
     {
         for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[i]];
-        _windowReps[_numWindowRep][_k] = GintCanon;
-        if(canonMSET->array[GintCanon] < MAX_MULTISET_FREQ) MultisetAdd(canonMSET, GintCanon);
+        _windowReps[_numWindowRep][_k] = GintOrdinal;
+        if(canonMSET->array[GintOrdinal] < MAX_MULTISET_FREQ) MultisetAdd(canonMSET, GintOrdinal);
         _numWindowRep++;
     }
     else
@@ -1598,16 +1625,16 @@ void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET)
         
 void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET)
 {
-    int u, w, i, j, Gint, GintCanon, GintCanonInt, pending_D, numEdges=0;
+    int u, w, i, j, Gint, GintOrdinal, GintOrdinalInt, pending_D, numEdges=0;
     Boolean inclusive = false;
     SET *Vext = SetAlloc(Gi->n), *uNeighbors = SetAlloc(Gi->n);
     if(*varraySize == _k)
     {
         Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
-        GintCanon = _K[Gint];
-        GintCanonInt = _canonList[GintCanon];
+        GintOrdinal = _K[Gint];
+        GintOrdinalInt = _canonList[GintOrdinal];
         pending_D = getD(numEdges);
-        updateWindowRep(windowRepInt, D, GintCanon, pending_D, WArray, VArray, canonMSET);
+        updateWindowRep(windowRepInt, D, GintOrdinal, pending_D, WArray, VArray, canonMSET);
     }
     else
     {
@@ -1646,7 +1673,7 @@ void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v,
 // Right now use least frequent windowRep canonicals 
 void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D)
 {
-    int WArray[_windowSize], *VArray, ca[_k], i, j, Gint, GintCanon, GintCanonInt, numEdges=0, pending_D;   // Window node array, pending_window node array
+    int WArray[_windowSize], *VArray, ca[_k], i, j, Gint, GintOrdinal, GintOrdinalInt, numEdges=0, pending_D;   // Window node array, pending_window node array
     assert(SetToArray(WArray, W) == _windowSize);
     MULTISET *canonMSET = MultisetAlloc(getMaximumIntNumber(_k));
     COMBIN *c = CombinZeroth(_windowSize, _k, ca);  // (W choose K) many k-node graphlets in Window
@@ -1671,12 +1698,12 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D)
             for(i=0; i<_k; i++) 
                 VArray[i] = ca[i];
             Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
-            GintCanon = _K[Gint];
-            if(SetIn(_connectedCanonicals, GintCanon))
+            GintOrdinal = _K[Gint];
+            if(SetIn(_connectedCanonicals, GintOrdinal))
             {
-                GintCanonInt = _canonList[GintCanon];
+                GintOrdinalInt = _canonList[GintOrdinal];
                 pending_D = getD(numEdges);
-                updateWindowRep(windowRepInt, D, GintCanon, pending_D, WArray, VArray, canonMSET);
+                updateWindowRep(windowRepInt, D, GintOrdinal, pending_D, WArray, VArray, canonMSET);
             } 
         } while(CombinNext(c));
     }
@@ -1761,6 +1788,8 @@ void convertFrequencies(int numSamples)
 // This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
 // Call RunBlantInThreads instead, it's the top-level entry point to call once the
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
+// Note it does stuff even if numSamples == 0, because we may be the parent of many
+// threads that finished and we have nothing to do except output their accumulated results.
 int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
     int i,j, windowRepInt, D;
@@ -1830,9 +1859,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	break;
     case kovacsPairs:
-	for(i=0; i < G->n-1; i++) for(j=i+1;j < G->n; j++)
+	for(i=1; i < G->n; i++) for(j=0; j<i; j++)
 	{
-	    int total = _KovacsCount[i][j]+_KovacsCount[j][i];
+	    int total = _KovacsCount[i][j];
 	    if(total == 0) continue;
 	    if(_supportNodeNames) printf("%s %s",_nodeNames[i],_nodeNames[j]);
 	    else printf("%d %d",i,j);
@@ -1904,6 +1933,10 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 	close(1); // close our usual stdout
 	dup(fds[1]); // copy the write end of the pipe to fd 1.
 	close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
+
+	// For any "counting" mode, use internal numbering when communicating through pipes to the parent
+	if(_outputMode != indexGraphlets && _outputMode != indexOrbits) _supportNodeNames = false;
+
 	RunBlantFromGraph(k, numSamples, G);
 	exit(0);
 	_exit(0);
@@ -1934,22 +1967,26 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     }
     if(_outputMode == kovacsPairs) {
 	_KovacsCount = Calloc(G->n, sizeof(*_KovacsCount));
-	for(i=0; i<G->n;i++) _KovacsCount[i] = Calloc(G->n, sizeof(**_KovacsCount));
+	for(i=0; i<G->n;i++) _KovacsCount[i] = Calloc(i, sizeof(**_KovacsCount));
 	// The user uses the orbitID *relative* to the first "true" orbit listed in the orbit map,
 	// so now convert that relative orbit ID to an absolute one.
-	_kovacsOrbit1 += _orbitList[_kovacsCanonical][0];
-	_kovacsOrbit2 += _orbitList[_kovacsCanonical][0];
-	//printf("kC %d k1 %d k2 %d\n",_kovacsCanonical,_kovacsOrbit1,_kovacsOrbit2);
-	//printf("Kord %d Kcanon %d _K %d\n",_kovacsCanonical, _canonList[_kovacsCanonical], _K[_canonList[_kovacsCanonical]]);
+	_kovacsOrbit1 += _orbitList[_kovacsOrdinal][0];
+	_kovacsOrbit2 += _orbitList[_kovacsOrdinal][0];
+	//printf("kC %d k1 %d k2 %d\n",_kovacsOrdinal,_kovacsOrbit1,_kovacsOrbit2);
+	//printf("Kord %d Kcanon %d _K %d\n",_kovacsOrdinal, _canonList[_kovacsOrdinal], _K[_canonList[_kovacsOrdinal]]);
 	TINY_GRAPH *T = TinyGraphAlloc(_k);
-	for(i=0; i<_numCanon; i++) {
-	    if(!SetIn(_connectedCanonicals, i)) continue;
-	    int GintCanonInt = _canonList[i];
-	    assert(_K[GintCanonInt] == i);
+	int canonOrdinal;
+	for(canonOrdinal=0; canonOrdinal<_numCanon; canonOrdinal++) {
+	    if(!SetIn(_connectedCanonicals, canonOrdinal)) continue;
+	    int canonInt = _canonList[canonOrdinal];
+	    assert(_K[canonInt] == canonOrdinal);
 	    TinyGraphEdgesAllDelete(T);
-	    BuildGraph(T, GintCanonInt);
-	    if(TinyGraphDFSConnected(T,0))
-		PreProcessKovacs(T, i);
+	    BuildGraph(T, canonInt);
+	    if(TinyGraphDFSConnected(T,0)) {
+		char j, perm[maxK];
+		for(j=0;j<_k;j++) perm[j]=j; // start with the identity permutation for the canonical
+		PreProcessKovacs(T, canonOrdinal, perm);
+	    }
 	}
     }
 	
@@ -1963,7 +2000,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     for(i=0;i<_THREADS;i++)
 	fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
 
-    Boolean done = false;
+    int threadsDone = 0; // count of how many threads signaled EOF
     int lineNum = 0;
     do
     {
@@ -1972,15 +2009,18 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	int thread;
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
+	    if(!fpThreads[thread]) continue;
 	    fgets(line, sizeof(line), fpThreads[thread]);
 	    if(feof(fpThreads[thread])) // assume if any one of them finishes, we are done.
 	    {
-		done = true;
-		break;
+		fclose(fpThreads[thread]);
+		fpThreads[thread] = NULL;
+		threadsDone++;
+		continue;
 	    }
 	    char *nextChar = line;
 	    unsigned long int count;
-	    int canon, orbit, numRead;
+	    int canon, orbit, numRead, nodeId, value;
 	    switch(_outputMode)
 	    {
 	    case graphletFrequency:
@@ -1989,8 +2029,6 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		_graphletCount[canon] += count;
 		break;
 	    case outputGDV:
-		if(_supportNodeNames) Fatal("Oops, we don't yet support node names in multi-threaded ODV or GDV mode");
-		int nodeId;
 		assert(isdigit(*nextChar));
 		numRead = sscanf(nextChar, "%d", &nodeId);
 		assert(numRead == 1 && nodeId == lineNum);
@@ -2010,7 +2048,6 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		assert(*nextChar == '\0');
 		break;
 	    case outputODV:
-		if(_supportNodeNames) Fatal("Oops, we don't yet support node names in multi-threaded ODV or GDV mode");
 		assert(isdigit(*nextChar));
 		numRead = sscanf(nextChar, "%d", &nodeId);
 		assert(numRead == 1 && nodeId == lineNum);
@@ -2036,15 +2073,17 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			fputs(line, stdout);
 		break;
 	    case kovacsPairs:
+		numRead = sscanf(line, "%d%d%d",&i,&j,&value);
+		assert(numRead == 3);
+		_KovacsCount[i][j] += value;
+		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
 		break;
 	    }
 	}
 	lineNum++;
-    } while(!done);
-    for(i=0; i<_THREADS; i++)
-	fclose(fpThreads[i]);  // close all the pipes
+    } while(threadsDone < _THREADS);
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     int leftovers = numSamples % _THREADS;
@@ -2141,7 +2180,7 @@ int main(int argc, char *argv[])
 	    case 'j': _outputMode = indexOrbits; break;
 	    case 'k': _outputMode = kovacsPairs;
 		char *s = optarg+1;
-		_kovacsCanonical=atoi(s);
+		_kovacsOrdinal=atoi(s);
 		until(*s++==',') ;
 		_kovacsOrbit1 = atoi(s);
 		until(*s++==',') ;
