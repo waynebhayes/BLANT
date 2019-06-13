@@ -1,5 +1,6 @@
 /*  math.c  --  should be in global math library  */
 #include <math.h>
+#include <unistd.h>
 
 /***********************************************************************
 **  rand48 multiple stream code. You must set _rand48streams BEFORE

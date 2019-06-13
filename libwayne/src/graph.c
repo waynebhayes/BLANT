@@ -429,7 +429,7 @@ char *HashString(char *s)
 	hash = realloc(hash, buflen); // realloc accepts NULL
 	assert(hash);
     }
-
+    return hash;
 }
 
 GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
@@ -525,7 +525,10 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
 
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, sparse);
     if((G->supportNodeNames = supportNodeNames))
+    {
+	G->nameDict = nameDict;
 	G->name = names;
+    }
     Free(pairs);
     assert(G->maxEdges <= maxEdges);
     assert(G->numEdges <= numEdges);
@@ -536,6 +539,14 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
     }
     return G;
 }
+
+int GraphNodeName2Int(GRAPH *G, char *name)
+{
+    foint info;
+    assert(BinTreeLookup(G->nameDict, (foint)name, &info));
+    return info.i;
+}
+
 
 void GraphPrintConnections(FILE *fp, GRAPH *G)
 {
