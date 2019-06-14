@@ -1366,7 +1366,7 @@ static int _KovacsMotifCount[MAX_CANONICALS][maxK][maxK]; //pre-computed matrice
 // The topOrdinal is the canonical graphlet who's count we're computing as we descend the recursion to
 // enumerate all the counts of the One True Motif's node pairs the user has given us (eg, the L3).
 // The perm array tells us how to map nodes in g all the way back to nodes in topCanon.
-void PreProcessKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
+void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
 {
     static int depth;
 #if PARANOID_ASSERTS
@@ -1382,15 +1382,14 @@ void PreProcessKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
 	assert(GintOrdinal == topOrdinal && Gint == _canonList[topOrdinal]); // we should only be called on canonicals
 	for(i=0;i<_k;i++) assert(gPerm[i]==i && perm[i] == i);
 #endif
-    } else {
-	// OK, think carefully here: gPerm maps the nodes in this g back to the graphlet one level up,
-	// which contains the extra edge we've had deleted. Our gPerm maps the nodes in *this* canonical
-	// back up to nodes one level up; that one in turn maps up another level. We want to increment the
-	// values of the node pair all the way up in topCanon. So, we need to compose our gPerm with the
-	// one we were passed:
-	assert(PERMS_CAN2NON);
-	for(i=0;i<_k;i++) permComposed[i] = perm[gPerm[i]];
     }
+    // OK, think carefully here: gPerm maps the nodes in this g back to the graphlet one level up,
+    // which contains the extra edge we've had deleted. Our gPerm maps the nodes in *this* canonical
+    // back up to nodes one level up; that one in turn maps up another level. We want to increment the
+    // values of the node pair all the way up in topCanon. So, we need to compose our gPerm with the
+    // one we were passed:
+    assert(PERMS_CAN2NON);
+    for(i=0;i<_k;i++) permComposed[i] = perm[(int)gPerm[i]];
    
     // Check to see if the whole thing is the cononical of interest before we start removing edges.
     if(GintOrdinal == _kovacsOrdinal) {
@@ -1412,7 +1411,7 @@ void PreProcessKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
 	    TinyGraphDisconnect(g,i,j);
 	    if(TinyGraphDFSConnected(g,0)) {
 		++depth;
-		PreProcessKovacs(g,topOrdinal,permComposed);
+		PreComputeKovacs(g,topOrdinal,permComposed);
 		--depth;
 	    }
 	    TinyGraphConnect(g,i,j);
@@ -1985,7 +1984,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    if(TinyGraphDFSConnected(T,0)) {
 		char j, perm[maxK];
 		for(j=0;j<_k;j++) perm[j]=j; // start with the identity permutation for the canonical
-		PreProcessKovacs(T, canonOrdinal, perm);
+		PreComputeKovacs(T, canonOrdinal, perm);
 	    }
 	}
     }
