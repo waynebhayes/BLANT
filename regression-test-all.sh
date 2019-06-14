@@ -1,6 +1,7 @@
 #!/bin/sh
 RETURN=0
 for dir in regression-tests/*; do
+    [ -d "$dir" ] || continue;
     echo --- in directory $dir ---
     for r in $dir/*.sh; do
 	echo --- running test $r ---
