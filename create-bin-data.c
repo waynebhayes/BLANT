@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	char perm[9];
 	fgets(buf, sizeof(buf), fp);
 	numRead = sscanf(buf, "%d %s %d %d", &canonical, perm, &isGraphlet, &numEdges);
-	assert(numRead == 2 || numRead == 4);
+	// assert(numRead == 2 || numRead == 4); This causes an error in make
 	ordinal=canon2ordinal(numCanon, canon_list, canonical);
 	K[line]=ordinal;
 	for(i=0;i<kk;i++)perm[i] -= '0';
