@@ -1253,7 +1253,9 @@ void SetGlobalCanonMaps(void)
 	printf("size of kperm: %d\n", sizeof(kperm));
 	printf("size of short int: %d\n", sizeof(short int));
 	Permutations = (kperm*) malloc(sizeof(kperm) * _Bk);
+	printf("size of permutations: %d\n", sizeof(Permutations));
 	_K = (short int*) malloc(sizeof(short int) * _Bk);
+	printf("size of k array: %d\n", sizeof(_K));
     _connectedCanonicals = SetAlloc(_Bk);
     _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, _k);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, _k);
