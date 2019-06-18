@@ -6,7 +6,7 @@ P="parallel $CORES" # pipe your list of command lines into "parallel" to run the
 
 # Choose your value of k. For testing use k=7.
 # For k=8, it's 1-2 months of single-core CPU time.
-k=7
+k=3
 
 MC=../make-canon-maps # makes the initial canon maps in batch of 512 runs.
 SIFT=../canon-sift # the executable used to do the sifting down to the final canon_map file.
