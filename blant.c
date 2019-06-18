@@ -126,11 +126,14 @@ static int _THREADS;
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
 // So we're allocating 256MBx3=768MB even if we need much less.  I figure anything less than 1GB isn't a big deal
 // these days. It needs to be aligned to a page boundary since we're going to mmap the binary file into this array.
-static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
+//static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
+static kperm *Permutations; // Allocating memory dynamically
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
-static short int _K[maxBk] __attribute__ ((aligned (8192)));
+//static short int _K[maxBk] __attribute__ ((aligned (8192)));
+static short int *_K; // Allocating memory dynamically
+
 
 //The number of edges required to walk a *Hamiltonion* path
 static unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
@@ -1247,6 +1250,12 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= 8);
     _Bk = (1 <<(_k*(_k-1)/2));
+	printf("size of kperm: %d\n", sizeof(kperm));
+	printf("size of short int: %d\n", sizeof(short int));
+	Permutations = (kperm*) malloc(sizeof(kperm) * _Bk);
+	printf("size of permutations: %d\n", sizeof(Permutations));
+	_K = (short int*) malloc(sizeof(short int) * _Bk);
+	printf("size of k array: %d\n", sizeof(_K));
     _connectedCanonicals = SetAlloc(_Bk);
     _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, _k);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, _k);
