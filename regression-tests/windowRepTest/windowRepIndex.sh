@@ -20,7 +20,11 @@ for m in "${methodName[@]}"
 do
     for f in "${fnames[@]}"
     do
-        cmd="./blant -k$k -w$w -p$m -s$sampleName -mi -n$n $TEST_DIR/$f"
+        if ! [ -f networks/$f ]; then
+            echo "Cannot find $f in the networks folder." >&2
+            exit 1
+        fi
+        cmd="./blant -k$k -w$w -p$m -s$sampleName -mi -n$n networks/$f"
         $cmd| awk -v w="$w" -v k="$k" -v n="$n" '
                 BEGIN{numWindowRep=0; numWindowRepCounter=0; numWindow=0;}
                 {

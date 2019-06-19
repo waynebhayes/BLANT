@@ -21,7 +21,11 @@ for m in "${methodName[@]}"
 do
     for f in "${fnames[@]}"
     do
-        cmd="./blant -k$k -w$w -p$m -s$sampleName -mf -n$n $TEST_DIR/$f"
+        if ! [ -f networks/$f ]; then
+            echo "Cannot find $f in the networks folder" >&2
+            exit 1
+        fi
+        cmd="./blant -k$k -w$w -p$m -s$sampleName -mf -n$n networks/$f"
         numUniqRep=`$cmd | sort -n  | cut -d" " -f1 | uniq | awk '{if($0 != 0) print $0}' | wc -l`
         if [ $numUniqRep -gt $n ]; then
             echo "Error($exitcode) Number of uniq windowRepInt is more than window samples. Impossible." >&2
