@@ -32,3 +32,5 @@ core*
 orca_jesse_blant_table/UpperToLower*
 make-orca-jesse-blant-table
 make-subcanon-maps
+*.dot
+*.pdf

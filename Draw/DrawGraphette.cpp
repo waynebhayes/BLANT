@@ -11,6 +11,7 @@
 #include <math.h>
 #include <unistd.h>
 #include "graphette2dotutils.h"
+#include "Graphette.h"
 
 using std::cout;
 using std::cerr;
@@ -20,49 +21,74 @@ using std::ofstream;
 using std::ifstream;
 using std::vector;
 
-void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings, string& outputFile, string& namesFile, bool& isUpper, string& graphTitle, int& edgewidth);
+const int RADIUS_SCALING = 25;
+const string USAGE = "USAGE: graphette2dot <-k number_of_nodes> <-b bitstring | -d decimal_representation | -i lower_ordinal> <-o output_filename> [-n input_filename] [-u | -l] [-t title] [-e edge width] [-a enable orbits] [-p disable circular] -h for verbose help\n";
+const string GRAPH_ARGS = "";
+const string NODE_ARGS = "shape = \"none\", fontsize = 12.0";
+const string EDGE_ARGS = "";
+const string TITLE_ARGS = "fontsize = 24.0";
+const string DECIMAL_INPUT_WARNING = "Warning. Decimal input was used with k > 11. Edge information may have been lost.\n";
+const double PI  = 3.141592653589793238463;
+const vector<string> COLORS = {"black", "red", "lawngreen", "orange", "blue", "yellow", "indigo"};
+const int DEFAULT_EDGE_WIDTH = 1;
+
+enum class OutputMode { none, circular, planar };
+
+typedef struct _Graphette2DotParams {
+	int k = 0;
+	vector<Graphette> graphettes;
+	string outputFile, namesFile, graphTitle;
+	int edgewidth = DEFAULT_EDGE_WIDTH;
+	TriangularRepresentation triangularRepresentation = TriangularRepresentation::lower;
+	OutputMode outputMode = OutputMode::circular;
+	bool showOrbits = false;
+} Graphette2DotParams;
+
+void parseInput(int argc, char* argv[], Graphette2DotParams& params);
 void printUsage();
 void printHelp();
-string toBitString(unsigned long long inputDecimalNum, int k);
-string appendLeadingZeros(const string& inputBitstring, int k);
 
-void createDotfileFromBit(int k, const vector<string>& inputBitstring, const string& outputFile, const string& namesFile, bool isUpper, const string& graphTitle, int edgewidth);
+void createDotfileFromBit(const Graphette2DotParams& params);
 string getPos(int i, int k);
-void writeEdges(ofstream& outfile, const vector<string>& inputBitstrings, int k, bool isUpper, int edgewidth);
-void writeEdgesUpper(ofstream& outfile, const vector<string>& inputBitstrings, int k, int edgewidth);
-void writeEdgesLower(ofstream& outfile, const vector<string>& inputBitstrings, int k, int edgewidth);
-void printGraphConversionInstruction(const string& fileName);
+void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edgewidth);
+void printGraphConversionInstruction(const Graphette2DotParams& params);
 
 //Functions from libwayne and libblant.c
 extern "C" {
 	struct SET;
 	SET *SetAlloc(unsigned int n);
     int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k);
+	#define maxK 8
+	#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
+	#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
+	#define MAX_ORBITS	79264	// This is the number of orbits for k=8
+	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k);
+	void mapCanonMap(char* BUF, short int *K, int k);
 }
 
-const int RADIUS_SCALING = 25;
-const string USAGE = "USAGE: graphette2dot <-k number_of_nodes> <-b bitstring | -d decimal_representation | -i lower_ordinal> <-o output_filename> [-n input_filename] [-u | -l] [-t title] [-e edge width] -h for verbose help\n";
-const string NODE_ARGS = "shape = \"none\", fontsize = 24.0";
-const string TITLE_ARGS = "fontsize = 24.0";
-const string DECIMAL_INPUT_WARNING = "Warning. Decimal input was used with k > 11. Edge information may have been lost.\n";
-const double PI  =3.141592653589793238463;
-const vector<string> COLORS = {"black", "red", "lawngreen", "orange", "blue", "yellow", "indigo"};
-const int DEFAULT_EDGE_WIDTH = 1;
+// Canon Maps Loading
+static unsigned int _Bk;
+static int _numCanon, _canonList[MAX_CANONICALS];
+static SET *_connectedCanonicals;
+static int _numOrbits, _orbitList[MAX_CANONICALS][maxK];
+static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
+static short int _K[maxBk] __attribute__ ((aligned (8192)));
+
+void loadCanonMaps(int k) {
+	char BUF[BUFSIZ];
+	_Bk = (1 <<(k*(k-1)/2));
+	SET *_connectedCanonicals = SetAlloc(_Bk);
+	_numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
+	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, k);
+	mapCanonMap(BUF, _K, k);
+}
 
 int main(int argc, char* argv[]) {
-	int k = 0;
-	vector<string> inputBitstrings;
-	string outputFile = "", namesFile = "", graphTitle = "";
-	int edgewidth = DEFAULT_EDGE_WIDTH;
-	//Defaults to lower row major bitstring/decimal interpretation
-	bool isUpper = false;
-
-	//Parses input passing variables by reference.
-	parseInput(argc, argv, k, inputBitstrings, outputFile, namesFile, isUpper, graphTitle, edgewidth);
-
-	createDotfileFromBit(k, inputBitstrings, outputFile, namesFile, isUpper, graphTitle, edgewidth);
-
-	printGraphConversionInstruction(outputFile);
+	//Parse input passing variables by reference.
+	Graphette2DotParams params; 
+	parseInput(argc, argv, params);
+	createDotfileFromBit(params);
+	printGraphConversionInstruction(params);
 
 	return EXIT_SUCCESS;
 }
@@ -72,18 +98,20 @@ int main(int argc, char* argv[]) {
  * Doesn't allow for repeated inputs.
  * Prints usage and exits if invalid input is passed.
  * */
-void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings, string& outputFile, string& namesFile, bool& isUpper, string& graphTitle, int& edgewidth) {
+void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 	bool input = false, matrixType = false;
-	unsigned long long inputDecimalNum = 0;
+	uint64_t inputDecimalNum = 0;
 	int opt;
-	vector<unsigned long long> ordinals;
+	vector<uint64_t> lowerOrdinals;
+	vector<uint64_t> inputDecimals;
+	vector<string> inputBitStrings;
 
-	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:nhul")) != -1)
+	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:apnhul")) != -1)
     {
 		switch(opt)
 		{
 		case 'k':
-			if (k > 0) {
+			if (params.k > 0) {
 				cerr << "Only one k is allowed\n";
 				printUsage();
 			}
@@ -91,7 +119,7 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			k = atoi(optarg);
+			params.k = atoi(optarg);
 			break;
 
 		case 'b':
@@ -100,7 +128,7 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			inputBitstrings.push_back(optarg);
+			inputBitStrings.push_back(optarg);
 			break;
 
 		case 'd':
@@ -110,10 +138,7 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				printUsage();
 			}
 			inputDecimalNum = std::stoull(optarg);
-			inputBitstrings.push_back(toBitString(inputDecimalNum, k));
-
-			if (k > 11)
-				cerr << DECIMAL_INPUT_WARNING;
+			inputDecimals.push_back(inputDecimalNum);
 			break;
 
 		case 'i':
@@ -122,11 +147,11 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			ordinals.push_back(std::stoull(optarg));
+			lowerOrdinals.push_back(std::stoull(optarg));
 			break;
 
 		case 'o':
-			if (!outputFile.empty()) {
+			if (!params.outputFile.empty()) {
 				cerr << "Only one output file is allowed.\n";
 				printUsage();
 			}
@@ -134,11 +159,11 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			outputFile = optarg;
+			params.outputFile = optarg;
 			break;
 
 		case 't':
-			if (!graphTitle.empty()) {
+			if (!params.graphTitle.empty()) {
 				cerr << "Only one title allowed.\n";
 				printUsage();
 			}
@@ -146,11 +171,11 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			graphTitle = optarg;
+			params.graphTitle = optarg;
 			break;
 
 		case 'e':
-			if (edgewidth != DEFAULT_EDGE_WIDTH) {
+			if (params.edgewidth != DEFAULT_EDGE_WIDTH) {
 				cerr << "Only one edge width allowed.\n";
 				printUsage();
 			}
@@ -158,10 +183,19 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			edgewidth = atoi(optarg);
+			params.edgewidth = atoi(optarg);
 			break;
+
+		case 'a':
+			params.showOrbits = true;
+			break;
+			
+		case 'p':
+			params.outputMode = OutputMode::planar;
+			break;
+
 		case 'n':
-			if (!namesFile.empty()) {
+			if (!params.namesFile.empty()) {
 				cerr << "Only one names file is allowed.\n";
 				printUsage();
 			}
@@ -169,7 +203,7 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			namesFile = optarg;
+			params.namesFile = optarg;
 			break;
 
 		case 'h':
@@ -177,21 +211,19 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 			break;
 
 		case 'u':
-			if (matrixType) {
+			if (params.triangularRepresentation != TriangularRepresentation::none) {
 				cerr << "Only one matrix type allowed.\n";
 				printUsage();
 			}
-			isUpper = true;
-			matrixType = true;
+			params.triangularRepresentation = TriangularRepresentation::upper;
 			break;
 
 		case 'l':
-			if (matrixType) {
+			if (params.triangularRepresentation != TriangularRepresentation::none) {
 				cerr << "Only one matrix type allowed.\n";
 				printUsage();
 			}
-			isUpper = false;
-			matrixType = true;
+			params.triangularRepresentation = TriangularRepresentation::lower;
 			break;
 
 		default:
@@ -200,32 +232,54 @@ void parseInput(int argc, char* argv[], int& k, vector<string>& inputBitstrings,
 		}
 	}
 
-	//Check if k, input data, and output file were selected
-	if (!(k > 0 && input && outputFile.size() > 0))
-		printUsage();
+	if (params.triangularRepresentation == TriangularRepresentation::none)
+		params.triangularRepresentation = TriangularRepresentation::lower;
 
-	if (!ordinals.empty()) {
-		if (k < 3 || k > 8) {
+	int numGraphettes = inputBitStrings.size() + lowerOrdinals.size() + inputDecimals.size();
+
+	if (numGraphettes < 1 || numGraphettes > COLORS.size()) {
+		cerr << "Must specify between 1 and " << COLORS.size() << " graphlets as input.\n";
+		printUsage();
+	}
+
+	if (numGraphettes > 1 && params.showOrbits) {
+		cerr << "Displaying orbits is currently disabled for multiple inputs.\n";
+		printUsage();
+	}
+
+	if (params.showOrbits && params.triangularRepresentation == TriangularRepresentation::upper) {
+		cerr << "Ordinal input is only allowed for lower triangular inputs\n";
+	}
+
+	if (params.k < 3 || params.outputFile.size() < 0) {
+		cerr << "You must specify a graphette size k > 2\n";
+		printUsage();
+	}
+
+	if (params.k > 11 && inputDecimals.size() > 0)
+		cerr << DECIMAL_INPUT_WARNING;
+
+	loadCanonMaps(params.k);
+
+	for (const auto& bitString : inputBitStrings) {
+		params.graphettes.emplace_back(bitString, params.triangularRepresentation, params.k, _K);
+	}
+	for (const auto& ordinal : lowerOrdinals) {
+		if (ordinal < 0 || ordinal >= _numCanon) {
+			cerr << "Ordinal for k: " << params.k << " must be between 0 and " << _numCanon << '\n';
+			exit(EXIT_FAILURE);
+		}
+		params.graphettes.emplace_back(ordinal, params.triangularRepresentation, params.k, _canonList);
+	}
+	for (const auto& decimal : inputDecimals) {
+		params.graphettes.emplace_back(appendLeadingZeros(toBitString(decimal, params.k), params.k), params.triangularRepresentation, params.k, _K);
+	}
+
+	if (!lowerOrdinals.empty()) {
+		if (params.k < 3 || params.k > 8) {
 			cerr << "Ordinal input is only allowed for k between 3 and 8 (inclusive)\n";
 			exit(EXIT_FAILURE);
 		}
-		isUpper = false;
-		char BUF[BUFSIZ];
-		int _canonList[12346];
-		unsigned _Bk = (1 <<(k*(k-1)/2));
-		SET *_connectedCanonicals = SetAlloc(_Bk);
-		int _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
-		for (auto ordinal : ordinals) {
-			if (ordinal < 0 || ordinal > _numCanon) {
-				cerr << "Ordinal for k: " << k << " must be between 0 and " << _numCanon << '\n';
-				exit(EXIT_FAILURE);
-			}
-			inputBitstrings.push_back(toBitString(_canonList[ordinal], k));
-		}
-	}
-
-	for (string& bitstring : inputBitstrings) {
-		bitstring = appendLeadingZeros(bitstring, k);
 	}
 }
 
@@ -261,14 +315,15 @@ void printHelp() {
  * extra names become isolated nodes and additional nodes aren't labeled.
  * Then the edges are written to the file.
  * */
-void createDotfileFromBit(int k, const vector<string>& inputBitstrings, const string& outputFile, const string& namesFile, bool isUpper, const string& graphTitle, int edgewidth) {
-	int finalBitstringSize = (k * (k - 1)) / 2;
+void createDotfileFromBit(const Graphette2DotParams& params) {
+	int finalBitstringSize = (params.k * (params.k - 1)) / 2;
 	int size;
-	for (string inputBitstring : inputBitstrings) {
-		size = inputBitstring.size();
+
+	for (const auto& graphette : params.graphettes) {
+		size = graphette.bitstring.size();
 		if (finalBitstringSize != size) {
 			cerr << "Input size does not match number of nodes.\n"
-				<< "Expected Bitstring Size given k = " << k << " is:  "
+				<< "Expected Bitstring Size given k = " << params.k << " is:  "
 				<< finalBitstringSize << "\nInput Bitstring Size: " << size << "\n";
 			exit(EXIT_FAILURE);
 		}
@@ -276,35 +331,41 @@ void createDotfileFromBit(int k, const vector<string>& inputBitstrings, const st
 
 	ofstream outfile;
 	stringstream ss;
-	ss << outputFile << ".dot";
+	ss << params.outputFile << ".dot";
 	outfile.open(ss.str());
 	if (!outfile) {
 		cerr << "Unable to create Dot File " << ss.str() << "\n";
 		exit(EXIT_FAILURE);
 	}
 	
-	outfile << "graph {\n";
+	outfile << "graph {\n" << GRAPH_ARGS;
 
 	int i = 0;
-	if (namesFile != "") {
+	if (params.namesFile != "") {
 		std::ifstream infile;
-		infile.open(namesFile);
+		infile.open(params.namesFile);
 		if (infile) {
 			string nodeName;
-			while (std::getline(infile, nodeName) && i < k) {
-				outfile << 'n' << i << " [label=\"" << nodeName << "\", pos=\"" << getPos(i, k) << "!\"" << NODE_ARGS << ";]\n";
+			while (std::getline(infile, nodeName) && i < params.k) {
+				outfile << 'n' << i << " [label=\"" << nodeName;
+				if (params.showOrbits)
+					outfile << "\\n" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0];
+				outfile << "\"";
+				if (params.outputMode == OutputMode::circular)
+					outfile << ", pos=\"" << getPos(i, params.k) << "!\"";
+				outfile << NODE_ARGS << ";]\n";
 				i++;
 			}
-			if (i < k) {
+			if (i < params.k) {
 				cerr << "Warning: Less nodes in names file than -k.\n"
-					 << "Number of nodes: " << k << " Names file number of nodes: " << i << "\n";
+					 << "Number of nodes: " << params.k << " Names file number of nodes: " << i << "\n";
 			}
 
 			while (std::getline(infile, nodeName))
 				i++;
-			if (i > k) {
+			if (i > params.k) {
 				cerr << "Warning: More nodes in names file than -k.\n"
-			         << "Number of nodes: " << k << " Names file number of nodes: " << i << "\n";								
+			         << "Number of nodes: " << params.k << " Names file number of nodes: " << i << "\n";								
 			}
 
 			infile.close();
@@ -312,15 +373,22 @@ void createDotfileFromBit(int k, const vector<string>& inputBitstrings, const st
 			cerr << "Could not open name file\n";
 		}
 	}
-	while (i < k) {
-		outfile << 'n' << i << "[label=\"" << i << "\", pos=\"" << getPos(i, k) <<  "!\"" << NODE_ARGS << "]\n";
+	while (i < params.k) {
+		outfile << 'n' << i << "[label=\"" << i;
+		if (params.showOrbits)
+			outfile << "\\n" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0];
+		outfile << "\"";
+		if (params.outputMode == OutputMode::circular)
+			outfile << "pos=\"" << getPos(i, params.k) << "!\"";
+		outfile  << NODE_ARGS << ", width=.25" << ";]\n";
 		i++;
 	}
 
-	writeEdges(outfile, inputBitstrings, k, isUpper, edgewidth);
-	if (graphTitle != "") {
+	writeEdges(outfile, params.graphettes, params.edgewidth);
+
+	if (params.graphTitle != "") {
 		outfile << "labelloc=\"b\";\n"
-				<< "label=\"" << graphTitle << "\"\n"
+				<< "label=\"" << params.graphTitle << "\"\n"
 				<< TITLE_ARGS << '\n';
 	}
 	outfile << "}";
@@ -333,78 +401,54 @@ string getPos(int i, int k) {
 	return ss.str();
 }
 
-//Wrapper function to choose edge writing function based on matrix representation.
-void writeEdges(ofstream& outfile, const vector<string>& inputBitstrings, int k, bool isUpper, int edgewidth) {
-	if (isUpper)
-		writeEdgesUpper(outfile, inputBitstrings, k, edgewidth);
-	else
-		writeEdgesLower(outfile, inputBitstrings, k, edgewidth);
-}
-
-//Assuming row major
-void writeEdgesUpper(ofstream& outfile, const vector<string>& inputBitstrings, int k, int edgewidth) {
-	size_t size = inputBitstrings[0].size();
-	int i = 0, j = 1, color = 0;
+void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edgewidth) {
 	string penwidth = "";
 	if (edgewidth != 1) {
 		penwidth = (", penwidth=" + std::to_string(edgewidth));
 	}
-	for (size_t k = 0; k < size; k++) {
-		//Look at every string if they have an edge
-		color = 0;
-		for (string inputBitstring : inputBitstrings) {
-			if (inputBitstring[k] == '1')
-				outfile << "n" << i << " -- " << "n" << j << "[color=" << COLORS[color] << penwidth << "]" << "\n";
-			else if (inputBitstring[k] != '0')
-				cerr << "Unknown input: " << inputBitstring[k] << " in input bitstring.\n";
 
-			color++;
-			if (color > static_cast<int>(COLORS.size())) {
-				cerr << "Too many graphs: Add colors to colors array" << std::endl;
-				exit(EXIT_FAILURE);
+	unsigned i, j;
+	for (size_t c = 0; c < graphettes.size(); c++) {
+		switch (graphettes[c].triangularRepresentation) {
+			case TriangularRepresentation::lower:
+				i = 1;
+				j = 0;
+				break;
+			case TriangularRepresentation::upper:
+				i = 0;
+				j = 1;
+				break;
+		}
+		for (size_t k = 0; k < graphettes[c].bitstring.size(); k++) {
+			if (graphettes[c].bitstring[k] == '1')
+				outfile << "n" << i << " -- " << "n" << j << "[color=" << COLORS[c] << penwidth << ", " << EDGE_ARGS << "]" << "\n";
+			else if (graphettes[c].bitstring[k] != '0')
+				cerr << "Unknown input: " << graphettes[c].bitstring[k] << " in input bitstring.\n";
+			switch (graphettes[c].triangularRepresentation) {
+				case TriangularRepresentation::lower:
+					j++;
+					if (j == i) {
+						i++;
+						j = 0;
+					}
+					break;
+				case TriangularRepresentation::upper:
+					j++;
+					if (j == k) {
+						i++;
+						j = i + 1;
+					}
+					break;
 			}
 		}
-
-		//iterate through pretend adjecency matrix
-		j++;
-		if (j == k) {
-			i++;
-			j = i + 1;
-		}
 	}
 }
 
-//Assuming row major
-void writeEdgesLower(ofstream& outfile, const vector<string>& inputBitstrings, int k, int edgewidth) {
-	size_t size = inputBitstrings[0].size();
-	unsigned int i = 1, j = 0, color = 0;
-	string penwidth = "";
-	if (edgewidth != 1) {
-		penwidth = (", penwidth=" + std::to_string(edgewidth));
-	}
-	for (size_t k = 0; k < size; k++) {
-		//Look at every string if they have an edge
-		color = 0;
-		for (string inputBitstring : inputBitstrings) {
-			if (inputBitstring[k] == '1')
-				outfile << "n" << i << " -- " << "n" << j << "[color=" << COLORS[color] << penwidth << "]" << "\n";
-			else if (inputBitstring[k] != '0')
-				cerr << "Unknown input: " << inputBitstring[k] << " in input bitstring.\n";
-
-			color++;
-		}
-
-		//iterate through pretend adjecency matrix
-		j++;
-		if (j == i) {
-			i++;
-			j = 0;
-		}
-	}
-}
-
-void printGraphConversionInstruction(const string& filename) {
+void printGraphConversionInstruction(const Graphette2DotParams& params) {
 	stringstream ss;
-	ss << "neato -n -Tpdf \"" << filename << ".dot\" -o \"" << filename << ".pdf\"";
+	ss << "neato ";
+	if (params.outputMode == OutputMode::circular)
+		ss <<"-n ";
+	ss << "-Tpdf \"" << params.outputFile << ".dot\" -o \"" << params.outputFile << ".pdf\"";
 	std::cout << ss.str() << std::endl;
 }
