@@ -1,4 +1,5 @@
 #include <sys/file.h>
+#include <sys/mman.h>
 #include "blant.h"
 
 char* _BLANT_DIR = DEFAULT_BLANT_DIR;
@@ -63,13 +64,15 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 ** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array. 
 */
-void mapCanonMap(char* BUF, short int *K, int k) {
+short int* mapCanonMap(char* BUF, short int *K, int k) {
     int Bk = (1 <<(k*(k-1)/2));
     sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
     assert(Kfd > 0);
-    short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
-    assert(Kf == K);
+    //short int *Kf = Mmap(K, Bk*sizeof(short int), Kfd); // Using Mmap will cause error due to MAP_FIXED flag
+    short int *Kf = (short int*) mmap(K, sizeof(short int)*Bk, PROT_READ, MAP_PRIVATE, Kfd, 0);
+    assert(Kf != MAP_FAILED);
+    return Kf;
 }
 
 int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k) {
