@@ -116,6 +116,10 @@ static unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
 static unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
 static double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
+static int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_ordering to our orbits
+static int _connectedOrbits[MAX_ORBITS];
+static int _numConnectedOrbits;
+
 // If you're squeemish then use this one to access the degrees:
 #define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
@@ -1261,6 +1265,12 @@ void SetGlobalCanonMaps(void)
     int pfd = open(BUF, 0*O_RDONLY);
     Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
     assert(Permutations != MAP_FAILED);
+	_numConnectedOrbits = 0;
+	for (i=0; i < _numOrbits; i++) 
+		if (SetIn(_connectedCanonicals, _orbitCanonMapping[i])) 
+			_connectedOrbits[_numConnectedOrbits++] = i;
+	if (_outputMode == outputODV && (_k == 4) || (_k == 5))
+		orcaOrbitMappingPopulate(BUF, _orca_orbit_mapping, _k);
 }
 
 void LoadMagicTable()
@@ -1843,6 +1853,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     switch(_outputMode)
     {
 	int canon;
+	int orbit_index;
     case indexGraphlets: case indexOrbits:
 	break; // already output on-the-fly above
     case graphletFrequency:
@@ -1887,9 +1898,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         for(i=0; i<G->n; i++) {
 	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
 	    else printf("%d",i);
-	    for(j=0; j<_numOrbits; j++) if (SetIn(_connectedCanonicals, _orbitCanonMapping[j])) {
-		if (!_MCMC_UNIFORM) printf(" %lu", ODV(i,j));
-		else printf(" %.12f", _doubleOrbitDegreeVector[j][i]);
+	    for(j=0; j<_numConnectedOrbits; j++) {
+			if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
+			else orbit_index = _connectedOrbits[j];
+			if (!_MCMC_UNIFORM || _sampleMethod != SAMPLE_MCMC) printf(" %lu", ODV(i,orbit_index));
+			else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 		}
 	    printf("\n");
 	}
