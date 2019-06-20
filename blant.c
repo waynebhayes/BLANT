@@ -6,6 +6,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <sys/mman.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -126,11 +127,15 @@ static int _THREADS;
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
 // So we're allocating 256MBx3=768MB even if we need much less.  I figure anything less than 1GB isn't a big deal
 // these days. It needs to be aligned to a page boundary since we're going to mmap the binary file into this array.
-static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
+//static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
+kperm *Permutations = NULL; // Allocating memory dynamically
+
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
-static short int _K[maxBk] __attribute__ ((aligned (8192)));
+//static short int _K[maxBk] __attribute__ ((aligned (8192)));
+short int *_K = NULL; // Allocating memory dynamically
+
 
 //The number of edges required to walk a *Hamiltonion* path
 static unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
@@ -1250,11 +1255,12 @@ void SetGlobalCanonMaps(void)
     _connectedCanonicals = SetAlloc(_Bk);
     _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, _k);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, _k);
-    mapCanonMap(BUF, _K, _k);
-	sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
+    _K = (short int*) mapCanonMap(BUF, _K, _k);
+    
+    sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
-    kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
-    assert(Pf == Permutations);
+    Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
+    assert(Permutations != MAP_FAILED);
 }
 
 void LoadMagicTable()
