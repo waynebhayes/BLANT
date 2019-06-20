@@ -12,26 +12,34 @@ fi
 w=20
 k=7
 n=5
-sampleName="NBE"
+declare -a sampleName=("MCMC" "NBE")
 declare -a methodName=("MIN" "MAX" "DMIN" "DMAX" "LFMIN" "LFMAX")
-declare -a fnames=("SCerevisiae.el" "syeast.el" "IIDhuman.el")
+declare -a fnames=("SCerevisiae.el" "AThaliana.el" "CElegans.el")
 
 numUniqRep=0
-for m in "${methodName[@]}"
+for s in "${sampleName[@]}"
 do
-    for f in "${fnames[@]}"
+    for m in "${methodName[@]}"
     do
-        if ! [ -f networks/$f ]; then
-            echo "Cannot find $f in the networks folder" >&2
-            exit 1
-        fi
-        cmd="./blant -k$k -w$w -p$m -s$sampleName -mf -n$n networks/$f"
-        numUniqRep=`$cmd | sort -n  | cut -d" " -f1 | uniq | awk '{if($0 != 0) print $0}' | wc -l`
-        if [ $numUniqRep -gt $n ]; then
-            echo "Error($exitcode) Number of uniq windowRepInt is more than window samples. Impossible." >&2
-            echo "Cmd: $cmd" >&2
-            exit 1
-        fi
+        for f in "${fnames[@]}"
+        do
+            if ! [ -f networks/$f ]; then
+                echo "Cannot find $f in the networks folder" >&2
+                exit 1
+            fi
+            cmd="./blant -k$k -w$w -p$m -s$s -mf -n$n networks/$f"
+            numUniqRep=`$cmd | awk '{if($1 != 0) print $2}' | wc -l`
+            if [ $numUniqRep -gt $n ]; then
+                echo "Error: Number of uniq windowRepInt is more than window samples. Impossible." >&2
+                echo "Cmd: $cmd" >&2
+                exit 1
+            fi
+            if [ $numUniqRep -eq 0 ] && [ $n -gt 0 ]; then
+                echo "Error: Did not find any windowRepInt. Impossible." >&2
+                echo "Cmd: $cmd" >&2
+                exit 1
+            fi
+        done
     done
 done
 echo "Done Testing windowRepWindow Freq Mode"

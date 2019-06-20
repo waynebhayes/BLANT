@@ -1832,7 +1832,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     }
     if (_sampleMethod == SAMPLE_MCMC && !_window)
 	finalizeMCMC();
-    if (_outputMode == graphletFrequency)
+    if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
     switch(_outputMode)
     {
@@ -2283,7 +2283,7 @@ int main(int argc, char *argv[])
 	    else if (strncmp(optarg, "LFMAX", 5) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
 	    else
-		    Fatal("Unrecognized window sampling method specified. Options are: {MAX|MIN|MAXD|MIND|LFMAX|LFMIN}\n");
+		    Fatal("Unrecognized window searching method specified. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");
 	    break;
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
@@ -2297,7 +2297,7 @@ int main(int argc, char *argv[])
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
 		_freqDisplayMode = count;
     if (_windowSampleMethod == -1 && _window) 
-       Fatal("Haven't specified window sampling method. Options are: -p{MAX|MIN|MAXD|MIND|LFMAX|LFMIN}\n");   
+       Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
 
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval");
