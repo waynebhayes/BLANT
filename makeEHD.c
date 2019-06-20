@@ -22,13 +22,8 @@ void SetGlobalCanonMaps(int k){
     SET *_connectedCanonicals = SetAlloc(_Bk);
     int _canonList[MAX_CANONICALS];
     _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
-#if defined(__APPLE__)
-    _K = (short int*) valloc(MAX(_Bk * sizeof(short int), 8192));
-#else
-    _K = (short int*) aligned_alloc(8192, MAX(_Bk * sizeof(short int), 8192));
-#endif
-    assert(_K != NULL);
-    mapCanonMap(BUF, _K, k);
+    _K = (short int*) mapCanonMap(BUF, _K, k);
+    
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
 }
 
