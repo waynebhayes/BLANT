@@ -178,7 +178,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 {
     if(startingNode == 0) TSetEmpty(_visited);
     TSetAdd(_visited,startingNode);
-    int j, Varray[maxK], numVisited = 0;
+    unsigned int j, Varray[maxK], numVisited = 0;
     int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
     assert(numNeighbors == g->degree[startingNode]);
     for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);

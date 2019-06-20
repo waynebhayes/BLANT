@@ -179,42 +179,27 @@ int main(int argc, char* argv[]){
     k=atoi(argv[1]);
     assert(k > 2 && k <= 8);
     //reading data from canon_list file
-    char BUF[BUFSIZ], tmpName[BUFSIZ];
-#if defined(__CYGWIN32__) // yes, it's a "security" risk but mkstemp segfaults on cygwin32
-    tmpnam(tmpName);
-    FILE *tmpfp = fopen(tmpName,"w");
-#else
-    int fd = mkstemp("/tmp/make-orbit-mapsXXXXXX");
-    FILE *tmpfp = fdopen(fd,"w");
-#endif
+    char BUF[BUFSIZ];
     int numCanon = canonListPopulate(BUF, canon_list, NULL, k);
-    //making orbit_map file
     int numOrbits = 0, i, j;
+    long orbit[numCanon][k];
     for(i=0; i<numCanon; i++){
-    	long orbit[k];
-    	orbits(canon_list[i],orbit);
+    	orbits(canon_list[i],orbit[i]);
         for(j=0;j<k;j++){
-	    if(orbit[j]==j)
-		orbit[j]=numOrbits++;
+	    if(orbit[i][j]==j)
+		orbit[i][j]=numOrbits++;
 	    else
-                orbit[j]=orbit[orbit[j]];
+                orbit[i][j]=orbit[i][orbit[i][j]];
         } 
-	for(j=0;j<k;j++) {
-#if !defined(__CYGWIN32__)
-	    printf("%ld ", orbit[j]);
-#endif
-	    fprintf(tmpfp, "%ld ", orbit[j]);
-	}
-#if !defined(__CYGWIN32__)
-	printf("\n");
-#endif
-	fprintf(tmpfp, "\n");
     }
-    fclose(tmpfp);
-#if defined(__CYGWIN32__)
-    printf("%d\n", numOrbits); fflush(stdout);
-#endif
-    sprintf(BUF, "cat %s; /bin/rm -f %s\n", tmpName, tmpName);
-    system(BUF);
+
+    //output
+    printf("%d\n", numOrbits);
+    for(i=0; i<numCanon; i++){
+	for(j=0;j<k;j++) {
+	    printf("%ld ", orbit[i][j]);
+	}
+	printf("\n");
+    }
     return 0;
 }
