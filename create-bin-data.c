@@ -77,8 +77,9 @@ int main(int argc, char *argv[])
     int line;
     for(line=0; line < Bk; line++) {
 	int canonical, ordinal, isGraphlet, numRead, numEdges;
-	char perm[9];
-	fgets(buf, sizeof(buf), fp);
+	char perm[9], *tmp;
+	tmp = fgets(buf, sizeof(buf), fp); // shut the compiler up
+	assert(tmp >= 0);
 	numRead = sscanf(buf, "%d %s %d %d", &canonical, perm, &isGraphlet, &numEdges);
 #if 1
 	assert(numRead == 2 || numRead == 4);
