@@ -5,7 +5,7 @@
 #include "assert.h"
 #include <stdarg.h>
 
-static foint _DEADBEEF = {0xDEADBEEFDEADBEEF}; /* decimal rep. of DEADBEEFDEADBEEF */
+static foint _DEADBEEF = {0xDEADBEEF}; /* decimal rep. of DEADBEEFDEADBEEF */
 /* A sparse matrix is marked by *every* row having its last element
  * equal to 0xDEADBEEFDEADBEEF
  */
@@ -152,7 +152,7 @@ void VecGet(int n, double yy[n])
 {
     int i;
     for(i=0; i<n; i++)
-	scanf("%lg", &(yy[i]));
+	assert(1==scanf("%lg", &(yy[i])));
 }
 
 

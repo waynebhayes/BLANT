@@ -22,7 +22,7 @@
 
 #include "misc.h"
 
-const foint ABSTRACT_ERROR = {0xDEADBEEFDEADBEEF};
+const foint ABSTRACT_ERROR = {0xDEADBEEF};
 
 static FILE *tty;
 
