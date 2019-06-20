@@ -17,7 +17,7 @@ all:
 	$(MAKE) -j4 debug
 	$(MAKE) opt_clean
 	$(MAKE) -j4 opt
-	#(cd tests; make stats; mv stats ../bin)
+	if [ ! -x bin/stats ]; then (cd tests; make stats; mv stats ../bin); fi
 	touch made
 
 opt:
