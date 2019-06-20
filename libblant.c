@@ -99,3 +99,12 @@ int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int orbit
     fclose(fp_ord);
     return numOrbit;
 }
+
+void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
+    sprintf(BUF, "%s/%s/orca_orbit_mapping%d.txt", _BLANT_DIR, "orca_jesse_blant_table", k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find %s\n", BUF);
+    int numOrbit, i;
+    fscanf(fp_ord, "%d",&numOrbit);
+    for (i=0; i<numOrbit; i++) { fscanf(fp_ord, "%d", &orca_orbit_mapping[i]); }
+}
