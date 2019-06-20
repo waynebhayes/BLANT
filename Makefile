@@ -97,13 +97,13 @@ canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to
 	./fast-canon-map $* | cut -f2- | tee canon_maps/canon_map$*.txt | awk '!seen[$$1]{seen[$$1]=1;numEdges[n]=$$4;connected[n]=$$3;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d %d\n", map[i],connected[i],numEdges[i]}' | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
 
 canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_maps/canon_map%.bin
-	if [ -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then echo "EdgeHammingDistance8.txt takes weeks to generate, and 7 can't be done on a 32-bit machine; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; else ./makeEHD $* > $@; fi
+	@if [ -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then echo "EdgeHammingDistance8.txt takes weeks to generate, and 7 can't be done on a 32-bit machine; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; else ./makeEHD $* > $@; fi
 
 canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
 
 canon_maps/alpha_list_mcmc%.txt: compute-alphas-MCMC | canon_maps/canon_list%.txt
-	if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days to just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > $@; fi
+	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > $@; fi
 
 .INTERMEDIATE: .created-magic-tables .created-subcanon-maps
 subcanon_maps: $(subcanon_txts) ;

@@ -80,7 +80,16 @@ int main(int argc, char *argv[])
 	char perm[9];
 	fgets(buf, sizeof(buf), fp);
 	numRead = sscanf(buf, "%d %s %d %d", &canonical, perm, &isGraphlet, &numEdges);
-	if(numRead != 2 && numRead != 4)Warning("wrong number of things read on line %d",line); //This causes an error in make
+#if 1
+	assert(numRead == 2 || numRead == 4);
+#else
+	if(numRead != 2 && numRead != 4) {
+	    static int count;
+	    count++;
+	    if(count<10) Warning("wrong number of things read on line %d",line); //This should really be an assertion
+	    else Fatal("too many count errors");
+	}
+#endif
 	ordinal=canon2ordinal(numCanon, canon_list, canonical);
 	K[line]=ordinal;
 	for(i=0;i<kk;i++)perm[i] -= '0';

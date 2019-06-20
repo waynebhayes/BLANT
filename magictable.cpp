@@ -297,7 +297,11 @@ int main(int argc, char* argv[]) {
                 orbits.insert(orbitTable[i][j]);
             }
             if (orbits.size() != table[i][NUM_ORBITS]) {
-                cerr << k << '\n';
+                static int prev_k;
+                if(k != prev_k){
+                    cerr << "WARNING: (orbits.size() != table[i][NUM_ORBITS]) for k="<<k<<'\n';
+                    prev_k = k;
+                }
             }
 
             if (table[i][0]) {
