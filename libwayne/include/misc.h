@@ -54,16 +54,14 @@ typedef unsigned char Boolean;
 #define maybe (Boolean)2
 
 typedef union _voidInt {
-    long long ll;
-    long int l, l2;
-    unsigned long long ull;
-    void *v, *v2;
-    char *s, *s2;
-    char c[sizeof(long long)];
-    int i, i2;
-    unsigned int ui, ui2;
-    float f, f2;
-    double d;
+    long int l;
+    unsigned long ul;
+    void *v;
+    char *s;
+    char c[sizeof(long)];
+    int i;
+    unsigned int ui;
+    float f;
 } foint;
 
 /* The comparison function type: used by heaps, binary trees and sorts.
