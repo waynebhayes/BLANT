@@ -12,10 +12,10 @@ static foint _DEADBEEF = {0xDEADBEEFDEADBEEF}; /* decimal rep. of DEADBEEFDEADBE
 Boolean MatIsSparse(int n, int m, double const A[n][m])
 {
     int i;
-    assert(_DEADBEEF.l == 0xDEADBEEF && _DEADBEEF.l2 == 0xDEADBEEF);
+    assert(_DEADBEEF.l == 0xDEADBEEF);
     if(n==0 || m==0) return false;
     for(i=0; i<n; i++)
-	if(A[i][m-1] != _DEADBEEF.d) return false;
+	if(A[i][m-1] != _DEADBEEF.f) return false;
     return true;
 }
 
@@ -70,7 +70,7 @@ Boolean MatMakeSparse(int n, int m, double S[n][m], double const A[n][m])
     for(i=0;i<n;i++)
     {
 	int nElem = 0, col, j;
-	T[i][m-1] = _DEADBEEF.d;
+	T[i][m-1] = _DEADBEEF.f;
 	for(j=0;j<m;j++)
 	    if(A[i][j]) nElem++;
 	assert(nElem <= (m-2)/2);
