@@ -86,7 +86,7 @@ TINY_GRAPH *TinyGraphReadAdjMatrix(FILE *fp)
 {
     int i,j,n;
     TINY_GRAPH *G;
-    fscanf(fp, "%d", &n);
+    assert(1==fscanf(fp, "%d", &n));
     G = TinyGraphAlloc(n);
     for(i=0; i<n; i++) for(j=0; j<n; j++)
     {

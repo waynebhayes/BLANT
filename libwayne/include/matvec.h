@@ -6,7 +6,7 @@
 **
 ** Simplistic Sparse matrices are supported.  They take the same memory as a
 ** regular matrix (n x m), but in each row, the last element is flagged with
-** the 8-byte hexadecimal value 0xDEADBEEFBABEFACE.  The zeroth element in
+** the 4-byte hexadecimal value 0xDEADBEEF.  The zeroth element in
 ** the row is an integer (stored as a double) indicating the number of non-zero
 ** elements, say N, in that row.  Then there are N integers indicating the indices,
 ** then the actual N values.  So, for example, in a 10x10 matrix where
@@ -14,7 +14,7 @@
 ** with values 1.3, 4.7, and -3.4, then the first row *represents*
 **     0 0 0 1.3 0 0 4.7 0 0 -3.4
 ** and is physically stored like this:
-**     3 3 6 9 1.3 4.7 -3.4 X X [0xDEADBEEFBABEFACE]
+**     3 3 6 9 1.3 4.7 -3.4 X X [0xDEADBEEF]
 ** where we don't care what's stored in a place marked X.  You would loop
 ** through the values like this:
 **    assert(A[0] < physNumColumns-1);

@@ -80,7 +80,7 @@ SMALL_GRAPH *SmallGraphReadAdjMatrix(FILE *fp)
 {
     int i,j,n;
     SMALL_GRAPH *G;
-    fscanf(fp, "%d", &n);
+    assert(1==fscanf(fp, "%d", &n));
     G = SmallGraphAlloc(n);
     for(i=0; i<n; i++) for(j=0; j<n; j++)
     {

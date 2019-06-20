@@ -820,9 +820,9 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numAlphas, i;
-    fscanf(fp_ord, "%d",&numAlphas);
+    assert(1==fscanf(fp_ord, "%d",&numAlphas));
 	assert(numAlphas == _numCanon);
-    for(i=0; i<numAlphas; i++) fscanf(fp_ord, "%d", &alpha_list[i]);
+    for(i=0; i<numAlphas; i++) assert(1==fscanf(fp_ord, "%d", &alpha_list[i]));
     fclose(fp_ord);
     return numAlphas;
 }
@@ -830,35 +830,35 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
 // Update the most recent d-graphlet to a random neighbor of it
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
-	if (mcmc_d == 2)
-	{
-		int oldu = Xcurrent[0];
-		int oldv = Xcurrent[1];
-		int numTries = 0;
-		while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
+    if (mcmc_d == 2)
+    {
+	int oldu = Xcurrent[0];
+	int oldv = Xcurrent[1];
+	int numTries = 0;
+	while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
 #if PARANOID_ASSERTS
-			assert(++numTries < MAX_TRIES);
+	    assert(++numTries < MAX_TRIES);
 #endif
-			double p = RandomUniform();
-			// if 0 < p < 1, p < deg(u) + deg(v) then
-			if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
-				// select randomly from Neigh(u) and swap
-				int neighbor = (int) (G->degree[Xcurrent[0]] * RandomUniform());
-				Xcurrent[1] = G->neighbor[Xcurrent[0]][neighbor];
-			}
-			else {
-				// select randomly from Neigh(v) and swap
-				int neighbor = (int) (G->degree[Xcurrent[1]] * RandomUniform());
-				Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
-			}
-		}
-#if PARANOID_ASSERTS
-		assert(Xcurrent[0] != Xcurrent[1]);
-		assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
-		assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
-#endif
+	    double p = RandomUniform();
+	    // if 0 < p < 1, p < deg(u) + deg(v) then
+	    if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
+		// select randomly from Neigh(u) and swap
+		int neighbor = (int) (G->degree[Xcurrent[0]] * RandomUniform());
+		Xcurrent[1] = G->neighbor[Xcurrent[0]][neighbor];
+	    }
+	    else {
+		// select randomly from Neigh(v) and swap
+		int neighbor = (int) (G->degree[Xcurrent[1]] * RandomUniform());
+		Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
+	    }
 	}
-	else Fatal("Not implemented. Set d to 2");
+#if PARANOID_ASSERTS
+	assert(Xcurrent[0] != Xcurrent[1]);
+	assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
+	assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
+#endif
+    }
+    else Fatal("Not implemented. Set d to 2");
 	return Xcurrent;
 }
 
@@ -1265,34 +1265,33 @@ void SetGlobalCanonMaps(void)
     int pfd = open(BUF, 0*O_RDONLY);
     Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
     assert(Permutations != MAP_FAILED);
-	_numConnectedOrbits = 0;
-	for (i=0; i < _numOrbits; i++) 
-		if (SetIn(_connectedCanonicals, _orbitCanonMapping[i])) 
-			_connectedOrbits[_numConnectedOrbits++] = i;
-	if (_outputMode == outputODV && (_k == 4) || (_k == 5))
-		orcaOrbitMappingPopulate(BUF, _orca_orbit_mapping, _k);
+    _numConnectedOrbits = 0;
+    for (i=0; i < _numOrbits; i++) 
+	if (SetIn(_connectedCanonicals, _orbitCanonMapping[i])) 
+	    _connectedOrbits[_numConnectedOrbits++] = i;
+    if (_outputMode == outputODV && (_k == 4) || (_k == 5))
+	orcaOrbitMappingPopulate(BUF, _orca_orbit_mapping, _k);
 }
 
 void LoadMagicTable()
 {
-	int i,j;
-	char BUF[BUFSIZ];
-	sprintf(BUF, "%s/orca_jesse_blant_table/UpperToLower%d.txt", _BLANT_DIR, _k);
+    int i,j;
+    char BUF[BUFSIZ];
+    sprintf(BUF, "%s/orca_jesse_blant_table/UpperToLower%d.txt", _BLANT_DIR, _k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-	for(i=0; i<_numCanon; i++) {
+    for(i=0; i<_numCanon; i++) {
 	for(j=0; j<12 ;j++) {
-	fscanf(fp_ord, "%d", &_magicTable[i][j]);
-	}}
+	    assert(1==fscanf(fp_ord, "%d", &_magicTable[i][j]));
+	}
+    }
     fclose(fp_ord);
-	switch (_displayMode) {
-	case orca: // Load mapping from lower_ordinal to ORCA/Jesse ID into table for fast lookup
-	case jesse:
-	for (i=0; i < _numCanon; i++) {
-		_outputMapping[_magicTable[i][4]] = _magicTable[i][7];
-	}
+    switch (_displayMode) {
+    case orca: // Load mapping from lower_ordinal to ORCA/Jesse ID into table for fast lookup
+    case jesse:
+	for (i=0; i < _numCanon; i++) _outputMapping[_magicTable[i][4]] = _magicTable[i][7];
 	break;
-	}
+    }
 }
 
 void SetBlantDir() {
@@ -1938,7 +1937,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 {
     int fds[2];
-    pipe(fds);
+    assert(pipe(fds) >= 0);
     int pid = fork();
     if(pid > 0) // we are the parent
     {
@@ -1947,10 +1946,10 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
     }
     else if(pid == 0) // we are the child
     {
-	close(fds[0]); // we will not be reading from the pipe, so close it.
-	close(1); // close our usual stdout
-	dup(fds[1]); // copy the write end of the pipe to fd 1.
-	close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
+	(void)close(fds[0]); // we will not be reading from the pipe, so close it.
+	(void)close(1); // close our usual stdout
+	assert(dup(fds[1])>=0); // copy the write end of the pipe to fd 1.
+	(void)close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
 
 	// For any "counting" mode, use internal numbering when communicating through pipes to the parent
 	if(_outputMode != indexGraphlets && _outputMode != indexOrbits) _supportNodeNames = false;
@@ -2028,7 +2027,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
 	    if(!fpThreads[thread]) continue;
-	    fgets(line, sizeof(line), fpThreads[thread]);
+	    assert(fgets(line, sizeof(line), fpThreads[thread])>=0);
 	    if(feof(fpThreads[thread])) // assume if any one of them finishes, we are done.
 	    {
 		fclose(fpThreads[thread]);
