@@ -185,10 +185,10 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
     return 1+numVisited;
 }
 
-static int _numConnectedComponents;
-static int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
-static int *_componentSize; // number of nodes in each CC
-static int **_componentList; // list of lists of components, largest to smallest.
+static unsigned int _numConnectedComponents;
+static unsigned int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
+static unsigned int *_componentSize; // number of nodes in each CC
+static unsigned int **_componentList; // list of lists of components, largest to smallest.
 static double _totalCombinations, *_combinations, *_probOfComponent, *_cumulativeProb;
 static SET **_componentSet;
 
@@ -275,6 +275,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 	}
 	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
     }
+    return _numConnectedComponents;
 }
 
 // Given the big graph G and an integer k, return a k-graphlet from G
@@ -586,7 +587,9 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     while(vCount < k)
     {
 	int i, whichNeigh, newNode = -1;
-	while(numTries < MAX_TRIES && SetIn(internal, (whichNeigh = outDegree * RandomUniform())))
+	while(numTries < MAX_TRIES &&
+		(whichNeigh = outDegree * RandomUniform()) >= 0 && // always true, just setting whichNeigh
+		SetIn(internal, whichNeigh))
 	    ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
 	if(numTries >= MAX_TRIES) {
 #if ALLOW_DISCONNECTED_GRAPHLETS
@@ -813,6 +816,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #else
     SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
 #endif
+    return V;
 }
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
@@ -1201,8 +1205,8 @@ static int StateDegree(GRAPH *G, SET *S)
 }
 
 
-static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // slower
-static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { } // faster!
+static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { return V; } // slower
+static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { return V; } // faster!
 
 
 /*
@@ -1586,9 +1590,9 @@ void updateWindowRep(int *windowRepInt, int *D, int GintOrdinal, int pending_D, 
     else if (_windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_MAX_D)
     {
         if (_windowSampleMethod == WINDOW_SAMPLE_MIN_D) 
-            if(pending_D < *D || pending_D == *D && GintOrdinal < *windowRepInt) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
+            if(pending_D < *D || (pending_D == *D && GintOrdinal < *windowRepInt)) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
         if (_windowSampleMethod == WINDOW_SAMPLE_MAX_D)
-            if(pending_D < *D || pending_D == *D && GintOrdinal > *windowRepInt) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
+            if(pending_D < *D || (pending_D == *D && GintOrdinal > *windowRepInt)) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
         if(pending_D == *D && GintOrdinal == *windowRepInt)
         {
             for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[i]];
@@ -1961,6 +1965,8 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
     }
     else
 	Abort("fork failed");
+    assert(false);
+    return NULL; //  should never get here, but quell compiler warning.
 }
 
 
@@ -2152,8 +2158,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
-const char const * const USAGE = \
-
+const char const * const USAGE = 
     "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence -w width} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
