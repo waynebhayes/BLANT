@@ -1,5 +1,6 @@
 #include <sys/file.h>
 #include <sys/mman.h>
+#include <assert.h>
 #include "blant.h"
 
 char* _BLANT_DIR = DEFAULT_BLANT_DIR;
@@ -108,6 +109,6 @@ void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numOrbit, i;
-    fscanf(fp_ord, "%d",&numOrbit);
+    assert(1==fscanf(fp_ord, "%d",&numOrbit));
     for (i=0; i<numOrbit; i++) { assert(1==fscanf(fp_ord, "%d", &orca_orbit_mapping[i])); }
 }

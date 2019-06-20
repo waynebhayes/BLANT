@@ -2027,7 +2027,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
 	    if(!fpThreads[thread]) continue;
-	    assert(fgets(line, sizeof(line), fpThreads[thread])>=0);
+	    char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
+	    assert(tmp>=0);
 	    if(feof(fpThreads[thread])) // assume if any one of them finishes, we are done.
 	    {
 		fclose(fpThreads[thread]);
