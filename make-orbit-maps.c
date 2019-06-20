@@ -171,7 +171,7 @@ void getCycle(int permutation[], int cycle[], int seed, int current, Boolean vis
         getCycle(permutation, cycle, seed, permutation[current], visited);
 }
 
-void main(int argc, char* argv[]){
+int main(int argc, char* argv[]){
     if(argc != 2) {
 	fprintf(stderr, "USAGE: %s k\n", argv[0]);
 	exit(1);
@@ -202,4 +202,5 @@ void main(int argc, char* argv[]){
     printf("%d\n", numOrbits); fflush(stdout);
     sprintf(BUF, "cat %s; /bin/rm -f %s\n", tmpName, tmpName);
     system(BUF);
+    return 0;
 }
