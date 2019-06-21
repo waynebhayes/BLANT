@@ -82,6 +82,7 @@ void GraphPrintAdjList(FILE *fp, GRAPH *G);
 GRAPH *GraphReadAdjList(FILE *fp, Boolean sparse);
 GRAPH *GraphFromEdgeList(int numNodes, int numEdges, int *pairs, Boolean sparse);
 GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames);
+int GraphNodeName2Int(GRAPH *G, char *name);
 void GraphPrintConnections(FILE *fp, GRAPH *G);
 GRAPH *GraphReadConnections(FILE *fp, Boolean sparse);
 int GraphNumEdges(GRAPH *G); // total number of edges, just the sum of the degrees / 2.

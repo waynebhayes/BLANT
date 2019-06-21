@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
+#include <assert.h>
 #include "longlong.h"
 
 char *lltoa(char *foo, long long n)
@@ -90,6 +91,6 @@ long long atoll(char *p)
 long long getll(FILE *fp)
 {
     char word[22];
-    fscanf(fp, "%s", word);
+    assert(1==fscanf(fp, "%s", word));
     return atoll(word);
 }

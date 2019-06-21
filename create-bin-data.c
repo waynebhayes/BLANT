@@ -77,10 +77,20 @@ int main(int argc, char *argv[])
     int line;
     for(line=0; line < Bk; line++) {
 	int canonical, ordinal, isGraphlet, numRead, numEdges;
-	char perm[9];
-	fgets(buf, sizeof(buf), fp);
+	char perm[9], *tmp;
+	tmp = fgets(buf, sizeof(buf), fp); // shut the compiler up
+	assert(tmp >= 0);
 	numRead = sscanf(buf, "%d %s %d %d", &canonical, perm, &isGraphlet, &numEdges);
+#if 1
 	assert(numRead == 2 || numRead == 4);
+#else
+	if(numRead != 2 && numRead != 4) {
+	    static int count;
+	    count++;
+	    if(count<10) Warning("wrong number of things read on line %d",line); //This should really be an assertion
+	    else Fatal("too many count errors");
+	}
+#endif
 	ordinal=canon2ordinal(numCanon, canon_list, canonical);
 	K[line]=ordinal;
 	for(i=0;i<kk;i++)perm[i] -= '0';

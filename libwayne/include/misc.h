@@ -54,16 +54,14 @@ typedef unsigned char Boolean;
 #define maybe (Boolean)2
 
 typedef union _voidInt {
-    long long ll;
-    long int l, l2;
-    unsigned long long ull;
-    void *v, *v2;
-    char *s, *s2;
-    char c[sizeof(long long)];
-    int i, i2;
-    unsigned int ui, ui2;
-    float f, f2;
-    double d;
+    long int l;
+    unsigned long ul;
+    void *v;
+    char *s;
+    char c[sizeof(long)];
+    int i;
+    unsigned int ui;
+    float f;
 } foint;
 
 /* The comparison function type: used by heaps, binary trees and sorts.
@@ -109,6 +107,12 @@ void *Memdup(void *v, size_t n);
 double uTime(void);
 
 char *Int2BitString(char word[33], unsigned i);
+
+FILE* readFile(char* fileName, int* piped);
+const char* getDecompressionProgram(char* fileName);
+FILE* decompressFile(const char* decompProg, char* fileName);
+void closeFile(FILE* fp, int* isPiped);
+const char* getFileExtension(char* filename);
 
 /*
 ** Be careful!  These may not work as you think if i is not unsigned.

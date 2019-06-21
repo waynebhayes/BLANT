@@ -2,6 +2,7 @@
 #include "sets.h"
 #include "graph.h"
 #include "queue.h"
+#include "rand48.h"
 #include "Oalloc.h"
 #include <assert.h>
 #include <string.h>
@@ -417,6 +418,20 @@ GRAPH *GraphFromEdgeList(int n, int m, int *pairs, Boolean sparse)
     return G;
 }
 
+// Returns a *constant* string; you need to dup it if you want to keep it
+char *HashString(char *s)
+{
+    static char *hash;
+    static int buflen;
+    int n = strlen(s);
+    if(buflen < n+1){
+	buflen = 2*n+1;
+	hash = realloc(hash, buflen); // realloc accepts NULL
+	assert(hash);
+    }
+    return hash;
+}
+
 GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
 {
     int numNodes=0;
@@ -433,7 +448,8 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
 	nameDict = BinTreeAlloc(unbalanced, (pCmpFcn)strcmp, (pFointCopyFcn)strdup, (pFointFreeFcn)free, NULL, NULL);
     }
 
-    while(!feof(fp))
+    char line[BUFSIZ];
+    while(fgets(line, sizeof(line), fp))
     {
 	int v1, v2;
 	assert(numEdges <= maxEdges);
@@ -451,8 +467,10 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
 		names = Realloc(names, maxNodes*sizeof(char*));
 	    }
 	    char name1[BUFSIZ], name2[BUFSIZ];
-	    if(fscanf(fp, "%s%s ", name1, name2) != 2)
-		Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 strings\n", numEdges);
+	    if(sscanf(line, "%s%s ", name1, name2) != 2)
+		Fatal("GraphReadEdgeList: line %d does not contain 2 strings\n", numEdges);
+	    if(strcmp(name1,name2)==0)
+		Fatal("GraphReadEdgeList: line %d has self-loop (%s to itself)\n", numEdges,name1);
 	    foint f1, f2;
 	    if(!BinTreeLookup(nameDict, (foint)name1, &f1))
 	    {
@@ -470,15 +488,17 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
 	}
 	else
 	{
-	    if(fscanf(fp, "%d%d ", &v1, &v2) != 2)
+	    if(sscanf(line, "%d%d ", &v1, &v2) != 2)
 		Fatal("GraphReadEdgeList: tried to read pairs number %d but couldn't find 2 ints\n", numEdges);
+	    if(v1==v2)
+		Fatal("GraphReadEdgeList: line %d has self-loop (%d to itself)\n", numEdges,v1);
 	    numNodes = MAX(numNodes, v1);
 	    numNodes = MAX(numNodes, v2);
 	}
+	if(v1 == v2)
+	    Fatal("GraphReadEdgeList: line %d: graph cannot cannot have self-loops\n", numEdges);
 	pairs[2*numEdges] = v1;
 	pairs[2*numEdges+1] = v2;
-	if(pairs[2*numEdges] == pairs[2*numEdges+1])
-	    Fatal("GraphReadEdgeList: edge %d has equal nodes; cannot have self-loops\n", numEdges);
 	if(pairs[2*numEdges] > pairs[2*numEdges+1])
 	{
 	    int tmp = pairs[2*numEdges];
@@ -505,7 +525,10 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
 
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, sparse);
     if((G->supportNodeNames = supportNodeNames))
+    {
+	G->nameDict = nameDict;
 	G->name = names;
+    }
     Free(pairs);
     assert(G->maxEdges <= maxEdges);
     assert(G->numEdges <= numEdges);
@@ -516,6 +539,14 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
     }
     return G;
 }
+
+int GraphNodeName2Int(GRAPH *G, char *name)
+{
+    foint info;
+    assert(BinTreeLookup(G->nameDict, (foint)name, &info));
+    return info.i;
+}
+
 
 void GraphPrintConnections(FILE *fp, GRAPH *G)
 {
@@ -660,7 +691,7 @@ int GraphBFS(GRAPH *G, int root, int distance, int *nodeArray, int *distArray)
 }
 
 Boolean GraphCCatLeastK(GRAPH *G, int v, int k) {
-    SET* visited = SetAlloc(k);
+    SET* visited = SetAlloc(G->n);
     Boolean result = _GraphCCatLeastKHelper(G, visited, v, &k);
     SetFree(visited);
     return result;

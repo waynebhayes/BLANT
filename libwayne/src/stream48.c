@@ -6,7 +6,7 @@
 long Stream48Randomize (void)
 {
     static long seed;
-    seed += time((long *) 0);
+    seed += time((long *) 0)+getpid();
     srand48 (seed);
     return seed;
 }

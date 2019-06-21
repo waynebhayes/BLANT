@@ -1,4 +1,6 @@
 #include <sys/file.h>
+#include <sys/mman.h>
+#include <assert.h>
 #include "blant.h"
 
 char* _BLANT_DIR = DEFAULT_BLANT_DIR;
@@ -63,13 +65,15 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 ** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array. 
 */
-void mapCanonMap(char* BUF, short int *K, int k) {
+short int* mapCanonMap(char* BUF, short int *K, int k) {
     int Bk = (1 <<(k*(k-1)/2));
     sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
     assert(Kfd > 0);
-    short int *Kf = Mmap(K, Bk*sizeof(K[0]), Kfd);
-    assert(Kf == K);
+    //short int *Kf = Mmap(K, Bk*sizeof(short int), Kfd); // Using Mmap will cause error due to MAP_FIXED flag
+    short int *Kf = (short int*) mmap(K, sizeof(short int)*Bk, PROT_READ, MAP_PRIVATE, Kfd, 0);
+    assert(Kf != MAP_FAILED);
+    return Kf;
 }
 
 int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k) {
@@ -77,22 +81,34 @@ int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int 
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numCanon, i, connected, numEdges;
-    fscanf(fp_ord, "%d",&numCanon);
+    assert(1==fscanf(fp_ord, "%d",&numCanon));
     for(i=0; i<numCanon; i++) {
-	fscanf(fp_ord, "%d %d %d", &canon_list[i], &connected, &numEdges);
+	assert(3==fscanf(fp_ord, "%d %d %d", &canon_list[i], &connected, &numEdges));
 	if(connectedCanonicals && connected) SetAdd(connectedCanonicals, i);
     }
     fclose(fp_ord);
     return numCanon;
 }
 	
-int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int k) {
+int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k) {
     sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numOrbit, i, j;
-    fscanf(fp_ord, "%d",&numOrbit);
-    for(i=0; i<numOrbit; i++) for(j=0; j<k; j++)fscanf(fp_ord, "%d", &orbit_list[i][j]);
+    assert(1==fscanf(fp_ord, "%d",&numOrbit));
+    for(i=0; i<numCanon; i++) for(j=0; j<k; j++) {
+	assert(1==fscanf(fp_ord, "%d", &orbit_list[i][j]));
+	orbit_canon_mapping[orbit_list[i][j]] = i;
+    }
     fclose(fp_ord);
     return numOrbit;
+}
+
+void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
+    sprintf(BUF, "%s/%s/orca_orbit_mapping%d.txt", _BLANT_DIR, "orca_jesse_blant_table", k);
+    FILE *fp_ord=fopen(BUF, "r");
+    if(!fp_ord) Fatal("cannot find %s\n", BUF);
+    int numOrbit, i;
+    assert(1==fscanf(fp_ord, "%d",&numOrbit));
+    for (i=0; i<numOrbit; i++) { assert(1==fscanf(fp_ord, "%d", &orca_orbit_mapping[i])); }
 }

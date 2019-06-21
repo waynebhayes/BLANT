@@ -32,7 +32,8 @@ extern char* _BLANT_DIR;
 
 void BuildGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
-void mapCanonMap(char* BUF, short int *K, int k);
+short int* mapCanonMap(char* BUF, short int *K, int k);
 int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k);
-int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int k);
+int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k);
+void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp

@@ -7,7 +7,8 @@
 #include "blant.h"
 
 // Here we are allocating 256MB x sizeof(short int) = 512MB for the canon map.
-static short int K[maxBk] __attribute__ ((aligned (8192)));
+//static short int K[maxBk] __attribute__ ((aligned (8192)));
+static short int *K; // Allocating space dynamically
 static int canon_list[MAX_CANONICALS];
 
 int main(int argc, char* argv[]) {
@@ -20,7 +21,7 @@ int main(int argc, char* argv[]) {
     int numCanon = canonListPopulate(BUF, canon_list, NULL, k);
 
     //Create canon map for k-1
-    mapCanonMap(BUF, K, k-1);
+    K = mapCanonMap(BUF, K, k-1);
 
     /*
         For every canonical in canonical_list
