@@ -386,6 +386,10 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 {
     /* Faye: Add a visited array to keep track of nodes. Initialize to 0 */
     int visited[G->n];
+    int m = 0;
+    for (m = 0; m < G->n; m++) {
+        visited[m] = 0;
+    }
     static SET *outSet;
     static int numIsolatedNodes;
     if(!outSet)
@@ -457,7 +461,7 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    depth++;
 	    // must terminate eventually as long as there's at least one connected component with >=k nodes.
 	    assert(depth < MAX_TRIES); // graph is too disconnected
-	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
+	    V = SampleGraphletFaye(V, Varray, G, k, whichCC);
 	    depth--;
 	    // Ensure the damn thing really *is* connected.
 	    TINY_GRAPH *T = TinyGraphAlloc(k);
