@@ -110,7 +110,8 @@ canon_maps/alpha_list_mcmc%.txt: compute-alphas-MCMC | canon_maps/canon_list%.tx
 subcanon_maps: $(subcanon_txts) ;
 $(subcanon_txts): .created-subcanon-maps
 .created-subcanon-maps: make-subcanon-maps | $(canon_list_txts) $(canon_map_bins)
-	for k in $(K); do ./make-subcanon-maps $$k > canon_maps/subcanon_map$$k-$$(($$k-1)).txt; done
+	# only do it for k > 3 since it's 4-3, 5-4, etc.
+	for k in $(K); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k > canon_maps/subcanon_map$$k-$$(($$k-1)).txt; fi; done
 		
 magic_table: $(magic_table_txts) ;  	
 $(magic_table_txts): .created-magic-tables
