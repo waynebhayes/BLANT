@@ -1391,6 +1391,16 @@ static int _KovacsMotifCount[MAX_CANONICALS][maxK][maxK]; //pre-computed matrice
 // The perm array tells us how to map nodes in g all the way back to nodes in topCanon.
 void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
 {
+    static Boolean initDone;
+    static SET *seen; // size 2^B(k), *not* canonical but a specific set of nodes and edges in the *top* graphlet
+    static TINY_GRAPH *gTop;
+    if(!initDone) {
+	assert(_Bk>0);
+	seen = SetAlloc(_Bk);
+	assert(_k>= 3 && _k <= 8);
+	gTop = TinyGraphAlloc(_k);
+	initDone = true;
+    }
     static int depth;
 #if PARANOID_ASSERTS
     assert(g->n == _k);
@@ -1413,6 +1423,15 @@ void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
     // one we were passed:
     assert(PERMS_CAN2NON);
     for(i=0;i<_k;i++) permComposed[i] = perm[(int)gPerm[i]];
+    TinyGraphEdgesAllDelete(gTop); // build this motif at the top level locations
+    for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
+	if(TinyGraphAreConnected(g,i,j)) TinyGraphConnect(gTop,permComposed[i],permComposed[j]);
+    int gIntTop = TinyGraph2Int(gTop,_k);
+    assert(gIntTop < _Bk);
+
+    // If we have seen this exact non-canonical motif in the top-level set of nodes, we don't need to see them again.
+    if(SetIn(seen, gIntTop)) return;
+    SetAdd(seen,gIntTop);
    
     // Check to see if the whole thing is the cononical of interest before we start removing edges.
     if(GintOrdinal == _kovacsOrdinal) {
@@ -1429,7 +1448,7 @@ void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
     // Now go about deleting edges recursively.
     for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
     {
-	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it and recurse.
+	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, then delete it, recurse, and re-attach upon return.
 	{
 	    TinyGraphDisconnect(g,i,j);
 	    if(TinyGraphDFSConnected(g,0)) {
