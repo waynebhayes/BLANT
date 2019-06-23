@@ -1383,18 +1383,18 @@ void VarraySort(int *Varray, int k)
 
 static int _kovacsOrdinal = -1;
 static int _kovacsOrbit1 = -1, _kovacsOrbit2=-1; // the columns (ie orbits) you want
-static int **_KovacsCount; // will be allocated lower triangle of n by n matrix of node-pair counts
-static int _KovacsMotifCount[MAX_CANONICALS][maxK][maxK]; //pre-computed matrices of 64-bit ints take only about 6MB
+static float **_KovacsScore, **_KovacsNorm; // will be allocated lower triangle of n by n matrix of node-pair counts
+static   int _KovacsMotifCount[MAX_CANONICALS][maxK][maxK]; //pre-computed matrices of 64-bit ints take only about 6MB
+static float _KovacsMotifNorm[MAX_CANONICALS][maxK][maxK]; 
 
 // Recursively count the specified orbits in the specified canonical motifs of g.
 // The topOrdinal is the canonical graphlet who's count we're computing as we descend the recursion to
 // enumerate all the counts of the One True Motif's node pairs the user has given us (eg, the L3).
 // The perm array tells us how to map nodes in g all the way back to nodes in topCanon.
-void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
+void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, TINY_GRAPH *gTop, char perm[maxK])
 {
     static Boolean initDone;
     static SET *seen; // size 2^B(k), *not* canonical but a specific set of nodes and edges in the *top* graphlet
-    static TINY_GRAPH *gTop;
     if(!initDone) {
 	assert(_Bk>0);
 	seen = SetAlloc(_Bk);
@@ -1437,12 +1437,16 @@ void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
     // Check to see if the whole thing is the cononical of interest before we start removing edges.
     if(GintOrdinal == _kovacsOrdinal) {
 	assert(PERMS_CAN2NON);
-        for(i=0;i<_k-1;i++)
-            if(_orbitList[GintOrdinal][i] == _kovacsOrbit1)
-                for(j=i+1;j<_k;j++)
-                    if(_orbitList[GintOrdinal][j] == _kovacsOrbit2)
-			if(!TinyGraphAreConnected(g,i,j)) // increment the count if there's no edge already here in the *MOTIF*
-			    ++_KovacsMotifCount[topOrdinal][(int)permComposed[i]][(int)permComposed[j]];
+        for(i=0;i<_k-1;i++) for(j=i+1;j<_k;j++) {
+	    int uTop = permComposed[i], vTop = permComposed[j];
+            if(_orbitList[GintOrdinal][i] == _kovacsOrbit1 && _orbitList[GintOrdinal][j] == _kovacsOrbit2){
+		    if(!TinyGraphAreConnected(g,i,j)) // increment the count if there's no edge already here in the *MOTIF*
+			++_KovacsMotifCount[topOrdinal][uTop][vTop];
+	    } else {
+		if(TinyGraphAreConnected(g,i,j))
+		    _KovacsMotifNorm[topOrdinal][uTop][vTop] += sqrt(gTop->degree[uTop]*gTop->degree[vTop]);
+	    }
+	}
 	// Stop the recursion since removing more edges can't possibly get the _kovacsOrdinal again.
 	return;
     }
@@ -1454,7 +1458,7 @@ void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
 	    TinyGraphDisconnect(g,i,j);
 	    if(TinyGraphDFSConnected(g,0)) {
 		++depth;
-		PreComputeKovacs(g,topOrdinal,permComposed);
+		PreComputeKovacs(g,topOrdinal,gTop,permComposed);
 		--depth;
 	    }
 	    TinyGraphConnect(g,i,j);
@@ -1462,7 +1466,75 @@ void PreComputeKovacs(TINY_GRAPH *g, int topOrdinal, char perm[maxK])
     }
 }
 
-void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
+// Recursively count the specified orbits in the specified canonical motifs of g.
+void ProcessKovacsNorm(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
+{
+    static int depth;
+    static Boolean initDone;
+    static SET *seen; // size 2^B(k), *not* canonical but a specific set of nodes and edges in the *top* graphlet
+    if(!initDone) {
+	assert(_Bk>0);
+	seen = SetAlloc(_Bk);
+	assert(_k>= 3 && _k <= 8);
+	initDone = true;
+    }
+
+    if(depth==0) {
+	SetReset(seen);
+    }
+
+#if PARANOID_ASSERTS
+    assert(g->n == _k);
+    assert(TinyGraphDFSConnected(g, 0));
+#endif
+
+    int i,j, Gint = TinyGraph2Int(g,_k), GintOrdinal=_K[Gint];
+    if(SetIn(seen,Gint)) return;
+    SetAdd(seen,Gint);
+
+    // Check to see if the whole thing is the cononical of interest before we start removing edges.
+    if(GintOrdinal == _kovacsOrdinal) {
+	char perm[maxK];
+	memset(perm, 0, _k);
+	ExtractPerm(perm, Gint);
+	for(i=0;i<_k-1;i++) for(j=i+1;j<_k;j++) // if(TinyGraphAreConnected(g,i,j))
+	{
+	    int u = Varray[(int)perm[i]], v= Varray[(int)perm[j]];
+	    if(_orbitList[GintOrdinal][i] == _kovacsOrbit1 && _orbitList[GintOrdinal][j] == _kovacsOrbit2)
+	    {
+		int l;
+		double norm = 1;
+		for(l=0;l<_k;l++) if(l!=i&&l!=j) norm *= G->degree[Varray[(int)perm[l]]];
+		norm = pow(norm, 1./(_k-2)); // other values, such as _k-1, sometimes work better.
+		_KovacsScore[MAX(u,v)][MIN(u,v)] += 1./norm;
+	    }
+	}
+#if 0
+	printf("\tM %d ",depth);
+	PrintCanonical(GintOrdinal);
+	for(l=0;l<_k;l++) {printf(" "); PrintNode(Varray[(int)perm[l]]);}
+	putchar('\n');
+#endif
+	// Stop the recursion since removing more edges can't possibly get the canonical again.
+	return;
+    }
+    // Now go about deleting edges recursively.
+    for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
+    {
+	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it.
+	{
+	    TinyGraphDisconnect(g,i,j);
+	    if(TinyGraphDFSConnected(g,0)) {
+		++depth;
+		ProcessKovacsNorm(g,G,Varray);
+		--depth;
+	    }
+	    TinyGraphConnect(g,i,j);
+	}
+    }
+}
+
+void ProcessKovacsPreComputed(TINY_GRAPH *g, unsigned Varray[])
 {
     static int depth;
 #if PARANOID_ASSERTS
@@ -1480,8 +1552,10 @@ void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
 	{
 	    int u = Varray[(int)perm[i]], v = Varray[(int)perm[j]];
 	    assert(u!=v);
-	    // Order of nodes doesn't matter, and _KovacsCount is only the lower triangle of node pairs.
-	    _KovacsCount[MAX(u,v)][MIN(u,v)] += _KovacsMotifCount[GintOrdinal][i][j];
+	    // Order of nodes doesn't matter, and _KovacsScore is only the lower triangle of node pairs.
+	    float norm = 1;
+	    if(_KovacsMotifNorm[GintOrdinal][i][j]) norm = _KovacsMotifNorm[GintOrdinal][i][j];
+	    _KovacsScore[MAX(u,v)][MIN(u,v)] += _KovacsMotifCount[GintOrdinal][i][j]/norm;
 	}
 }
 
@@ -1513,7 +1587,8 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	puts("");
 	break;
     case kovacsPairs:
-	ProcessKovacs(g,Varray);
+	// ProcessKovacsPreComputed(g,Varray);
+	ProcessKovacsNorm(g,G,Varray);
 	break;
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
@@ -1903,10 +1978,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break;
     case kovacsPairs:
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++)
-	    if(_KovacsCount[i][j]) {  // only output node pairs with non-zero counts
-		if(_supportNodeNames) printf("%s\t%s",_nodeNames[i],_nodeNames[j]);
+	    if(_KovacsScore[i][j]) {  // only output node pairs with non-zero counts
+		if(_supportNodeNames){
+		    char *s1 = _nodeNames[i], *s2 = _nodeNames[j];
+		    if(strcmp(s1,s2) < 0) printf("%s\t%s",s1,s2);
+		    else                  printf("%s\t%s",s2,s1);
+		}
 		else printf("%d\t%d", i, j);
-		printf("\t%d\n", _KovacsCount[i][j]);
+		printf("\t%g\n", _KovacsScore[i][j]);
 	    }
 	break;
     case outputGDV:
@@ -1943,8 +2022,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) Free(_doubleOrbitDegreeVector[i]);
     if(_outputMode == kovacsPairs) {
 	int i;
-	for(i=0; i<G->n;i++) Free(_KovacsCount[i]);
-	Free(_KovacsCount);
+	for(i=0; i<G->n;i++){Free(_KovacsScore[i]);Free(_KovacsNorm[i]);}
+	Free(_KovacsScore); Free(_KovacsNorm);
     }
     TinyGraphFree(g);
     SetFree(V);
@@ -2011,15 +2090,17 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode == kovacsPairs) {
-	_KovacsCount = Calloc(G->n, sizeof(*_KovacsCount));
-	for(i=0; i<G->n;i++) _KovacsCount[i] = Calloc(i, sizeof(**_KovacsCount));
+	_KovacsScore = Calloc(G->n, sizeof(*_KovacsScore));
+	_KovacsNorm = Calloc(G->n, sizeof(*_KovacsNorm));
+	for(i=0; i<G->n;i++) _KovacsScore[i] = Calloc(i, sizeof(**_KovacsScore));
+	for(i=0; i<G->n;i++) _KovacsNorm[i] = Calloc(i, sizeof(**_KovacsNorm));
 	// The user uses the orbitID *relative* to the first "true" orbit listed in the orbit map,
 	// so now convert that relative orbit ID to an absolute one.
 	_kovacsOrbit1 += _orbitList[_kovacsOrdinal][0];
 	_kovacsOrbit2 += _orbitList[_kovacsOrdinal][0];
 	//printf("kC %d k1 %d k2 %d\n",_kovacsOrdinal,_kovacsOrbit1,_kovacsOrbit2);
 	//printf("Kord %d Kcanon %d _K %d\n",_kovacsOrdinal, _canonList[_kovacsOrdinal], _K[_canonList[_kovacsOrdinal]]);
-	TINY_GRAPH *T = TinyGraphAlloc(_k);
+	TINY_GRAPH *T = TinyGraphAlloc(_k), *topT = NULL;
 	int canonOrdinal;
 	for(canonOrdinal=0; canonOrdinal<_numCanon; canonOrdinal++) {
 	    if(!SetIn(_connectedCanonicals, canonOrdinal)) continue;
@@ -2027,10 +2108,11 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    assert(_K[canonInt] == canonOrdinal);
 	    TinyGraphEdgesAllDelete(T);
 	    BuildGraph(T, canonInt);
+	    topT = TinyGraphCopy(topT, T);
 	    if(TinyGraphDFSConnected(T,0)) {
 		char j, perm[maxK];
 		for(j=0;j<_k;j++) perm[j]=j; // start with the identity permutation for the canonical
-		PreComputeKovacs(T, canonOrdinal, perm);
+		PreComputeKovacs(T, canonOrdinal, topT, perm);
 	    }
 	}
     }
@@ -2066,6 +2148,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    char *nextChar = line;
 	    unsigned long int count;
 	    int canon, orbit, numRead, nodeId, value;
+	    float fValue;
 	    switch(_outputMode)
 	    {
 	    case graphletFrequency:
@@ -2118,9 +2201,9 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			fputs(line, stdout);
 		break;
 	    case kovacsPairs:
-		numRead = sscanf(line, "%d%d%d",&i,&j,&value);
+		numRead = sscanf(line, "%d%d%f",&i,&j,&fValue);
 		assert(numRead == 3);
-		_KovacsCount[i][j] += value;
+		_KovacsScore[i][j] += fValue;
 		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
