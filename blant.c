@@ -1347,17 +1347,18 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 
 void PrintCanonical(int GintOrdinal)
 {
-    int j, GintNumBits = _k*(_k-1)/2;
+    int j, GintNumBits;
     char GintBinary[GintNumBits+1]; //Only used in -db output mode for indexing
     switch (_displayMode) {
     case undefined:
     case ordinal:
-	printf("%d", GintOrdinal); // Note this is the ordinal of the canonical, not its bit representation
+	printf("%d", GintOrdinal);
 	break;
     case decimal: //Prints the decimal integer form of the canonical
 	printf("%d", _canonList[GintOrdinal]);
 	break;
     case binary: //Prints the bit representation of the canonical
+	GintNumBits = _k*(_k-1)/2;
 	for (j=0;j<GintNumBits;j++)
 	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';
@@ -1465,6 +1466,7 @@ void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
 {
     static int depth;
 #if PARANOID_ASSERTS
+    assert(PERMS_CAN2NON);
     assert(g->n == _k);
     assert(TinyGraphDFSConnected(g, 0));
 #endif
@@ -1476,7 +1478,6 @@ void ProcessKovacs(TINY_GRAPH *g, unsigned Varray[])
     for(i=0;i<_k-1;i++)
 	for(j=i+1;j<_k;j++)
 	{
-	    assert(PERMS_CAN2NON);
 	    int u = Varray[(int)perm[i]], v = Varray[(int)perm[j]];
 	    assert(u!=v);
 	    // Order of nodes doesn't matter, and _KovacsCount is only the lower triangle of node pairs.
@@ -1506,7 +1507,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	PrintCanonical(GintOrdinal);
 	for(j=0;j<k;j++) {
 	    printf(" ");
-	    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+	    assert(PERMS_CAN2NON);
 	    PrintNode(Varray[(int)perm[j]]);
 	}
 	puts("");
@@ -1902,13 +1903,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break;
     case kovacsPairs:
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++)
-	{
-	    int total = _KovacsCount[i][j];
-	    if(total == 0) continue;
-	    if(_supportNodeNames) printf("%s %s",_nodeNames[i],_nodeNames[j]);
-	    else printf("%d %d",i,j);
-	    printf(" %d\n",total);
-	}
+	    if(_KovacsCount[i][j]) {  // only output node pairs with non-zero counts
+		if(_supportNodeNames) printf("%s\t%s",_nodeNames[i],_nodeNames[j]);
+		else printf("%d\t%d", i, j);
+		printf("\t%d\n", _KovacsCount[i][j]);
+	    }
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
@@ -1925,11 +1924,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
 	    else printf("%d",i);
 	    for(j=0; j<_numConnectedOrbits; j++) {
-			if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
-			else orbit_index = _connectedOrbits[j];
-			if (!_MCMC_UNIFORM || _sampleMethod != SAMPLE_MCMC) printf(" %lu", ODV(i,orbit_index));
-			else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
-		}
+		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
+		else orbit_index = _connectedOrbits[j];
+		if (!_MCMC_UNIFORM || _sampleMethod != SAMPLE_MCMC) printf(" %lu", ODV(i,orbit_index));
+		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
+	    }
 	    printf("\n");
 	}
         break;
@@ -2050,18 +2049,17 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     int lineNum = 0;
     do
     {
-	#define MAX_WORDSIZE 20 // the maximum string length of a 64-bit int written in base 10
-	char line[MAX_ORBITS * (MAX_WORDSIZE + 1) + 1]; // one space between words, plus a newline 
+	char line[MAX_ORBITS * BUFSIZ];
 	int thread;
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
-	    if(!fpThreads[thread]) continue;
+	    if(!fpThreads[thread]) continue; // threads that have finished output have this pointer set to NULL below
 	    char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
 	    assert(tmp>=0);
-	    if(feof(fpThreads[thread])) // assume if any one of them finishes, we are done.
+	    if(feof(fpThreads[thread]))
 	    {
 		fclose(fpThreads[thread]);
-		fpThreads[thread] = NULL;
+		fpThreads[thread] = NULL; // signify this pointer is finished.
 		threadsDone++;
 		continue;
 	    }
