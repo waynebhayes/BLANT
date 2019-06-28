@@ -1,5 +1,5 @@
-LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne    -lm # -static OPTIMIZED
-#LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb # for debugging
+LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne -lm -Wl,--stack,81133569 # -static OPTIMIZED
+#LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb -Wl,--stack,81133569 # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
 CC=gcc
@@ -89,7 +89,7 @@ canon_maps/orbit_map%.txt: make-orbit-maps | canon_maps/canon_list%.txt
 	./make-orbit-maps $* > $@
 
 canon_maps/canon_map%.bin canon_maps/perm_map%.bin: libwayne/made create-bin-data.c | libblant.o blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt
-	$(CC) "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* libblant.c create-bin-data.c $(LIBWAYNE)
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* libblant.c create-bin-data.c $(LIBWAYNE)
 	./create-bin-data$*
 	/bin/rm -f create-bin-data$*
 
