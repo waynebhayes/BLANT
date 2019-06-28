@@ -1877,27 +1877,21 @@ void ProcessWindowRep(int *VArray, int windowRepInt) {
 // This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
 void convertFrequencies(int numSamples)
 {
-	int i;
-	if (_sampleMethod == SAMPLE_MCMC) 
-	{
-		if (_freqDisplayMode == count) 
-		{
-			for (i = 0; i < _numCanon; i++) 
-			{
-				_graphletCount[i] = _graphletConcentration[i] * numSamples;
-			}
-		}
+    int i;
+    if (_sampleMethod == SAMPLE_MCMC) {
+	if (_freqDisplayMode == count) {
+	    for (i = 0; i < _numCanon; i++) {
+		_graphletCount[i] = _graphletConcentration[i] * numSamples;
+	    }
 	}
-	else
-	{
-		if (_freqDisplayMode == concentration)
-		{
-			for (i = 0; i < _numCanon; i++) 
-			{
-				_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
-			}
-		}
+    }
+    else {
+	if (_freqDisplayMode == concentration) {
+	    for (i = 0; i < _numCanon; i++) {
+		_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
+	    }
 	}
+    }
 }
 
 
