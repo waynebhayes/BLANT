@@ -1,4 +1,5 @@
-CYGWIN=$(shell if arch | grep CYGWIN>/dev/null;then echo -Wl,--stack,81133569;fi)
+#CYGWIN=$(shell if arch | grep CYGWIN>/dev/null;then echo -Wl,--stack,81133569;fi)
+ CYGWIN=$(shell if arch | grep CYGWIN>/dev/null;then echo -Wl,--stack,83886080;fi) # Not sure why we need 80MB...
 LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne -lm $(CYGWIN) # -static OPTIMIZED
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb -Wl,--stack,81133569 # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
