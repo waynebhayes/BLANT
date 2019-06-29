@@ -1,6 +1,6 @@
-#CYGWIN=$(shell if arch | grep CYGWIN>/dev/null;then echo -Wl,--stack,81133569;fi)
- CYGWIN=$(shell if arch | grep CYGWIN>/dev/null;then echo -Wl,--stack,83886080;fi) # Not sure why we need 80MB...
-LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne -lm $(CYGWIN) # -static OPTIMIZED
+# Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
+STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
+LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne -lm $(STACKSIZE) # -static OPTIMIZED
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb -Wl,--stack,81133569 # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
