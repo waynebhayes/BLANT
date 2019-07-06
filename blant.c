@@ -2010,10 +2010,10 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
-    if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
+    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
 	Free(_graphletDegreeVector[i]);
-    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) Free(_orbitDegreeVector[i]);
-	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) Free(_doubleOrbitDegreeVector[i]);
+    if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
+	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
     if(_outputMode == kovacsPairs) {
 	int i;
 	for(i=0; i<G->n;i++){Free(_KovacsScore[i]);Free(_KovacsNorm[i]);}
@@ -2073,13 +2073,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     int i,j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
-    if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
+    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
 	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
-    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
+    if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
     }
-    if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++){
+    if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<_numOrbits;i++){
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
@@ -2125,7 +2125,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     int lineNum = 0;
     do
     {
-	char line[MAX_ORBITS * BUFSIZ];
+	char line[_numOrbits * BUFSIZ];
 	int thread;
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
