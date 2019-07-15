@@ -24,7 +24,7 @@ alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
-most: libwayne/made blant $(canon_map_files) magic_table $(alpha_nbe_txts) $(alpha_mcmc_txts) $(ehd_txts) Draw/graphette2dot subcanon_maps
+most: libwayne/made blant $(canon_map_files) magic_table $(alpha_nbe_txts) $(alpha_mcmc_txts) $(ehd_txts) Draw subcanon_maps
 
 all: most test_maps test_blant
 
@@ -61,6 +61,8 @@ compute-alphas-NBE: libwayne/made compute-alphas-NBE.c | libblant.o
 
 compute-alphas-MCMC: libwayne/made compute-alphas-MCMC.c | libblant.o
 	$(CC) -Wall -O3 -o $@ compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
+
+Draw: Draw/graphette2dot
 
 Draw/graphette2dot: libwayne/made Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | blant.h libblant.o
 	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp libblant.o -o $@ $(LIBWAYNE)
