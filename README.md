@@ -10,8 +10,59 @@ By storing every *k*-mer and its location, BLAST can "line up" the regions aroun
 BLANT (*Basic local Aligment Network Tool*) is intended for form the basis of a tool similar to BLAST, but for networks: given an undirected network *G* as a list of edges, and a value of *k*, it samples *k*-node subgraphs called *k-graphlets*. Since the number of *k*-graphlets in a graph of *n* nodes is exponential in both *k* and *n*, BLANT does not exhaustively enumerate all *k*-graphlets, but instead samples as many as the user specifies. Furthermore, since uniform random sampling of *k*-graphlets is difficult, there are several choices among sampling methods, each with different trade-offs. Finally, BLANT allows for several different methods of output: it can produce *orbit-degree vectors* (ODVs) like *ORCA* (citation), or it can produce an explicit list of *k*-graphlets that can be used as seeds for later extension. At present, BLANT does not provide an "extend" functionality; there are *many* seed-and-extend local alignment algorithms in the literature, and although BLANT currently is by far the fastest method of producing a large number of seeds, we have not yet implemented or tested any extend algorithms; this is an area of future work. Despite the lack of an "extend" feature, BLANT is still capable of useful bioinformatics, as described in our first tool paper in the journal *Bioinformatics* (citation).
 
 ## USAGE
-### Command-line arguments
-bla bla bla
+### Required Command-line arguments
+#### -k *k*: graphlet size (from *k*=3 up to *k*=8) of graphlets to sample
+*k* is an integer that can be 3 through 8 inclusive, and represents the number of nodes in the graphlets that will be sampled. For now BLANT almost always samples only connected graphlets, returning a disconnected "graphette" only if there is a connected component in the input graph that has fewer than *k* nodes; such disconnected graphlets are *never* returned by the MCMC method.
+
+#### -n {integer}: the number of random graphlet samples to take
+*n* is a non-negative integer representing the total number of graphlets that should be sampled. 0 is allowed; values into the billions are feasible (more if you use parallelism).
+
+#### -m{outputMode}: how to use the sampled graphlets on output. All output goes to the standard output (aka "terminal")
+*outputMode* is a single character, one of the following:
+##### -m*f*D: frequency mode (with display D option)
+BLANT's output will consist of two columns: the first column is a frequency, the 2nd column is the ID of the canonical graphlet. Lines are output in order of the canonical graphlets, and the number of lines of output is exactly equal to the number of canonical graphlets that exist for the given value of *k*; even graphlets with a zero count are output. Furthermore, another character **D** can be appended to -mf, which can be either an *i* (integer) representing that the frequency should be displayed as a raw integer count, or *d* (density) in which case the frequencies are normalized to a "density" (aka "concentration"); the latter is useful in comparing frequencies that used different numbers of samples (cf. -n option). If D is omitted, it defaults to *i* for all sampling methods except MCMC, which defaults to *d*.
+
+##### -m*o*: ORCA/ODV (*O*rbit *D*egree *V*ector) format
+The output here is similar to ORCA's output: the number of lines is exactly equal to the number of nodes in the input graph, and the number of columns is equal to the number of orbits that exist for the given value of *k*. The integer in each location is the number of times that node "touched" the specified orbit. Unlike ORCA, where this value is a deterministic constant since ORCA performs exhaustive enumeation, the value output by BLANT will be stochastic and depend on the sampling method, the number of samples, and any bias inherent in the random sampling method. However, these values should be roughly proportional to ORCA's output modulo sample size.
+##### -m*g*: GDV (*G*raphlet *D*egree *V*ector) format
+Similar to ODV format above, except the columns are *graphlet* counts rather than orbits. **NOTE**: beware that most authors use the terms ODV and GDV interchangably, and in fact when most authors say GDV they mean ODV. BLANT is more precise in clearly distinguishing between the two.
+
+##### -m*i*: graphlet indexing mode
+This is the mode that is most unique to BLANT: it outputs as many lines as there are samples (see -n above)---beware that if *n* is large, this can produce *huge* output files. Each line consists of exactly (*k*+1) columns: first, the canonical ID of the graphlet that was sampled, and then exactly *k* node identifiers (using whatever node naming scheme that was in the network input file). **Most importantly**, BLANT guarantees that for any two lines that have the same ID in the first column (ie., they are the same graphlet), the remaining columns are in an order that imposes an exact local alignment between the two. (There may be more than one local alignment depending on the orbits in said graphlet, but BLANT only outputs one such local alignment.) This is the mode that can be used to create a database of *k*-graphlets that can act as seeds for future implementations of an "extend" algorithm to produce local alignments with more than *k* nodes.
+
+##### -m*j*: orbit indexing mode
+Similar to -m*i* above, except nodes that occupy the same orbit are output separated by colons. Thus, the number of space-separated columns (excluding the first column, which is still the canonical ID of the sampled graphlet) is the number of orbits in the graphlet. Unlike -m*i* mode, the order of the nodes is *not* guaranteed to impose a local alignment, but instead all that is guaranteed is that if the same set of nodes is sampled more than once, they will be output in a constant order; this allows duplicates to be detected.
+
+##### -m*k* Kovacs mode
+(To be described later.)
+
+##### -m*w*: Windowing mode
+Experimental, may be discontinued.
+
+#### -s {samplingMethod}: the method used to sample graphlets
+BLANT can sample graphlets in many different ways, each with advantages and disadvantages. The allowed values are:
+
+##### NBE (Node Based Sampling)
+BLANT picks an edge from the input network uniformly at random. The two endpoint nodes initialize the set *S* of nodes. The remaining (*k*-2) nodes are added *S* by finding all nodes that are adjacent to the current set of nodes (excluding those already in *S*), and then picking one such node uniformly at random. We return the sampled graphlet when |*S*|=*k*. If at any point the set of nodes adjacent to *S* (excluding nodes inside *S*) is null, then *S* is retained by a new starting location is chosen uniformly at random. This can only happen if the initial edge is picked from a connected component *C* that has fewer than *k* nodes; in that case, *S* will be a disconnected graphlet (aka *graphette*) that consists of *C*, plus (*k*-|*C*|) nodes from elsewhere in the input network. The NBE method is not guaranteed to produce graphlet samples that are unbiased, although empirically we have found it is not terribly biased. Each sample produced by NBE starts at a new random edge, and so NBE tends to "see" most regions of the network even if the number of samples is small.
+
+##### EBE (Edge Based Sampling)
+Node based expansion (NBE) can be slow if the mean degree of the network is large. For networks with high mean degree, the EBE sampling method is asymptotically faster than NBE, though it may be more biased. Like NBE, it starts fresh with each sample, so widely separated regions are sampled with ease.
+
+##### RES (Reservior sampling)
+Start with an NBE-created sample of *S* nodes, we take a small number of "steps" where one node is delete from *S* and simultaneously a randomly chosen node adjacent to *S* is added. This random walk erases the memory of where NBE started and tends to reduce the bias of NBE.
+
+##### MCMC (Markov Chain Monte Carlo)
+This method is the fastest *per sample*, and in the long run is also guaranteed to produce unbiased samples (ie., those whose relative frequencies approach those of ORCA's exhaustive enumeration). It starts with a randomly chosen edge, then builds *S* similar to NBE, and outputs one sample. However, unlike the other methods, it takes a *long* random walk by delete one node from *S* and randomly adding one node adjacent to *S*, and then outputting that new set as a new sample. This has the effect that, on short timescales, each sample differs from the previous sample by only one (or a few) nodes. Thus, for example, in indexing mode (-m*f*), adjacent lines in the output will have many nodes in common. This has the disadvantage that it may take a long time for the MCMC method "visit" all regions of the network. On the other hand, MCMC is very fast *per sample*, because only one (or a few) nodes change between samples. Furthermore, the MCMC method computes the bias on-the-fly, and in the long run the -m*f* mode will output concentrations that are asymptotically correct---although indexing mode should not be used to estimate graphlet frequencies because indexing mode does not take these computed biases into account.
+
+##### AR (accept/reject)
+The horrendously slow but asymptotically correct method of picking *k* nodes uniformly at random, and accepting the sample only if the *k* nodes form a connected graphlet. For large values of *k* and for most typical input networks that are sparse, this results in the vast majority of *k*-node sets being rejected. This method is not recommended since it is exponentially slow with large values of *k*.
+
+### Optional Command-line arguments
+#### -d*m*: displayMode
+Display mode determines how the graphlet ID of the sampled graphlet is displayed: default is *i*, BLANT's internal integer ordinal of the canonical (order similar to that described in [Hasan, Chung, Hayes 2017](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181570) except using the lower rather than upper triangle, to be more compatible with [Jesse](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0147078). Other formats include *d*, the decimal value of the canonical; *b* the same integer dispalyed as binary; *j* use Jesse's ID; and *o* use ORCA's ID.
+
+#### -w*l*: Window sampling method
+Currently unused and experimental; may be removed.
 
 # Brief description of internals and source code structure
 ## Directories
