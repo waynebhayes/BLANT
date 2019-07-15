@@ -11,6 +11,6 @@ BLANT (*Basic local Aligment Network Tool*) is intended for form the basis of a 
 
 ## BLANT USAGE
 ### Command-line arguments
-<bla bla bla>
+bla bla bla
 
-#BLANT: brief description of source code structure
+# BLANT: brief description of source code structure
