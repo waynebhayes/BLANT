@@ -40,7 +40,7 @@ Contains code to create PDFs that depict any graphlet BLANT uses. Type "make Dra
 
 That will create a file called "triangle.dot" and the command line for neato to convert triangle.dot to triangle.pdf; piping the output to sh simply runs the neato command, which actually generates the triangle.pdf file.
 
-## Alphabetical (almost) list and brief description of main source code files
+## Brief manifest and description of source files
 ### Makefile
 Highlights: *k*=8 files may take quite a while to create (up to an hour); if you are only interested in sampling graphlets up to *k*=7, comment out the "EIGHT" variable near the top of the Makefile.
 
