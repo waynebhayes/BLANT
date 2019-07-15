@@ -127,7 +127,7 @@ $(magic_table_txts): .created-magic-tables
 blant-sanity: libwayne/made blant-sanity.c
 	$(CC) -o $@ blant-sanity.c $(LIBWAYNE)
 	
-test_blant: blant blant-sanity $(canon_map_bins) test_sanity test_freq test_GDV
+test_blant: blant blant-sanity $(canon_map_bins) test_sanity test_freq test_GDV regression
 
 test_sanity:
 	# First run blant-sanity for various values of k
@@ -146,6 +146,9 @@ test_GDV:
 
 test_maps: blant blant-sanity
 	ls canon_maps.correct/ | egrep -v '$(if $(EIGHT),,8|)README|\.xz' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
+
+regression:
+	./regression-test-all.sh
 
 ### Cleaning ###
 
