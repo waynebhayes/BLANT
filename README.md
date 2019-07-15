@@ -13,4 +13,25 @@ BLANT (*Basic local Aligment Network Tool*) is intended for form the basis of a 
 ### Command-line arguments
 bla bla bla
 
-# BLANT: brief description of source code structure
+# BLANT: brief description of internals and source code structure
+## Directory libwayne
+An extensive C-language library by Wayne Hayes, similar to a "class" library in C++ (but written mostly before C++ was invented), containing old and well-tested code implementing data structures and algorithms for graphs, sets, multisets, combinatorics, heaps, stacks, compressed flies, searching + sorting, linked lists, event-driven simulation and numerical analysis (the latter few not used much in BLANT but included for completeness). See [Wayne's Little Data Structures and Algorithms library](http://www.cs.toronto.edu/~wayne/libwayne).
+
+## Directory networks
+A directory containing many example input networks in edge list (2-colunmns, space or tab separated) format. While BLANT also accepts other input formats such as GML and LEDA, edge lists are the simplest and most recommended.
+
+## Directory orca_jesse_blant_table
+Many methods of automatically (and manually) identifying all the various graphlets exist. There is the original manually-generated numbering of graphlets of size 3, 4, and 5 nodes ([Przulj *et al* 2004](https://academic.oup.com/bioinformatics/article/20/18/3508/202438)) which is also used by the popular program [ORCA](https://academic.oup.com/bioinformatics/article/30/4/559/205331), and the automatic methods from [Jesse](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0147078), and our own ([Hasan, Chung, Hayes](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181570)) which has been modified from using an upper- to lower-triangle representation for BLANT, following Jesse's lead. This directory contains code to translate between all these different naming conventions.
+
+## Directory regression_tests
+As the name applies, this directory contains regression tests, in the following format: each subdirectory contains code and data for one regression test. Any filename in such a directory whose name ends in ".sh" will be automatically run by the program regression-test-all.sh, which is run nightly by the senior author on a Jenkins machine. If you add functinoality to BLANT, you are encouraged to create a directory here with your own regression test, and then do a pull request to me to add your code to the main BLANT repo (it's best to send me an email first at whayes@uci.edu to discuss it first).
+
+## Directory canon_maps.correct
+Contains correct output for comparison to files in canon_maps to ensure your installation of BLANT is working correctly.
+
+## Directory "Draw"
+Contains code to create PDFs that depict any graphlet BLANT uses. Type "make Draw" to create the program Draw/graphette2dot. Then run ./Draw/graphette2dot for help and options. All graphette2dot does is create an input file and a command line for use by the "neato" command, which performs the actual creation of a PDF. So for example, to draw the 3-graphlet which is a triangle, run
+
+./Draw/graphette2dot -k 3 -i 3 -o triangle | sh
+
+That will create a file called "triangle.dot" and the command line for neato to convert triangle.dot to triangle.pdf; piping the output to sh simply runs the neato command, which actually generates the triangle.pdf file.
