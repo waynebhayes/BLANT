@@ -2424,17 +2424,24 @@ int main(int argc, char *argv[])
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval");
 
-    if(!argv[optind]) Fatal("no input graph file specified\n%s", USAGE);
-    char *graphFileName = argv[optind];
+    FILE *fpGraph;
     int piped = 0;
-    FILE *fpGraph = readFile(argv[optind], &piped);
-    if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
-    optind++;
+    if(!argv[optind])
+    {
+	fpGraph = stdin;
+	if(isatty(0)) Warning("reading graph input file from terminal, press ^D to finish");
+    }
+    else {
+	char *graphFileName = argv[optind];
+	fpGraph = readFile(argv[optind], &piped);
+	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
+	optind++;
+    }
     assert(optind == argc);
 
-	SetBlantDir(); // Needs to be done before reading any files in BLANT directory
+    SetBlantDir(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
-	LoadMagicTable(); // needs _k to be set
+    LoadMagicTable(); // needs _k to be set
 
 #if SHAWN_AND_ZICAN
   #if CPP_CALLS_C  // false by default
@@ -2447,9 +2454,9 @@ int main(int argc, char *argv[])
 	    Fatal("can't find 2 ints on line %d\n", line);
 	BlantAddEdge(v1, v2);
     }
-    closeFile(fpGraph, &piped);
+    if(fpGraph!=stdin) closeFile(fpGraph, &piped);
   #else // Shawn + Zican see here:
-    closeFile(fpGraph, &piped);
+    if(fpGraph!=stdin) closeFile(fpGraph, &piped);
     _nodeNames = convertToEL(graphFileName);
     assert(_numNodes > 0);
     assert(_nodeNames && _nodeNames[0]);
@@ -2470,7 +2477,7 @@ int main(int argc, char *argv[])
 	assert(G->name);
 	_nodeNames = G->name;
     }
-    closeFile(fpGraph, &piped);
+    if(fpGraph != stdin) closeFile(fpGraph, &piped);
     return RunBlantInThreads(_k, numSamples, G);
 #endif
 }
