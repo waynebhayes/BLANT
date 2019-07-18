@@ -56,7 +56,8 @@ This method is the fastest *per sample*, and in the long run is also guaranteed 
 AR is a horrendously slow but asymptotically correct method of picking *k* nodes uniformly at random, and accepting the sample only if the *k* nodes form a connected graphlet. For large values of *k* and for most typical input networks that are sparse, this results in the vast majority of *k*-node sets being rejected. This method is not recommended since it is exponentially slow with large values of *k*.
 
 ### Optional command-line arguments
-#### -t*N*: run BLANT in parallel mode with *N* threads. For all modes except indexing (-mi) mode, speedup should be linear (this has been tested on a machine with 64 cores, and speedup is linear.) However, with indexing mode, the processes are I/O bound and speedup is only linear up to about 8 threads, and little speedup is observed beyond 8 threads.
+#### -t*N*: run BLANT in parallel mode with *N* threads.
+For all modes except indexing (-mi) mode, speedup should be linear (this has been tested on a machine with 64 cores, and speedup is linear.) However, with indexing mode, the processes are I/O bound and speedup is only linear up to about 8 threads, and little speedup is observed beyond 8 threads.
 #### -d*m*: displayMode
 Display mode determines how the graphlet ID of the sampled graphlet is displayed: default is *i*, BLANT's internal integer ordinal of the canonical (order similar to that described in [Hasan, Chung, Hayes 2017](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181570) except using the lower rather than upper triangle, to be more compatible with [Jesse](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0147078). Other formats include *d*, the decimal value of the canonical; *b* the same integer dispalyed as binary; *j* use Jesse's ID; and *o* use ORCA's ID.
 
