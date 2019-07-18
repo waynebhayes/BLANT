@@ -12,6 +12,7 @@ Our new tool, called BLANT (*Basic local Aligment Network Tool*), is intended to
 ## USAGE
 ### Required Command-line arguments
 SYNOPSIS:
+
     blant -k *graphlet-size* -n *numSamples* -m*outputMode* -s *samplingMethod* **inputNetworkFile**
 #### -k *k*: graphlet size (from *k*=3 up to *k*=8) of graphlets to sample
 *k* is an integer that can be 3 through 8 inclusive, and represents the number of nodes in the graphlets that will be sampled. For now BLANT almost always samples only connected graphlets, returning a disconnected "graphette" only if there is a connected component in the input graph that has fewer than *k* nodes; such disconnected graphlets are *never* returned by the MCMC method.
