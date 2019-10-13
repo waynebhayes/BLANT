@@ -2383,12 +2383,6 @@ int main(int argc, char *argv[])
 	case 'w':
 	    _window = true;
 	    _windowSize = atoi(optarg); 
-	    if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
-	    _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
-	    _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
-	    int i;
-	    for(i=0; i<_MAXnumWindowRep; i++)
-		    _windowReps[i] = Calloc(_k+1, sizeof(int));
 	    break;
 	case 'p':
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
@@ -2418,9 +2412,17 @@ int main(int argc, char *argv[])
     if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
 		_freqDisplayMode = count;
-    if (_windowSampleMethod == -1 && _window) 
-       Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
-
+    if (_window) {
+        if (_windowSampleMethod == -1)
+            Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
+        if(_windowSize < _k) 
+            Fatal("windowSize must be at least size k\n");
+        _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
+        _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
+        int i;
+        for(i=0; i<_MAXnumWindowRep; i++)
+            _windowReps[i] = Calloc(_k+1, sizeof(int));
+    }
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval");
 
