@@ -1671,9 +1671,12 @@ int getD(int num_of_edges)
 }
 
 
-void updateWindowRep(int *windowRepInt, int *D, int GintOrdinal, int pending_D, int *WArray, int *VArray, MULTISET *canonMSET)
+void updateWindowRep(int *windowRepInt, int *D, int Gint, int pending_D, int *WArray, int *VArray, MULTISET *canonMSET, char perm[])
 {
     int i;
+    int GintOrdinal = _K[Gint];
+    memset(perm, 0, _k);
+    ExtractPerm(perm, Gint);
     if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
     {
         if(_windowSampleMethod == WINDOW_SAMPLE_MIN)
@@ -1682,7 +1685,7 @@ void updateWindowRep(int *windowRepInt, int *D, int GintOrdinal, int pending_D, 
             if(GintOrdinal > *windowRepInt) {*windowRepInt = GintOrdinal; _numWindowRep = 0;}
         if(GintOrdinal == *windowRepInt)
         {
-            for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[i]];
+            for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
             _numWindowRep++;
         }
     }
@@ -1694,13 +1697,13 @@ void updateWindowRep(int *windowRepInt, int *D, int GintOrdinal, int pending_D, 
             if(pending_D < *D || (pending_D == *D && GintOrdinal > *windowRepInt)) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
         if(pending_D == *D && GintOrdinal == *windowRepInt)
         {
-            for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[i]];
+            for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
             _numWindowRep++;
         }
     }
     else if (_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
     {
-        for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[i]];
+        for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
         _windowReps[_numWindowRep][_k] = GintOrdinal;
         if(canonMSET->array[GintOrdinal] < MAX_MULTISET_FREQ) MultisetAdd(canonMSET, GintOrdinal);
         _numWindowRep++;
@@ -1740,7 +1743,7 @@ void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET)
 }
 
         
-void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET)
+void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET, char perm[])
 {
     int u, w, i, j, Gint, GintOrdinal, GintOrdinalInt, pending_D, numEdges=0;
     Boolean inclusive = false;
@@ -1748,10 +1751,8 @@ void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v,
     if(*varraySize == _k)
     {
         Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
-        GintOrdinal = _K[Gint];
-        GintOrdinalInt = _canonList[GintOrdinal];
         pending_D = getD(numEdges);
-        updateWindowRep(windowRepInt, D, GintOrdinal, pending_D, WArray, VArray, canonMSET);
+        updateWindowRep(windowRepInt, D, Gint, pending_D, WArray, VArray, canonMSET, perm);
     }
     else
     {
@@ -1778,7 +1779,7 @@ void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v,
             int varrayCopySize = *varraySize;
             VArrayCopy[varrayCopySize++] = w;
             SetUnion(Vext, Vext, Vextension);
-            ExtendSubGraph(Gi, WArray, VArrayCopy, Vext, v, &varrayCopySize, windowAdjList, windowRepInt, D, canonMSET);
+            ExtendSubGraph(Gi, WArray, VArrayCopy, Vext, v, &varrayCopySize, windowAdjList, windowRepInt, D, canonMSET, perm);
             free(VArrayCopy);
         }
     }
@@ -1788,7 +1789,7 @@ void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v,
 }
 
 // Right now use least frequent windowRep canonicals 
-void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D)
+void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char perm[])
 {
     int WArray[_windowSize], *VArray, ca[_k], i, j, Gint, GintOrdinal, GintOrdinalInt, numEdges=0, pending_D;   // Window node array, pending_window node array
     assert(SetToArray(WArray, W) == _windowSize);
@@ -1818,9 +1819,8 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D)
             GintOrdinal = _K[Gint];
             if(SetIn(_connectedCanonicals, GintOrdinal))
             {
-                GintOrdinalInt = _canonList[GintOrdinal];
                 pending_D = getD(numEdges);
-                updateWindowRep(windowRepInt, D, GintOrdinal, pending_D, WArray, VArray, canonMSET);
+                updateWindowRep(windowRepInt, D, Gint, pending_D, WArray, VArray, canonMSET, perm);
             } 
         } while(CombinNext(c));
     }
@@ -1837,7 +1837,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D)
                 if(Gi->neighbor[v][i] > v) 
                     SetAdd(Vextension, (int)Gi->neighbor[v][i]);
             VArray[varraySize++]=v;
-            ExtendSubGraph(Gi, WArray, VArray, Vextension, v, &varraySize, windowAdjList, windowRepInt, D, canonMSET);
+            ExtendSubGraph(Gi, WArray, VArray, Vextension, v, &varraySize, windowAdjList, windowRepInt, D, canonMSET, perm);
         }
         SetFree(Vextension);
         GraphFree(Gi);
@@ -1926,7 +1926,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
                 windowRepInt = -1;
             D = _k * (_k - 1) / 2;
-            FindWindowRepInWindow(G, V, &windowRepInt, &D);
+            FindWindowRepInWindow(G, V, &windowRepInt, &D, perm);
             if(_numWindowRep > 0)
                 ProcessWindowRep(Varray, windowRepInt);
         }
