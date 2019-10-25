@@ -1859,13 +1859,12 @@ void ProcessWindowRep(int *VArray, int windowRepInt) {
             _graphletCount[windowRepInt] += _numWindowRep;
             break;
         case indexGraphlets:
-            for(i=0; i<_windowSize; i++) printf("%i ",VArray[i]); 
+            for(i=0; i<_windowSize; i++)  printf("%s ", _nodeNames[VArray[i]]);
             printf("\n%i %i\n", windowRepInt, _numWindowRep);
-//          printf("\n%i\n", windowRepInt)
             for(i=0; i<_numWindowRep; i++)
             {
                 for(j=0; j<_k; j++)
-                    printf("%i ", _windowReps[i][j]); 
+                    printf("%s ", _nodeNames[_windowReps[i][j]]);
                 printf("\n");
             }
             break;

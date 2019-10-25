@@ -8,10 +8,16 @@ if ! [ -d $TEST_DIR ]; then
     exit 1
 fi
 
+remove_temp_file () {
+    rm -rf $TEST_DIR/.regression_test_out.txt
+    rm -rf $TEST_DIR/.regression_test_error.txt
+}
+
 # Can adjust the parameter later
 w=20
 k=7
 n=5
+max_depth_attempt=10
 declare -a sampleName=("MCMC" "NBE")
 declare -a methodName=("MIN" "MAX" "DMIN" "DMAX" "LFMIN" "LFMAX")
 declare -a fnames=("SCerevisiae.el" "AThaliana.el" "CElegans.el")
@@ -26,8 +32,25 @@ do
                 echo "Cannot find $f in the networks folder." >&2
                 exit 1
             fi
+
             cmd="./blant -k$k -w$w -p$m -s$s -mi -n$n networks/$f"
-            $cmd| awk -v w="$w" -v k="$k" -v n="$n" '
+            `$cmd 1>$TEST_DIR/.regression_test_out.txt 2>$TEST_DIR/.regression_test_error.txt`
+
+            depth_attempt=0
+            while [ `grep 'Assertion \`depth++ < \| Assertion \`++numTries <' $TEST_DIR/.regression_test_error.txt | wc -l` -gt 0 ] && [ $depth_attempt -lt $max_depth_attempt ]
+            do
+                `$cmd 1>$TEST_DIR/.regression_test_out.txt 2>$TEST_DIR/.regression_test_error.txt`
+                depth_attempt=$((depth_attempt + 1))
+            done
+
+            if [ $depth_attempt -eq $max_depth_attempt ]; then
+                echo "Error:  Window Sampling Failed. Increase MAX_TRIES in BLANT and try again"
+                echo "cmd:  " $cmd
+                remove_temp_file
+                exit 1
+            fi
+
+            cat $TEST_DIR/.regression_test_out.txt | awk -v w="$w" -v k="$k" -v n="$n" '
                     BEGIN{numWindowRep=0; numWindowRepCounter=0; numWindow=0;}
                     {
                         if(NF==w ) {
@@ -45,11 +68,13 @@ do
             exitcode=$?
             if [ $exitcode -ne 0 ]; then
                 echo "Error($exitcode) from cmd: $cmd" >&2
+                remove_temp_file
                 exit $exitcode
             fi
         done
     done
 done
+remove_temp_file
 echo "Done Testing windowRepWindow Index Mode"
 exit 0
 
