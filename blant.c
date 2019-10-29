@@ -90,13 +90,14 @@ int _windowSampleMethod = -1;
 #define WINDOW_COMBO 0 // Turn on for using Combination method to sample k-graphlets in Window. Default is DFS-like way.
 static int _windowSize = 0;
 static Boolean _window = false;
-static int** _windowReps;
+static int **_windowReps;
 static int _MAXnumWindowRep = 0;
 static int _numWindowRep = 0;
 
-enum OutputMode {undef, indexGraphlets, kovacsPairs, indexOrbits, graphletFrequency, outputODV, outputGDV};
+enum OutputMode {undef, indexGraphlets, kovacsPairs, indexOrbits, graphletFrequency, outputODV, outputGDV, graphletDistribution};
 static enum OutputMode _outputMode = undef;
 static unsigned long int _graphletCount[MAX_CANONICALS];
+static int **_graphletDistributionTable;
 
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
 static enum CanonicalDisplayMode _displayMode = undefined;
@@ -1634,6 +1635,27 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
     }
 }
 
+int ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node)
+{
+    int num_difference, Gint_prev_ordinal, Gint_curr_ordinal;
+    SampleGraphlet(G, V, Varray, k);
+    SetIntersect(intersect_node, prev_node_set, V);
+    num_difference = k - SetCardinality(intersect_node);
+    SetEmpty(intersect_node);
+    if (num_difference != 1) {
+        TinyGraphInducedFromGraph(prev_graph, G, Varray);
+        SetCopy(prev_node_set, V);
+        ProcessWindowDistribution(G, V, Varray, k, prev_graph, prev_node_set, intersect_node);
+    }
+    else {
+        assert(num_difference == 1);
+        Gint_prev_ordinal = _K[TinyGraph2Int(prev_graph,k)];
+        TinyGraphInducedFromGraph(prev_graph, G, Varray);
+        Gint_curr_ordinal = _K[TinyGraph2Int(prev_graph,k)];
+        _graphletDistributionTable[Gint_prev_ordinal][Gint_curr_ordinal] += 1;
+    }
+}
+
 
 // Self construct the adjacency matrix of the window. Use _connectedCanonicals to check connectivity of the K-node graphlet
 // No need to use TinyGraphInducedFromGraph, expensive calling GraphAreConnected for each combination
@@ -1908,16 +1930,22 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     _seed = time(0)+getpid();
     RandomSeed(_seed);
     SET *V = SetAlloc(G->n);
+    SET *prev_node_set = SetAlloc(G->n);
+    SET *intersect_node = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
     unsigned Varray[varraySize]; 
     InitializeConnectedComponents(G);
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
+    if (_outputMode == graphletDistribution) {
+        SampleGraphlet(G, V, Varray, k);
+        SetCopy(prev_node_set, V);
+        TinyGraphInducedFromGraph(g, G, Varray);
+    }
     for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
     {
-        if(_window) 
-        {
+        if(_window) {
             SampleGraphlet(G, V, Varray, _windowSize);
             _numWindowRep = 0; 
             if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
@@ -1929,14 +1957,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             if(_numWindowRep > 0)
                 ProcessWindowRep(Varray, windowRepInt);
         }
-        else 
-        {
+        else if (_outputMode == graphletDistribution) 
+            ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
+        else {
             SampleGraphlet(G, V, Varray, k);
             ProcessGraphlet(G, V, Varray, perm, g, k);
         }
     }
-    if(_window)
-    {
+    if(_window) {
         for(i=0; i<_MAXnumWindowRep; i++)
             free(_windowReps[i]);
         free(_windowReps);
@@ -1991,7 +2019,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    puts("");
 	}
 	break;
-     case outputODV:
+    case outputODV:
         for(i=0; i<G->n; i++) {
 	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
 	    else printf("%d",i);
@@ -2003,6 +2031,13 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    }
 	    printf("\n");
 	}
+        break;
+    case graphletDistribution:
+        for(i=0; i<_numCanon; i++) {
+            for(j=0; j<_numCanon; j++)
+                printf("%d ", _graphletDistributionTable[i][j]);
+            printf("\n");
+        }
         break;
     default: Abort("unknown or un-implemented outputMode");
 	break;
@@ -2109,6 +2144,11 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    }
 	}
     }
+    if (_outputMode == graphletDistribution) {
+        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
+        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
+        for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
+    }
 	
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
@@ -2138,7 +2178,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		threadsDone++;
 		continue;
 	    }
-	    char *nextChar = line;
+	    char *nextChar = line, *pch;
 	    unsigned long int count;
 	    int canon, orbit, numRead, nodeId, value;
 	    float fValue;
@@ -2149,6 +2189,17 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		assert(numRead == 2);
 		_graphletCount[canon] += count;
 		break;
+        case graphletDistribution:
+        for(i=0; i<_numCanon; i++) {
+            pch = strtok(line, " ");
+            for(j=0; j<_numCanon; j++){
+                _graphletDistributionTable[i][j] += atoi(pch);
+                pch = strtok(NULL, " ");
+            }
+            fgets(line, sizeof(line), fpThreads[thread]);
+        }
+
+        break;
 	    case outputGDV:
 		assert(isdigit(*nextChar));
 		numRead = sscanf(nextChar, "%d", &nodeId);
@@ -2260,7 +2311,7 @@ const char const * const USAGE =
     "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence -w width} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
-    "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency).\n" \
+    "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency); d (graphletNeighborDistribution).\n" \
 	"-m{f}{frequencyDisplayMode} is allowed with frequencyDisplayMode being one of: i(integer or count) and d(decimal or concentration)\n" \
     "samplingMethod is one of: NBE (Node Based Expansion); EBE (Edge Based Expansion); MCMC (Markov chain Monte Carlo); RES (Lu Bressan's reservoir); AR (Accept-Reject).\n" \
     "windowRepSamplingMethod is one of: MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance); LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer).\n" \
@@ -2325,6 +2376,7 @@ int main(int argc, char *argv[])
 	    break;
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
+        case 'd': _outputMode = graphletDistribution; break;
 	    default: Fatal("-m%c: unknown output mode;\n"
 	       "\tmodes are i=indexGraphlets, j=indexOrbits, kINT,i,j=kovacsPairs of canonical INT columns i and j, f=graphletFrequency, g=GDV, o=ODV", *optarg);
 	    break;
@@ -2412,15 +2464,11 @@ int main(int argc, char *argv[])
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
 		_freqDisplayMode = count;
     if (_window) {
-        if (_windowSampleMethod == -1)
-            Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
-        if(_windowSize < _k) 
-            Fatal("windowSize must be at least size k\n");
+        if (_windowSampleMethod == -1) Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
+        if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
         _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
         _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
-        int i;
-        for(i=0; i<_MAXnumWindowRep; i++)
-            _windowReps[i] = Calloc(_k+1, sizeof(int));
+        for(i=0; i<_MAXnumWindowRep; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
     }
     if(numSamples!=0 && confidence>0)
 	Fatal("cannot specify both -s (sample size) and confidence interval");
