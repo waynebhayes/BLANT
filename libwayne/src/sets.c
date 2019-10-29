@@ -235,7 +235,7 @@ unsigned int SetAssignSmallestElement1(SET *set)
     int i, old=set->smallestElement;
     assert(old == set->n || !SetIn(set, old)); // it should not be in there!
 
-    for(i=old; i<set->n; i++) 
+    for(i=0; i<set->n; i++) 
         if(SetIn(set, i)) // the next smallest element is here
 	       break;
     set->smallestElement = i; // note this works even if there was no new smallest element, so it's now set->n
