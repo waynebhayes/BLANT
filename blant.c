@@ -21,7 +21,8 @@
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed;
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed, _seed_thread;
+static Boolean _defined_seed;
 char **_nodeNames, _supportNodeNames = true;
 
 #define USE_MarsenneTwister 0
@@ -126,7 +127,7 @@ static int _numConnectedOrbits;
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
 
 // number of parallel threads to run.  This must be global because we may get called from C++.
-static int _THREADS;
+static int _THREADS, _THREAD_NUM;
 
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
@@ -1927,8 +1928,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     int i,j, windowRepInt, D;
     char perm[maxK+1];
     assert(k <= G->n);
-    _seed = time(0)+getpid();
-    RandomSeed(_seed);
+    _seed_thread = _defined_seed? _seed + _THREAD_NUM : time(0)+getpid();
+    RandomSeed(_seed_thread);
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
@@ -2157,8 +2158,11 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     int samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
 
     FILE *fpThreads[_THREADS]; // these will be the pipes reading output of the parallel blants
-    for(i=0;i<_THREADS;i++)
-	fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
+    for(i=0;i<_THREADS;i++) {
+        _THREAD_NUM = i;
+        fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
+    }
+	
 
     int threadsDone = 0; // count of how many threads signaled EOF
     int lineNum = 0;
@@ -2397,7 +2401,7 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
-	case 'r': _seed = atoi(optarg);
+	case 'r': _seed = atoi(optarg); _defined_seed = true;
 	    break;
 	case 's':
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
