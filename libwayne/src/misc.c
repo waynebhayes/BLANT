@@ -35,7 +35,7 @@ static FILE *tty;
 	vfprintf(stderr, fmt, ap); \
 	va_end(ap); \
 	fprintf(stderr, "\n"); \
-	if(!isatty(fileno(stderr))) \
+	if(false && !isatty(fileno(stderr))) \
 	{ \
 	    if(!tty) \
 		if(!(tty = fopen("/dev/tty", "w"))) \
@@ -45,13 +45,13 @@ static FILE *tty;
 	    vfprintf(tty, fmt, ap); \
 	    va_end(ap); \
 	    fprintf(tty, "\n"); \
+	    fflush(tty); \
 	} \
 	fflush(stdout); \
-	fflush(stderr); \
-	fflush(tty)
+	fflush(stderr)
 void Warning(const char *fmt, ...) { ERROR_TEXT("Warning: "); }
 void Apology(const char *fmt, ...) { ERROR_TEXT("Sorry, can't do that: "); exit(1); }
-void Fatal(const char *fmt, ...) { ERROR_TEXT("User error: "); exit(1); }
+void Fatal(const char *fmt, ...) { ERROR_TEXT("Fatal error: "); exit(1); }
 void Abort(const char *fmt, ...) { ERROR_TEXT("Internal error: "); assert(false); exit(1); }
 
 // Try to mmap, and if it fails, just slurp in the file (sigh, Windoze)
