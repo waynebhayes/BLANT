@@ -1574,17 +1574,26 @@ void KovacsStatIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varray[]
     ExtractPerm(perm, Gint);
     int baseOrbit = _orbitList[GintOrdinal][0]; // the 0th orbit of this ordinal.
     for(i=0;i<k-1;i++) for(j=i+1;j<k;j++) if(!TinyGraphAreConnected(g,perm[i],perm[j])) {
-	int orbit1=_orbitList[GintOrdinal][i]-baseOrbit;
-	int orbit2=_orbitList[GintOrdinal][j]-baseOrbit;
+	int orbit1=_orbitList[GintOrdinal][i];
+	int orbit2=_orbitList[GintOrdinal][j];
 	assert(0<=GintOrdinal && GintOrdinal<_numCanon);
-	assert(0<=orbit1 && orbit1 <_k);
-	assert(0<=orbit2 && orbit2 <_k);
 	int o1=MIN(orbit1,orbit2), o2=MAX(orbit1,orbit2); // order doesn't matter so just store them in canonical order
-	++_kovacsOrbitPairSeen[GintOrdinal][o1][o2];
+#define NAIVE_BAYES 1
+#if NAIVE_BAYES
+	int po;
+	for(po=0; po<_numOrbits; po++)if(SetIn(_connectedCanonicals,_orbitCanonMapping[po]))  printf("%d %d ", po==o1, po==o2);
+#else
+	++_kovacsOrbitPairSeen[GintOrdinal][o1-baseOrbit][o2-baseOrbit];
+#endif
 
 	int u=Varray[(int)perm[i]];
 	int v=Varray[(int)perm[j]];
-	if(GraphAreConnected(G,u,v)) ++_kovacsOrbitPairEdge[GintOrdinal][o1][o2];
+	int edge = GraphAreConnected(G,u,v);
+#if NAIVE_BAYES
+	printf("%d\n",edge);
+#else
+	if(edge) ++_kovacsOrbitPairEdge[GintOrdinal][o1][o2];
+#endif
     }
 }
 
