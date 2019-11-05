@@ -1564,36 +1564,65 @@ void ProcessKovacsPreComputed(TINY_GRAPH *g, unsigned Varray[])
 	}
 }
 
+
+// Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
+// Empirically I've found that neither of these need to be very big since most repetition happens with high locality
+#define MCMC_KOVACS_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
+#define MCMC_KOVACS_MAX_HASH 2147483647 // this value should be prime; at 2^31/8 it's 256MB of RAM.
+// NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
+Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k) {
+    static unsigned circBuf[MCMC_KOVACS_CIRC_BUF], bufPos;
+    static SET *seen;
+    static Vcopy[maxK];
+    unsigned hash=0, i;
+    if(!seen) seen=SetAlloc(MCMC_KOVACS_MAX_HASH);
+    for(i=0;i<k;i++) Vcopy[i]=Varray[i];
+    VarraySort(Vcopy, k);
+    for(i=0;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will overflow. Shouldn't matter.
+    hash = hash % MCMC_KOVACS_MAX_HASH;
+    if(SetIn(seen, hash)) return true;
+    //for(i=0;i<k;i++) printf("%d ", Vcopy[i]); printf("\thash %d\n",hash);
+    SetDelete(seen, circBuf[bufPos]);
+    SetAdd(seen, hash);
+    circBuf[bufPos++] = hash;
+    if(bufPos >= MCMC_KOVACS_CIRC_BUF) bufPos=0;
+    return false;
+}
+
 static _kovacsOrbitPairSeen[MAX_CANONICALS][maxK][maxK];
 static _kovacsOrbitPairEdge[MAX_CANONICALS][maxK][maxK];
 
 void KovacsStatIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varray[], char perm[], TINY_GRAPH *g, int k)
 {
     int i, j;
-    memset(perm, 0, k);
-    ExtractPerm(perm, Gint);
+    assert(0<=GintOrdinal && GintOrdinal<_numCanon);
+
     int baseOrbit = _orbitList[GintOrdinal][0]; // the 0th orbit of this ordinal.
-    for(i=0;i<k-1;i++) for(j=i+1;j<k;j++) if(!TinyGraphAreConnected(g,perm[i],perm[j])) {
-	int orbit1=_orbitList[GintOrdinal][i];
-	int orbit2=_orbitList[GintOrdinal][j];
-	assert(0<=GintOrdinal && GintOrdinal<_numCanon);
-	int o1=MIN(orbit1,orbit2), o2=MAX(orbit1,orbit2); // order doesn't matter so just store them in canonical order
+    for(i=0;i<k-1;i++) for(j=i+1;j<k;j++) // loop through all pairs of nodes in the canonical
+    {
+	// We are trying to determine the frequency that a pair of nodes in G have an edge based on
+	// their being located at a pair of orbits in a motif. However, it only makes sense to do
+	// this if the edge in the motif does *not* exist; otherwise the edge *always* exists in G.
+	if(!TinyGraphAreConnected(g,perm[i],perm[j])) {
+	    int u=Varray[(int)perm[i]];
+	    int v=Varray[(int)perm[j]];
+	    int edge = GraphAreConnected(G,u,v);
+
+	    int orbit0=_orbitList[GintOrdinal][i];
+	    int orbit1=_orbitList[GintOrdinal][j];
 #define NAIVE_BAYES 1
 #if NAIVE_BAYES
-	int po;
-	for(po=0; po<_numOrbits; po++)if(SetIn(_connectedCanonicals,_orbitCanonMapping[po]))  printf("%d %d ", po==o1, po==o2);
+	    assert(SetIn(_connectedCanonicals,_orbitCanonMapping[orbit0]));
+	    assert(SetIn(_connectedCanonicals,_orbitCanonMapping[orbit1]));
+	    // preserve order so we can associate the node with the orbit.
+	    printf("%s %s %d\t%d %d\n", _nodeNames[u], _nodeNames[v], edge, orbit0, orbit1);
 #else
-	++_kovacsOrbitPairSeen[GintOrdinal][o1-baseOrbit][o2-baseOrbit];
+	    int oMin=MIN(orbit0,orbit1), oMax=MAX(orbit0,orbit1);
+	    // when recording the orbit pair without the nodes, order doesn't matter
+	    ++_kovacsOrbitPairSeen[GintOrdinal][oMin-baseOrbit][oMax-baseOrbit];
+	    if(edge) ++_kovacsOrbitPairEdge[GintOrdinal][oMin][oMax];
 #endif
-
-	int u=Varray[(int)perm[i]];
-	int v=Varray[(int)perm[j]];
-	int edge = GraphAreConnected(G,u,v);
-#if NAIVE_BAYES
-	printf("%d\n",edge);
-#else
-	if(edge) ++_kovacsOrbitPairEdge[GintOrdinal][o1][o2];
-#endif
+	}
     }
 }
 
@@ -1707,8 +1736,9 @@ void ProcessKovacsAllOrbits(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
     }
 }
 
-void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAPH *g, int k)
+void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm[], TINY_GRAPH *g)
 {
+    if(GraphletSeenRecently(G, Varray,k)) return;
     TinyGraphInducedFromGraph(g, G, Varray);
     int Gint = TinyGraph2Int(g,k), j, GintOrdinal=_K[Gint];
 #if PARANOID_ASSERTS
@@ -1727,10 +1757,10 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case indexMotifs:
-	PrintAllMotifs(g,G,Varray);
+	if(!GraphletSeenRecently(G, Varray,k)) PrintAllMotifs(g,G,Varray);
 	break;
     case kovacsAllOrbits:
-	ProcessKovacsAllOrbits(g,G,Varray);
+	if(!GraphletSeenRecently(G, Varray,k)) ProcessKovacsAllOrbits(g,G,Varray);
 	break;
     case kovacsPairs:
 	// ProcessKovacsPreComputed(g,Varray);
@@ -1762,7 +1792,6 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], char perm[], TINY_GRAP
 	putchar('\n');
 	break;
     case outputGDV:
-	assert(PERMS_CAN2NON);
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
 	break;
     case outputODV:
@@ -2106,7 +2135,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
         else {
             SampleGraphlet(G, V, Varray, k);
-            ProcessGraphlet(G, V, Varray, perm, g, k);
+            ProcessGraphlet(G, V, Varray, k, perm, g);
         }
     }
     if(_window) {
