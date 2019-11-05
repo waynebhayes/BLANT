@@ -58,6 +58,7 @@ char _sampleFileEOF;
 #endif
 
 static Boolean _MCMC_UNIFORM = false; // Should MCMC restart at each edge
+static Boolean UNIQ_GRAPHLETS = false; // Should we remove duplicate graphlets?
 
 #define SAMPLE_FAYE 6
 
@@ -1738,7 +1739,7 @@ void ProcessKovacsAllOrbits(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
 
 void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm[], TINY_GRAPH *g)
 {
-    if(GraphletSeenRecently(G, Varray,k)) return;
+    if(UNIQ_GRAPHLETS && GraphletSeenRecently(G, Varray,k)) return;
     TinyGraphInducedFromGraph(g, G, Varray);
     int Gint = TinyGraph2Int(g,k), j, GintOrdinal=_K[Gint];
 #if PARANOID_ASSERTS
@@ -1757,10 +1758,10 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
 	PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case indexMotifs:
-	if(!GraphletSeenRecently(G, Varray,k)) PrintAllMotifs(g,G,Varray);
+	PrintAllMotifs(g,G,Varray);
 	break;
     case kovacsAllOrbits:
-	if(!GraphletSeenRecently(G, Varray,k)) ProcessKovacsAllOrbits(g,G,Varray);
+	ProcessKovacsAllOrbits(g,G,Varray);
 	break;
     case kovacsPairs:
 	// ProcessKovacsPreComputed(g,Varray);
@@ -2589,27 +2590,30 @@ int main(int argc, char *argv[])
 	case 's':
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 	    else if (strncmp(optarg, "NBE", 3) == 0)
-		    _sampleMethod = SAMPLE_NODE_EXPANSION;
-	    else if (strncmp(optarg, "FAYE", 4) == 0) 
-		    _sampleMethod = SAMPLE_FAYE;
+		_sampleMethod = SAMPLE_NODE_EXPANSION;
+	    else if (strncmp(optarg, "FAYE", 3) == 0) 
+		_sampleMethod = SAMPLE_FAYE;
 	    else if (strncmp(optarg, "EBE", 3) == 0)
-		    _sampleMethod = SAMPLE_EDGE_EXPANSION;
-	    else if (strncmp(optarg, "MCMC", 3) == 0)
-		    _sampleMethod = SAMPLE_MCMC;
+		_sampleMethod = SAMPLE_EDGE_EXPANSION;
+	    else if (strncmp(optarg, "MCMC",4) == 0) {
+		_sampleMethod = SAMPLE_MCMC;
+		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
+		    _MCMC_UNIFORM=true;
+	    }
 	    else if (strncmp(optarg, "RES", 3) == 0)
-		    _sampleMethod = SAMPLE_RESERVOIR;
+		_sampleMethod = SAMPLE_RESERVOIR;
 	    else if (strncmp(optarg, "AR", 2) == 0)
-		    _sampleMethod = SAMPLE_ACCEPT_REJECT;
+		_sampleMethod = SAMPLE_ACCEPT_REJECT;
 	    else
 	    {
-		    _sampleFileName = optarg;
-		    if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
-		    else _sampleFile = fopen(_sampleFileName, "r");
-		    if(!_sampleFile)
-			    Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|FAYE|AR|{filename}}\n"
-				    "If unrecognized, we try opening a file by the name '%s', but no such file exists",
-				    _sampleFileName, _sampleFileName);
-		    _sampleMethod = SAMPLE_FROM_FILE;
+		_sampleFileName = optarg;
+		if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
+		else _sampleFile = fopen(_sampleFileName, "r");
+		if(!_sampleFile)
+		    Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|FAYE|AR|{filename}}\n"
+			"If unrecognized, we try opening a file by the name '%s', but no such file exists",
+			_sampleFileName, _sampleFileName);
+		_sampleMethod = SAMPLE_FROM_FILE;
 	    }
 	    break;
 	case 'c': confidence = atof(optarg);
@@ -2642,7 +2646,7 @@ int main(int argc, char *argv[])
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
-	case 'u': _MCMC_UNIFORM = true;
+	case 'u': UNIQ_GRAPHLETS = true;
 	    break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
