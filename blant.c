@@ -155,6 +155,9 @@ static double _graphletConcentration[MAX_CANONICALS];
 static int _alphaList[MAX_CANONICALS];
 /* AND NOW THE CODE */
 
+static Boolean _GRAPH_GEN = false;
+static float confidence; 
+int _genGraphMethod = -1;
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
@@ -2493,6 +2496,225 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
+//
+// Generate Synthetic Graph by Stamping graphlet from concentration distribution
+//
+
+//Some Stats functions for later usage
+double* convertPDFtoCDF(double pdf[], double cdf[])
+{
+    int i;
+    cdf[0] = pdf[0];
+    for(i=0; i<_numCanon; i++) cdf[i] = cdf[i-1] + pdf[i];
+    return cdf;
+}
+
+double* copyConcentration(double src[], double dest[]) {for(int i=0; i<_numCanon; i++) dest[i] = src[i]; return dest;}
+
+double KStest(double empiricalCDF[], double theoreticalCDF[], int n)
+{
+    int i; 
+    float DMinus, DPlus, D, KS_stats;
+    for(i=0; i<_numCanon; i++) 
+    {
+        DPlus = empiricalCDF[i] - theoreticalCDF[i];
+        DMinus = theoreticalCDF[i] - empiricalCDF[i];
+        D = DPlus > D ? DPlus : D;
+        D = DMinus > D ? DMinus : D;
+    }
+    KS_stats = (sqrt(n) - 0.01 + 0.85 / sqrt(n)) * D;
+    return KS_stats;
+}
+
+double KStestPVal(double KS_stats, float precision)
+{
+    double P_val, prev, curr, delta;
+    prev = sqrt(2 * M_PI) / KS_stats * exp(-pow(2*1-1, 2) * pow(M_PI, 2) / (8 * pow(KS_stats, 2)));
+    curr = prev + sqrt(2 * M_PI) / KS_stats * exp(-pow(2*2-1, 2) * pow(M_PI, 2) / (8 * pow(KS_stats, 2)));
+    delta = fabs(curr - prev);
+    int k = 3;
+    while (delta > precision)
+    {
+        prev = curr; curr = prev + sqrt(2 * M_PI) / KS_stats * exp(-pow(2*k-1, 2) * pow(M_PI, 2) / (8 * pow(KS_stats, 2)));
+        delta = fabs(curr - prev);
+        k++;
+    }
+    P_val = 1 - curr;
+    return P_val;
+}
+
+// Use subprocess (ForkBlant) to obtain concentration and index sampling results
+// Concentration is default to use MCMC sample Method and decimal frequency (concentration) output mode
+void LoadGraphletConcentration(int k, int numSamples, GRAPH* G) 
+{
+    _outputMode = graphletFrequency; _freqDisplayMode =  concentration; _sampleMethod = SAMPLE_MCMC;
+    FILE * fpThread = ForkBlant(k, numSamples, G);
+    char line[_numOrbits * BUFSIZ];
+    Boolean finished = false;
+    int canon, i, numRead;
+    double concentration;
+    do
+    {
+        char *tmp = fgets(line, sizeof(line), fpThread);
+        assert(tmp >= 0);
+        if(feof(fpThread))
+        {
+        fclose(fpThread);
+        finished = true;
+        break;
+        }
+        numRead = sscanf(line, "%lf %d", &concentration, &canon);
+        assert(numRead == 2);
+        _graphletConcentration[canon] = concentration;
+    } while(!finished);
+}
+
+// Index is default to use NBE sample Method and index output mode
+void LoadGraphletIndex(int k, unsigned *VIndexArray[], int numSamples, GRAPH* G) 
+{
+    _outputMode = indexGraphlets, _sampleMethod = SAMPLE_NODE_EXPANSION;
+    FILE * fpThread = ForkBlant(k, numSamples, G);
+    char line[_numOrbits * BUFSIZ], *pch;
+    Boolean finished = false;
+    int i, j;
+    do
+    {
+        char *tmp = fgets(line, sizeof(line), fpThread);
+        assert(tmp >= 0);
+        if(feof(fpThread))
+        {
+        fclose(fpThread);
+        finished = true;
+        break;
+        }
+        for(i=0; i<numSamples; i++) 
+        {
+            pch = strtok(line, " "); pch = strtok(NULL, " ");
+            for(j=0; j<k; j++) {VIndexArray[i][j] = (unsigned)atoi(pch); pch = strtok(NULL, " ");}
+            fgets(line, sizeof(line), fpThread);
+        }
+    } while(!finished);
+}
+
+// Compare the synthetic graphlet with the original one by printing out each concentration table
+// Conduct a KS test and return the P-val (probability under NULL hypothethesis where the two distributions are the same)
+double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k)
+{
+    int i;
+    double theoreticalCDF[_numCanon], empiricalCDF[_numCanon], originalConcentration[_numCanon], KS_stats, P_val;
+    LoadGraphletConcentration(k, numSamples, G);
+    copyConcentration(_graphletConcentration, originalConcentration);
+    convertPDFtoCDF(originalConcentration, theoreticalCDF);
+    LoadGraphletConcentration(k, numSamples, G_Syn);
+    convertPDFtoCDF(_graphletConcentration, empiricalCDF);
+    KS_stats = KStest(empiricalCDF, theoreticalCDF, numSamples);
+    P_val = KStestPVal(KS_stats, 0.0001);
+    printf("GintOrdinal\tOriginal\tSynthetic\n");
+    for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals, i))printf("%i\t%lf\t%lf\n", i, originalConcentration[i], _graphletConcentration[i]);
+    printf("Obtained K_statistics:  %lf\n", KS_stats);
+    printf("Obtained p_value:   %lf\n\n", P_val);
+    return P_val;
+}
+
+// Generate a random Gint from concentration distribution
+// Return Gint in a binary adjacency matrix format
+int* PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k) 
+{
+    int i, mid, l, h, GintOrdinal, Gint, step = 0;
+    do
+    {
+        double r = RandomUniform();
+        assert(0 <= r && r <= 1);
+        l=0, h=_numCanon-1;
+        while (l < h)
+        {
+            mid = l + ((h - l) >> 1);  // Same as mid = (l+h)/2
+            (r > graphletCDF[mid]) ? (l = mid + 1) : (h = mid);
+        }
+        GintOrdinal = (graphletCDF[l] >= r) ? l : -1;
+    } while(GintOrdinal < 0 && step < MAX_TRIES);
+    if(GintOrdinal < 0) Fatal("Unable to sample valid graphlet (GintOrdinal > 0) within MAX_TRIES");
+    Gint = _canonList[GintOrdinal];
+    int numBits = k * (k-1) / 2, n = Gint;
+    for(i=0; i<numBits; i++)
+    {
+        if(n>0) {binaryNum[i] = n % 2; n /= 2;} 
+        else binaryNum[i] = 0;
+    }
+    return binaryNum;
+}
+
+// NBE-like synthetic generating method. 
+// Randomly pick out k node from G_SYN; Randomly pick out a Gint from G's concentration distribution
+// Stamp that Gint graphlet to the k nodes in G_SYN
+// Stop when number of edges of those two graphs are similar.
+// If KS test p-val ia smaller than the threshold and step < MAX_TRIES, delete half of the edges from G_SYN and repeat the steps above.
+void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double *graphletCDF, int numSamples, int k) 
+{
+    int varraySize = maxK + 1, i, j, z, cc;
+    double KS_stats, P_val, randomComponent;
+    unsigned Varray[k], temp;
+    SET *V = SetAlloc(G_Syn->n);
+    while(SetCardinality(V) < k) SetAdd(V, (int) G_Syn->n * RandomUniform());
+    assert(SetToArray(Varray, V) == k);
+    int initialNum = 0;
+    int numBits = k*(k-1)/2, binaryNum[numBits], step = 1;
+    int numIndexSamples = 0.5 * G->numEdges / numBits * 0.3;
+    unsigned *VIndexArray[numIndexSamples];
+    for(i=0; i<numIndexSamples; i++) VIndexArray[i] = Calloc(k, sizeof(unsigned));
+    do {
+        if(P_val < confidence)
+        {
+            initialNum = G_Syn->numEdges;
+            while(G_Syn->numEdges > 0.5 * G->numEdges)
+            {
+                LoadGraphletIndex(k, VIndexArray, numIndexSamples, G_Syn);
+                for(z=0; z<numIndexSamples; z++) for(i=_k-1; i>0; i--) for(j=i-1; j>=0; j--) GraphDisconnect(G_Syn, VIndexArray[z][i], VIndexArray[z][j]);
+            }
+        }
+        while(G_Syn->numEdges < G->numEdges) 
+        {
+            PickGraphletFromConcentration(binaryNum, graphletCDF, k);
+            z = 0;
+            for(i=_k-1; i>0; i--) for(j=i-1;j>=0;j--)
+            {
+                if(binaryNum[z] == 1) GraphConnect(G_Syn, Varray[i], Varray[j]);
+                else GraphDisconnect(G_Syn, Varray[i], Varray[j]);
+                z++;
+            }
+            SetEmpty(V);
+            while(SetCardinality(V) < k) SetAdd(V, (int) G_Syn->n * RandomUniform());
+            assert(SetToArray(Varray, V) == k);
+        }
+        P_val = compareSynGraph(G, G_Syn, numSamples, k);
+        step++;
+    } while (P_val < confidence && step < MAX_TRIES);
+    if(step > MAX_TRIES) printf("Steps Exceeding MAX_TRIES\n");
+    for(i=0; i<numIndexSamples; i++) free(VIndexArray[i]);
+    SetFree(V);
+}
+
+// Main function for generating synthetic graph
+int GenSynGraph(int k, int numSamples, GRAPH *G) 
+{
+    int i, j;
+    double theoreticalCDF[_numCanon], empiricalCDF[_numCanon], originalConcentration[_numCanon], KS_stats;
+    LoadGraphletConcentration(k, numSamples, G);
+    copyConcentration(_graphletConcentration, originalConcentration);
+    convertPDFtoCDF(originalConcentration, theoreticalCDF);
+    
+    GRAPH *G_Syn = GraphAlloc(G->n, SPARSE, _supportNodeNames);
+    StampGraphletNBE(G, G_Syn, theoreticalCDF, numSamples, k);
+    printf("\nInitial MCMC Results:   \n");
+    LoadGraphletConcentration(k, numSamples, G_Syn);
+    printf("GintOrdinal\tOriginal\tSynthetic\n");
+    for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals, i)) printf("%i\t%lf\t%lf\n", i, originalConcentration[i], _graphletConcentration[i]);
+    printf("\nFinalize MCMC Testing:   \n");
+    compareSynGraph(G, G_Syn, numSamples, k);
+    return 0;
+}
+
+
 const char const * const USAGE = 
     "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence -w width} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
@@ -2514,7 +2736,8 @@ const char const * const USAGE =
 int main(int argc, char *argv[])
 {
     int i, opt, numSamples=0;
-    double confWidth = 0, confidence=0; // for confidence interval, if it's chosen
+    double confWidth = 0; // for confidence interval, if it's chosen
+    confidence = 0;
 
     if(argc == 1)
     {
@@ -2525,7 +2748,7 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:s:c:k:w:p:r:n:u")) != -1)
+    while((opt = getopt(argc, argv, "m:d:t:s:c:k:g:w:p:r:n:u")) != -1)
     {
 	switch(opt)
 	{
@@ -2617,14 +2840,13 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 'c': confidence = atof(optarg);
-	    Apology("confidence intervals not implemented yet");
+        if (confidence < 0 || confidence > 1) Fatal("Confidence level must be between 0 and 1");
+	    // Apology("confidence intervals not implemented yet");
 	    break;
 	case 'k': _k = atoi(optarg);
 	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
-	case 'w':
-	    _window = true;
-	    _windowSize = atoi(optarg); 
+	case 'w': _window = true; _windowSize = atoi(optarg); 
 	    break;
 	case 'p':
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
@@ -2646,6 +2868,12 @@ int main(int argc, char *argv[])
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
+    case 'g': _GRAPH_GEN = true; 
+        if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
+        else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = SAMPLE_NODE_EXPANSION;
+        else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for synGraph hasn't been implemented.\n");
+        else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
+        break;
 	case 'u': UNIQ_GRAPHLETS = true;
 	    break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
@@ -2661,7 +2889,11 @@ int main(int argc, char *argv[])
         _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
         for(i=0; i<_MAXnumWindowRep; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
     }
-    if(numSamples!=0 && confidence>0)
+    if (_GRAPH_GEN) {
+        if (numSamples == 0) Fatal("Haven't specified sample size (-n sampled_size)");
+        if (confidence == 0) confidence = 0.05;
+    }
+    if(numSamples!=0 && confidence>0 && !_GRAPH_GEN)
 	Fatal("cannot specify both -s (sample size) and confidence interval");
 
     FILE *fpGraph;
@@ -2718,6 +2950,7 @@ int main(int argc, char *argv[])
 	_nodeNames = G->name;
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
+    if(_GRAPH_GEN) return GenSynGraph(_k, numSamples, G);
     return RunBlantInThreads(_k, numSamples, G);
 #endif
 }
