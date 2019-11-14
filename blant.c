@@ -1577,7 +1577,7 @@ void ProcessKovacsPreComputed(TINY_GRAPH *g, unsigned Varray[])
 Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_KOVACS_CIRC_BUF], bufPos;
     static SET *seen;
-    static Vcopy[maxK];
+    static unsigned Vcopy[maxK];
     unsigned hash=0, i;
     if(!seen) seen=SetAlloc(MCMC_KOVACS_MAX_HASH);
     for(i=0;i<k;i++) Vcopy[i]=Varray[i];
@@ -1593,8 +1593,8 @@ Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-static _kovacsOrbitPairSeen[MAX_CANONICALS][maxK][maxK];
-static _kovacsOrbitPairEdge[MAX_CANONICALS][maxK][maxK];
+static unsigned _kovacsOrbitPairSeen[MAX_CANONICALS][maxK][maxK];
+static unsigned _kovacsOrbitPairEdge[MAX_CANONICALS][maxK][maxK];
 
 void KovacsProcessIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varray[], char perm[], TINY_GRAPH *g, int k)
 {
@@ -2398,7 +2398,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			_graphletDistributionTable[i][j] += atoi(pch);
 			pch = strtok(NULL, " ");
 		    }
-		    fgets(line, sizeof(line), fpThreads[thread]);
+		    assert(line == fgets(line, sizeof(line), fpThreads[thread]));
 		}
 		break;
 	    case outputGDV:
@@ -2603,7 +2603,7 @@ void LoadGraphletIndex(int k, unsigned *VIndexArray[], int numSamples, GRAPH* G)
         {
             pch = strtok(line, " "); pch = strtok(NULL, " ");
             for(j=0; j<k; j++) {VIndexArray[i][j] = (unsigned)atoi(pch); pch = strtok(NULL, " ");}
-            fgets(line, sizeof(line), fpThread);
+            assert(line == fgets(line, sizeof(line), fpThread));
         }
     } while(!finished);
 }
