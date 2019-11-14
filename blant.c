@@ -96,7 +96,7 @@ static int **_windowReps;
 static int _MAXnumWindowRep = 0;
 static int _numWindowRep = 0;
 
-enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs,
+enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
     kovacsPairs, kovacsAllOrbits, graphletFrequency, outputODV, outputGDV,
     graphletDistribution // used in Windowing
 };
@@ -1270,8 +1270,8 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= 8);
     _Bk = (1 <<(_k*(_k-1)/2));
-    _connectedCanonicals = SetAlloc(_Bk);
-    _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, _k);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, _k);
+    _numCanon = _connectedCanonicals->n;
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, _k);
     _K = (short int*) mapCanonMap(BUF, _K, _k);
     
@@ -1593,7 +1593,7 @@ Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k) {
 static _kovacsOrbitPairSeen[MAX_CANONICALS][maxK][maxK];
 static _kovacsOrbitPairEdge[MAX_CANONICALS][maxK][maxK];
 
-void KovacsStatIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varray[], char perm[], TINY_GRAPH *g, int k)
+void KovacsProcessIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varray[], char perm[], TINY_GRAPH *g, int k)
 {
     int i, j;
     assert(0<=GintOrdinal && GintOrdinal<_numCanon);
@@ -1611,10 +1611,10 @@ void KovacsStatIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varray[]
 
 	    int orbit0=_orbitList[GintOrdinal][i];
 	    int orbit1=_orbitList[GintOrdinal][j];
-#define NAIVE_BAYES 1
-#if NAIVE_BAYES
 	    assert(SetIn(_connectedCanonicals,_orbitCanonMapping[orbit0]));
 	    assert(SetIn(_connectedCanonicals,_orbitCanonMapping[orbit1]));
+#define OUTPUT_MOTIF_ORBIT_PAIR 1
+#if OUTPUT_MOTIF_ORBIT_PAIR
 	    // preserve order so we can associate the node with the orbit.
 	    printf("%s %s %d\t%d %d\n", _nodeNames[u], _nodeNames[v], edge, orbit0, orbit1);
 #else
@@ -1641,8 +1641,34 @@ void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], 
     puts("");
 }
 
+void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
+    assert(TinyGraphDFSConnected(g,0));
+    int j;
+    static SET* printed;
+    if(!printed) printed = SetAlloc(k);
+    SetEmpty(printed);
+    memset(perm, 0, k);
+    ExtractPerm(perm, Gint);
+    PrintCanonical(GintOrdinal);
+    for(j=0;j<k;j++) if(!SetIn(printed,j))
+    {
+	putchar(' ');
+	assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+	PrintNode(Varray[(int)perm[j]]);
+	SetAdd(printed, j);
+	int j1;
+	for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
+	{
+	    assert(!SetIn(printed, j1));
+	    putchar(':'); PrintNode(Varray[(int)perm[j1]]);
+	    SetAdd(printed, j1);
+	}
+    }
+    putchar('\n');
+}
+
 // Recursively print all the motifs under this graphlet
-void PrintAllMotifs(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
+void PrintAllMotifs(TINY_GRAPH *g, int Gint, int GintOrdinal, GRAPH *G, unsigned Varray[])
 {
     static int depth;
     static Boolean initDone;
@@ -1663,25 +1689,30 @@ void PrintAllMotifs(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
     assert(TinyGraphDFSConnected(g, 0));
 #endif
 
-    int i,j, Gint = TinyGraph2Int(g,_k), GintOrdinal;
     if(SetIn(seen,Gint)) return;
     SetAdd(seen,Gint);
-    GintOrdinal=_K[Gint];
 
     char perm[maxK];
     memset(perm, 0, _k);
-    ExtractPerm(perm, Gint);
-    PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, _k);
+    if(_outputMode == indexMotifOrbits)
+	PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, _k);
+    else {
+	assert(_outputMode == indexMotifs);
+	PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, _k);
+    }
 
     // Now go about deleting edges recursively.
+    int i,j;
     for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
     {
 	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it.
 	{
 	    TinyGraphDisconnect(g,i,j);
-	    if(TinyGraphDFSConnected(g,0)) {
+	    Gint = TinyGraph2Int(g,_k);
+	    GintOrdinal = _K[Gint];
+	    if(SetIn(_connectedCanonicals, GintOrdinal)) {
 		++depth;
-		PrintAllMotifs(g,G,Varray);
+		PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
 		--depth;
 	    }
 	    TinyGraphConnect(g,i,j);
@@ -1711,15 +1742,16 @@ void ProcessKovacsAllOrbits(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
     assert(TinyGraphDFSConnected(g, 0));
 #endif
 
-    int i,j, Gint = TinyGraph2Int(g,_k), GintOrdinal;
+    int Gint = TinyGraph2Int(g,_k);
     if(SetIn(seen,Gint)) return;
     SetAdd(seen,Gint);
+    int i,j, GintOrdinal;
     GintOrdinal=_K[Gint];
 
     char perm[maxK];
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);
-    KovacsStatIndexEntry(G, Gint, GintOrdinal, Varray, perm, g, _k);
+    KovacsProcessIndexEntry(G, Gint, GintOrdinal, Varray, perm, g, _k);
 
     // Now go about deleting edges recursively.
     for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
@@ -1747,7 +1779,6 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
 #endif
     switch(_outputMode)
     {
-	static SET* printed;
     case graphletFrequency:
 	++_graphletCount[GintOrdinal];
 	break;
@@ -1757,8 +1788,8 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
 #endif
 	PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
-    case indexMotifs:
-	PrintAllMotifs(g,G,Varray);
+    case indexMotifs: case indexMotifOrbits:
+	PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
 	break;
     case kovacsAllOrbits:
 	ProcessKovacsAllOrbits(g,G,Varray);
@@ -1771,26 +1802,7 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	if(!printed) printed = SetAlloc(_k);
-	SetEmpty(printed);
-	memset(perm, 0, k);
-	ExtractPerm(perm, Gint);
-	PrintCanonical(GintOrdinal);
-	for(j=0;j<k;j++) if(!SetIn(printed,j))
-	{
-	    putchar(' ');
-	    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
-	    PrintNode(Varray[(int)perm[j]]);
-	    SetAdd(printed, j);
-	    int j1;
-	    for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
-	    {
-		assert(!SetIn(printed, j1));
-		putchar(':'); PrintNode(Varray[(int)perm[j1]]);
-		SetAdd(printed, j1);
-	    }
-	}
-	putchar('\n');
+	PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
@@ -2152,7 +2164,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     {
 	int canon;
 	int orbit_index;
-    case indexGraphlets: case indexOrbits: case indexMotifs:
+    case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	break; // already printed on-the-fly in the Sample/ProcessGraphlet loop above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
@@ -2424,7 +2436,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		}
 		assert(*nextChar == '\0');
 		break;
-	    case indexGraphlets: case indexOrbits: case indexMotifs:
+	    case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 		fputs(line, stdout);
 		if(_window) 
 		    while(fgets(line, sizeof(line), fpThreads[thread])) 
@@ -2534,6 +2546,7 @@ int main(int argc, char *argv[])
 	    switch(*optarg)
 	    {
 	    case 'm': _outputMode = indexMotifs; break;
+	    case 'M': _outputMode = indexMotifOrbits; break;
 	    case 'i': _outputMode = indexGraphlets; break;
 	    case 'j': _outputMode = indexOrbits; break;
 	    case 'K': _outputMode = kovacsAllOrbits; break;

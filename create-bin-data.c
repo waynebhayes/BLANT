@@ -70,7 +70,9 @@ int main(int argc, char *argv[])
 {
     int i;
     char buf[BUFSIZ];   
-    int numCanon = canonListPopulate(buf, canon_list, NULL, kk);
+    SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk);
+    int numCanon = connectedCanonicals->n;
+    SetFree(connectedCanonicals);
     sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, CANON_DIR, kString);
     FILE *fp=fopen(buf,"r");
     assert(fp);
