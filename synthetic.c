@@ -95,8 +95,8 @@ void SetGlobalCanonMaps(void){
         assert(3 <= _k[i] && _k[i] <= 8);
         _Bk = (1 <<(_k[i]*(_k[i]-1)/2));
         char BUF[BUFSIZ];
-        _connectedCanonicals[_k[i]-1] = SetAlloc(_Bk);
-        _numCanon[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _connectedCanonicals[_k[i]-1], _k[i]);
+        _connectedCanonicals[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _k[i]);
+        _numCanon[_k[i]-1] = _connectedCanonicals[_k[i]-1]->n;
         _maxNumCanon = MAX(_maxNumCanon, _numCanon[_k[i]-1]);  // set max number of canonicals for a k
         _K[_k[i]-1] = (short int*) aligned_alloc(8192, MAX(_Bk * sizeof(short int), 8192));
         assert(_K[_k[i]-1] != NULL);

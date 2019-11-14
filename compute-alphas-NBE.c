@@ -64,25 +64,25 @@ int main(int argc, char* argv[]) {
     char BUF[BUFSIZ];
     TINY_GRAPH *g = TinyGraphAlloc(k);
     int _Bk = (1 <<(k*(k-1)/2));
-    SET* _connectedCanonicals = SetAlloc(_Bk);
-    int numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
-	int i;
-	for (i = 0; i < numCanon; i++) {
-		BuildGraph(g, _canonList[i]);
-        if (!SetIn(_connectedCanonicals, i))
-            _alphaList[i] = 0;
-		else 
-            _alphaList[i] = ComputeAlphaNode(g, k);
-	}
+    SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k);
+    int numCanon = _connectedCanonicals->n;
+    int i;
+    for (i = 0; i < numCanon; i++) {
+	    BuildGraph(g, _canonList[i]);
+    if (!SetIn(_connectedCanonicals, i))
+	_alphaList[i] = 0;
+	    else 
+	_alphaList[i] = ComputeAlphaNode(g, k);
+    }
 
-	printf("%d\n", numCanon);
-	for (i = 0; i < numCanon; i++) {
-		printf("%d ", _alphaList[i]);
-	}
-	printf("\n");
+    printf("%d\n", numCanon);
+    for (i = 0; i < numCanon; i++) {
+	    printf("%d ", _alphaList[i]);
+    }
+    printf("\n");
 
     TinyGraphFree(g);
-	SetFree(_connectedCanonicals);
+    SetFree(_connectedCanonicals);
 
     return 0;
 }

@@ -180,7 +180,9 @@ int main(int argc, char* argv[]){
     assert(k > 2 && k <= 8);
     //reading data from canon_list file
     char BUF[BUFSIZ];
-    int numCanon = canonListPopulate(BUF, canon_list, NULL, k);
+    SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k);
+    int numCanon = connectedCanonicals->n;
+    SetFree(connectedCanonicals);
     int numOrbits = 0, i, j;
     long orbit[numCanon][k];
     for(i=0; i<numCanon; i++){

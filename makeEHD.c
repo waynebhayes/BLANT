@@ -19,9 +19,9 @@ void SetGlobalCanonMaps(int k){
     assert(3 <= k && k <= 8);
     unsigned int _Bk = (1 <<(k*(k-1)/2));
     char BUF[BUFSIZ];
-    SET *_connectedCanonicals = SetAlloc(_Bk);
     int _canonList[MAX_CANONICALS];
-    _numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
+    SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k);
+    _numCanon = _connectedCanonicals->n;
     _K = (short int*) mapCanonMap(BUF, _K, k);
     
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
