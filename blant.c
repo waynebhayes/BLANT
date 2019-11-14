@@ -2521,7 +2521,7 @@ double* convertPDFtoCDF(double pdf[], double cdf[])
     return cdf;
 }
 
-double* copyConcentration(double src[], double dest[]) {for(int i=0; i<_numCanon; i++) dest[i] = src[i]; return dest;}
+double* copyConcentration(double src[], double dest[]) {int i; for(i=0; i<_numCanon; i++) dest[i] = src[i]; return dest;}
 
 double KStest(double empiricalCDF[], double theoreticalCDF[], int n)
 {

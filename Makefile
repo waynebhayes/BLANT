@@ -8,7 +8,7 @@ CC=gcc
 CXX=g++
 
 ### Generated File Lists ###
-EIGHT := 8#
+EIGHT := #8
 K := 3 4 5 6 7 $(EIGHT)
 canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
 perm_map_bins := $(foreach k,$(K), canon_maps/perm_map$(k).bin)
