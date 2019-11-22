@@ -77,6 +77,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 static SET *_connectedCanonicals; // the SET of canonicals that are connected.
+static int _numConnectedCanon;
 static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // map from [ordinal][canonicalNode] to orbit ID.
 static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 
@@ -156,7 +157,14 @@ static int _alphaList[MAX_CANONICALS];
 /* AND NOW THE CODE */
 
 static Boolean _GRAPH_GEN = false;
+static int _GRAPH_GEN_EDGES;
+static int _KS_NUMSAMPLES = 1000;
 static float confidence; 
+#define GEN_NODE_EXPANSION 0
+#define GEN_MCMC 1
+#define LOAD_CONCENTRATION 0
+#define LOAD_INDEX 1
+#define LOAD_DISTRIBUTION 2
 int _genGraphMethod = -1;
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
@@ -1275,6 +1283,7 @@ void SetGlobalCanonMaps(void)
     _Bk = (1 <<(_k*(_k-1)/2));
     _connectedCanonicals = canonListPopulate(BUF, _canonList, _k);
     _numCanon = _connectedCanonicals->n;
+    _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, _k);
     _K = (short int*) mapCanonMap(BUF, _K, _k);
     
@@ -2398,7 +2407,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			_graphletDistributionTable[i][j] += atoi(pch);
 			pch = strtok(NULL, " ");
 		    }
-		    assert(line == fgets(line, sizeof(line), fpThreads[thread]));
+		    fgets(line, sizeof(line), fpThreads[thread]);
 		}
 		break;
 	    case outputGDV:
@@ -2517,112 +2526,128 @@ double* convertPDFtoCDF(double pdf[], double cdf[])
 {
     int i;
     cdf[0] = pdf[0];
-    for(i=0; i<_numCanon; i++) cdf[i] = cdf[i-1] + pdf[i];
+    for(i=0; i<_numConnectedCanon; i++) cdf[i] = cdf[i-1] + pdf[i];
     return cdf;
 }
 
-double* copyConcentration(double src[], double dest[]) {int i; for(i=0; i<_numCanon; i++) dest[i] = src[i]; return dest;}
+double* copyConcentration(double src[], double dest[]) {for(int i=0; i<_numConnectedCanon; i++) dest[i] = src[i]; return dest;}
 
 double KStest(double empiricalCDF[], double theoreticalCDF[], int n)
 {
     int i; 
-    float DMinus, DPlus, D, KS_stats;
-    for(i=0; i<_numCanon; i++) 
+    double DMinus, DPlus, D, KS_stats;
+    for(i=0; i<_numConnectedCanon; i++) 
     {
         DPlus = empiricalCDF[i] - theoreticalCDF[i];
         DMinus = theoreticalCDF[i] - empiricalCDF[i];
         D = DPlus > D ? DPlus : D;
         D = DMinus > D ? DMinus : D;
     }
-    KS_stats = (sqrt(n) - 0.01 + 0.85 / sqrt(n)) * D;
+    printf("Distance:  %lf\n", D);
+    KS_stats = (sqrt(n / 2.0) + 0.12 + 0.11 / sqrt(n / 2.0)) * D;
     return KS_stats;
 }
 
 double KStestPVal(double KS_stats, float precision)
 {
-    double P_val, prev, curr, delta;
-    prev = sqrt(2 * M_PI) / KS_stats * exp(-pow(2*1-1, 2) * pow(M_PI, 2) / (8 * pow(KS_stats, 2)));
-    curr = prev + sqrt(2 * M_PI) / KS_stats * exp(-pow(2*2-1, 2) * pow(M_PI, 2) / (8 * pow(KS_stats, 2)));
+    double prev, curr, delta;
+    prev = 2 * pow(-1, 1-1) * exp(-2 * pow(1, 2) * pow(KS_stats, 2));
+    curr = prev + 2 * pow(-1, 2-1) * exp(-2 * pow(2, 2) * pow(KS_stats, 2));
     delta = fabs(curr - prev);
     int k = 3;
     while (delta > precision)
     {
-        prev = curr; curr = prev + sqrt(2 * M_PI) / KS_stats * exp(-pow(2*k-1, 2) * pow(M_PI, 2) / (8 * pow(KS_stats, 2)));
+        prev = curr; curr = prev + 2 * pow(-1, k-1) * exp(-2 * pow(k, 2) * pow(KS_stats, 2));
         delta = fabs(curr - prev);
         k++;
     }
-    P_val = 1 - curr;
-    return P_val;
+    return curr;
 }
 
 // Use subprocess (ForkBlant) to obtain concentration and index sampling results
 // Concentration is default to use MCMC sample Method and decimal frequency (concentration) output mode
-void LoadGraphletConcentration(int k, int numSamples, GRAPH* G) 
+void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* twodarray[], int mode) 
 {
-    _outputMode = graphletFrequency; _freqDisplayMode =  concentration; _sampleMethod = SAMPLE_MCMC;
-    FILE * fpThread = ForkBlant(k, numSamples, G);
-    char line[_numOrbits * BUFSIZ];
+    char line[_numOrbits * BUFSIZ], *pch, *tmp;
     Boolean finished = false;
-    int canon, i, numRead;
-    double concentration;
-    do
-    {
-        char *tmp = fgets(line, sizeof(line), fpThread);
-        assert(tmp >= 0);
-        if(feof(fpThread))
-        {
-        fclose(fpThread);
-        finished = true;
-        break;
-        }
-        numRead = sscanf(line, "%lf %d", &concentration, &canon);
-        assert(numRead == 2);
-        _graphletConcentration[canon] = concentration;
-    } while(!finished);
-}
+    int i, j, canon, numRead, row, col, row_sum, total_sum;
+    double concentrationNum;
+    FILE * fpThread;
+    int Varray[_numConnectedCanon];
 
-// Index is default to use NBE sample Method and index output mode
-void LoadGraphletIndex(int k, unsigned *VIndexArray[], int numSamples, GRAPH* G) 
-{
-    _outputMode = indexGraphlets, _sampleMethod = SAMPLE_NODE_EXPANSION;
-    FILE * fpThread = ForkBlant(k, numSamples, G);
-    char line[_numOrbits * BUFSIZ], *pch;
-    Boolean finished = false;
-    int i, j;
-    do
+    switch(mode)
     {
-        char *tmp = fgets(line, sizeof(line), fpThread);
-        assert(tmp >= 0);
-        if(feof(fpThread))
+    case LOAD_CONCENTRATION:  // oned array is the connected cannonicals concentration [numConnected]
+        _outputMode = graphletFrequency; _freqDisplayMode = concentration; _sampleMethod = SAMPLE_MCMC;
+        fpThread = ForkBlant(k, numSamples, G);
+        for(i=0; i<_numConnectedCanon; i++) 
         {
-        fclose(fpThread);
-        finished = true;
-        break;
+            char *tmp = fgets(line, sizeof(line), fpThread); assert(tmp >= 0);
+            numRead = sscanf(line, "%lf %d", &concentrationNum, &canon);
+            assert(numRead == 2 && SetIn(_connectedCanonicals, canon));
+            onedarray[i] = concentrationNum;
         }
-        for(i=0; i<numSamples; i++) 
+        break;
+    case LOAD_INDEX: // twodarray is of size [numSamples][k]
+        _outputMode = indexGraphlets; _sampleMethod = SAMPLE_NODE_EXPANSION;
+        fpThread = ForkBlant(k, numSamples, G);
+        for(i=0; i<numSamples; i++)
         {
+            tmp = fgets(line, sizeof(line), fpThread); assert(tmp);
             pch = strtok(line, " "); pch = strtok(NULL, " ");
-            for(j=0; j<k; j++) {VIndexArray[i][j] = (unsigned)atoi(pch); pch = strtok(NULL, " ");}
-            assert(line == fgets(line, sizeof(line), fpThread));
+            for(j=0; j<k; j++) {twodarray[i][j] = (double)atoi(pch); pch = strtok(NULL, " ");}
         }
-    } while(!finished);
+        break;
+    case LOAD_DISTRIBUTION:  
+    // onedarray is aggregated row concentration [numConnected]; 2darray is neighbor concentration [numConnected][numConnected]
+        _outputMode = graphletDistribution; _sampleMethod = SAMPLE_MCMC;
+        for(i=0; i<_numCanon; i++) 
+            memset(_graphletDistributionTable[i], 0, _numCanon);
+        fpThread = ForkBlant(k, numSamples, G);
+        row=0; col=0; row_sum=0; total_sum=0;
+        for(i=0; i<_numCanon; i++) {
+            tmp = fgets(line, sizeof(line), fpThread); assert(tmp);
+            if(SetIn(_connectedCanonicals, i)) {
+                pch = strtok(line, " ");
+                for(j=0; j<_numCanon; j++) {
+                    if(SetIn(_connectedCanonicals, j)) {twodarray[row][col++] += atoi(pch); row_sum += atoi(pch);}
+                    pch = strtok(NULL, " ");
+                }
+                total_sum += row_sum; onedarray[row++] = row_sum; row_sum=0; col=0; 
+            }
+        }
+        for(i=0; i<_numConnectedCanon; i++)
+        {
+            for(j=0; j<_numConnectedCanon; j++) {
+                onedarray[i] != 0 ? twodarray[i][j] /= onedarray[i] : assert(twodarray[i][j] == 0);
+            }
+            onedarray[i] /= total_sum;
+        }
+        break;
+    default:
+        Fatal("Unknow loading mode");
+    }
+    if(feof(fpThread)) fclose(fpThread);
 }
 
-// Compare the synthetic graphlet with the original one by printing out each concentration table
+// Compare the synthetic graphlet with the original one by printing out each concentration results
 // Conduct a KS test and return the P-val (probability under NULL hypothethesis where the two distributions are the same)
 double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k)
 {
-    int i;
-    double theoreticalCDF[_numCanon], empiricalCDF[_numCanon], originalConcentration[_numCanon], KS_stats, P_val;
-    LoadGraphletConcentration(k, numSamples, G);
-    copyConcentration(_graphletConcentration, originalConcentration);
-    convertPDFtoCDF(originalConcentration, theoreticalCDF);
-    LoadGraphletConcentration(k, numSamples, G_Syn);
-    convertPDFtoCDF(_graphletConcentration, empiricalCDF);
+    int i, canonArray[MAX_CANONICALS];
+    SetToArray(canonArray, _connectedCanonicals);
+    double KS_stats, P_val;
+    double theoreticalCDF[_numConnectedCanon], empiricalCDF[_numConnectedCanon];
+    double theoreticalPDF[_numConnectedCanon], empiricalPDF[_numConnectedCanon];
+    for(i=0;i<_numConnectedCanon; i++) {empiricalPDF[i]=0; empiricalCDF[i]=0; theoreticalPDF[i]=0; theoreticalCDF[i]=0;}
+    LoadFromFork(k, numSamples, G, theoreticalPDF, NULL, LOAD_CONCENTRATION);
+    convertPDFtoCDF(theoreticalPDF, theoreticalCDF);
+    LoadFromFork(k, numSamples, G_Syn, empiricalPDF, NULL, LOAD_CONCENTRATION);
+    convertPDFtoCDF(empiricalPDF, empiricalCDF);
+    printf("GintOrdinal\tOriginal\tSynthetic\n");
+    for(i=0; i<_numConnectedCanon; i++) printf("%i\t%lf\t%lf\n", canonArray[i], theoreticalPDF[i], empiricalPDF[i]);
     KS_stats = KStest(empiricalCDF, theoreticalCDF, numSamples);
     P_val = KStestPVal(KS_stats, 0.0001);
-    printf("GintOrdinal\tOriginal\tSynthetic\n");
-    for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals, i))printf("%i\t%lf\t%lf\n", i, originalConcentration[i], _graphletConcentration[i]);
     printf("Obtained K_statistics:  %lf\n", KS_stats);
     printf("Obtained p_value:   %lf\n\n", P_val);
     return P_val;
@@ -2630,8 +2655,10 @@ double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k)
 
 // Generate a random Gint from concentration distribution
 // Return Gint in a binary adjacency matrix format
-int* PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k) 
+int PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k) 
 {
+    int canonArray[_numConnectedCanon];
+    SetToArray(canonArray, _connectedCanonicals);
     int i, mid, l, h, GintOrdinal, Gint, step = 0;
     do
     {
@@ -2645,6 +2672,7 @@ int* PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
         }
         GintOrdinal = (graphletCDF[l] >= r) ? l : -1;
     } while(GintOrdinal < 0 && step < MAX_TRIES);
+    GintOrdinal = canonArray[GintOrdinal];
     if(GintOrdinal < 0) Fatal("Unable to sample valid graphlet (GintOrdinal > 0) within MAX_TRIES");
     Gint = _canonList[GintOrdinal];
     int numBits = k * (k-1) / 2, n = Gint;
@@ -2653,7 +2681,17 @@ int* PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
         if(n>0) {binaryNum[i] = n % 2; n /= 2;} 
         else binaryNum[i] = 0;
     }
-    return binaryNum;
+    return GintOrdinal;
+}
+
+void stampFunction(GRAPH *G, int binaryNum[], int Varray[], int k)
+{
+    int i, j, z = k * (k-1) / 2;
+    for(i=k-1; i>0; i--) for(j=i-1;j>=0;j--)
+    if(binaryNum[z--] == 1) 
+        GraphConnect(G, Varray[i], Varray[j]);
+    else 
+        GraphDisconnect(G, Varray[i], Varray[j]);
 }
 
 // NBE-like synthetic generating method. 
@@ -2661,70 +2699,185 @@ int* PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
 // Stamp that Gint graphlet to the k nodes in G_SYN
 // Stop when number of edges of those two graphs are similar.
 // If KS test p-val ia smaller than the threshold and step < MAX_TRIES, delete half of the edges from G_SYN and repeat the steps above.
-void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double *graphletCDF, int numSamples, int k) 
+void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k) 
 {
-    int varraySize = maxK + 1, i, j, z, cc;
-    double KS_stats, P_val, randomComponent;
-    unsigned Varray[k], temp;
+    double KS_stats, P_val;
+    int i, j, z, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample, Gint; 
     SET *V = SetAlloc(G_Syn->n);
-    while(SetCardinality(V) < k) SetAdd(V, (int) G_Syn->n * RandomUniform());
-    assert(SetToArray(Varray, V) == k);
-    int initialNum = 0;
-    int numBits = k*(k-1)/2, binaryNum[numBits], step = 1;
-    int numIndexSamples = 0.5 * G->numEdges / numBits * 0.3;
-    unsigned *VIndexArray[numIndexSamples];
-    for(i=0; i<numIndexSamples; i++) VIndexArray[i] = Calloc(k, sizeof(unsigned));
+    step=0, numRemoveSample=0;
     do {
-        if(P_val < confidence)
-        {
-            initialNum = G_Syn->numEdges;
-            while(G_Syn->numEdges > 0.5 * G->numEdges)
-            {
-                LoadGraphletIndex(k, VIndexArray, numIndexSamples, G_Syn);
-                for(z=0; z<numIndexSamples; z++) for(i=_k-1; i>0; i--) for(j=i-1; j>=0; j--) GraphDisconnect(G_Syn, VIndexArray[z][i], VIndexArray[z][j]);
-            }
+        while(SetCardinality(V) < k) 
+            SetAdd(V, (int) G_Syn->n * RandomUniform());
+        assert(SetToArray(Varray, V) == k);
+
+        if(G_Syn->numEdges < _GRAPH_GEN_EDGES) {
+            Gint = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
+            stampFunction(G_Syn, binaryNum, Varray, k);
         }
-        while(G_Syn->numEdges < G->numEdges) 
-        {
-            PickGraphletFromConcentration(binaryNum, graphletCDF, k);
-            z = 0;
-            for(i=_k-1; i>0; i--) for(j=i-1;j>=0;j--)
-            {
-                if(binaryNum[z] == 1) GraphConnect(G_Syn, Varray[i], Varray[j]);
-                else GraphDisconnect(G_Syn, Varray[i], Varray[j]);
-                z++;
+        else {
+            printf("Steps made to remove Edges:  %i\n", numRemoveSample); 
+            step++; numRemoveSample=0;
+            P_val = compareSynGraph(G, G_Syn, _KS_NUMSAMPLES, k);
+            if(P_val > confidence || step >= MAX_TRIES) 
+                break;
+            while(G_Syn->numEdges > 0.5 * _GRAPH_GEN_EDGES) {
+                for(i=k-1; i>0; i--) for(j=i-1;j>=0;j--) 
+                    if(GraphAreConnected(G_Syn, Varray[i], Varray[j])) 
+                        GraphDisconnect(G_Syn, Varray[i], Varray[j]);
+
+                SetEmpty(V);
+                while(SetCardinality(V) < k) SetAdd(V, (int) G_Syn->n * RandomUniform());
+                assert(SetToArray(Varray, V) == k);
+                numRemoveSample++;
             }
-            SetEmpty(V);
-            while(SetCardinality(V) < k) SetAdd(V, (int) G_Syn->n * RandomUniform());
-            assert(SetToArray(Varray, V) == k);
-        }
-        P_val = compareSynGraph(G, G_Syn, numSamples, k);
-        step++;
-    } while (P_val < confidence && step < MAX_TRIES);
+        } 
+        SetEmpty(V);
+    } while(step < MAX_TRIES);
     if(step > MAX_TRIES) printf("Steps Exceeding MAX_TRIES\n");
-    for(i=0; i<numIndexSamples; i++) free(VIndexArray[i]);
+    SetFree(V);
+}
+
+void StampGraphletMCMC(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], double *neighborCDF[], int k) 
+{
+    double KS_stats, P_val;
+    int i, j, z, n, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample, VIndextoRemove, newNode; 
+    int connectedCanonArray[_numConnectedCanon], Gint, GintOrdinal, prevGintOrdinal, newGintBase, currCanonIndex;
+    SetToArray(connectedCanonArray, _connectedCanonicals);
+    Boolean FoundGint = false;
+    SET *V = SetAlloc(G_Syn->n);
+    while(SetCardinality(V) < k) 
+        SetAdd(V, (int) G_Syn->n * RandomUniform());
+    assert(SetToArray(Varray, V) == k);
+    GintOrdinal = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
+    stampFunction(G_Syn, binaryNum, Varray, k);
+
+    step=0, numRemoveSample=0;
+    do {
+        if(G_Syn->numEdges < _GRAPH_GEN_EDGES) {
+            // Pick one GintOrdinal from previous GintOrdinal based on neighbor distribution table
+            for(i=0; i<_numConnectedCanon; i++) 
+                if(connectedCanonArray[i] == GintOrdinal) {
+                    currCanonIndex = i;
+                    GintOrdinal = PickGraphletFromConcentration(binaryNum, neighborCDF[i], k);
+                    break;
+                }
+            assert(i < _numConnectedCanon); //should found one 
+
+            // Construct the slided window based on just sampled GintOrdinal
+            // remove one col and row from the prev adj matrix
+            // See the possible node to delete
+            do {
+                for(VIndextoRemove = 0; VIndextoRemove < k; VIndextoRemove++) {
+                    Gint = 0; z = 0;
+                    for(i=0, z=0; i<=k-1; i++) for(j=0;j<i;j++, z++) {
+                        if(i != VIndextoRemove && j != VIndextoRemove)
+                            Gint = (Gint << 1) + binaryNum[z];
+                    }
+                    // for(i=Gint; i<(1 <<(k*(k-1)/2)); i++) if(_K[i] == GintOrdinal) {printf("Found one:  %i\n", i); break;}
+                    // Try the Gint after the base, get the smallest one whose GintOrdinal equals to the sampled one
+                    FoundGint = false;
+                    for(i=0; i<(1<<(k-1)); i++) {
+                        if (_K[Gint+i] == GintOrdinal) {
+                            Gint += i; FoundGint = true; break;
+                        }
+                    }
+
+                    if(FoundGint) {
+                        assert(_K[Gint] == GintOrdinal);
+                        SetDelete(V, Varray[VIndextoRemove]);
+                        while(SetCardinality(V) < k) {
+                            newNode = (int) G_Syn->n * RandomUniform();
+                            SetAdd(V, newNode);
+                        }
+                        assert(k == SetToArray(Varray, V));
+                        for(i = 0, n = Gint; i < numBits; i++) {
+                            if(n>0) {binaryNum[i] = n % 2; n /= 2;} 
+                            else binaryNum[i] = 0;
+                        }
+                        for(j = k-2, z = numBits; j>=0; j--) {
+                            if(binaryNum[z--] == 1) GraphConnect(G, newNode, Varray[j]);
+                            else GraphDisconnect(G, newNode, Varray[j]);
+                        }
+                        break;
+                    }
+                }
+                // Curr sampled ordinal didn't work out. Sampled another neight GintOrdinal
+                if (!FoundGint) {
+                    do {
+                        prevGintOrdinal = GintOrdinal;
+                        GintOrdinal = PickGraphletFromConcentration(binaryNum, neighborCDF[currCanonIndex], k);
+                    } while(prevGintOrdinal == Gint);
+                }
+            } while(!FoundGint); //Should find one possible combination
+        }
+        else {
+            printf("Steps made to remove Edges:  %i\n", numRemoveSample); 
+            step++; numRemoveSample=0;
+            P_val = compareSynGraph(G, G_Syn, _KS_NUMSAMPLES, k);
+            if(P_val > confidence || step >= MAX_TRIES) 
+                break;
+            while(G_Syn->numEdges > 0.7 * _GRAPH_GEN_EDGES) {
+                for(i=k-1; i>0; i--) for(j=i-1;j>=0;j--) 
+                    if(GraphAreConnected(G_Syn, Varray[i], Varray[j])) 
+                        GraphDisconnect(G_Syn, Varray[i], Varray[j]);
+                SetEmpty(V);
+                while(SetCardinality(V) < k) 
+                    SetAdd(V, (int) G_Syn->n * RandomUniform());
+                assert(SetToArray(Varray, V) == k);
+                numRemoveSample++;
+            }
+            GintOrdinal = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
+            stampFunction(G_Syn, binaryNum, Varray, k);
+        } 
+    } while(step < MAX_TRIES);
+    if(step > MAX_TRIES) printf("Steps Exceeding MAX_TRIES\n");
     SetFree(V);
 }
 
 // Main function for generating synthetic graph
-int GenSynGraph(int k, int numSamples, GRAPH *G) 
+int GenSynGraph(int k, int numSamples, GRAPH *G, FILE *SynOutFile) 
 {
-    int i, j;
-    double theoreticalCDF[_numCanon], empiricalCDF[_numCanon], originalConcentration[_numCanon], KS_stats;
-    LoadGraphletConcentration(k, numSamples, G);
-    copyConcentration(_graphletConcentration, originalConcentration);
-    convertPDFtoCDF(originalConcentration, theoreticalCDF);
-    
+    int i, j, Varray[MAX_CANONICALS];
+    double theoreticalPDF[_numConnectedCanon], theoreticalCDF[_numConnectedCanon], empiricalPDF[_numConnectedCanon], empiricalCDF[_numConnectedCanon], KS_stats;
+    double *distributionTablePDF[_numConnectedCanon], *distributionTableCDF[_numConnectedCanon];
+
     GRAPH *G_Syn = GraphAlloc(G->n, SPARSE, _supportNodeNames);
-    StampGraphletNBE(G, G_Syn, theoreticalCDF, numSamples, k);
-    printf("\nInitial MCMC Results:   \n");
-    LoadGraphletConcentration(k, numSamples, G_Syn);
-    printf("GintOrdinal\tOriginal\tSynthetic\n");
-    for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals, i)) printf("%i\t%lf\t%lf\n", i, originalConcentration[i], _graphletConcentration[i]);
-    printf("\nFinalize MCMC Testing:   \n");
-    compareSynGraph(G, G_Syn, numSamples, k);
+    switch(_genGraphMethod) 
+    {
+    case GEN_NODE_EXPANSION:
+        LoadFromFork(k, numSamples, G, theoreticalPDF, NULL, LOAD_CONCENTRATION);
+        convertPDFtoCDF(theoreticalPDF, theoreticalCDF);
+        StampGraphletNBE(G, G_Syn, theoreticalCDF, k);
+        break;
+    case GEN_MCMC:
+        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
+        for(i=0; i<_numCanon; i++) {
+            _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
+            for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
+        }
+        for(i=0; i<_numConnectedCanon; i++) {
+            distributionTablePDF[i] = Calloc(_numConnectedCanon, sizeof(double));
+            distributionTableCDF[i] = Calloc(_numConnectedCanon, sizeof(double));
+        }
+        LoadFromFork(k, numSamples, G, theoreticalPDF, distributionTablePDF, LOAD_DISTRIBUTION);
+        convertPDFtoCDF(theoreticalPDF, theoreticalCDF);
+        assert(theoreticalCDF[_numConnectedCanon-1] == 1.0);
+        for(i=0; i<_numConnectedCanon; i++) {
+            convertPDFtoCDF(distributionTablePDF[i], distributionTableCDF[i]);
+            assert((distributionTableCDF[i][_numConnectedCanon-1] - 1) < 0.00001 || distributionTableCDF[i][_numConnectedCanon-1] < 0.00001);
+        }
+        StampGraphletMCMC(G, G_Syn, theoreticalCDF, distributionTableCDF, k);
+        break;
+    default:
+        Fatal("Unrecognized Synthetic Graph Generating method");
+    }
+    if(SynOutFile) {
+        GraphPrintConnections(SynOutFile, G_Syn);
+        fclose(SynOutFile);
+    }
     return 0;
 }
+
 
 
 const char const * const USAGE = 
@@ -2760,7 +2913,7 @@ int main(int argc, char *argv[])
     _THREADS = 1; 
     _k = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:s:c:k:g:w:p:r:n:u")) != -1)
+    while((opt = getopt(argc, argv, "m:d:t:s:c:k:K:e:g:w:p:r:n:u")) != -1)
     {
 	switch(opt)
 	{
@@ -2881,10 +3034,12 @@ int main(int argc, char *argv[])
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
+    case 'K': _KS_NUMSAMPLES = atoi(optarg); break;
+    case 'e': _GRAPH_GEN_EDGES = atoi(optarg); break;
     case 'g': _GRAPH_GEN = true; 
         if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
-        else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = SAMPLE_NODE_EXPANSION;
-        else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for synGraph hasn't been implemented.\n");
+        else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = GEN_NODE_EXPANSION;
+        else if (strncmp(optarg, "MCMC", 4) == 0) _genGraphMethod = GEN_MCMC;
         else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
         break;
 	case 'u': UNIQ_GRAPHLETS = true;
@@ -2902,10 +3057,7 @@ int main(int argc, char *argv[])
         _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
         for(i=0; i<_MAXnumWindowRep; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
     }
-    if (_GRAPH_GEN) {
-        if (numSamples == 0) Fatal("Haven't specified sample size (-n sampled_size)");
-        if (confidence == 0) confidence = 0.05;
-    }
+
     if(numSamples!=0 && confidence>0 && !_GRAPH_GEN)
 	Fatal("cannot specify both -s (sample size) and confidence interval");
 
@@ -2922,7 +3074,7 @@ int main(int argc, char *argv[])
 	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
 	optind++;
     }
-    assert(optind == argc);
+    assert(optind == argc || _GRAPH_GEN);
 
     SetBlantDir(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
@@ -2963,7 +3115,19 @@ int main(int argc, char *argv[])
 	_nodeNames = G->name;
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
-    if(_GRAPH_GEN) return GenSynGraph(_k, numSamples, G);
+
+    FILE *fpSynGraph = NULL;
+    if (_GRAPH_GEN) {
+        if (numSamples == 0) Fatal("Haven't specified sample size (-n sampled_size)");
+        if (confidence == 0) confidence = 0.05;
+        if (_KS_NUMSAMPLES == 0) _KS_NUMSAMPLES = 1000;
+        if (_GRAPH_GEN_EDGES == 0) _GRAPH_GEN_EDGES = G->numEdges;
+        if((optind + 1) == argc) {
+            fpSynGraph = fopen(argv[optind++], "w");
+            if (fpSynGraph == NULL) Fatal("cannot open synthetic graph outputfile.");
+        }
+        return GenSynGraph(_k, numSamples, G, fpSynGraph);
+    }
     return RunBlantInThreads(_k, numSamples, G);
 #endif
 }
