@@ -2526,7 +2526,11 @@ double* convertPDFtoCDF(double pdf[], double cdf[])
 {
     int i;
     cdf[0] = pdf[0];
-    for(i=0; i<_numConnectedCanon; i++) cdf[i] = cdf[i-1] + pdf[i];
+    for(i=1; i<_numConnectedCanon; i++) cdf[i] = cdf[i-1] + pdf[i] < 1 ? cdf[i-1] + pdf[i] : 1;
+    if((1-cdf[i-1]) < 0.0001) cdf[i-1] = 1;
+    if(cdf[i-1] != 1) 
+        printf("Increase rounding error margin. Last term of CDF is: %lf\n", cdf[i-1]);
+    assert(cdf[i-1] == 1);
     return cdf;
 }
 
@@ -2616,11 +2620,11 @@ void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* t
                 total_sum += row_sum; onedarray[row++] = row_sum; row_sum=0; col=0; 
             }
         }
-        for(i=0; i<_numConnectedCanon; i++)
+       	assert(total_sum == numSamples);
+        for(i=0; i<_numConnectedCanon; i++) 
         {
-            for(j=0; j<_numConnectedCanon; j++) {
-                onedarray[i] != 0 ? twodarray[i][j] /= onedarray[i] : assert(twodarray[i][j] == 0);
-            }
+            for(j=0; j<_numConnectedCanon; j++) 
+            	onedarray[i] != 0 ? twodarray[i][j] /= onedarray[i] : assert(twodarray[i][j] == 0);
             onedarray[i] /= total_sum;
         }
         break;
@@ -2644,8 +2648,8 @@ double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k)
     convertPDFtoCDF(theoreticalPDF, theoreticalCDF);
     LoadFromFork(k, numSamples, G_Syn, empiricalPDF, NULL, LOAD_CONCENTRATION);
     convertPDFtoCDF(empiricalPDF, empiricalCDF);
-    printf("GintOrdinal\tOriginal\tSynthetic\n");
-    for(i=0; i<_numConnectedCanon; i++) printf("%i\t%lf\t%lf\n", canonArray[i], theoreticalPDF[i], empiricalPDF[i]);
+    printf("GintOrdinal\tOriginalPDF\tSyntheticPDF\tOriginalCDF\tSyntheticCDF\n");
+    for(i=0; i<_numConnectedCanon; i++) printf("%i\t%lf\t%lf\t%lf\t%lf\n", canonArray[i], theoreticalPDF[i], empiricalPDF[i], theoreticalCDF[i], empiricalCDF[i]);
     KS_stats = KStest(empiricalCDF, theoreticalCDF, numSamples);
     P_val = KStestPVal(KS_stats, 0.0001);
     printf("Obtained K_statistics:  %lf\n", KS_stats);
@@ -2664,7 +2668,7 @@ int PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
     {
         double r = RandomUniform();
         assert(0 <= r && r <= 1);
-        l=0, h=_numCanon-1;
+        l=0, h=_numConnectedCanon-1;
         while (l < h)
         {
             mid = l + ((h - l) >> 1);  // Same as mid = (l+h)/2
@@ -2672,8 +2676,8 @@ int PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
         }
         GintOrdinal = (graphletCDF[l] >= r) ? l : -1;
     } while(GintOrdinal < 0 && step < MAX_TRIES);
-    GintOrdinal = canonArray[GintOrdinal];
     if(GintOrdinal < 0) Fatal("Unable to sample valid graphlet (GintOrdinal > 0) within MAX_TRIES");
+    GintOrdinal = canonArray[GintOrdinal];
     Gint = _canonList[GintOrdinal];
     int numBits = k * (k-1) / 2, n = Gint;
     for(i=0; i<numBits; i++)
@@ -2681,17 +2685,18 @@ int PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
         if(n>0) {binaryNum[i] = n % 2; n /= 2;} 
         else binaryNum[i] = 0;
     }
-    return GintOrdinal;
+    return Gint;
 }
 
 void stampFunction(GRAPH *G, int binaryNum[], int Varray[], int k)
 {
-    int i, j, z = k * (k-1) / 2;
+    int i, j, z = 0, numBits = k * (k-1) / 2;
     for(i=k-1; i>0; i--) for(j=i-1;j>=0;j--)
-    if(binaryNum[z--] == 1) 
+    if(binaryNum[z++] == 1) 
         GraphConnect(G, Varray[i], Varray[j]);
     else 
         GraphDisconnect(G, Varray[i], Varray[j]);
+   	assert(z == numBits);
 }
 
 // NBE-like synthetic generating method. 
@@ -2704,6 +2709,7 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k)
     double KS_stats, P_val;
     int i, j, z, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample, Gint; 
     SET *V = SetAlloc(G_Syn->n);
+    TINY_GRAPH *g = TinyGraphAlloc(k);
     step=0, numRemoveSample=0;
     do {
         while(SetCardinality(V) < k) 
@@ -2713,6 +2719,8 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k)
         if(G_Syn->numEdges < _GRAPH_GEN_EDGES) {
             Gint = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
             stampFunction(G_Syn, binaryNum, Varray, k);
+            TinyGraphInducedFromGraph(g, G_Syn, Varray);
+            assert(_K[Gint] == _K[TinyGraph2Int(g, k)]);
         }
         else {
             printf("Steps made to remove Edges:  %i\n", numRemoveSample); 
@@ -2732,103 +2740,6 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k)
             }
         } 
         SetEmpty(V);
-    } while(step < MAX_TRIES);
-    if(step > MAX_TRIES) printf("Steps Exceeding MAX_TRIES\n");
-    SetFree(V);
-}
-
-void StampGraphletMCMC(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], double *neighborCDF[], int k) 
-{
-    double KS_stats, P_val;
-    int i, j, z, n, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample, VIndextoRemove, newNode; 
-    int connectedCanonArray[_numConnectedCanon], Gint, GintOrdinal, prevGintOrdinal, newGintBase, currCanonIndex;
-    SetToArray(connectedCanonArray, _connectedCanonicals);
-    Boolean FoundGint = false;
-    SET *V = SetAlloc(G_Syn->n);
-    while(SetCardinality(V) < k) 
-        SetAdd(V, (int) G_Syn->n * RandomUniform());
-    assert(SetToArray(Varray, V) == k);
-    GintOrdinal = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
-    stampFunction(G_Syn, binaryNum, Varray, k);
-
-    step=0, numRemoveSample=0;
-    do {
-        if(G_Syn->numEdges < _GRAPH_GEN_EDGES) {
-            // Pick one GintOrdinal from previous GintOrdinal based on neighbor distribution table
-            for(i=0; i<_numConnectedCanon; i++) 
-                if(connectedCanonArray[i] == GintOrdinal) {
-                    currCanonIndex = i;
-                    GintOrdinal = PickGraphletFromConcentration(binaryNum, neighborCDF[i], k);
-                    break;
-                }
-            assert(i < _numConnectedCanon); //should found one 
-
-            // Construct the slided window based on just sampled GintOrdinal
-            // remove one col and row from the prev adj matrix
-            // See the possible node to delete
-            do {
-                for(VIndextoRemove = 0; VIndextoRemove < k; VIndextoRemove++) {
-                    Gint = 0; z = 0;
-                    for(i=0, z=0; i<=k-1; i++) for(j=0;j<i;j++, z++) {
-                        if(i != VIndextoRemove && j != VIndextoRemove)
-                            Gint = (Gint << 1) + binaryNum[z];
-                    }
-                    // for(i=Gint; i<(1 <<(k*(k-1)/2)); i++) if(_K[i] == GintOrdinal) {printf("Found one:  %i\n", i); break;}
-                    // Try the Gint after the base, get the smallest one whose GintOrdinal equals to the sampled one
-                    FoundGint = false;
-                    for(i=0; i<(1<<(k-1)); i++) {
-                        if (_K[Gint+i] == GintOrdinal) {
-                            Gint += i; FoundGint = true; break;
-                        }
-                    }
-
-                    if(FoundGint) {
-                        assert(_K[Gint] == GintOrdinal);
-                        SetDelete(V, Varray[VIndextoRemove]);
-                        while(SetCardinality(V) < k) {
-                            newNode = (int) G_Syn->n * RandomUniform();
-                            SetAdd(V, newNode);
-                        }
-                        assert(k == SetToArray(Varray, V));
-                        for(i = 0, n = Gint; i < numBits; i++) {
-                            if(n>0) {binaryNum[i] = n % 2; n /= 2;} 
-                            else binaryNum[i] = 0;
-                        }
-                        for(j = k-2, z = numBits; j>=0; j--) {
-                            if(binaryNum[z--] == 1) GraphConnect(G, newNode, Varray[j]);
-                            else GraphDisconnect(G, newNode, Varray[j]);
-                        }
-                        break;
-                    }
-                }
-                // Curr sampled ordinal didn't work out. Sampled another neight GintOrdinal
-                if (!FoundGint) {
-                    do {
-                        prevGintOrdinal = GintOrdinal;
-                        GintOrdinal = PickGraphletFromConcentration(binaryNum, neighborCDF[currCanonIndex], k);
-                    } while(prevGintOrdinal == Gint);
-                }
-            } while(!FoundGint); //Should find one possible combination
-        }
-        else {
-            printf("Steps made to remove Edges:  %i\n", numRemoveSample); 
-            step++; numRemoveSample=0;
-            P_val = compareSynGraph(G, G_Syn, _KS_NUMSAMPLES, k);
-            if(P_val > confidence || step >= MAX_TRIES) 
-                break;
-            while(G_Syn->numEdges > 0.7 * _GRAPH_GEN_EDGES) {
-                for(i=k-1; i>0; i--) for(j=i-1;j>=0;j--) 
-                    if(GraphAreConnected(G_Syn, Varray[i], Varray[j])) 
-                        GraphDisconnect(G_Syn, Varray[i], Varray[j]);
-                SetEmpty(V);
-                while(SetCardinality(V) < k) 
-                    SetAdd(V, (int) G_Syn->n * RandomUniform());
-                assert(SetToArray(Varray, V) == k);
-                numRemoveSample++;
-            }
-            GintOrdinal = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
-            stampFunction(G_Syn, binaryNum, Varray, k);
-        } 
     } while(step < MAX_TRIES);
     if(step > MAX_TRIES) printf("Steps Exceeding MAX_TRIES\n");
     SetFree(V);
@@ -2866,7 +2777,7 @@ int GenSynGraph(int k, int numSamples, GRAPH *G, FILE *SynOutFile)
             convertPDFtoCDF(distributionTablePDF[i], distributionTableCDF[i]);
             assert((distributionTableCDF[i][_numConnectedCanon-1] - 1) < 0.00001 || distributionTableCDF[i][_numConnectedCanon-1] < 0.00001);
         }
-        StampGraphletMCMC(G, G_Syn, theoreticalCDF, distributionTableCDF, k);
+        // StampGraphletMCMC(G, G_Syn, theoreticalCDF, distributionTableCDF, k);
         break;
     default:
         Fatal("Unrecognized Synthetic Graph Generating method");
@@ -2877,8 +2788,6 @@ int GenSynGraph(int k, int numSamples, GRAPH *G, FILE *SynOutFile)
     }
     return 0;
 }
-
-
 
 const char const * const USAGE = 
     "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence -w width} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {graphInputFile}\n" \
@@ -3039,7 +2948,7 @@ int main(int argc, char *argv[])
     case 'g': _GRAPH_GEN = true; 
         if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
         else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = GEN_NODE_EXPANSION;
-        else if (strncmp(optarg, "MCMC", 4) == 0) _genGraphMethod = GEN_MCMC;
+        else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
         else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
         break;
 	case 'u': UNIQ_GRAPHLETS = true;
