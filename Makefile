@@ -4,7 +4,7 @@ LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne -lm $(STACKSIZE) # -stati
 #LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb $(STACKSIZE) # for debugging
 #LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
 
-CC=gcc -std=c99
+CC=gcc
 CXX=g++
 
 ### Generated File Lists ###
