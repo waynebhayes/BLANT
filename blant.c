@@ -2407,7 +2407,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			_graphletDistributionTable[i][j] += atoi(pch);
 			pch = strtok(NULL, " ");
 		    }
-		    assert(fgets(line, sizeof(line), fpThreads[thread]));
+		    (void)fgets(line, sizeof(line), fpThreads[thread]);
 		}
 		break;
 	    case outputGDV:
