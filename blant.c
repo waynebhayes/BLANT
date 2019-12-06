@@ -2407,7 +2407,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			_graphletDistributionTable[i][j] += atoi(pch);
 			pch = strtok(NULL, " ");
 		    }
-		    fgets(line, sizeof(line), fpThreads[thread]);
+		    assert(fgets(line, sizeof(line), fpThreads[thread]));
 		}
 		break;
 	    case outputGDV:
@@ -2534,7 +2534,7 @@ double* convertPDFtoCDF(double pdf[], double cdf[])
     return cdf;
 }
 
-double* copyConcentration(double src[], double dest[]) {for(int i=0; i<_numConnectedCanon; i++) dest[i] = src[i]; return dest;}
+double* copyConcentration(double src[], double dest[]) {int i; for(i=0;i<_numConnectedCanon;i++)dest[i]=src[i];return dest;}
 
 double KStest(double empiricalCDF[], double theoreticalCDF[], int n)
 {
