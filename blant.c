@@ -2790,7 +2790,7 @@ int GenSynGraph(int k, int numSamples, GRAPH *G, FILE *SynOutFile)
 }
 
 const char const * const USAGE = 
-    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence -w width} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {graphInputFile}\n" \
+    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
           "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
     "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency); d (graphletNeighborDistribution).\n" \
@@ -2810,7 +2810,6 @@ const char const * const USAGE =
 int main(int argc, char *argv[])
 {
     int i, opt, numSamples=0;
-    double confWidth = 0; // for confidence interval, if it's chosen
     confidence = 0;
 
     if(argc == 1)
@@ -2968,7 +2967,7 @@ int main(int argc, char *argv[])
     }
 
     if(numSamples!=0 && confidence>0 && !_GRAPH_GEN)
-	Fatal("cannot specify both -s (sample size) and confidence interval");
+	Fatal("cannot specify both -n (sample size) and -c (confidence)");
 
     FILE *fpGraph;
     int piped = 0;
