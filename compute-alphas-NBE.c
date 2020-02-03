@@ -63,7 +63,6 @@ int main(int argc, char* argv[]) {
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
     TINY_GRAPH *g = TinyGraphAlloc(k);
-    int _Bk = (1 <<(k*(k-1)/2));
     SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k);
     int numCanon = _connectedCanonicals->n;
     int i;
