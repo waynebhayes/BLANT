@@ -1593,8 +1593,8 @@ Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     VarraySort(Vcopy, k);
     for(i=0;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will overflow. Shouldn't matter.
     hash = hash % MCMC_KOVACS_MAX_HASH;
-    if(SetIn(seen, hash)) return true;
-    //for(i=0;i<k;i++) printf("%d ", Vcopy[i]); printf("\thash %d\n",hash);
+    if(SetIn(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
+    //for(i=0;i<k;i++) printf("%d ", Vcopy[i]); printf("\thash %d\n",hash); // checking for rareness.
     SetDelete(seen, circBuf[bufPos]);
     SetAdd(seen, hash);
     circBuf[bufPos++] = hash;
