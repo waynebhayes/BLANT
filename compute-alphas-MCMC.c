@@ -115,8 +115,7 @@ int main(int argc, char* argv[]) {
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
     TINY_GRAPH *gk = TinyGraphAlloc(k);
-	TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-	int _Bk = (1 <<(k*(k-1)/2));
+    TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
     SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k);
     int numCanon = _connectedCanonicals->n;
     
