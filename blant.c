@@ -21,6 +21,7 @@
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
+#define GEN_SYN_GRAPH 0
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed, _seed_thread;
 static Boolean _defined_seed;
 char **_nodeNames, _supportNodeNames = true;
@@ -74,7 +75,7 @@ static Boolean UNIQ_GRAPHLETS = false; // Should we remove duplicate graphlets?
 // makes the coding much simpler.
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
-static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
+static unsigned int _Bk, _k, _k_small; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static int _numCanon, _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 static SET *_connectedCanonicals; // the SET of canonicals that are connected.
 static int _numConnectedCanon;
@@ -93,9 +94,12 @@ int _windowSampleMethod = -1;
 #define WINDOW_COMBO 0 // Turn on for using Combination method to sample k-graphlets in Window. Default is DFS-like way.
 static int _windowSize = 0;
 static Boolean _window = false;
+static Boolean _windowRep_unambig = false;
+static SET *_windowRep_unambig_set;
 static int **_windowReps;
 static int _MAXnumWindowRep = 0;
 static int _numWindowRep = 0;
+static int _windowRep_min_num_edge = -1;
 
 enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
     kovacsPairs, kovacsAllOrbits, graphletFrequency, outputODV, outputGDV,
@@ -1973,7 +1977,8 @@ void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v,
     {
         Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
         pending_D = getD(numEdges);
-        updateWindowRep(windowRepInt, D, Gint, pending_D, WArray, VArray, canonMSET, perm);
+        if(_windowRep_unambig && SetIn(_windowRep_unambig_set, _K[Gint]) || !_windowRep_unambig)
+        	if(numEdges >= _windowRep_min_num_edge) updateWindowRep(windowRepInt, D, Gint, pending_D, WArray, VArray, canonMSET, perm);
     }
     else
     {
@@ -2518,9 +2523,16 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
+
+
+
+#if GEN_SYN_GRAPH
+
 //
 // Generate Synthetic Graph by Stamping graphlet from concentration distribution
 //
+
+void reset_global_maps(int k_new) {_k = k_new; SetGlobalCanonMaps(); LoadMagicTable();}
 
 //Some Stats functions for later usage
 double* convertPDFtoCDF(double pdf[], double cdf[])
@@ -2528,19 +2540,20 @@ double* convertPDFtoCDF(double pdf[], double cdf[])
     int i;
     cdf[0] = pdf[0];
     for(i=1; i<_numConnectedCanon; i++) cdf[i] = cdf[i-1] + pdf[i] < 1 ? cdf[i-1] + pdf[i] : 1;
-    if((1-cdf[i-1]) < 0.0001) cdf[i-1] = 1;
+    if((1-cdf[i-1]) < 0.0005) cdf[i-1] = 1;
     if(cdf[i-1] != 1) 
         printf("Increase rounding error margin. Last term of CDF is: %lf\n", cdf[i-1]);
     assert(cdf[i-1] == 1);
     return cdf;
 }
 
-double* copyConcentration(double src[], double dest[]){int i;for(i=0;i<_numConnectedCanon;i++)dest[i]=src[i];return dest;}
+double* copyConcentration(double src[], double dest[]) {for(int i=0; i<_numConnectedCanon; i++) dest[i] = src[i]; return dest;}
 
 double KStest(double empiricalCDF[], double theoreticalCDF[], int n)
 {
     int i; 
     double DMinus, DPlus, D, KS_stats;
+    D = -1;
     for(i=0; i<_numConnectedCanon; i++) 
     {
         DPlus = empiricalCDF[i] - theoreticalCDF[i];
@@ -2637,16 +2650,13 @@ void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* t
 
 // Compare the synthetic graphlet with the original one by printing out each concentration results
 // Conduct a KS test and return the P-val (probability under NULL hypothethesis where the two distributions are the same)
-double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k)
+double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k, double theoreticalPDF[], double theoreticalCDF[])
 {
     int i, canonArray[MAX_CANONICALS];
     SetToArray(canonArray, _connectedCanonicals);
     double KS_stats, P_val;
-    double theoreticalCDF[_numConnectedCanon], empiricalCDF[_numConnectedCanon];
-    double theoreticalPDF[_numConnectedCanon], empiricalPDF[_numConnectedCanon];
-    for(i=0;i<_numConnectedCanon; i++) {empiricalPDF[i]=0; empiricalCDF[i]=0; theoreticalPDF[i]=0; theoreticalCDF[i]=0;}
-    LoadFromFork(k, numSamples, G, theoreticalPDF, NULL, LOAD_CONCENTRATION);
-    convertPDFtoCDF(theoreticalPDF, theoreticalCDF);
+    double empiricalPDF[_numConnectedCanon], empiricalCDF[_numConnectedCanon];
+    for(i=0;i<_numConnectedCanon; i++) {empiricalPDF[i]=0; empiricalCDF[i]=0;}
     LoadFromFork(k, numSamples, G_Syn, empiricalPDF, NULL, LOAD_CONCENTRATION);
     convertPDFtoCDF(empiricalPDF, empiricalCDF);
     printf("GintOrdinal\tOriginalPDF\tSyntheticPDF\tOriginalCDF\tSyntheticCDF\n");
@@ -2705,10 +2715,12 @@ void stampFunction(GRAPH *G, int binaryNum[], int Varray[], int k)
 // Stamp that Gint graphlet to the k nodes in G_SYN
 // Stop when number of edges of those two graphs are similar.
 // If KS test p-val ia smaller than the threshold and step < MAX_TRIES, delete half of the edges from G_SYN and repeat the steps above.
-void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k) 
+void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k_small, double theoreticalPDF[], double theoreticalCDF[]) 
 {
     double KS_stats, P_val;
-    int i, j, z, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample, Gint; 
+    int i, j, z, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample, Gint, canonList_small[MAX_CANONICALS]; 
+    char BUF[BUFSIZ];
+    SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small);
     SET *V = SetAlloc(G_Syn->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     step=0, numRemoveSample=0;
@@ -2726,7 +2738,9 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k)
         else {
             printf("Steps made to remove Edges:  %i\n", numRemoveSample); 
             step++; numRemoveSample=0;
-            P_val = compareSynGraph(G, G_Syn, _KS_NUMSAMPLES, k);
+            reset_global_maps(k_small);
+            P_val = compareSynGraph(G, G_Syn, _KS_NUMSAMPLES, k_small, theoreticalPDF, theoreticalCDF);
+            reset_global_maps(k);
             if(P_val > confidence || step >= MAX_TRIES) 
                 break;
             while(G_Syn->numEdges > 0.5 * _GRAPH_GEN_EDGES) {
@@ -2747,19 +2761,23 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k)
 }
 
 // Main function for generating synthetic graph
-int GenSynGraph(int k, int numSamples, GRAPH *G, FILE *SynOutFile) 
+int GenSynGraph(int k, int k_small, int numSamples, GRAPH *G, FILE *SynOutFile) 
 {
     int i, j, Varray[MAX_CANONICALS];
-    double theoreticalPDF[_numConnectedCanon], theoreticalCDF[_numConnectedCanon], empiricalPDF[_numConnectedCanon], empiricalCDF[_numConnectedCanon], KS_stats;
+    double graphletPDF[_numConnectedCanon], graphletCDF[_numConnectedCanon], theoreticalPDF[_numConnectedCanon], theoreticalCDF[_numConnectedCanon], KS_stats;
     double *distributionTablePDF[_numConnectedCanon], *distributionTableCDF[_numConnectedCanon];
 
     GRAPH *G_Syn = GraphAlloc(G->n, SPARSE, _supportNodeNames);
     switch(_genGraphMethod) 
     {
     case GEN_NODE_EXPANSION:
-        LoadFromFork(k, numSamples, G, theoreticalPDF, NULL, LOAD_CONCENTRATION);
+        LoadFromFork(k, numSamples, G,  graphletPDF, NULL, LOAD_CONCENTRATION);
+        convertPDFtoCDF(graphletPDF, graphletCDF);
+        reset_global_maps(k_small);
+        LoadFromFork(k_small, numSamples, G,  theoreticalPDF, NULL, LOAD_CONCENTRATION);
         convertPDFtoCDF(theoreticalPDF, theoreticalCDF);
-        StampGraphletNBE(G, G_Syn, theoreticalCDF, k);
+        reset_global_maps(k);
+        StampGraphletNBE(G, G_Syn, graphletCDF, k, k_small, theoreticalPDF, theoreticalCDF);
         break;
     case GEN_MCMC:
         _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
@@ -2790,6 +2808,8 @@ int GenSynGraph(int k, int numSamples, GRAPH *G, FILE *SynOutFile)
     return 0;
 }
 
+#endif
+
 const char const * const USAGE = 
     "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {graphInputFile}\n" \
     "Graph must be in one of the following formats with its extension name .\n" \
@@ -2810,8 +2830,9 @@ const char const * const USAGE =
 // in the parent.
 int main(int argc, char *argv[])
 {
-    int i, opt, numSamples=0;
+    int i, j, opt, numSamples=0;
     confidence = 0;
+    double windowRep_edge_density = 0.0;
 
     if(argc == 1)
     {
@@ -2820,7 +2841,7 @@ int main(int argc, char *argv[])
     }
 
     _THREADS = 1; 
-    _k = 0;
+    _k = 0; _k_small = 0;
 
     while((opt = getopt(argc, argv, "m:d:t:s:c:k:K:e:g:w:p:r:n:u")) != -1)
     {
@@ -2919,33 +2940,46 @@ int main(int argc, char *argv[])
 	    // Apology("confidence intervals not implemented yet");
 	    break;
 	case 'k': _k = atoi(optarg);
-	    if(!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+		if (_GRAPH_GEN && _k >= 33) {
+			_k_small = _k % 10; 
+			if (!(3 <= _k_small && _k_small <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+			_k /= 10; 
+			assert(_k_small <= _k);
+		} // First k indicates stamping size, second k indicates KS test size.
+	    if (!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
 	case 'w': _window = true; _windowSize = atoi(optarg); 
 	    break;
 	case 'p':
-	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
-	    else if (strncmp(optarg, "DMIN", 4) == 0)
+        if (*optarg == 'u' | *optarg == 'U')
+            {_windowRep_unambig = true; optarg += 1;}
+        if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
+        else if (strncmp(optarg, "DMIN", 4) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_MIN_D;
-	    else if (strncmp(optarg, "DMAX", 4) == 0)
+        else if (strncmp(optarg, "DMAX", 4) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_MAX_D;
-	    else if (strncmp(optarg, "MIN", 3) == 0)
+        else if (strncmp(optarg, "MIN", 3) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_MIN;
-	    else if (strncmp(optarg, "MAX", 3) == 0)
+        else if (strncmp(optarg, "MAX", 3) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_MAX;
-	    else if (strncmp(optarg, "LFMIN", 5) == 0)
+        else if (strncmp(optarg, "LFMIN", 5) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
-	    else if (strncmp(optarg, "LFMAX", 5) == 0)
+        else if (strncmp(optarg, "LFMAX", 5) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
-	    else
+        else
 		    Fatal("Unrecognized window searching method specified. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");
 	    break;
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
     case 'K': _KS_NUMSAMPLES = atoi(optarg); break;
-    case 'e': _GRAPH_GEN_EDGES = atoi(optarg); break;
-    case 'g': _GRAPH_GEN = true; 
+    case 'e': 
+        _GRAPH_GEN_EDGES = atoi(optarg); 
+        windowRep_edge_density = atof(optarg);
+        break;
+    case 'g': 
+        if (!GEN_SYN_GRAPH) Fatal("Turn on Global Variable GEN_SYN_GRAPH");
+        _GRAPH_GEN = true; 
         if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
         else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = GEN_NODE_EXPANSION;
         else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
@@ -2959,13 +2993,6 @@ int main(int argc, char *argv[])
     if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
 		_freqDisplayMode = count;
-    if (_window) {
-        if (_windowSampleMethod == -1) Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
-        if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
-        _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
-        _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
-        for(i=0; i<_MAXnumWindowRep; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
-    }
 
     if(numSamples!=0 && confidence>0 && !_GRAPH_GEN)
 	Fatal("cannot specify both -n (sample size) and -c (confidence)");
@@ -2988,6 +3015,29 @@ int main(int argc, char *argv[])
     SetBlantDir(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
     LoadMagicTable(); // needs _k to be set
+
+    if (_window) {
+        if (_windowSampleMethod == -1) Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
+        if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
+        _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
+        _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
+        for(i=0; i<_MAXnumWindowRep; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        if (windowRep_edge_density < 0) windowRep_edge_density = 0;
+		if (windowRep_edge_density > 1) windowRep_edge_density = 1;
+		_windowRep_min_num_edge = (int) CombinChooseDouble(_k, 2) * windowRep_edge_density;
+		if (_windowRep_min_num_edge < 0) Fatal("WindowRep minimum number of edges must be larger than 0. Check edge density\n");
+		if (_windowRep_unambig) {
+			_windowRep_unambig_set = SetAlloc(_numCanon);
+			SET *orbit_temp = SetAlloc(_numOrbits);
+			for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i) 
+			{
+				for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
+				if(SetCardinality(orbit_temp) == _k) SetAdd(_windowRep_unambig_set, i);
+				SetEmpty(orbit_temp);
+			}
+			SetFree(orbit_temp);
+		}
+    }
 
 #if SHAWN_AND_ZICAN
   #if CPP_CALLS_C  // false by default
@@ -3025,8 +3075,10 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
+#if GEN_SYN_GRAPH
     FILE *fpSynGraph = NULL;
     if (_GRAPH_GEN) {
+    	if (_k_small == 0) _k_small = _k;
         if (numSamples == 0) Fatal("Haven't specified sample size (-n sampled_size)");
         if (confidence == 0) confidence = 0.05;
         if (_KS_NUMSAMPLES == 0) _KS_NUMSAMPLES = 1000;
@@ -3035,8 +3087,9 @@ int main(int argc, char *argv[])
             fpSynGraph = fopen(argv[optind++], "w");
             if (fpSynGraph == NULL) Fatal("cannot open synthetic graph outputfile.");
         }
-        return GenSynGraph(_k, numSamples, G, fpSynGraph);
+        return GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
+#endif
     return RunBlantInThreads(_k, numSamples, G);
 #endif
 }
