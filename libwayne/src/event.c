@@ -19,6 +19,10 @@
 
 Time _event_now;
 
+void PriorityQueueTypePrint(EventInfo *a)
+{
+    printf("%.4g ", a->time);
+}
 
 static int CmpEvents(foint A, foint B)
 {
@@ -39,7 +43,7 @@ static PRIORITY_QUEUE *PQ;
 
 int EventListInit(int n)
 {
-    PQ = PriorityQueueAlloc(n, CmpEvents);
+    PQ = PriorityQueueAlloc(n, CmpEvents, (HEAP_PRINT_FCN)PriorityQueueTypePrint);
     _event_now = 0.0;
     return 1;
 }
@@ -89,9 +93,3 @@ EventInfo *EventNext(void)
     return next;
 }
 
-#if 0
-void PriorityQueueTypePrint(EventInfo *a)
-{
-    printf("%.4g ", a->time);
-}
-#endif

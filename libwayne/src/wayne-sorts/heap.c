@@ -256,9 +256,7 @@ static int SumArray(int *l, int n)
  * your heap.
  */
 
-#if 1
-void HeapTypePrint() {}
-#endif
+
 void HeapPrint(HEAP *Heap)
 {
     int i,n = 1;
