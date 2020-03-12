@@ -3064,7 +3064,7 @@ int main(int argc, char *argv[])
 			Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{N}\n");
 		_numWindowRepLimit = atoi(optarg);
         if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
-		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, compFunc);
+		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, compFunc, NULL);
 		break;
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);

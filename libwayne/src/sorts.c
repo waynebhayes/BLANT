@@ -110,7 +110,7 @@ int PileMergeTemps(int *dest, int nMerge, int mergeSeparator[nMerge+1], int *tem
 
     _tempMerge = tempMerge;
     _mergePosition = mergePosition;
-    HEAP *heap = HeapAlloc(nMerge, (pCmpFcn)TempMergeCmp);
+    HEAP *heap = HeapAlloc(nMerge, (pCmpFcn)TempMergeCmp, NULL);
     for(i=0; i<nMerge; i++)
     {
 	mergePosition[i]=mergeSeparator[i];
@@ -611,7 +611,7 @@ int FredSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
     int i, block, numCopies=0;
     int blockSize = Log2(n);	/* floor(log_2(n)) */
     int numBlocks = (n+blockSize-1)/blockSize;
-    HEAP *P = HeapAlloc(numBlocks, FredCmpIndex);
+    HEAP *P = HeapAlloc(numBlocks, FredCmpIndex, NULL);
     int outputNext = 0;
     char output[n*w];
 

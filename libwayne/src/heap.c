@@ -21,13 +21,14 @@ and HeapCmp is a pointer to a function to compare your entries. */
 
 /* HeapAlloc: allocate a heap with maxsize, and comparison function
 */
-HEAP *HeapAlloc(int maxSize, pCmpFcn Cmp)
+HEAP *HeapAlloc(int maxSize, pCmpFcn Cmp, HEAP_PRINT_FCN f)
 {
     HEAP *Heap = Malloc(sizeof(HEAP));
     Heap->heap = Malloc(sizeof(foint) * (maxSize + 1));
     Heap->HEAPSIZE = maxSize;
     Heap->HeapCmp = Cmp;
     Heap->heap[0].i = 0;    /* initialize the heap to have 0 elements */
+    Heap->PrintElement = f;
     return Heap;
 }
 
@@ -258,9 +259,10 @@ void HeapPrint(HEAP *Heap)
     int i,n = 1;
     foint *heap = Heap->heap;
 
+    assert(Heap->PrintElement);
     for(i=1; i<=heap[0].i; i++)
     {
-	HeapTypePrint(heap[i]);
+	Heap->PrintElement(heap[i]);
 	if(i == (1 << n) - 1)   /* add a newline here for binary tree effect */
 	{
 	    n++;

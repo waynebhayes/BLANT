@@ -16,16 +16,19 @@ and void*), see misc.h for details.
 /* this is returned if any errors occur */
 #define HEAPERROR ABSTRACT_ERROR
 
+typedef void (*HEAP_PRINT_FCN)(foint);
+
 typedef struct _heaptype
 {
     int HEAPSIZE;
     pCmpFcn HeapCmp;
     pFointFreeFcn FointFree;
     foint *heap;
+    HEAP_PRINT_FCN PrintElement;
 } HEAP;
 
 
-HEAP    *HeapAlloc(int maxNumber, pCmpFcn);
+HEAP    *HeapAlloc(int maxNumber, pCmpFcn, HEAP_PRINT_FCN);
 void    HeapReset(HEAP*);   /* make heap empty */
 int     HeapSize(HEAP*);    /* how many things currently in heap? */
 void    HeapFree(HEAP*);    /* free the entire heap */
@@ -39,9 +42,6 @@ foint   HeapInsert(HEAP*, foint);
 foint   HeapDelete(HEAP*, foint);
 /*int     HeapSort(foint *list, pCmpFcn);*/
 int     HeapSanityCheck(HEAP*);   /* sanity check, for debugging */
-void    HeapPrint(HEAP*);   /* dump an entire heap.  You must define a HeapTypePrint function */
-#if 1
-extern void HeapTypePrint(foint);
-#endif
+void    HeapPrint(HEAP*);   /* dump an entire heap.  You must have defined a HEAP_PRINT_FCN at HeapAlloc time. */
 
 #endif  /* _HEAP_H */

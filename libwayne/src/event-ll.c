@@ -34,11 +34,16 @@ static int CmpEvents(foint A, foint B)
 	return 1;
 }
 
+void PrintEvent(EventInfo *a)
+{
+    printf("%.4g ", a->time);
+}
+
 static HEAP *Heap;
 
 int InitEventList(int n)
 {
-    Heap = HeapAlloc(n, CmpEvents);
+    Heap = HeapAlloc(n, CmpEvents, PrintEvent);
     _event_now = 0.0;
     return 1;
 }
@@ -83,9 +88,3 @@ EventInfo *NextEvent(void)
     return next;
 }
 
-#if 1
-void HeapTypePrint(EventInfo *a)
-{
-    printf("%.4g ", a->time);
-}
-#endif
