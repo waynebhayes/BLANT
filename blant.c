@@ -1924,7 +1924,7 @@ void updateWindowRepLimitHeap(int *WArray, int *VArray, char perm[], int foundNu
     assert(HeapSize(_windowRep_limit_heap) <= _numWindowRepLimit);
 }
 
-void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, char perm[])
+void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, int GintOrdinal, char perm[])
 {
     int i, j;
     // dynamic windowRep Arr step
@@ -1938,7 +1938,7 @@ void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, char
 	if (_windowRep_limit_method == WINDOW_LIMIT_UNDEF || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
 	{
 		for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
-		_numWindowRep++;
+        _windowReps[_numWindowRep++][_k] = GintOrdinal;
 	}
 	else if (_windowRep_limit_method == WINDOW_LIMIT_DEGREE)
 	{
@@ -1974,7 +1974,7 @@ void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, int Gint, int numEdges
         if (_numWindowRep == 0 && _windowRep_limit_method != WINDOW_LIMIT_UNDEF) 
         	HeapReset(_windowRep_limit_heap);
         if(GintOrdinal == *windowRepInt) 
-        	updateWindowRepArray(G, WArray, VArray, numEdges, perm);
+        	updateWindowRepArray(G, WArray, VArray, numEdges, GintOrdinal, perm);
     }
     else if (_windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_MAX_D)
     {
@@ -1986,13 +1986,13 @@ void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, int Gint, int numEdges
         if (_numWindowRep == 0 && _windowRep_limit_method != WINDOW_LIMIT_UNDEF) 
         	HeapReset(_windowRep_limit_heap);
         if(pending_D == *D && GintOrdinal == *windowRepInt)
-        	updateWindowRepArray(G, WArray, VArray, numEdges, perm);
+        	updateWindowRepArray(G, WArray, VArray, numEdges, GintOrdinal, perm);
     }
     else if (_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
     {
-        updateWindowRepArray(G, WArray, VArray, numEdges, perm);
-        if(canonMSET->array[GintOrdinal] < MAX_MULTISET_FREQ) MultisetAdd(canonMSET, GintOrdinal);
-        _numWindowRep++;
+        updateWindowRepArray(G, WArray, VArray, numEdges, GintOrdinal, perm);
+        if(canonMSET->array[GintOrdinal] < MAX_MULTISET_FREQ) 
+            MultisetAdd(canonMSET, GintOrdinal);
     }
     else
         Fatal("unknown window sampling method.");
