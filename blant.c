@@ -2103,8 +2103,9 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char per
                 VArray[i] = ca[i];
             Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
             GintOrdinal = _K[Gint];
-            if(SetIn(_connectedCanonicals, GintOrdinal))
-                updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
+            if(SetIn(_connectedCanonicals, GintOrdinal) && numEdges >= _windowRep_min_num_edge)
+                if(_windowRep_unambig && SetIn(_windowRep_unambig_set, _K[Gint]) || !_windowRep_unambig)
+                    updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
         } while(CombinNext(c));
     }
     else if (_windowIterationMethod == WINDOW_ITER_DFS)
