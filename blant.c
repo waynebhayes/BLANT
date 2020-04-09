@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <sys/mman.h>
+#include <limits.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -22,17 +23,19 @@
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 #define GEN_SYN_GRAPH 0
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed, _seed_thread;
-static Boolean _defined_seed;
+static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
 #include "libwayne/MT19937/mt19937.h"
-#define RandomSeed /*nothing*/
 static MT19937 *_mt19937;
+#define RandomSeed SeedMt19937
+void SeedMt19937(int seed) {
+    if(_mt19937) Mt19937Free(_mt19937);
+    _mt19937 = Mt19937Alloc(seed);
+}
 double RandomUniform(void) {
-    if(!_mt19937) _mt19937 = Mt19937Alloc(_seed);
     return Mt19937NextDouble(_mt19937);
 }
 #else
@@ -1166,6 +1169,22 @@ void finalizeMCMC() {
 	}
 }
 
+/* Try to compute a seed that will be different for all processes even if they're all started at
+** the same time, on the same or different servers. We use the host's IPv4 address, the time
+** (to the nearest second), the process ID, and the parent process ID. The only gotcha is that
+** if you call this twice within the same second within the same process, the result will be the
+** same. But since you should *never* seed twice within the same code, that's your problem.
+*/
+unsigned int GetFancySeed(void)
+{
+    FILE *fp=popen("hostname -i","r");
+    int i, ip[4], host_ip=0;
+    fscanf(fp,"%d.%d.%d.%d", ip, ip+1, ip+2, ip+3);
+    pclose(fp);
+    for(i=0;i<4;i++) host_ip = 256*host_ip + ip[i];
+    return host_ip + time(0) + getppid() + getpid();
+}
+
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
 // Global variable _MCMC_L is needed by many functions
@@ -2204,8 +2223,6 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     int i,j, windowRepInt, D;
     char perm[maxK+1];
     assert(k <= G->n);
-    _seed_thread = _defined_seed? _seed + _THREAD_NUM : time(0)+getpid();
-    RandomSeed(_seed_thread);
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
@@ -2358,6 +2375,7 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 {
     int fds[2];
     assert(pipe(fds) >= 0);
+    int threadSeed = INT_MAX*RandomUniform(); // this must happen BEFORE the fork for each thread to get a different seed
     int pid = fork();
     if(pid > 0) // we are the parent
     {
@@ -2366,6 +2384,8 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
     }
     else if(pid == 0) // we are the child
     {
+	_seed = threadSeed;
+	RandomSeed(_seed);
 	(void)close(fds[0]); // we will not be reading from the pipe, so close it.
 	(void)close(1); // close our usual stdout
 	assert(dup(fds[1])>=0); // copy the write end of the pipe to fd 1.
@@ -2980,7 +3000,7 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
-	case 'r': _seed = atoi(optarg); _defined_seed = true;
+	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
 	    break;
 	case 's':
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
@@ -3089,6 +3109,12 @@ int main(int argc, char *argv[])
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
+
+    if(_seed == -1) _seed = GetFancySeed();
+    // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
+    // exactly _THREADS-1 values from near the beginning of this main random stream.
+    RandomSeed(_seed);
+
     if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
 		_freqDisplayMode = count;
