@@ -2062,7 +2062,9 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextensi
     {
         Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
         if(_windowRep_unambig && SetIn(_windowRep_unambig_set, _K[Gint]) || !_windowRep_unambig)
-        	if(numEdges >= _windowRep_min_num_edge) updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
+        	if(numEdges >= _windowRep_min_num_edge) {
+                updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
+            }
     }
     else
     {
@@ -2177,7 +2179,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char per
         
     // Sampling K-graphlet Step
     VArray = Calloc(_k, sizeof(int));
-    if (_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX) 
+    if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) 
     {
     	GRAPH *Gi = GraphInduced(NULL, G, W);
     	FindWindowRepByDeg(Gi, WArray);
@@ -2244,23 +2246,21 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
             break;
         case indexGraphlets:
           for(i=0; i<_windowSize; i++)  printf("%s ", _nodeNames[VArray[i]]);
-           	printf("\n");
-//          printf("\n%i %i\n", windowRepInt, _numWindowRep);
+           	// printf("\n");
+            printf("\n%i %i\n", windowRepInt, _numWindowRep);
             for(i=0; i<_numWindowRep; i++)
             {
                 if(!(_windowRep_limit_method && GraphletSeenRecently(G, _windowReps[limitIndex[i]], _k) ||
                     !_windowRep_limit_method && GraphletSeenRecently(G, _windowReps[i], _k)) || 
                     _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) 
                 {
-                	if(_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
-                	//	printf("%i: ", _windowReps[i][_k]);
-                    for(j=0; j<_k; j++)
-                    {
-                        if(_windowRep_limit_method) 
-                            printf("%s ", _nodeNames[_windowReps[limitIndex[i]][j]]);
-                        else 
-                            printf("%s ", _nodeNames[_windowReps[i][j]]);
-                    }
+                        for(j=0; j<_k; j++)
+                        {
+                            if(_windowRep_limit_method) 
+                                printf("%s ", _nodeNames[_windowReps[limitIndex[i]][j]]);
+                            else 
+                                printf("%s ", _nodeNames[_windowReps[i][j]]);
+                        }
                     printf("\n");
                 }
             }
