@@ -2291,6 +2291,68 @@ void convertFrequencies(int numSamples)
 }
 
 
+void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
+    int i, j, neigh, max_deg=-1, tie_count=0, prev_nodes_array[_k];
+    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);
+    assert(prev_nodes_count == SetCardinality(prev_nodes));
+    if (prev_nodes_count == _k) {
+        if (*count == _numWindowRepArrSize) {
+            _numWindowRepArrSize *= 2;
+            _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
+            for(i=*count; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        }   
+        for(i=0; i<_k; i++) _windowReps[*count][i] = prev_nodes_array[i];
+        *count = *count + 1; return;
+    } 
+
+    SET *next_step = SetAlloc(G->n);
+    for(i=0; i<prev_nodes_count; i++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+            neigh = G->neighbor[prev_nodes_array[i]][j];
+            if (G->degree[neigh] > max_deg && !SetIn(prev_nodes, neigh)) {
+                max_deg = G->degree[neigh]; SetEmpty(next_step); SetAdd(next_step, neigh);
+            } else if (G->degree[neigh] == max_deg && !SetIn(prev_nodes, neigh)) {
+                SetAdd(next_step, neigh);
+            }
+        }
+    }
+
+    tie_count = SetCardinality(next_step);
+    int next_step_arr[tie_count];
+    assert(SetToArray(next_step_arr, next_step) == tie_count);
+    for(i=0; i<tie_count; i++) {
+        SetAdd(prev_nodes, next_step_arr[i]);
+        buildTGraphlet(G, prev_nodes, count);
+        SetDelete(prev_nodes, next_step_arr[i]);
+    }
+    SetFree(next_step);
+}
+
+void processExpandSeeds(int startNode, int count) {
+    int i, j;
+    printf("%s\n", _nodeNames[startNode]);
+    for(i=0; i<count; i++) {
+        for(j=0; j<_k; j++) 
+            printf("%s ", _nodeNames[_windowReps[i][j]]);
+        printf("\n");
+    }
+}
+
+int ExpandSeedsT1(GRAPH* G) {
+    int i, count = 0;
+    SET *prev_nodes = SetAlloc(G->n);
+    for(i=0; i<G->n; i++) {
+        SetAdd(prev_nodes, i);
+        buildTGraphlet(G, prev_nodes, &count);
+        assert(SetCardinality(prev_nodes) == 1);
+        SetDelete(prev_nodes, i);
+        processExpandSeeds(i, count);
+        count = 0;
+    }
+    SetFree(prev_nodes);
+    return 0;
+}
+
 
 // This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
 // Call RunBlantInThreads instead, it's the top-level entry point to call once the
@@ -3225,7 +3287,7 @@ int main(int argc, char *argv[])
     SetGlobalCanonMaps(); // needs _k to be set
     LoadMagicTable(); // needs _k to be set
 
-    if (_window) {
+    if (_window && _windowSize >= 3) {
         if (_windowSampleMethod == -1) Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
         if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
         _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
@@ -3324,6 +3386,12 @@ int main(int argc, char *argv[])
         return GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
+    if(_windowSize == 1) {
+        _numWindowRepArrSize = 50;
+        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
+        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        return ExpandSeedsT1(G);
+    }
     return RunBlantInThreads(_k, numSamples, G);
 #endif
 }
