@@ -92,6 +92,7 @@ static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (includin
 #define WINDOW_SAMPLE_MAX_D 4   // Find the k-graphlet with maximal canonicalInt and balanced numEdges
 #define WINDOW_SAMPLE_LEAST_FREQ_MIN 5 // Find the k-graphlet with least fequent cacnonicalInt. IF there is a tie, pick the minimal one
 #define WINDOW_SAMPLE_LEAST_FREQ_MAX 6 // Find the k-graphlet with least fequent cacnonicalInt. IF there is a tie, pick the maximial one 
+#define WINDOW_SAMPLE_DEG_MAX 7
 int _windowSampleMethod = -1;
 
 #define WINDOW_ITER_COMB 1 // using Combination method to sample k-graphlets in Window
@@ -102,8 +103,9 @@ int _windowIterationMethod = WINDOW_ITER_DFS;
 #define WINDOW_LIMIT_DEGREE 1
 #define WINDOW_LIMIT_EDGES 2
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
+static Boolean _windowRep_limit_neglect_trivial = false;
 static HEAP *_windowRep_limit_heap;
-int compFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i ? 0 : -1;} // ascending
+int asccompFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i ? 0 : -1;} // ascending (smallest at top)
 
 static int _windowSize = 0;
 static Boolean _window = false;
@@ -115,6 +117,8 @@ static int _numWindowRep = 0;
 static int _numWindowRepLimit = 0;
 static int _numWindowRepArrSize = 100;
 static int _windowRep_min_num_edge = -1;
+static float *_graphNodeImportance;
+static Boolean _supportNodeImportance = false;
 
 enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
     kovacsPairs, kovacsAllOrbits, graphletFrequency, outputODV, outputGDV,
@@ -1984,6 +1988,7 @@ void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, int Gint, int numEdges
     int GintOrdinal = _K[Gint];
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);
+    if (_windowRep_limit_neglect_trivial && GintOrdinal == _k - 1) return;
     if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
     {
         if(_windowSampleMethod == WINDOW_SAMPLE_MIN)
@@ -2093,6 +2098,64 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextensi
     return;
 }
 
+int FindHighestDegNeighbor(GRAPH *Gi, SET *foundNode, SET *searchNodeSet, int *WArray)
+{
+	if(SetCardinality(searchNodeSet) == 0) return -1;
+	int numSearch = SetCardinality(searchNodeSet), i, searchNodeArr[numSearch], largestNode=-1;
+    float curr_deg, prev_deg = -1;
+	SetToArray(searchNodeArr, searchNodeSet);
+	for(i=0; i<numSearch; i++)
+	{
+		curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[searchNodeArr[i]]] : Gi->degree[searchNodeArr[i]];
+		if (curr_deg > prev_deg && !SetIn(foundNode, searchNodeArr[i])) {largestNode = searchNodeArr[i]; prev_deg = curr_deg;}
+	}
+	return largestNode;
+}
+
+
+void FindWindowRepByDeg(GRAPH *Gi, int *WArray)
+{
+	int i, j, u, neigh, num_k_saved, NodeFound, GintOrdinal, numInitialSeed=0; 
+    float curr_deg, prev_deg = -1;
+	int SeedArray[_windowSize], NodeAddedArr[_k];
+	SET *savedNodesSET = SetAlloc(Gi->n), *neighborNodeSet = SetAlloc(Gi->n);
+	TINY_GRAPH *g = TinyGraphAlloc(_k);
+	for (i=0; i < _windowSize; i++)
+	{
+		curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : Gi->degree[i];
+		if (curr_deg > prev_deg) {numInitialSeed = 0; prev_deg = curr_deg;}
+		if (curr_deg >= prev_deg) SeedArray[numInitialSeed++] = i;
+	} 
+	for (i=0; i < numInitialSeed; i++)
+	{
+		num_k_saved = 0; SetEmpty(savedNodesSET);
+		NodeAddedArr[num_k_saved++] = SeedArray[i];
+		// _windowReps[_numWindowRep][num_k_saved++] = SeedArray[i];
+		SetAdd(savedNodesSET, SeedArray[i]);
+		while(num_k_saved < _k + 1) 
+		{
+			SetEmpty(neighborNodeSet);
+			for(j=0; j < num_k_saved; j++) 
+				for(neigh=0; neigh < Gi->degree[NodeAddedArr[j]]; neigh++)
+					SetAdd(neighborNodeSet, Gi->neighbor[NodeAddedArr[j]][neigh]);
+
+			NodeFound = FindHighestDegNeighbor(Gi, savedNodesSET, neighborNodeSet, WArray);
+			if (NodeFound == -1) break;
+			NodeAddedArr[num_k_saved++] = NodeFound;
+			SetAdd(savedNodesSET, NodeFound);
+		}
+		if (num_k_saved == _k + 1) 
+		{
+
+			for(j=0; j<_k; j++) _windowReps[_numWindowRep][j] = WArray[NodeAddedArr[j]];
+			TinyGraphInducedFromGraph(g, Gi, NodeAddedArr);
+			GintOrdinal = _K[TinyGraph2Int(g, _k)];
+			_windowReps[_numWindowRep][_k] = GintOrdinal;
+			++_numWindowRep;
+		}
+	}
+}
+
 // Right now use least frequent windowRep canonicals 
 void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char perm[])
 {
@@ -2114,6 +2177,13 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char per
         
     // Sampling K-graphlet Step
     VArray = Calloc(_k, sizeof(int));
+    if (_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX) 
+    {
+    	GRAPH *Gi = GraphInduced(NULL, G, W);
+    	FindWindowRepByDeg(Gi, WArray);
+    	return;
+    }
+
     if(_windowIterationMethod == WINDOW_ITER_COMB) 
     {
         do
@@ -2154,9 +2224,10 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char per
     MultisetFree(canonMSET);
 }
 
-void ProcessWindowRep(int *VArray, int windowRepInt) {
+void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
     // We should probably figure out a faster sort? This requires a function call for every comparison.
     int i, j, limit_num=0, limitIndex[_numWindowRep];
+    assert(!(_windowRep_limit_neglect_trivial && windowRepInt == _k - 1));
     if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF)
     {
         for(i=0; i<_numWindowRep; i++) 
@@ -2172,18 +2243,26 @@ void ProcessWindowRep(int *VArray, int windowRepInt) {
             _graphletCount[windowRepInt] += _numWindowRep;
             break;
         case indexGraphlets:
-            for(i=0; i<_windowSize; i++)  printf("%s ", _nodeNames[VArray[i]]);
-            printf("\n%i %i\n", windowRepInt, _numWindowRep);
+          for(i=0; i<_windowSize; i++)  printf("%s ", _nodeNames[VArray[i]]);
+           	printf("\n");
+//          printf("\n%i %i\n", windowRepInt, _numWindowRep);
             for(i=0; i<_numWindowRep; i++)
             {
-                for(j=0; j<_k; j++)
+                if(!(_windowRep_limit_method && GraphletSeenRecently(G, _windowReps[limitIndex[i]], _k) ||
+                    !_windowRep_limit_method && GraphletSeenRecently(G, _windowReps[i], _k)) || 
+                    _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) 
                 {
-                    if(_windowRep_limit_method) 
-                        printf("%s ", _nodeNames[_windowReps[limitIndex[i]][j]]);
-                    else 
-                        printf("%s ", _nodeNames[_windowReps[i][j]]);
+                	if(_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
+                	//	printf("%i: ", _windowReps[i][_k]);
+                    for(j=0; j<_k; j++)
+                    {
+                        if(_windowRep_limit_method) 
+                            printf("%s ", _nodeNames[_windowReps[limitIndex[i]][j]]);
+                        else 
+                            printf("%s ", _nodeNames[_windowReps[i][j]]);
+                    }
+                    printf("\n");
                 }
-                printf("\n");
             }
             break;
         default: Abort("ProcessWindowRep: unknown or un-implemented outputMode");
@@ -2211,6 +2290,68 @@ void convertFrequencies(int numSamples)
     }
 }
 
+
+void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
+    int i, j, neigh, max_deg=-1, tie_count=0, prev_nodes_array[_k];
+    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);
+    assert(prev_nodes_count == SetCardinality(prev_nodes));
+    if (prev_nodes_count == _k) {
+        if (*count == _numWindowRepArrSize) {
+            _numWindowRepArrSize *= 2;
+            _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
+            for(i=*count; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        }   
+        for(i=0; i<_k; i++) _windowReps[*count][i] = prev_nodes_array[i];
+        *count = *count + 1; return;
+    } 
+
+    SET *next_step = SetAlloc(G->n);
+    for(i=0; i<prev_nodes_count; i++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+            neigh = G->neighbor[prev_nodes_array[i]][j];
+            if (G->degree[neigh] > max_deg && !SetIn(prev_nodes, neigh)) {
+                max_deg = G->degree[neigh]; SetEmpty(next_step); SetAdd(next_step, neigh);
+            } else if (G->degree[neigh] == max_deg && !SetIn(prev_nodes, neigh)) {
+                SetAdd(next_step, neigh);
+            }
+        }
+    }
+
+    tie_count = SetCardinality(next_step);
+    int next_step_arr[tie_count];
+    assert(SetToArray(next_step_arr, next_step) == tie_count);
+    for(i=0; i<tie_count; i++) {
+        SetAdd(prev_nodes, next_step_arr[i]);
+        buildTGraphlet(G, prev_nodes, count);
+        SetDelete(prev_nodes, next_step_arr[i]);
+    }
+    SetFree(next_step);
+}
+
+void processExpandSeeds(int startNode, int count) {
+    int i, j;
+    printf("%s\n", _nodeNames[startNode]);
+    for(i=0; i<count; i++) {
+        for(j=0; j<_k; j++) 
+            printf("%s ", _nodeNames[_windowReps[i][j]]);
+        printf("\n");
+    }
+}
+
+int ExpandSeedsT1(GRAPH* G) {
+    int i, count = 0;
+    SET *prev_nodes = SetAlloc(G->n);
+    for(i=0; i<G->n; i++) {
+        SetAdd(prev_nodes, i);
+        buildTGraphlet(G, prev_nodes, &count);
+        assert(SetCardinality(prev_nodes) == 1);
+        SetDelete(prev_nodes, i);
+        processExpandSeeds(i, count);
+        count = 0;
+    }
+    SetFree(prev_nodes);
+    return 0;
+}
 
 
 // This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
@@ -2249,7 +2390,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             D = _k * (_k - 1) / 2;
             FindWindowRepInWindow(G, V, &windowRepInt, &D, perm);
             if(_numWindowRep > 0)
-                ProcessWindowRep(Varray, windowRepInt);
+                ProcessWindowRep(G, Varray, windowRepInt);
         }
         else if (_outputMode == graphletDistribution) 
             ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
@@ -3062,8 +3203,10 @@ int main(int argc, char *argv[])
 		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
         else if (strncmp(optarg, "LFMAX", 5) == 0)
 		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
+		else if (strncmp(optarg, "DEGMAX", 6) == 0)
+			_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX;
         else
-		    Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");
+		    Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
 	    break;
 	case 'P':
 		if (strncmp(optarg, "COMB", 4) == 0)
@@ -3075,7 +3218,10 @@ int main(int argc, char *argv[])
 		break;
 	case 'l':
 		if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF) Fatal("Tried to define window limiting method twice");
-		else if (strncmp(optarg, "DEG", 3) == 0) { 
+        if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
+            _windowRep_limit_neglect_trivial = true; optarg += 1;
+        }
+		if (strncmp(optarg, "DEG", 3) == 0) { 
 			_windowRep_limit_method = WINDOW_LIMIT_DEGREE; optarg += 3; 
 		}
 		else if (strncmp(optarg, "EDGE", 4) == 0) { 
@@ -3085,7 +3231,7 @@ int main(int argc, char *argv[])
 			Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{N}\n");
 		_numWindowRepLimit = atoi(optarg);
         if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
-		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, compFunc, NULL);
+		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
 		break;
 	case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
@@ -3135,17 +3281,18 @@ int main(int argc, char *argv[])
 	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
 	optind++;
     }
-    assert(optind == argc || _GRAPH_GEN);
+    assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
 
     SetBlantDir(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
     LoadMagicTable(); // needs _k to be set
 
-    if (_window) {
+    if (_window && _windowSize >= 3) {
         if (_windowSampleMethod == -1) Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
         if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
         _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
-        _windowReps = Calloc(MIN(_numWindowRepArrSize, _MAXnumWindowRep), sizeof(int*));
+        _numWindowRepArrSize = _MAXnumWindowRep > 0 ? MIN(_numWindowRepArrSize, _MAXnumWindowRep) : _numWindowRepArrSize;
+        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
         for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
         if (windowRep_edge_density < 0) windowRep_edge_density = 0;
 		if (windowRep_edge_density > 1) windowRep_edge_density = 1;
@@ -3200,6 +3347,30 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
+
+    if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
+    {
+        FILE *fp;
+        _graphNodeImportance = Calloc(G->n, sizeof(float));
+        if((optind + 1) == argc) {
+            _supportNodeImportance = true;
+            fp = fopen(argv[optind++], "r");
+            if (fp == NULL) Fatal("cannot open graph Node Importance File.");
+            char line[BUFSIZ], nodeName[BUFSIZ];
+            foint nodeNum;
+            float importance;
+
+            while(fgets(line, sizeof(line), fp))
+            {
+                if(sscanf(line, "%s%f ", nodeName, &importance) != 2)
+                    Fatal("GraphNodeImportance: Error while reading\n");
+                if(!BinTreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
+                    Fatal("Node Importance Error: %s is not in the Graph file\n", nodeName);
+                _graphNodeImportance[nodeNum.i] = importance;
+            }
+        }
+    }
+
 #if GEN_SYN_GRAPH
     FILE *fpSynGraph = NULL;
     if (_GRAPH_GEN) {
@@ -3215,6 +3386,12 @@ int main(int argc, char *argv[])
         return GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
+    if(_windowSize == 1) {
+        _numWindowRepArrSize = 50;
+        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
+        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        return ExpandSeedsT1(G);
+    }
     return RunBlantInThreads(_k, numSamples, G);
 #endif
 }
