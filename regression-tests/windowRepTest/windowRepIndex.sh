@@ -55,7 +55,10 @@ do
                     {
                         if(NF==w ) {
                             numWindow+=1;
-                            if(numWindowRep != numWindowRepCounter) exit 1;
+                            if(numWindowRep < numWindowRepCounter) {
+                                print "Error: Output numWindowRep", numWindowRepCounter, "is larger than found", numWindowRepCounter;
+                                exit 1;
+                            }
                             numWindowRepCounter = 0;
                         } else if (NF == 2) {
                             numWindowRep=$2;
