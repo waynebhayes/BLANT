@@ -61,7 +61,8 @@ if __name__ == '__main__':
     ed = (float(args.edbound))
     alpha = float(args.alpha)
     seed_length = seeding.get_seed_length(g1_seed_file)
-
+    sb = float(args.simbound)
+    K = int(args.Kloops)
 
     timestop_arg = float(args.timestop)
     if timestop_arg < 0:
@@ -92,10 +93,10 @@ if __name__ == '__main__':
         if mat1 != mat2:
             print(mat1)
             print(mat2)
-       
+        m = e1 
         curr_seed = next(seeding.get_aligned_seed(zip(*seed),graph1, graph2))
         print(curr_seed)
 
-        alignments = iter_alignment.iter_align(graph1, graph2, curr_seed, sims, ec_mode, ed, m=e1, sb=0.3, K=10, debug=args.debugval)    
+        alignments = iter_alignment.iter_align(graph1, graph2, curr_seed, sims, ec_mode, ed, m, sb, K, debug=args.debugval)    
         print(alignments)
         break
