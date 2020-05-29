@@ -1,15 +1,47 @@
-#!/bin/sh
-NUM_FAIL=0
-for dir in regression-tests/*; do
-    [ -d "$dir" ] || continue;
-    echo --- in directory $dir ---
-    for r in $dir/*.sh; do
-	echo --- running test $r ---
-	if "$r"; then
-	    :
-	else
-	    NUM_FAIL=`expr $NUM_FAIL + 1`
-	fi
-    done
+#!/bin/bash
+die() { echo "FATAL ERROR: $@" >&2; exit 1
+}
+warn() { echo "WARNING: $@" >&2;
+}
+PATH=`pwd`:`pwd`/scripts:$PATH
+export PATH
+
+EXE=./blant
+MAKE=false
+while [ $# -gt -0 ]; do
+    case "$1" in
+    -make) MAKE=true; shift;;
+    *) [ -x "$1" -o "$MAKE" = true ] || die "unknown argument '$1'; valid arguments are '-make', and an optional executable filename"
+	EXE="$1"; shift;;
+    esac
 done
-exit $NUM_FAIL
+
+export EXE
+CORES=${CORES:=`cpus 2>/dev/null || echo 4`}
+if $MAKE ; then
+	if [ `hostname` = Jenkins ]; then
+	    make realclean; make -j2 all
+	else
+	    make realclean; make all
+	fi
+fi
+
+[ -x "$EXE" ] || die "no executable '$EXE' exists to test!"
+
+NUM_FAILS=0
+for REG_DIR in regression-tests/*; do
+    if [ -d "$REG_DIR" ]; then
+	export REG_DIR
+	echo --- in directory $REG_DIR ---
+	for r in $REG_DIR/*.sh; do
+	    echo --- running test $r ---
+	    if "$r"; then
+		:
+	    else
+		(( NUM_FAILS+=$? ))
+	    fi
+	done
+    fi
+done
+echo Number of failures: $NUM_FAILS
+exit $NUM_FAILS
