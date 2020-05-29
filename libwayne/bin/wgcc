@@ -2,7 +2,7 @@
 # The options below turn on lots and lots of gcc warnings.
 CC='gcc -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow' #-Wconversion 
 
-LIBHOME=$HOME/lib
+LIBWAYNE_HOME=${LIBWAYNE_HOME:=`dirname $0`/..}
 OtherLibs=""	#-L$PVM_ROOT/lib/$PVM_ARCH -lpvm3 -lsocket -lnsl"
 OtherIncs=""	#-I$PVM_ROOT/include"
 
@@ -23,6 +23,6 @@ while [ $# -gt 0 ]; do
 done
 
 case $doLink in
-    y) exec $CC -I$LIBHOME/include $OtherIncs $everythingElse -L$LIBHOME/`arch` $OtherLibs -l$LIBWAYNE -lm $libList `/bin/ls $LIBHOME/*.o 2>/dev/null`;;
-    n) exec $CC -c -I$LIBHOME/include $OtherIncs $everythingElse ;;
+    y) exec $CC -I $LIBWAYNE_HOME/include $OtherIncs $everythingElse -L $LIBWAYNE_HOME $OtherLibs -l$LIBWAYNE -lm $libList `/bin/ls $LIBWAYNE_HOME/*.o 2>/dev/null`;;
+    n) exec $CC -c -I$LIBWAYNE_HOME/include $OtherIncs $everythingElse ;;
 esac
