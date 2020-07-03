@@ -107,6 +107,12 @@ static Boolean _windowRep_limit_neglect_trivial = false;
 static HEAP *_windowRep_limit_heap;
 int asccompFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i ? 0 : -1;} // ascending (smallest at top)
 
+int descompFunc(const void *a, const void *b) 
+{
+    int *i = (int*)a, *j = (int*)b;
+    return (*j)-(*i);
+}
+
 static int _windowSize = 0;
 static Boolean _window = false;
 static Boolean _windowRep_unambig = false;
@@ -2292,40 +2298,59 @@ void convertFrequencies(int numSamples)
 
 
 void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
-    int i, j, neigh, max_deg=-1, tie_count=0, prev_nodes_array[_k];
-    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);
+    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
+    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);    
     assert(prev_nodes_count == SetCardinality(prev_nodes));
+    TINY_GRAPH *g = TinyGraphAlloc(_k);
+
+    if (*count > _numWindowRepLimit) return;
     if (prev_nodes_count == _k) {
         if (*count == _numWindowRepArrSize) {
             _numWindowRepArrSize *= 2;
             _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
             for(i=*count; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
         }   
-        for(i=0; i<_k; i++) _windowReps[*count][i] = prev_nodes_array[i];
-        *count = *count + 1; return;
+        TinyGraphInducedFromGraph(g, G, prev_nodes_array);
+        Gint = TinyGraph2Int(g, _k);
+        TinyGraphFree(g);
+        if(SetIn(_windowRep_unambig_set, _K[Gint])) {
+            for(i=0; i<_k; i++) _windowReps[*count][i] = prev_nodes_array[i];
+            _windowReps[*count][_k] = _K[Gint];
+            *count = *count + 1;
+        } 
+        return;
     } 
 
+    SET *deg_set = SetAlloc(G->n);
     SET *next_step = SetAlloc(G->n);
     for(i=0; i<prev_nodes_count; i++) {
         for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
             neigh = G->neighbor[prev_nodes_array[i]][j];
-            if (G->degree[neigh] > max_deg && !SetIn(prev_nodes, neigh)) {
-                max_deg = G->degree[neigh]; SetEmpty(next_step); SetAdd(next_step, neigh);
-            } else if (G->degree[neigh] == max_deg && !SetIn(prev_nodes, neigh)) {
+            if(!SetIn(prev_nodes, neigh)) {
+                SetAdd(deg_set, G->degree[neigh]);
                 SetAdd(next_step, neigh);
             }
         }
     }
-
     tie_count = SetCardinality(next_step);
+    deg_count = SetCardinality(deg_set);
     int next_step_arr[tie_count];
+    int deg_arr[deg_count];
     assert(SetToArray(next_step_arr, next_step) == tie_count);
-    for(i=0; i<tie_count; i++) {
-        SetAdd(prev_nodes, next_step_arr[i]);
-        buildTGraphlet(G, prev_nodes, count);
-        SetDelete(prev_nodes, next_step_arr[i]);
-    }
+    assert(SetToArray(deg_arr, deg_set) == deg_count);
     SetFree(next_step);
+    SetFree(deg_set);
+    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc);
+    for (i=0; i<deg_count; i++) {
+        max_deg = deg_arr[i];
+        for(j=0; j<tie_count; j++) {
+            if (G->degree[next_step_arr[j]] == max_deg) {
+                SetAdd(prev_nodes, next_step_arr[j]);
+                buildTGraphlet(G, prev_nodes, count);
+                SetDelete(prev_nodes, next_step_arr[j]);
+            }
+        }
+    }
 }
 
 void processExpandSeeds(int startNode, int count) {
@@ -2334,6 +2359,7 @@ void processExpandSeeds(int startNode, int count) {
     for(i=0; i<count; i++) {
         for(j=0; j<_k; j++) 
             printf("%s ", _nodeNames[_windowReps[i][j]]);
+    //    printf("%i", _windowReps[i][_k]); Uncomment this line to print oridinal canonical ID at the end of the line. 
         printf("\n");
     }
 }
@@ -3228,7 +3254,7 @@ int main(int argc, char *argv[])
 			_windowRep_limit_method = WINDOW_LIMIT_EDGES; optarg += 4; 
 		}
 		else 
-			Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{N}\n");
+			Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{EDGE}{limit_num}\n");
 		_numWindowRepLimit = atoi(optarg);
         if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
 		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
@@ -3298,17 +3324,18 @@ int main(int argc, char *argv[])
 		if (windowRep_edge_density > 1) windowRep_edge_density = 1;
 		_windowRep_min_num_edge = (int) CombinChooseDouble(_k, 2) * windowRep_edge_density;
 		if (_windowRep_min_num_edge < 0) Fatal("WindowRep minimum number of edges must be larger than 0. Check edge density\n");
-		if (_windowRep_unambig) {
-			_windowRep_unambig_set = SetAlloc(_numCanon);
-			SET *orbit_temp = SetAlloc(_numOrbits);
-			for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i) 
-			{
-				for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
-				if(SetCardinality(orbit_temp) == _k) SetAdd(_windowRep_unambig_set, i);
-				SetEmpty(orbit_temp);
-			}
-			SetFree(orbit_temp);
-		}
+    }
+
+    if (_windowRep_unambig || _window && _windowSize < 3){
+        _windowRep_unambig_set = SetAlloc(_numCanon);
+        SET *orbit_temp = SetAlloc(_numOrbits);
+        for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i) 
+        {
+            for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
+            if(SetCardinality(orbit_temp) == _k) SetAdd(_windowRep_unambig_set, i);
+            SetEmpty(orbit_temp);
+        }
+        SetFree(orbit_temp);
     }
 
 #if SHAWN_AND_ZICAN
@@ -3390,6 +3417,7 @@ int main(int argc, char *argv[])
         _numWindowRepArrSize = 50;
         _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
         for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        _numWindowRepLimit = _numSamples;
         return ExpandSeedsT1(G);
     }
     return RunBlantInThreads(_k, numSamples, G);
