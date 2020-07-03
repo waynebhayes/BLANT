@@ -3417,7 +3417,7 @@ int main(int argc, char *argv[])
         _numWindowRepArrSize = 50;
         _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
         for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
-        _numWindowRepLimit = _numSamples;
+        _numWindowRepLimit = numSamples;
         return ExpandSeedsT1(G);
     }
     return RunBlantInThreads(_k, numSamples, G);
