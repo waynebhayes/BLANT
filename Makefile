@@ -5,7 +5,7 @@ LIBWAYNE_OPTS=-O3 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(
 #LIBWAYNE_OPTS=-O0 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-g  -lm -ggdb $(STACKSIZE) # for debugging
 #LIBWAYNE_OPTS=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-pg -lm -pg   # for profiling
 
-CC=gcc
+CC=gcc -O3 #-ggdb
 CXX=g++
 
 ### Generated File Lists ###

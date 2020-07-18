@@ -1072,7 +1072,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	The alpha value is the number of ways to do a d-walk over the graphlet
 	*/
 	int node, numNodes = 0, i, j, graphletDegree;
-	long long multiplier = 1;
+	double multiplier = 1;
 	SetEmpty(V);
 
 	for (i = 0; i < _MCMC_L; i++) {
@@ -1094,7 +1094,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 		if (i != 0 && i != _MCMC_L-1) {
 			multiplier *= (graphletDegree);
 		}
-		assert(multiplier > 0);
+		assert(multiplier > 0.0);
 	}
 	TinyGraphInducedFromGraph(g, G, Varray);
 	int Gint = TinyGraph2Int(g, k);
@@ -1103,7 +1103,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 #if PARANOID_ASSERTS
 	assert(numNodes == k); // Ensure we are returning k nodes
 #endif
-	double count;
+	double count = 0.0;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 	    // The over counting ratio is the alpha value only.
 	    count += 1.0/(_alphaList[GintOrdinal]);
@@ -1118,8 +1118,12 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    for (j = 0; j < k; j++) {
 		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += count;
 	    }
-	} else
+	} else {
+	    if(count < 0) {
+		Warning("count is %g\n", count);
+	    }
 	    _graphletConcentration[GintOrdinal] += count;
+	}
 
 	return V; // return the sampled graphlet
 }
@@ -1169,9 +1173,12 @@ void finalizeMCMC() {
 	double totalConcentration = 0;
 	int i;
 	for (i = 0; i < _numCanon; i++) {
-		totalConcentration += _graphletConcentration[i];
 #if PARANOID_ASSERTS
-		assert(_graphletConcentration[i] >= 0.0);
+		if(_graphletConcentration[i] < 0.0) {
+		    Warning("_graphletConcentration[%d] is %g\n",i, _graphletConcentration[i]);
+		    assert(false);
+		}
+		totalConcentration += _graphletConcentration[i];
 #endif
 	}
 	for (i = 0; i < _numCanon; i++) {
