@@ -146,12 +146,9 @@ The old (deprected) algorithm described in [Hasan, Chung, Hayes](https://journal
 Testing code for files created by create-bin-data.c above.
 
 # References
-## Our first paper on how BLANT performs so quickly on up to k=8 node graphlets
-Hasan, Adib, Po-Chien Chung, and Wayne Hayes. ["Graphettes: Constant-time determination of graphlet and orbit identity including (possibly disconnected) graphlets up to size 8." PloS one 12, no. 8 (2017): e0181570.](https://doi.org/10.1371/journal.pone.0181570)
+#### Our first paper on how BLANT performs so quickly on up to k=8 node graphlets: Hasan, Adib, Po-Chien Chung, and Wayne Hayes. ["Graphettes: Constant-time determination of graphlet and orbit identity including (possibly disconnected) graphlets up to size 8." PloS one 12, no. 8 (2017): e0181570.](https://doi.org/10.1371/journal.pone.0181570)
 
-## First conference presentation about BLANT
-Hayes, W. and Maharaj, S., 2018. [BLANT: sampling graphlets in a flash. q-bio, Rice University, Houston, Texas, USA.](http://q-bio.org/wp/wp-content/uploads/2018/04/Maharaj_Sridevi.pdf)
+#### First conference presentation about BLANT: Hayes, W. and Maharaj, S., 2018. [BLANT: sampling graphlets in a flash. q-bio, Rice University, Houston, Texas, USA.](http://q-bio.org/wp/wp-content/uploads/2018/04/Maharaj_Sridevi.pdf)
 
-## Journal "tool" announcement in BioInformatics:
-Maharaj, Sridevi, Brennan Tracy, and Wayne B. Hayes. ["BLANT—fast graphlet sampling tool." Bioinformatics 35, no. 24 (2019): 5363-5364.](https://doi.org/10.1093/bioinformatics/btz603)
+#### Journal "tool" announcement in BioInformatics: Maharaj, Sridevi, Brennan Tracy, and Wayne B. Hayes. ["BLANT—fast graphlet sampling tool." Bioinformatics 35, no. 24 (2019): 5363-5364.](https://doi.org/10.1093/bioinformatics/btz603)
 
