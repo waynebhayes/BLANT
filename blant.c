@@ -1195,7 +1195,7 @@ void finalizeMCMC() {
 */
 unsigned int GetFancySeed(Boolean trulyRandom)
 {
-    char *cmd = "hostname -I | awk '/[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*/{print;exit}{print \"127.0.0.1\"}'";
+    char *cmd = "hostname -i | awk '/[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*/{print;exit}{print \"127.0.0.1\"}'";
     FILE *fp=popen(cmd,"r");
     int i, ip[4], host_ip=0;
     assert(4==fscanf(fp," %d.%d.%d.%d ", ip, ip+1, ip+2, ip+3));
