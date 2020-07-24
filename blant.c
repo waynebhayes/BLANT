@@ -1191,15 +1191,25 @@ void finalizeMCMC() {
 ** (to the nearest second), the process ID, and the parent process ID. The only gotcha is that
 ** if you call this twice within the same second within the same process, the result will be the
 ** same. But since you should *never* seed twice within the same code, that's your problem.
+** (This problem can be offset by setting "trulyRandom" to true.)
 */
-unsigned int GetFancySeed(void)
+unsigned int GetFancySeed(Boolean trulyRandom)
 {
     FILE *fp=popen("hostname -i","r");
     int i, ip[4], host_ip=0;
-    fscanf(fp,"%d.%d.%d.%d", ip, ip+1, ip+2, ip+3);
+    assert(4==fscanf(fp,"%d.%d.%d.%d", ip, ip+1, ip+2, ip+3));
     pclose(fp);
     for(i=0;i<4;i++) host_ip = 256*host_ip + ip[i];
-    return host_ip + time(0) + getppid() + getpid();
+    unsigned int dev_random=0;
+    if(trulyRandom) {
+	fp = fopen("/dev/random","r");
+	if(fp){
+	    assert(1 == fread(&dev_random, sizeof(dev_random),1, fp));
+	    fclose(fp);
+	}
+	else dev_random = lrand48(); // cheap substitute
+    }
+    return host_ip + time(0) + getppid() + getpid() + dev_random;
 }
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
@@ -3289,7 +3299,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if(_seed == -1) _seed = GetFancySeed();
+    if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
     // exactly _THREADS-1 values from near the beginning of this main random stream.
     RandomSeed(_seed);
