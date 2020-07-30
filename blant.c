@@ -1195,10 +1195,11 @@ void finalizeMCMC() {
 */
 unsigned int GetFancySeed(Boolean trulyRandom)
 {
-    char *cmd = "hostname -i | awk '/[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*/{print;exit}{print \"127.0.0.1\"}'";
+    unsigned int seed = 0;
+    char *cmd = "hostname -i | awk '{for(i=1;i<=NF;i++)if(match($i,\"^[0-9]*\\\\.[0-9]*\\\\.[0-9]*\\\\.[0-9]*$\")){IP=$i;exit}}END{if(!IP)IP=\"127.0.0.1\"; print IP}'";
     FILE *fp=popen(cmd,"r");
     int i, ip[4], host_ip=0;
-    assert(4==fscanf(fp," %d.%d.%d.%d ", ip, ip+1, ip+2, ip+3));
+    if(4!=fscanf(fp," %d.%d.%d.%d ", ip, ip+1, ip+2, ip+3)) Fatal("Attempt to get IPv4 address failed:\n%s\n",cmd);
     pclose(fp);
     for(i=0;i<4;i++) host_ip = 256*host_ip + ip[i];
     unsigned int dev_random=0;
@@ -1210,7 +1211,13 @@ unsigned int GetFancySeed(Boolean trulyRandom)
 	}
 	else dev_random = lrand48(); // cheap substitute
     }
-    return host_ip + time(0) + getppid() + getpid() + dev_random;
+    seed = host_ip + time(0) + getppid() + getpid() + dev_random;
+#if 0
+    fprintf(stderr,"%s\n",cmd);
+    fprintf(stderr,"%d.%d.%d.%d\n",ip[0],ip[1],ip[2],ip[3]);
+    fprintf(stderr,"seed is %ud\n",seed);
+#endif
+    return seed;
 }
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
@@ -3114,6 +3121,7 @@ int main(int argc, char *argv[])
     int i, j, opt, numSamples=0;
     confidence = 0;
     double windowRep_edge_density = 0.0;
+    int exitStatus = 0;
 
     if(argc == 1)
     {
@@ -3381,7 +3389,7 @@ int main(int argc, char *argv[])
     #endif
     // call clean maybe?
   #endif
-    return RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
+    exitStatus = RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
 #else
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames);
@@ -3428,7 +3436,7 @@ int main(int argc, char *argv[])
             fpSynGraph = fopen(argv[optind++], "w");
             if (fpSynGraph == NULL) Fatal("cannot open synthetic graph outputfile.");
         }
-        return GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
+        exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
     if(_windowSize == 1) {
@@ -3436,8 +3444,9 @@ int main(int argc, char *argv[])
         _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
         for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
         _numWindowRepLimit = numSamples;
-        return ExpandSeedsT1(G);
-    }
-    return RunBlantInThreads(_k, numSamples, G);
+        exitStatus = ExpandSeedsT1(G);
+    } else
+	exitStatus = RunBlantInThreads(_k, numSamples, G);
 #endif
+    return exitStatus;
 }
