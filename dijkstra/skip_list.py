@@ -137,6 +137,7 @@ class SkipList:
         #if find the value
         if x != None:
             for i in reversed(range(len(x.next))):
+                update[i].next[i] = x.next[i]
                 #check whether this node is the only node in this rank
                 if self.head.next[i] == None:
                     #print("Decreasing height")
