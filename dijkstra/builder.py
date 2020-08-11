@@ -172,6 +172,14 @@ def get_sim(file, graph1, graph2, pickle_name = ""):
         with open(pickle_name,'wb') as f:
             pickle.dump(sims,f)
         return sims
+
+def read_color(graph, file):
+    graph.colors = {} 
+    for line in open(file):
+        node, color = line.strip().split()
+        graph.colors[graph.indexes[node]] = int(color)
+    return graph
+
 """
 functions below are not working, stubs for future releases
 """
