@@ -3238,6 +3238,7 @@ int main(int argc, char *argv[])
 	    if (!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
 	case 'w': _window = true; _windowSize = atoi(optarg); 
+        if (_windowSize == 1 && _k <= 5) Fatal("k must be between larger than 5 for window size of 1"); 
 	    break;
 	case 'p':
         if (*optarg == 'u' | *optarg == 'U')
