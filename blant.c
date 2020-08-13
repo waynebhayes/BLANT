@@ -3110,7 +3110,7 @@ const char const * const USAGE =
 	"\ti (integer ordinal), d(decimal), b (binary), j (JESSE), o (ORCA).\n" \
     "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
     "Duplicates and self-loops should be removed before calling BLANT.\n" \
-    "k is the number of nodes in graphlets to be sampled." \
+    "k is the number of nodes in graphlets to be sampled. If w is 1, k must be 6 or greater." \
     "";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
