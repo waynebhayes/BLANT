@@ -184,11 +184,28 @@ class SkipList:
             raise IndexError()
         #get a random value in the given random value range
         #rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
+        next_value = self.head.next[0].value+1
+        res = self.head.next[0]
+        temp = res.next
+        while random.randint(0,1)!=0 and temp[0] and temp[0].value < next_value:
+            res, temp = temp[0], temp[0].next
+        
+            
+        self.remove_by_name(res.value*self.switch, res.info)
+        return (res.value*self.switch,res.info)
+       
+        
+    def _pop(self,domain=0.1):
+        #check not empty
+        if self.__len__()==0:
+            raise IndexError()
+        #get a random value in the given random value range
+        #rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
         rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
         #if this value exist, directly remove it
         if self.__contains__(rand_value):
             temp=self.find(rand_value)
-            self.remove(rand_value)
+            self.remove_by_name(rand_value*self.switch, temp.info)
             return (temp.value*self.switch,temp.info)
         #if this value not in list, remove the nearest one
         else:
@@ -198,14 +215,14 @@ class SkipList:
             candidate2 = update[0].next[0]
             #if the right one not exist, return the left on
             if candidate2==None:
-                self.remove(candidate1.value)
+                self.remove_by_name(candidate1.value*self.switch,candidate1.info)
                 return (candidate1.value*self.switch,candidate1.info)
             #otherwise compare them
             if abs(candidate1.value-rand_value)<=abs(candidate2.value-rand_value):
-                self.remove(candidate1.value)
+                self.remove_by_name(candidate1.value*self.switch,candidate1.info)
                 return (candidate1.value*self.switch,candidate1.info)
             if abs(candidate2.value-rand_value)<abs(candidate1.value-rand_value):
-                self.remove(candidate2.value)
+                self.remove_by_name(candidate2.value*self.switch,candidate2.info)
                 return (candidate2.value*self.switch,candidate2.info)
             return None
 
