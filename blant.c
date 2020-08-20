@@ -16,6 +16,7 @@
 #include "queue.h"
 #include "multisets.h"
 #include "sorts.h"
+#include "blant_window.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 #define SPARSE true // do not try false at the moment, it's broken
@@ -78,33 +79,16 @@ static Boolean UNIQ_GRAPHLETS = false; // Should we remove duplicate graphlets?
 // makes the coding much simpler.
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
-static unsigned int _Bk, _k, _k_small; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
+// _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
+unsigned int _k;
+static unsigned int _Bk, _k_small;
+
 static int _numCanon, _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
-static SET *_connectedCanonicals; // the SET of canonicals that are connected.
+SET *_connectedCanonicals; // the SET of canonicals that are connected.
 static int _numConnectedCanon;
 static int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // map from [ordinal][canonicalNode] to orbit ID.
 static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 
-//windowRep global Variables
-#define WINDOW_SAMPLE_MIN 1 // Find the k-graphlet with minimal canonicalInt
-#define WINDOW_SAMPLE_MAX 2 // Find the k-graphlet with maximal canonicalInt
-#define WINDOW_SAMPLE_MIN_D 3   // Find the k-graphlet with minimal canonicalInt and balanced numEdges
-#define WINDOW_SAMPLE_MAX_D 4   // Find the k-graphlet with maximal canonicalInt and balanced numEdges
-#define WINDOW_SAMPLE_LEAST_FREQ_MIN 5 // Find the k-graphlet with least fequent cacnonicalInt. IF there is a tie, pick the minimal one
-#define WINDOW_SAMPLE_LEAST_FREQ_MAX 6 // Find the k-graphlet with least fequent cacnonicalInt. IF there is a tie, pick the maximial one 
-#define WINDOW_SAMPLE_DEG_MAX 7
-int _windowSampleMethod = -1;
-
-#define WINDOW_ITER_COMB 1 // using Combination method to sample k-graphlets in Window
-#define WINDOW_ITER_DFS 2 // Default way: using DFS-like way.
-int _windowIterationMethod = WINDOW_ITER_DFS;
-
-#define WINDOW_LIMIT_UNDEF 0
-#define WINDOW_LIMIT_DEGREE 1
-#define WINDOW_LIMIT_EDGES 2
-int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
-static Boolean _windowRep_limit_neglect_trivial = false;
-static HEAP *_windowRep_limit_heap;
 int asccompFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i ? 0 : -1;} // ascending (smallest at top)
 
 int descompFunc(const void *a, const void *b) 
@@ -113,26 +97,9 @@ int descompFunc(const void *a, const void *b)
     return (*j)-(*i);
 }
 
-static int _windowSize = 0;
-static Boolean _window = false;
-static Boolean _windowRep_unambig = false;
-static SET *_windowRep_unambig_set;
-static int **_windowReps;
-static int _MAXnumWindowRep = 0;
-static int _numWindowRep = 0;
-static int _numWindowRepLimit = 0;
-static int _numWindowRepArrSize = 100;
-static int _windowRep_min_num_edge = -1;
-static float *_graphNodeImportance;
-static Boolean _supportNodeImportance = false;
-
-enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
-    kovacsPairs, kovacsAllOrbits, graphletFrequency, outputODV, outputGDV,
-    graphletDistribution // used in Windowing
-};
-static enum OutputMode _outputMode = undef;
-static unsigned long int _graphletCount[MAX_CANONICALS];
-static int **_graphletDistributionTable;
+enum OutputMode _outputMode = undef;
+unsigned long int _graphletCount[MAX_CANONICALS];
+int **_graphletDistributionTable;
 
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
 static enum CanonicalDisplayMode _displayMode = undefined;
@@ -176,7 +143,6 @@ kperm *Permutations = NULL; // Allocating memory dynamically
 //static short int _K[maxBk] __attribute__ ((aligned (8192)));
 short int *_K = NULL; // Allocating memory dynamically
 
-
 //The number of edges required to walk a *Hamiltonion* path
 static unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
 static int _alphaList[MAX_CANONICALS];
@@ -198,7 +164,7 @@ int _genGraphMethod = -1;
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
-static void ExtractPerm(char perm[_k], int i)
+void ExtractPerm(char perm[_k], int i)
 {
     int j, i32 = 0;
     for(j=0;j<3;j++) i32 |= (Permutations[i][j] << j*8);
@@ -207,7 +173,7 @@ static void ExtractPerm(char perm[_k], int i)
 }
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
-static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
+TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(Gv);
@@ -1904,49 +1870,6 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
     }
 }
 
-int ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node)
-{
-    int num_difference, Gint_prev_ordinal, Gint_curr_ordinal;
-    SampleGraphlet(G, V, Varray, k);
-    SetIntersect(intersect_node, prev_node_set, V);
-    num_difference = k - SetCardinality(intersect_node);
-    SetEmpty(intersect_node);
-    if (num_difference != 1) {
-        TinyGraphInducedFromGraph(prev_graph, G, Varray);
-        SetCopy(prev_node_set, V);
-        ProcessWindowDistribution(G, V, Varray, k, prev_graph, prev_node_set, intersect_node);
-    }
-    else {
-        assert(num_difference == 1);
-        Gint_prev_ordinal = _K[TinyGraph2Int(prev_graph,k)];
-        TinyGraphInducedFromGraph(prev_graph, G, Varray);
-        Gint_curr_ordinal = _K[TinyGraph2Int(prev_graph,k)];
-        _graphletDistributionTable[Gint_prev_ordinal][Gint_curr_ordinal] += 1;
-    }
-}
-
-
-// Self construct the adjacency matrix of the window. Use _connectedCanonicals to check connectivity of the K-node graphlet
-// No need to use TinyGraphInducedFromGraph, expensive calling GraphAreConnected for each combination
-// This method is twice faster than previous
-int combWindow2Int(int (*windowAdjList)[_windowSize], int *Varray, int *numEdges)
-{
-    int i, j, bitPos=0, Gint = 0, bit;
-    *numEdges = 0;
-    for(i=_k-1; i>0; i--)
-        for(j=i-1;j>=0;j--)
-        {
-            if (windowAdjList[Varray[i]][Varray[j]] == 1)
-            {
-                bit = (1 << bitPos);
-                Gint |= bit;
-                *numEdges = *numEdges + 1;
-            }
-            bitPos++;
-        }
-    return Gint;
-}
-
 int getMaximumIntNumber(int K) 
 {
     assert(K >= 3 && K <= 8);
@@ -1960,346 +1883,6 @@ int getD(int num_of_edges)
     int D = abs(2 * num_of_edges - M);
     return D;
 }
-
-void updateWindowRepLimitHeap(int *WArray, int *VArray, char perm[], int foundNum)
-{
-    int i, j;
-    if (HeapSize(_windowRep_limit_heap) < _numWindowRepLimit) // case to fill up limit heap 
-        HeapInsert(_windowRep_limit_heap, (foint) foundNum);
-    else if (HeapSize(_windowRep_limit_heap) >= _numWindowRepLimit && foundNum > HeapPeek(_windowRep_limit_heap).i) 
-    { 
-        // case to swap the smallest item in the heap when is filled
-        HeapNext(_windowRep_limit_heap); 
-        HeapInsert(_windowRep_limit_heap, (foint) foundNum); 
-    }
-    for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
-    _windowReps[_numWindowRep][_k] = foundNum;
-    _numWindowRep++;
-    assert(HeapSize(_windowRep_limit_heap) <= _numWindowRepLimit);
-}
-
-void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, int GintOrdinal, char perm[])
-{
-    int i, j;
-    // dynamic windowRep Arr step
-    if (_numWindowRep + 1 == _numWindowRepArrSize) 
-    {
-        _numWindowRepArrSize = MIN(2 * _numWindowRepArrSize, _MAXnumWindowRep);
-        _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
-        for(i=_numWindowRep; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
-    }
-
-	if (_windowRep_limit_method == WINDOW_LIMIT_UNDEF || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
-	{
-		for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
-        _windowReps[_numWindowRep++][_k] = GintOrdinal;
-	}
-	else if (_windowRep_limit_method == WINDOW_LIMIT_DEGREE)
-	{
-		int indegree=0, prevIndegree;
-		for(i=0; i<_k; i++) indegree += G->degree[WArray[VArray[i]]]; // should remove 2*numEdges to get the exact indegree but the scale is the same.
-		updateWindowRepLimitHeap(WArray, VArray, perm, indegree);
-	}
-	else if (_windowRep_limit_method == WINDOW_LIMIT_EDGES)
-	{
-		SET *NeighborNodes = SetAlloc(G->n);
-		for(i=0; i<_k; i++) for(j=0; j<G->degree[WArray[VArray[i]]]; j++) SetAdd(NeighborNodes, G->neighbor[WArray[VArray[i]]][j]);
-		GRAPH *GNeighbor = GraphInduced(NULL, G, NeighborNodes);
-		updateWindowRepLimitHeap(WArray, VArray, perm, GNeighbor->numEdges - numEdges);
-
-	}
-	else
-		Fatal("Undefined windowRep Limiting Method. Refer to -l{DEG}.\n");
-}
-
-
-void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, int Gint, int numEdges, int *WArray, int *VArray, MULTISET *canonMSET, char perm[])
-{
-    int i, pending_D;
-    int GintOrdinal = _K[Gint];
-    memset(perm, 0, _k);
-    ExtractPerm(perm, Gint);
-    if (_windowRep_limit_neglect_trivial && GintOrdinal == _k - 1) return;
-    if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
-    {
-        if(_windowSampleMethod == WINDOW_SAMPLE_MIN)
-            if(GintOrdinal < *windowRepInt) {*windowRepInt = GintOrdinal; _numWindowRep = 0;}
-        if(_windowSampleMethod == WINDOW_SAMPLE_MAX)
-            if(GintOrdinal > *windowRepInt) {*windowRepInt = GintOrdinal; _numWindowRep = 0;}
-        if (_numWindowRep == 0 && _windowRep_limit_method != WINDOW_LIMIT_UNDEF) 
-        	HeapReset(_windowRep_limit_heap);
-        if(GintOrdinal == *windowRepInt) 
-        	updateWindowRepArray(G, WArray, VArray, numEdges, GintOrdinal, perm);
-    }
-    else if (_windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_MAX_D)
-    {
-        pending_D = getD(numEdges);
-        if (_windowSampleMethod == WINDOW_SAMPLE_MIN_D) 
-            if(pending_D < *D || (pending_D == *D && GintOrdinal < *windowRepInt)) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
-        if (_windowSampleMethod == WINDOW_SAMPLE_MAX_D)
-            if(pending_D < *D || (pending_D == *D && GintOrdinal > *windowRepInt)) {*windowRepInt = GintOrdinal; *D = pending_D; _numWindowRep = 0;}
-        if (_numWindowRep == 0 && _windowRep_limit_method != WINDOW_LIMIT_UNDEF) 
-        	HeapReset(_windowRep_limit_heap);
-        if(pending_D == *D && GintOrdinal == *windowRepInt)
-        	updateWindowRepArray(G, WArray, VArray, numEdges, GintOrdinal, perm);
-    }
-    else if (_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
-    {
-        updateWindowRepArray(G, WArray, VArray, numEdges, GintOrdinal, perm);
-        if(canonMSET->array[GintOrdinal] < MAX_MULTISET_FREQ) 
-            MultisetAdd(canonMSET, GintOrdinal);
-    }
-    else
-        Fatal("unknown window sampling method.");
-}
-
-void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET) 
-{
-    int ordinals[MultisetSupport(canonMSET)];
-    int i, pos = SetToArray(ordinals, canonMSET->set);
-    int freq = _numWindowRep, multiplicity;
-    for(i = 0; i < pos; i++)
-    {
-        multiplicity = MultisetMultiplicity(canonMSET, ordinals[i]);
-        if(multiplicity == freq) {
-            if (_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
-                if(ordinals[i] < *windowRepInt) *windowRepInt = ordinals[i];
-            if (_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
-                if(ordinals[i] > *windowRepInt) *windowRepInt = ordinals[i]; 
-        }
-        else if(multiplicity < freq) {
-            *windowRepInt = ordinals[i];
-            freq = multiplicity;
-        }
-    }
-    int new_numWindowRep = 0, j;
-    for(i=0; i < _numWindowRep; i++)
-    {
-        if(_windowReps[i][_k] == *windowRepInt) {
-            for(j=0; j<_k; j++) _windowReps[new_numWindowRep][j] = _windowReps[i][j];
-            new_numWindowRep++;
-        }
-    }
-    _numWindowRep = new_numWindowRep;
-}
-
-        
-void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET, char perm[])
-{
-    int u, w, i, j, Gint, GintOrdinal, GintOrdinalInt, numEdges=0;
-    Boolean inclusive = false;
-    SET *Vext = SetAlloc(Gi->n), *uNeighbors = SetAlloc(Gi->n);
-    if(*varraySize == _k)
-    {
-        Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
-        if(!_windowRep_unambig || SetIn(_windowRep_unambig_set, _K[Gint]))
-        	if(numEdges >= _windowRep_min_num_edge) {
-                updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
-            }
-    }
-    else
-    {
-        while(SetCardinality(Vextension) != 0)
-        {
-            SetEmpty(Vext);
-            // Remove an element w from Vextension
-            w = Vextension->smallestElement;
-            SetDelete(Vextension, (int)w);
-            // Add exlusive neighbor u of w and u > v
-            for(i=0; i<Gi->degree[w]; i++)
-            {
-                u = Gi->neighbor[w][i]; inclusive = false;
-                if(u > v)
-                {
-                    SetEmpty(uNeighbors);
-                    SetFromArray(uNeighbors, Gi->degree[u], Gi->neighbor[u]);
-                    for(j=0; j<*varraySize; j++) if(SetIn(uNeighbors, VArray[j])) {inclusive = true; break;}
-                    if(!inclusive && u > v) SetAdd(Vext, u);
-                }
-            }
-            int* VArrayCopy = Calloc(_k, sizeof(int));
-            for(i=0; i<_k; i++) VArrayCopy[i] = VArray[i];
-            int varrayCopySize = *varraySize;
-            VArrayCopy[varrayCopySize++] = w;
-            SetUnion(Vext, Vext, Vextension);
-            ExtendSubGraph(G, Gi, WArray, VArrayCopy, Vext, v, &varrayCopySize, windowAdjList, windowRepInt, D, canonMSET, perm);
-            free(VArrayCopy);
-        }
-    }
-    SetFree(Vext);
-    SetFree(uNeighbors);
-    return;
-}
-
-int FindHighestDegNeighbor(GRAPH *Gi, SET *foundNode, SET *searchNodeSet, int *WArray)
-{
-	if(SetCardinality(searchNodeSet) == 0) return -1;
-	int numSearch = SetCardinality(searchNodeSet), i, searchNodeArr[numSearch], largestNode=-1;
-    float curr_deg, prev_deg = -1;
-	SetToArray(searchNodeArr, searchNodeSet);
-	for(i=0; i<numSearch; i++)
-	{
-		curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[searchNodeArr[i]]] : Gi->degree[searchNodeArr[i]];
-		if (curr_deg > prev_deg && !SetIn(foundNode, searchNodeArr[i])) {largestNode = searchNodeArr[i]; prev_deg = curr_deg;}
-	}
-	return largestNode;
-}
-
-
-void FindWindowRepByDeg(GRAPH *Gi, int *WArray)
-{
-	int i, j, u, neigh, num_k_saved, NodeFound, GintOrdinal, numInitialSeed=0; 
-    float curr_deg, prev_deg = -1;
-	int SeedArray[_windowSize], NodeAddedArr[_k];
-	SET *savedNodesSET = SetAlloc(Gi->n), *neighborNodeSet = SetAlloc(Gi->n);
-	TINY_GRAPH *g = TinyGraphAlloc(_k);
-	for (i=0; i < _windowSize; i++)
-	{
-		curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : Gi->degree[i];
-		if (curr_deg > prev_deg) {numInitialSeed = 0; prev_deg = curr_deg;}
-		if (curr_deg >= prev_deg) SeedArray[numInitialSeed++] = i;
-	} 
-	for (i=0; i < numInitialSeed; i++)
-	{
-		num_k_saved = 0; SetEmpty(savedNodesSET);
-		NodeAddedArr[num_k_saved++] = SeedArray[i];
-		// _windowReps[_numWindowRep][num_k_saved++] = SeedArray[i];
-		SetAdd(savedNodesSET, SeedArray[i]);
-		while(num_k_saved < _k + 1) 
-		{
-			SetEmpty(neighborNodeSet);
-			for(j=0; j < num_k_saved; j++) 
-				for(neigh=0; neigh < Gi->degree[NodeAddedArr[j]]; neigh++)
-					SetAdd(neighborNodeSet, Gi->neighbor[NodeAddedArr[j]][neigh]);
-
-			NodeFound = FindHighestDegNeighbor(Gi, savedNodesSET, neighborNodeSet, WArray);
-			if (NodeFound == -1) break;
-			NodeAddedArr[num_k_saved++] = NodeFound;
-			SetAdd(savedNodesSET, NodeFound);
-		}
-		if (num_k_saved == _k + 1) 
-		{
-
-			for(j=0; j<_k; j++) _windowReps[_numWindowRep][j] = WArray[NodeAddedArr[j]];
-			TinyGraphInducedFromGraph(g, Gi, NodeAddedArr);
-			GintOrdinal = _K[TinyGraph2Int(g, _k)];
-			_windowReps[_numWindowRep][_k] = GintOrdinal;
-			++_numWindowRep;
-		}
-	}
-}
-
-// Right now use least frequent windowRep canonicals 
-void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char perm[])
-{
-    int WArray[_windowSize], *VArray, ca[_k], i, j, Gint, GintOrdinal, GintOrdinalInt, numEdges=0;   // Window node array, pending_window node array
-    assert(SetToArray(WArray, W) == _windowSize);
-    MULTISET *canonMSET = MultisetAlloc(getMaximumIntNumber(_k));
-    COMBIN *c = CombinZeroth(_windowSize, _k, ca);  // (W choose K) many k-node graphlets in Window
-    
-    // Construct Adj Matrix for the Window
-    int windowAdjList[_windowSize][_windowSize];
-    for(i=0; i<_windowSize;i++)
-        for(j=i+1;j<_windowSize;j++)
-        {
-            if(GraphAreConnected(G, WArray[i], WArray[j]))
-                {windowAdjList[i][j]=1; windowAdjList[j][i]=1;}
-            else
-                {windowAdjList[i][j]=0; windowAdjList[j][i]=0;}
-        }
-        
-    // Sampling K-graphlet Step
-    VArray = Calloc(_k, sizeof(int));
-    if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) 
-    {
-    	GRAPH *Gi = GraphInduced(NULL, G, W);
-    	FindWindowRepByDeg(Gi, WArray);
-    	return;
-    }
-
-    if(_windowIterationMethod == WINDOW_ITER_COMB) 
-    {
-        do
-        {
-            for(i=0; i<_k; i++) 
-                VArray[i] = ca[i];
-            Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
-            GintOrdinal = _K[Gint];
-            if(SetIn(_connectedCanonicals, GintOrdinal) && numEdges >= _windowRep_min_num_edge)
-                if(!_windowRep_unambig || SetIn(_windowRep_unambig_set, _K[Gint]))
-                    updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
-        } while(CombinNext(c));
-    }
-    else if (_windowIterationMethod == WINDOW_ITER_DFS)
-    {
-        GRAPH *Gi = GraphInduced(NULL, G, W);
-        int v, varraySize;
-        SET *Vextension = SetAlloc(Gi->n);
-        for(v=0; v<_windowSize; v++)
-        {
-            SetEmpty(Vextension);
-            varraySize=0;
-            for(i=0; i<Gi->degree[v]; i++) 
-                if(Gi->neighbor[v][i] > v) 
-                    SetAdd(Vextension, (int)Gi->neighbor[v][i]);
-            VArray[varraySize++]=v;
-            ExtendSubGraph(G, Gi, WArray, VArray, Vextension, v, &varraySize, windowAdjList, windowRepInt, D, canonMSET, perm);
-        }
-        SetFree(Vextension);
-        GraphFree(Gi);
-    }
-    else {
-    	Fatal("Undefined Window Iteration Methods.\nRefer to -P[COMB|DFS].\n");
-    }
-    free(VArray);
-    if(_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
-        updateLeastFrequent(windowRepInt, canonMSET);
-    MultisetFree(canonMSET);
-}
-
-void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
-    // We should probably figure out a faster sort? This requires a function call for every comparison.
-    int i, j, limit_num=0, limitIndex[_numWindowRep];
-    assert(!(_windowRep_limit_neglect_trivial && windowRepInt == _k - 1));
-    if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF)
-    {
-        for(i=0; i<_numWindowRep; i++) 
-            if (_windowReps[i][_k] >= HeapPeek(_windowRep_limit_heap).i)
-                limitIndex[limit_num++] = i;
-    }
-    _numWindowRep = _windowRep_limit_method ? limit_num : _numWindowRep;
-
-    switch(_outputMode)
-    {
-        static SET* printed;
-        case graphletFrequency:
-            _graphletCount[windowRepInt] += _numWindowRep;
-            break;
-        case indexGraphlets:
-          for(i=0; i<_windowSize; i++)  printf("%s ", _nodeNames[VArray[i]]);
-           	// printf("\n");
-            printf("\n%i %i\n", windowRepInt, _numWindowRep);
-            for(i=0; i<_numWindowRep; i++)
-            {
-                if(!(_windowRep_limit_method && GraphletSeenRecently(G, _windowReps[limitIndex[i]], _k) ||
-                    !_windowRep_limit_method && GraphletSeenRecently(G, _windowReps[i], _k)) || 
-                    _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) 
-                {
-                        for(j=0; j<_k; j++)
-                        {
-                            if(_windowRep_limit_method) 
-                                printf("%s ", _nodeNames[_windowReps[limitIndex[i]][j]]);
-                            else 
-                                printf("%s ", _nodeNames[_windowReps[i][j]]);
-                        }
-                    printf("\n");
-                }
-            }
-            break;
-        default: Abort("ProcessWindowRep: unknown or un-implemented outputMode");
-    }
-}
-
 
 // This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
 void convertFrequencies(int numSamples)
