@@ -1,5 +1,10 @@
+#ifndef BLANT_H
+#define BLANT_H
+
 #include "tinygraph.h"
 #include "sets.h"
+#include "blant_window.h"
+#include "graph.h"
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
@@ -30,6 +35,26 @@
 #define DEFAULT_BLANT_DIR "."
 extern char* _BLANT_DIR;
 
+extern char **_nodeNames, _supportNodeNames;
+extern unsigned int _k;
+extern short int *_K;
+extern SET *_connectedCanonicals;
+
+enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
+    kovacsPairs, kovacsAllOrbits, graphletFrequency, outputODV, outputGDV,
+    graphletDistribution // used in Windowing
+};
+extern enum OutputMode _outputMode;
+extern unsigned long int _graphletCount[MAX_CANONICALS];
+extern int **_graphletDistributionTable;
+
+void ExtractPerm(char perm[_k], int i);
+int getD(int num_of_edges);
+TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray);
+int getMaximumIntNumber(int K);
+Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k);
+void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);
+
 void BuildGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 short int* mapCanonMap(char* BUF, short int *K, int k);
@@ -37,3 +62,5 @@ SET *canonListPopulate(char *BUF, int *canon_list, int k); // returns a SET cont
 int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
+
+#endif
