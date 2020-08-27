@@ -1,4 +1,4 @@
-#include "blant_window.h"
+#include "blant-window.h"
 #include "blant.h"
 #include "heap.h"
 #include "graph.h"
