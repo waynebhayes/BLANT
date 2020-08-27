@@ -3,7 +3,7 @@
 
 #include "tinygraph.h"
 #include "sets.h"
-#include "blant_window.h"
+#include "blant-window.h"
 #include "graph.h"
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.

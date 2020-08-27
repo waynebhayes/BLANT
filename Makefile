@@ -42,9 +42,9 @@ slow-canon-maps: $(LIBWAYNE_HOME)/made slow-canon-maps.c | blant.h libblant.o
 make-orbit-maps: $(LIBWAYNE_HOME)/made make-orbit-maps.c | blant.h libblant.o
 	$(CC) -o $@ libblant.o make-orbit-maps.c $(LIBWAYNE_OPTS)
 
-blant: $(LIBWAYNE_HOME)/made blant.c blant.h blant_window.c blant_window.h convert.o libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
-	$(CC) -c blant.c blant_window.c $(LIBWAYNE_OPTS)
-	$(CXX) -o $@ libblant.o blant.o blant_window.o convert.o $(LIBWAYNE_OPTS) $(LIBWAYNE_HOME)/MT19937/mt19937.o
+blant: $(LIBWAYNE_HOME)/made blant.c blant.h blant-window.c blant-window.h convert.o libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
+	$(CC) -c blant.c blant-window.c $(LIBWAYNE_OPTS)
+	$(CXX) -o $@ libblant.o blant.o blant-window.o convert.o $(LIBWAYNE_OPTS) $(LIBWAYNE_HOME)/MT19937/mt19937.o
 
 synthetic: $(LIBWAYNE_HOME)/made synthetic.c syntheticDS.h syntheticDS.c | libblant.o
 	$(CC) -c syntheticDS.c synthetic.c $(LIBWAYNE_OPTS)
