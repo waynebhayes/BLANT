@@ -16,7 +16,7 @@
 #include "queue.h"
 #include "multisets.h"
 #include "sorts.h"
-#include "blant_window.h"
+#include "blant-window.h"
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 #define SPARSE true // do not try false at the moment, it's broken
