@@ -204,7 +204,7 @@ static unsigned int **_componentList; // list of lists of components, largest to
 static double _totalCombinations, *_combinations, *_probOfComponent, *_cumulativeProb;
 static SET **_componentSet;
 
-void PrintNode(int v) {
+void PrintNode(int v, char c) {
 #if SHAWN_AND_ZICAN
     printf("%s", _nodeNames[v]);
 #else
@@ -213,6 +213,7 @@ void PrintNode(int v) {
     else
 	printf("%d", v);
 #endif
+    if(c) putchar(c);
 }
 
 static int InitializeConnectedComponents(GRAPH *G)
@@ -1566,7 +1567,7 @@ void ProcessKovacsNorm(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
 #if 0
 	printf("\tM %d ",depth);
 	PrintCanonical(GintOrdinal);
-	for(l=0;l<_k;l++) {printf(" "); PrintNode(Varray[(int)perm[l]]);}
+	for(l=0;l<_k;l++) {putchar(' '); PrintNode(Varray[(int)perm[l]],0);}
 	putchar('\n');
 #endif
 	// Stop the recursion since removing more edges can't possibly get the canonical again.
@@ -1664,7 +1665,8 @@ void KovacsProcessIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varra
 #define OUTPUT_MOTIF_ORBIT_PAIR 1
 #if OUTPUT_MOTIF_ORBIT_PAIR
 	    // preserve order so we can associate the node with the orbit.
-	    printf("%s %s %d\t%d %d\n", _nodeNames[u], _nodeNames[v], edge, orbit0, orbit1);
+	    PrintNode(u,' '); PrintNode(v,' ');
+	    printf("%d\t%d %d\n", edge, orbit0, orbit1);
 #else
 	    int oMin=MIN(orbit0,orbit1), oMax=MAX(orbit0,orbit1);
 	    // when recording the orbit pair without the nodes, order doesn't matter
@@ -1684,7 +1686,7 @@ void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], 
     for(j=0;j<k;j++) {
 	printf(" ");
 	assert(PERMS_CAN2NON);
-	PrintNode(Varray[(int)perm[j]]);
+	PrintNode(Varray[(int)perm[j]],0);
     }
     puts("");
 }
@@ -1702,13 +1704,13 @@ void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], char pe
     {
 	putchar(' ');
 	assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
-	PrintNode(Varray[(int)perm[j]]);
+	PrintNode(Varray[(int)perm[j]],0);
 	SetAdd(printed, j);
 	int j1;
 	for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
 	{
 	    assert(!SetIn(printed, j1));
-	    putchar(':'); PrintNode(Varray[(int)perm[j1]]);
+	    putchar(':'); PrintNode(Varray[(int)perm[j1]],0);
 	    SetAdd(printed, j1);
 	}
     }
@@ -1963,10 +1965,10 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
 
 void processExpandSeeds(int startNode, int count) {
     int i, j;
-    printf("%s\n", _nodeNames[startNode]);
+    PrintNode(startNode,'\n');
     for(i=0; i<count; i++) {
         for(j=0; j<_k; j++) 
-            printf("%s ", _nodeNames[_windowReps[i][j]]);
+            PrintNode(_windowReps[i][j],' ');
     //    printf("%i", _windowReps[i][_k]); Uncomment this line to print oridinal canonical ID at the end of the line. 
         printf("\n");
     }
@@ -2091,8 +2093,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case outputGDV:
 	for(i=0; i < G->n; i++)
 	{
-	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
-	    else printf("%d",i);
+	    PrintNode(i,0);
 	    for(canon=0; canon < _numCanon; canon++)
 		printf(" %lu", GDV(i,canon));
 	    puts("");
@@ -2100,8 +2101,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break;
     case outputODV:
         for(i=0; i<G->n; i++) {
-	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
-	    else printf("%d",i);
+	    PrintNode(i,0);
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
@@ -2913,7 +2913,7 @@ int main(int argc, char *argv[])
     }
     else {
 	char *graphFileName = argv[optind];
-	fpGraph = readFile(argv[optind], &piped);
+	fpGraph = readFile(graphFileName, &piped);
 	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
 	optind++;
     }
