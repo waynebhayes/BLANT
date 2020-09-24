@@ -19,11 +19,8 @@ done
 export EXE
 CORES=${CORES:=`cpus 2>/dev/null || echo 4`}
 if $MAKE ; then
-	if [ `hostname` = Jenkins ]; then
-	    make realclean; make -j2 all
-	else
-	    make realclean; make all
-	fi
+	make realclean
+	make all || die "failed to make"
 fi
 
 [ -x "$EXE" ] || die "no executable '$EXE' exists to test!"

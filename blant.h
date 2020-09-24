@@ -35,7 +35,11 @@
 #define DEFAULT_BLANT_DIR "."
 extern char* _BLANT_DIR;
 
+// You should print a node EXCLUSIVELY with this function; it automatically determines if we're supporting names or not.
+// If c is non-zero, the character is appended, using putchar(), after the node is printed (usually '\t', or ' ' or '\n');
+void PrintNode(int v, char c);
 extern char **_nodeNames, _supportNodeNames;
+
 extern unsigned int _k;
 extern short int *_K;
 extern SET *_connectedCanonicals;
