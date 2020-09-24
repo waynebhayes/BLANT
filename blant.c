@@ -1153,40 +1153,6 @@ void finalizeMCMC() {
 	}
 }
 
-/* Try to compute a seed that will be different for all processes even if they're all started at
-** the same time, on the same or different servers. We use the host's IPv4 address, the time
-** (to the nearest second), the process ID, and the parent process ID. The only gotcha is that
-** if you call this twice within the same second within the same process, the result will be the
-** same. But since you should *never* seed twice within the same code, that's your problem.
-** (This problem can be offset by setting "trulyRandom" to true.)
-*/
-unsigned int GetFancySeed(Boolean trulyRandom)
-{
-    unsigned int seed = 0;
-    char *cmd = "hostname -i | awk '{for(i=1;i<=NF;i++)if(match($i,\"^[0-9]*\\\\.[0-9]*\\\\.[0-9]*\\\\.[0-9]*$\")){IP=$i;exit}}END{if(!IP)IP=\"127.0.0.1\"; print IP}'";
-    FILE *fp=popen(cmd,"r");
-    int i, ip[4], host_ip=0;
-    if(4!=fscanf(fp," %d.%d.%d.%d ", ip, ip+1, ip+2, ip+3)) Fatal("Attempt to get IPv4 address failed:\n%s\n",cmd);
-    pclose(fp);
-    for(i=0;i<4;i++) host_ip = 256*host_ip + ip[i];
-    unsigned int dev_random=0;
-    if(trulyRandom) {
-	fp = fopen("/dev/random","r");
-	if(fp){
-	    assert(1 == fread(&dev_random, sizeof(dev_random),1, fp));
-	    fclose(fp);
-	}
-	else dev_random = lrand48(); // cheap substitute
-    }
-    seed = host_ip + time(0) + getppid() + getpid() + dev_random;
-#if 0
-    fprintf(stderr,"%s\n",cmd);
-    fprintf(stderr,"%d.%d.%d.%d\n",ip[0],ip[1],ip[2],ip[3]);
-    fprintf(stderr,"seed is %ud\n",seed);
-#endif
-    return seed;
-}
-
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
 // Global variable _MCMC_L is needed by many functions
