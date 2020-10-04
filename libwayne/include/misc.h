@@ -148,3 +148,4 @@ int PrimeFactors(int n, int count[]);
 unsigned int GetFancySeed(Boolean trulyRandom);
 
 #endif  /* _MISC_H */
+
