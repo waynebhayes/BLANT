@@ -1,6 +1,6 @@
 #ifndef BLANT_SYNTH_GRAPH_H
 #define BLANT_SYNTH_GRAPH_H
-#include "blant.h"
+#include "../blant.h"
 #include "multisets.h"
 #include "heap.h"
 

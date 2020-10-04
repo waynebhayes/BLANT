@@ -1,9 +1,9 @@
-#include "blant.h"
+#include "../blant.h"
 #include "blant-output.h"
 #include "blant-kovacs.h"
 #include "blant-utils.h"
 
-void PrintNode(int v) {
+void PrintNode(int v, char c) {
 #if SHAWN_AND_ZICAN
     printf("%s", _nodeNames[v]);
 #else
@@ -12,6 +12,7 @@ void PrintNode(int v) {
     else
 	printf("%d", v);
 #endif
+    if(c) putchar(c);
 }
 
 static int IntCmp(const void *a, const void *b)
@@ -89,7 +90,7 @@ void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], 
     for(j=0;j<k;j++) {
 	printf(" ");
 	assert(PERMS_CAN2NON);
-	PrintNode(Varray[(int)perm[j]]);
+	PrintNode(Varray[(int)perm[j]],0);
     }
     puts("");
 }
@@ -107,13 +108,13 @@ void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], char pe
     {
 	putchar(' ');
 	assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
-	PrintNode(Varray[(int)perm[j]]);
+	PrintNode(Varray[(int)perm[j]],0);
 	SetAdd(printed, j);
 	int j1;
 	for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
 	{
 	    assert(!SetIn(printed, j1));
-	    putchar(':'); PrintNode(Varray[(int)perm[j1]]);
+	    putchar(':'); PrintNode(Varray[(int)perm[j1]],0);
 	    SetAdd(printed, j1);
 	}
     }

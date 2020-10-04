@@ -1,6 +1,6 @@
 #ifndef BLANT_SAMPLING_H
 #define BLANT_SAMPLING_H
-#include "blant.h"
+#include "../blant.h"
 #include "heap.h"
 #include "graph.h"
 #include "queue.h"
@@ -30,8 +30,6 @@ extern char _sampleFileEOF;
 extern unsigned long int _acceptRejectTotalTries;
 extern int _samplesPerEdge;
 extern int _numSamples;
-
-extern int _alphaList[MAX_CANONICALS];
 
 extern unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
 extern Boolean _MCMC_UNIFORM; // Should MCMC restart at each edge

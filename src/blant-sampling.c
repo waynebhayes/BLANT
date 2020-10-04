@@ -1,4 +1,4 @@
-#include "blant.h"
+#include "../blant.h"
 #include "blant-sampling.h"
 #include "blant-utils.h"
 #include "heap.h"
@@ -13,7 +13,6 @@ Boolean _MCMC_UNIFORM = false; // Should MCMC restart at each edge
 int _samplesPerEdge = 0;
 int _numSamples = 0;
 unsigned _MCMC_L;
-int _alphaList[MAX_CANONICALS];
 unsigned long int _acceptRejectTotalTries;
 
 // Update the most recent d-graphlet to a random neighbor of it

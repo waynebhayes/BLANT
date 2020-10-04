@@ -1,6 +1,6 @@
 #ifndef BLANT_WINDOW_H
 #define BLANT_WINDOW_H
-#include "blant.h"
+#include "../blant.h"
 #include "heap.h"
 #include "graph.h"
 #include "multisets.h"
@@ -45,5 +45,6 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char per
 void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt);
 int ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node);
 int ExpandSeedsT1(GRAPH* G);
+
 
 #endif

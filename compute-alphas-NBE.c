@@ -4,8 +4,8 @@
 #include "misc.h"
 #include <stdio.h>
 
-static int _alphaList[MAX_CANONICALS];
-static int _canonList[MAX_CANONICALS];
+int _alphaList[MAX_CANONICALS];
+int _canonList[MAX_CANONICALS];
 
 int CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
     seen = TSetUnion(seen, candidates);

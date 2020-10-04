@@ -1,7 +1,7 @@
 #include "blant-window.h"
 #include "blant-output.h"
 #include "blant-sampling.h"
-#include "blant.h"
+#include "../blant.h"
 #include "heap.h"
 #include "graph.h"
 #include "multisets.h"
@@ -390,7 +390,7 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
             _graphletCount[windowRepInt] += _numWindowRep;
             break;
         case indexGraphlets:
-          for(i=0; i<_windowSize; i++)  printf("%s ", _nodeNames[VArray[i]]);
+            for(i=0; i<_windowSize; i++) {PrintNode(VArray[i],' ');}
            	// printf("\n");
             printf("\n%i %i\n", windowRepInt, _numWindowRep);
             for(i=0; i<_numWindowRep; i++)
@@ -402,9 +402,9 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
                         for(j=0; j<_k; j++)
                         {
                             if(_windowRep_limit_method) 
-                                printf("%s ", _nodeNames[_windowReps[limitIndex[i]][j]]);
+                                PrintNode(_windowReps[limitIndex[i]][j],' ');
                             else 
-                                printf("%s ", _nodeNames[_windowReps[i][j]]);
+                                PrintNode(_windowReps[i][j],' ');
                         }
                     printf("\n");
                 }
@@ -472,10 +472,10 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
 
 void processExpandSeeds(int startNode, int count) {
     int i, j;
-    printf("%s\n", _nodeNames[startNode]);
+    PrintNode(startNode,'\n');
     for(i=0; i<count; i++) {
         for(j=0; j<_k; j++) 
-            printf("%s ", _nodeNames[_windowReps[i][j]]);
+            PrintNode(_windowReps[i][j],' ');
     //    printf("%i", _windowReps[i][_k]); Uncomment this line to print oridinal canonical ID at the end of the line. 
         printf("\n");
     }

@@ -3,7 +3,7 @@
 
 #include "tinygraph.h"
 #include "sets.h"
-#include "blant-window.h"
+#include "src/blant-window.h"
 #include "graph.h"
 
 #define USE_MarsenneTwister 0
@@ -75,6 +75,7 @@ extern double *_doubleOrbitDegreeVector[MAX_ORBITS];
 extern unsigned int _Bk;
 
 extern int _numOrbits, _orbitList[MAX_CANONICALS][maxK];
+extern int _alphaList[MAX_CANONICALS];
 
 extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k;

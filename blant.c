@@ -14,12 +14,12 @@
 #include "queue.h"
 #include "multisets.h"
 #include "sorts.h"
-#include "blant-window.h"
-#include "blant-output.h"
-#include "blant-kovacs.h"
-#include "blant-utils.h"
-#include "blant-sampling.h"
-#include "blant-synth-graph.h"
+#include "src/blant-window.h"
+#include "src/blant-kovacs.h"
+#include "src/blant-output.h"
+#include "src/blant-utils.h"
+#include "src/blant-sampling.h"
+#include "src/blant-synth-graph.h"
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;
@@ -33,11 +33,13 @@ Boolean UNIQ_GRAPHLETS = false; // Should we remove duplicate graphlets?
 unsigned int _k;
 unsigned int _Bk, _k_small;
 
+int _alphaList[MAX_CANONICALS];
 int _numCanon, _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 int _numConnectedCanon;
 unsigned int _numConnectedComponents;
 unsigned int *_componentSize; 
+
 int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // map from [ordinal][canonicalNode] to orbit ID.
 int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 unsigned int *_whichComponent;
@@ -176,40 +178,6 @@ static int InitializeConnectedComponents(GRAPH *G)
 	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
     }
     return _numConnectedComponents;
-}
-
-/* Try to compute a seed that will be different for all processes even if they're all started at
-** the same time, on the same or different servers. We use the host's IPv4 address, the time
-** (to the nearest second), the process ID, and the parent process ID. The only gotcha is that
-** if you call this twice within the same second within the same process, the result will be the
-** same. But since you should *never* seed twice within the same code, that's your problem.
-** (This problem can be offset by setting "trulyRandom" to true.)
-*/
-unsigned int GetFancySeed(Boolean trulyRandom)
-{
-    unsigned int seed = 0;
-    char *cmd = "hostname -i | awk '{for(i=1;i<=NF;i++)if(match($i,\"^[0-9]*\\\\.[0-9]*\\\\.[0-9]*\\\\.[0-9]*$\")){IP=$i;exit}}END{if(!IP)IP=\"127.0.0.1\"; print IP}'";
-    FILE *fp=popen(cmd,"r");
-    int i, ip[4], host_ip=0;
-    if(4!=fscanf(fp," %d.%d.%d.%d ", ip, ip+1, ip+2, ip+3)) Fatal("Attempt to get IPv4 address failed:\n%s\n",cmd);
-    pclose(fp);
-    for(i=0;i<4;i++) host_ip = 256*host_ip + ip[i];
-    unsigned int dev_random=0;
-    if(trulyRandom) {
-	fp = fopen("/dev/random","r");
-	if(fp){
-	    assert(1 == fread(&dev_random, sizeof(dev_random),1, fp));
-	    fclose(fp);
-	}
-	else dev_random = lrand48(); // cheap substitute
-    }
-    seed = host_ip + time(0) + getppid() + getpid() + dev_random;
-#if 0
-    fprintf(stderr,"%s\n",cmd);
-    fprintf(stderr,"%d.%d.%d.%d\n",ip[0],ip[1],ip[2],ip[3]);
-    fprintf(stderr,"seed is %ud\n",seed);
-#endif
-    return seed;
 }
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
@@ -441,8 +409,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case outputGDV:
 	for(i=0; i < G->n; i++)
 	{
-	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
-	    else printf("%d",i);
+	    PrintNode(i,0);
 	    for(canon=0; canon < _numCanon; canon++)
 		printf(" %lu", GDV(i,canon));
 	    puts("");
@@ -450,8 +417,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break;
     case outputODV:
         for(i=0; i<G->n; i++) {
-	    if(_supportNodeNames) printf("%s",_nodeNames[i]);
-	    else printf("%d",i);
+	    PrintNode(i,0);
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
@@ -976,7 +942,7 @@ int main(int argc, char *argv[])
     }
     else {
 	char *graphFileName = argv[optind];
-	fpGraph = readFile(argv[optind], &piped);
+	fpGraph = readFile(graphFileName, &piped);
 	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
 	optind++;
     }

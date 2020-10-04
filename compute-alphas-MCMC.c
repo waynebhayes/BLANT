@@ -4,8 +4,8 @@
 #include "misc.h"
 #include <stdio.h>
 
-static int _alphaList[MAX_CANONICALS];
-static int _canonList[MAX_CANONICALS];
+int _alphaList[MAX_CANONICALS];
+int _canonList[MAX_CANONICALS];
 
 static int L;
 static COMBIN *_Lcombin;
