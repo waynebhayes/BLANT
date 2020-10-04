@@ -3,8 +3,28 @@
 
 #include "tinygraph.h"
 #include "sets.h"
-#include "blant-window.h"
+#include "src/blant-window.h"
 #include "graph.h"
+
+#define USE_MarsenneTwister 0
+#if USE_MarsenneTwister
+#include "libwayne/MT19937/mt19937.h"
+static MT19937 *_mt19937;
+#define RandomSeed SeedMt19937
+void SeedMt19937(int seed) {
+    if(_mt19937) Mt19937Free(_mt19937);
+    _mt19937 = Mt19937Alloc(seed);
+}
+double RandomUniform(void) {
+    return Mt19937NextDouble(_mt19937);
+}
+#else
+#include "rand48.h"
+#define RandomUniform drand48
+#define RandomSeed srand48
+#endif
+
+#define GEN_SYN_GRAPH 0
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
@@ -15,6 +35,9 @@
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
+extern int _numCanon, _canonList[MAX_CANONICALS];
+extern int _numConnectedCanon;
+
 #define MAX_ORBITS	79264	// This is the number of orbits for k=8
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
@@ -35,11 +58,26 @@
 #define DEFAULT_BLANT_DIR "."
 extern char* _BLANT_DIR;
 
-// You should print a node EXCLUSIVELY with this function; it automatically determines if we're supporting names or not.
-// If c is non-zero, the character is appended, using putchar(), after the node is printed (usually '\t', or ' ' or '\n');
-void PrintNode(int v, char c);
-extern char **_nodeNames, _supportNodeNames;
+#define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
+extern Boolean UNIQ_GRAPHLETS;
+
+extern unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
+extern unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
+extern double *_doubleOrbitDegreeVector[MAX_ORBITS];
+
+// If you're squeemish then use this one to access the degrees:
+#define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
+#define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
+
+// Enable the code that uses C++ to parse input files?
+#define SHAWN_AND_ZICAN 0
+extern unsigned int _Bk;
+
+extern int _numOrbits, _orbitList[MAX_CANONICALS][maxK];
+extern int _alphaList[MAX_CANONICALS];
+
+extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k;
 extern short int *_K;
 extern SET *_connectedCanonicals;
@@ -49,13 +87,33 @@ enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbi
     graphletDistribution // used in Windowing
 };
 extern enum OutputMode _outputMode;
+extern int _outputMapping[MAX_CANONICALS];
+
 extern unsigned long int _graphletCount[MAX_CANONICALS];
 extern int **_graphletDistributionTable;
+extern double _graphletConcentration[MAX_CANONICALS];
 
-void ExtractPerm(char perm[_k], int i);
-int getD(int num_of_edges);
-TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray);
-int getMaximumIntNumber(int K);
+enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
+extern enum CanonicalDisplayMode _displayMode;
+extern int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
+
+enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration};
+extern enum FrequencyDisplayMode _freqDisplayMode;
+
+extern int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_ordering to our orbits
+extern int _connectedOrbits[MAX_ORBITS];
+extern int _numConnectedOrbits;
+
+extern unsigned int _numConnectedComponents;
+extern unsigned int *_componentSize; // number of nodes in each CC
+extern unsigned int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
+extern SET **_componentSet;
+
+extern double *_cumulativeProb;
+
+
+#define SPARSE true // do not try false at the moment, it's broken
+
 Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k);
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);
 

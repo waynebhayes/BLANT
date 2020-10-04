@@ -1,8 +1,11 @@
 #include "blant-window.h"
-#include "blant.h"
+#include "blant-output.h"
+#include "blant-sampling.h"
+#include "../blant.h"
 #include "heap.h"
 #include "graph.h"
 #include "multisets.h"
+#include "blant-utils.h"
 
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
@@ -25,6 +28,13 @@ Boolean _supportNodeImportance = false;
 Boolean _windowRep_limit_neglect_trivial = false;
 
 int _windowIterationMethod = WINDOW_ITER_DFS;
+
+int getD(int num_of_edges) 
+{
+    int M = _k * (_k - 1) / 2;
+    int D = abs(2 * num_of_edges - M);
+    return D;
+}
 
 // Self construct the adjacency matrix of the window. Use _connectedCanonicals to check connectivity of the K-node graphlet
 // No need to use TinyGraphInducedFromGraph, expensive calling GraphAreConnected for each combination
@@ -119,7 +129,6 @@ void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, int 
 		Fatal("Undefined windowRep Limiting Method. Refer to -l{DEG}.\n");
 }
 
-
 void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, int Gint, int numEdges, int *WArray, int *VArray, MULTISET *canonMSET, char perm[])
 {
     int i, pending_D;
@@ -189,7 +198,6 @@ void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET)
     }
     _numWindowRep = new_numWindowRep;
 }
-
         
 void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET, char perm[])
 {
@@ -251,7 +259,6 @@ int FindHighestDegNeighbor(GRAPH *Gi, SET *foundNode, SET *searchNodeSet, int *W
 	}
 	return largestNode;
 }
-
 
 void FindWindowRepByDeg(GRAPH *Gi, int *WArray)
 {
@@ -383,7 +390,7 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
             _graphletCount[windowRepInt] += _numWindowRep;
             break;
         case indexGraphlets:
-          for(i=0; i<_windowSize; i++) {PrintNode(VArray[i],' ');}
+            for(i=0; i<_windowSize; i++) {PrintNode(VArray[i],' ');}
            	// printf("\n");
             printf("\n%i %i\n", windowRepInt, _numWindowRep);
             for(i=0; i<_numWindowRep; i++)
@@ -405,4 +412,86 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
             break;
         default: Abort("ProcessWindowRep: unknown or un-implemented outputMode");
     }
+}
+
+void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
+    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
+    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);    
+    assert(prev_nodes_count == SetCardinality(prev_nodes));
+    TINY_GRAPH *g = TinyGraphAlloc(_k);
+
+    if (*count > _numWindowRepLimit) return;
+    if (prev_nodes_count == _k) {
+        if (*count == _numWindowRepArrSize) {
+            _numWindowRepArrSize *= 2;
+            _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
+            for(i=*count; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        }   
+        TinyGraphInducedFromGraph(g, G, prev_nodes_array);
+        Gint = TinyGraph2Int(g, _k);
+        TinyGraphFree(g);
+        if(SetIn(_windowRep_unambig_set, _K[Gint])) {
+            for(i=0; i<_k; i++) _windowReps[*count][i] = prev_nodes_array[i];
+            _windowReps[*count][_k] = _K[Gint];
+            *count = *count + 1;
+        } 
+        return;
+    } 
+
+    SET *deg_set = SetAlloc(G->n);
+    SET *next_step = SetAlloc(G->n);
+    for(i=0; i<prev_nodes_count; i++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+            neigh = G->neighbor[prev_nodes_array[i]][j];
+            if(!SetIn(prev_nodes, neigh)) {
+                SetAdd(deg_set, G->degree[neigh]);
+                SetAdd(next_step, neigh);
+            }
+        }
+    }
+    tie_count = SetCardinality(next_step);
+    deg_count = SetCardinality(deg_set);
+    int next_step_arr[tie_count];
+    int deg_arr[deg_count];
+    assert(SetToArray(next_step_arr, next_step) == tie_count);
+    assert(SetToArray(deg_arr, deg_set) == deg_count);
+    SetFree(next_step);
+    SetFree(deg_set);
+    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc);
+    for (i=0; i<deg_count; i++) {
+        max_deg = deg_arr[i];
+        for(j=0; j<tie_count; j++) {
+            if (G->degree[next_step_arr[j]] == max_deg) {
+                SetAdd(prev_nodes, next_step_arr[j]);
+                buildTGraphlet(G, prev_nodes, count);
+                SetDelete(prev_nodes, next_step_arr[j]);
+            }
+        }
+    }
+}
+
+void processExpandSeeds(int startNode, int count) {
+    int i, j;
+    PrintNode(startNode,'\n');
+    for(i=0; i<count; i++) {
+        for(j=0; j<_k; j++) 
+            PrintNode(_windowReps[i][j],' ');
+    //    printf("%i", _windowReps[i][_k]); Uncomment this line to print oridinal canonical ID at the end of the line. 
+        printf("\n");
+    }
+}
+
+int ExpandSeedsT1(GRAPH* G) {
+    int i, count = 0;
+    SET *prev_nodes = SetAlloc(G->n);
+    for(i=0; i<G->n; i++) {
+        SetAdd(prev_nodes, i);
+        buildTGraphlet(G, prev_nodes, &count);
+        assert(SetCardinality(prev_nodes) == 1);
+        SetDelete(prev_nodes, i);
+        processExpandSeeds(i, count);
+        count = 0;
+    }
+    SetFree(prev_nodes);
+    return 0;
 }
