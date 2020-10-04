@@ -12,7 +12,7 @@
 #include "blant.h"
 #include "sets.h"
 
-static int _numCanon;
+int _numCanon;
 short int* _K;
 
 void SetGlobalCanonMaps(int k){
