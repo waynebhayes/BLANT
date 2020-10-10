@@ -14,12 +14,12 @@
 #include "queue.h"
 #include "multisets.h"
 #include "sorts.h"
-#include "src/blant-window.h"
-#include "src/blant-kovacs.h"
-#include "src/blant-output.h"
-#include "src/blant-utils.h"
-#include "src/blant-sampling.h"
-#include "src/blant-synth-graph.h"
+#include "blant-window.h"
+#include "blant-kovacs.h"
+#include "blant-output.h"
+#include "blant-utils.h"
+#include "blant-sampling.h"
+#include "blant-synth-graph.h"
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;

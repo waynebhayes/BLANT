@@ -1,7 +1,7 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <math.h>
-#include "../blant.h"
+#include "blant.h"
 #include "blant-utils.h"
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
