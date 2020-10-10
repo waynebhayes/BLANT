@@ -3,7 +3,7 @@
 
 #include "tinygraph.h"
 #include "sets.h"
-#include "src/blant-window.h"
+#include "blant-window.h"
 #include "graph.h"
 
 #define USE_MarsenneTwister 0

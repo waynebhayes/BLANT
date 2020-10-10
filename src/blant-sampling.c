@@ -1,4 +1,4 @@
-#include "../blant.h"
+#include "blant.h"
 #include "blant-sampling.h"
 #include "blant-utils.h"
 #include "heap.h"

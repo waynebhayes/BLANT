@@ -1,6 +1,6 @@
 #ifndef BLANT_WINDOW_H
 #define BLANT_WINDOW_H
-#include "../blant.h"
+#include "blant.h"
 #include "heap.h"
 #include "graph.h"
 #include "multisets.h"
