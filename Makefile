@@ -6,15 +6,18 @@ LIBWAYNE_OPTS=-O3 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(
 #LIBWAYNE_OPTS=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-pg -lm -pg  # for profiling
 
 # Name of BLANT source directory
-BLANT_SRCDIR = src
-# Put all c files in BLANT_SRCDIR below.
-BLANT_SRCS = blant-window.c \
+SRCDIR = src
+# Put all c files in SRCDIR below.
+BLANT_SRCS = blant.c \
+			 blant-window.c \
 			 blant-output.c \
 			 blant-kovacs.c \
 			 blant-utils.c \
 			 blant-sampling.c \
 			 blant-synth-graph.c
 
+OBJDIR = _objs
+OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 CC=gcc -O3 #-ggdb
 CXX=g++
 
@@ -44,57 +47,65 @@ all: most test_maps test_blant
 
 ### Executables ###
 
-fast-canon-map: $(LIBWAYNE_HOME)/made fast-canon-map.c | blant.h libblant.o
-	$(CC) '-std=c99' -O3 -o $@ libblant.o fast-canon-map.c $(LIBWAYNE_OPTS)
+fast-canon-map: $(LIBWAYNE_HOME)/made $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_OPTS)
 
-slow-canon-maps: $(LIBWAYNE_HOME)/made slow-canon-maps.c | blant.h libblant.o
-	$(CC) -o $@ libblant.o slow-canon-maps.c $(LIBWAYNE_OPTS)
+slow-canon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_OPTS)
 
-make-orbit-maps: $(LIBWAYNE_HOME)/made make-orbit-maps.c | blant.h libblant.o
-	$(CC) -o $@ libblant.o make-orbit-maps.c $(LIBWAYNE_OPTS)
+make-orbit-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_OPTS)
 
-blant: $(LIBWAYNE_HOME)/made blant.c blant.h $(addprefix $(BLANT_SRCDIR)/, $(BLANT_SRCS)) $(addprefix $(BLANT_SRCDIR)/, $(BLANT_SRCS:.c=.h)) convert.o libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
-	$(CC) -c blant.c $(addprefix $(BLANT_SRCDIR)/, $(BLANT_SRCS)) $(LIBWAYNE_OPTS)
-	$(CXX) -o $@ libblant.o blant.o $(BLANT_SRCS:.c=.o) convert.o $(LIBWAYNE_OPTS) $(LIBWAYNE_HOME)/MT19937/mt19937.o
+blant: $(LIBWAYNE_HOME)/made $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_OPTS) $(LIBWAYNE_HOME)/MT19937/mt19937.o
 
-synthetic: $(LIBWAYNE_HOME)/made synthetic.c syntheticDS.h syntheticDS.c | libblant.o
-	$(CC) -c syntheticDS.c synthetic.c $(LIBWAYNE_OPTS)
-	$(CXX) -o $@ syntheticDS.o libblant.o synthetic.o $(LIBWAYNE_OPTS)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(LIBWAYNE_OPTS)
 
-CC: $(LIBWAYNE_HOME)/made CC.c convert.o | blant.h libblant.o
-	$(CXX) -o $@ libblant.o CC.c convert.o $(LIBWAYNE_OPTS)
+synthetic: $(LIBWAYNE_HOME)/made $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
+	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_OPTS)
+	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE_OPTS)
 
-makeEHD: $(LIBWAYNE_HOME)/made makeEHD.c | libblant.o
-	$(CC) -c makeEHD.c $(LIBWAYNE_OPTS)
-	$(CXX) -o $@ libblant.o makeEHD.o $(LIBWAYNE_OPTS)
+CC: $(LIBWAYNE_HOME)/made $(SRCDIR)/CC.c $(OBJDIR)/convert.o | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE_OPTS)
 
-compute-alphas-NBE: $(LIBWAYNE_HOME)/made compute-alphas-NBE.c | libblant.o
-	$(CC) -Wall -O3 -o $@ compute-alphas-NBE.c libblant.o $(LIBWAYNE_OPTS)
+makeEHD: $(OBJDIR)/makeEHD.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_OPTS)
 
-compute-alphas-MCMC: $(LIBWAYNE_HOME)/made compute-alphas-MCMC.c | libblant.o
-	$(CC) -Wall -O3 -o $@ compute-alphas-MCMC.c libblant.o $(LIBWAYNE_OPTS)
+compute-alphas-NBE: $(LIBWAYNE_HOME)/made $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
+
+compute-alphas-MCMC: $(LIBWAYNE_HOME)/made $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
 
 Draw: Draw/graphette2dot
 
-Draw/graphette2dot: $(LIBWAYNE_HOME)/made Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | blant.h libblant.o
-	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp libblant.o -o $@ $(LIBWAYNE_OPTS)
+Draw/graphette2dot: $(LIBWAYNE_HOME)/made Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ $(LIBWAYNE_OPTS)
 
-make-subcanon-maps: $(LIBWAYNE_HOME)/made make-subcanon-maps.c | libblant.o
-	$(CC) -Wall -o $@ make-subcanon-maps.c libblant.o $(LIBWAYNE_OPTS)
+make-subcanon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
 
-make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made magictable.cpp | libblant.o
-	$(CXX) -std=c++11 -Wall -o $@ magictable.cpp libblant.o $(LIBWAYNE_OPTS)
+make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
+	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
 
 ### Object Files/Prereqs ###
 
-convert.o: convert.cpp
-	$(CXX) -std=c++11 -c convert.cpp
+$(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) -std=c++11 -c $(SRCDIR)/convert.cpp -o $@
 
 $(LIBWAYNE_HOME)/MT19937/mt19937.o: $(LIBWAYNE_HOME)/made
 	cd $(LIBWAYNE_HOME)/MT19937 && $(MAKE)
 
-libblant.o: $(LIBWAYNE_HOME)/made libblant.c
-	$(CC) -c libblant.c $(LIBWAYNE_OPTS)
+$(OBJDIR)/libblant.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/libblant.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE_OPTS) -o $@
+
+$(OBJDIR)/makeEHD.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
+	@mkdir -p $(dir $@)
+	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE_OPTS) -o $@
 
 $(LIBWAYNE_HOME)/made:
 	cd $(LIBWAYNE_HOME) && $(MAKE) all
@@ -104,8 +115,8 @@ $(LIBWAYNE_HOME)/made:
 canon_maps/orbit_map%.txt: make-orbit-maps | canon_maps/canon_list%.txt
 	./make-orbit-maps $* > $@
 
-canon_maps/canon_map%.bin canon_maps/perm_map%.bin: $(LIBWAYNE_HOME)/made create-bin-data.c | libblant.o blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt
-	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* libblant.c create-bin-data.c $(LIBWAYNE_OPTS)
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin: $(LIBWAYNE_HOME)/made $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_OPTS)
 	./create-bin-data$*
 	/bin/rm -f create-bin-data$*
 
@@ -136,8 +147,8 @@ $(magic_table_txts): .created-magic-tables
 
 ### Testing ###
 
-blant-sanity: $(LIBWAYNE_HOME)/made blant-sanity.c
-	$(CC) -o $@ blant-sanity.c $(LIBWAYNE_OPTS)
+blant-sanity: $(LIBWAYNE_HOME)/made $(SRCDIR)/blant-sanity.c
+	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_OPTS)
 	
 test_blant: blant blant-sanity $(canon_map_bins) test_sanity test_freq test_GDV
 
@@ -163,6 +174,7 @@ test_maps: blant blant-sanity
 
 clean:
 	/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
+	/bin/rm -f $(OBJDIR)/*
 
 realclean: clean # also clean all canonical data and libwayne
 	cd $(LIBWAYNE_HOME); $(MAKE) clean

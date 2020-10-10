@@ -1,7 +1,7 @@
 #include "blant-window.h"
 #include "blant-output.h"
 #include "blant-sampling.h"
-#include "../blant.h"
+#include "blant.h"
 #include "heap.h"
 #include "graph.h"
 #include "multisets.h"

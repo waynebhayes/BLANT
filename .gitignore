@@ -9,6 +9,7 @@ make-canon-maps
 Draw/graphette2dot
 blant-sanity
 canon_maps/
+_objs/
 fast-canon-map
 libwayne/MT19937/mt19937
 libwayne/made

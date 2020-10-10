@@ -1,4 +1,4 @@
-#include "../blant.h"
+#include "blant.h"
 #include "blant-output.h"
 #include "blant-kovacs.h"
 #include "blant-utils.h"

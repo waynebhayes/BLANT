@@ -1,7 +1,7 @@
 #include "blant-synth-graph.h"
 #include "blant-sampling.h"
 #include "blant-utils.h"
-#include "../blant.h"
+#include "blant.h"
 #include "multisets.h"
 #include "heap.h"
 

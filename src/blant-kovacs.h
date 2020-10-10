@@ -1,7 +1,7 @@
 #ifndef BLANT_KOVACS_H
 #define BLANT_KOVACS_H
 
-#include "../blant.h"
+#include "blant.h"
 
 extern int _kovacsOrdinal;
 extern int _kovacsOrbit1, _kovacsOrbit2; // the columns (ie orbits) you want

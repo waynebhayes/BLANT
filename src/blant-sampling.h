@@ -1,6 +1,6 @@
 #ifndef BLANT_SAMPLING_H
 #define BLANT_SAMPLING_H
-#include "../blant.h"
+#include "blant.h"
 #include "heap.h"
 #include "graph.h"
 #include "queue.h"
