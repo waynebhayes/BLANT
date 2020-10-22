@@ -1,3 +1,8 @@
+# Number of cores to use when invoking parallelism
+ifndef CORES
+    CORES := 2
+endif
+
 CC=gcc $(OPT) $(DEBUG) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 
 default:
@@ -8,15 +13,15 @@ all:
 	/bin/rm -f *.a
 	# Make the pg versions (for profiling)
 	$(MAKE) debug_clean
-	$(MAKE) -j2 'PG=-pg' debug
+	$(MAKE) -j$(CORES) 'PG=-pg' debug
 	$(MAKE) opt_clean
-	$(MAKE) -j2 'PG=-pg' opt
+	$(MAKE) -j$(CORES) 'PG=-pg' opt
 	for i in *.a; do b=`basename $$i .a`; mv $$i $$b-pg.a; done
 	# Make the non-pg versions (for profiling)
 	$(MAKE) debug_clean
-	$(MAKE) -j2 debug
+	$(MAKE) -j$(CORES) debug
 	$(MAKE) opt_clean
-	$(MAKE) -j2 opt
+	$(MAKE) -j$(CORES) opt
 	if [ ! -x bin/stats ]; then (cd tests; $(MAKE) stats; mv stats ../bin); fi
 	touch made
 
