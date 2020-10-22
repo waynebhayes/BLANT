@@ -44,7 +44,7 @@ extern Boolean _windowRep_limit_neglect_trivial;
 void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char perm[]);
 void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt);
 int ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node);
-int ExpandSeedsT1(GRAPH* G);
+int ExpandSeedsT1(GRAPH* G, int numSamples);
 
 
 #endif
