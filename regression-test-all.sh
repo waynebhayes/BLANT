@@ -17,7 +17,9 @@ while [ $# -gt -0 ]; do
 done
 
 export EXE
-CORES=${CORES:=`cpus 2>/dev/null || echo 4`}
+export CORES=${CORES:=`cpus 2>/dev/null | awk '{c2=int($1/2); print c2?c2:1}'`}
+[ "$CORES" -gt 0 ] || die "can't figure out how many cores this machine has"
+echo "Using $CORES as number of cores"
 if $MAKE ; then
 	make realclean
 	make all || die "failed to make"

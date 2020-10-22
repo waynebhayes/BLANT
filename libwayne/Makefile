@@ -8,16 +8,16 @@ all:
 	/bin/rm -f *.a
 	# Make the pg versions (for profiling)
 	$(MAKE) debug_clean
-	$(MAKE) -j3 'PG=-pg' debug
+	$(MAKE) -j2 'PG=-pg' debug
 	$(MAKE) opt_clean
-	$(MAKE) -j3 'PG=-pg' opt
+	$(MAKE) -j2 'PG=-pg' opt
 	for i in *.a; do b=`basename $$i .a`; mv $$i $$b-pg.a; done
 	# Make the non-pg versions (for profiling)
 	$(MAKE) debug_clean
-	$(MAKE) -j3 debug
+	$(MAKE) -j2 debug
 	$(MAKE) opt_clean
-	$(MAKE) -j3 opt
-	if [ ! -x bin/stats ]; then (cd tests; make stats; mv stats ../bin); fi
+	$(MAKE) -j2 opt
+	if [ ! -x bin/stats ]; then (cd tests; $(MAKE) stats; mv stats ../bin); fi
 	touch made
 
 opt:
