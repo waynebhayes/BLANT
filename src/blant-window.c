@@ -414,13 +414,15 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
     }
 }
 
-void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
+void buildTGraphlet(GRAPH* G, SET* prev_nodes, int numSamples, int *count) {
     int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
-    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);    
+    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);   // keep track of added nodes 
     assert(prev_nodes_count == SetCardinality(prev_nodes));
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
-    if (*count > _numWindowRepLimit) return;
+    // Set a maximum number N of returned windowReps (-n N) in case there is a bunch 
+    // If (-n N) flag is not given, then will return all satisfied windowReps.
+    if (numSamples != 0 && *count >= numSamples) return;  
     if (prev_nodes_count == _k) {
         if (*count == _numWindowRepArrSize) {
             _numWindowRepArrSize *= 2;
@@ -430,6 +432,7 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
         TinyGraphInducedFromGraph(g, G, prev_nodes_array);
         Gint = TinyGraph2Int(g, _k);
         TinyGraphFree(g);
+        // only return unambiguous windowReps. Can add more constraints in the future
         if(SetIn(_windowRep_unambig_set, _K[Gint])) {
             for(i=0; i<_k; i++) _windowReps[*count][i] = prev_nodes_array[i];
             _windowReps[*count][_k] = _K[Gint];
@@ -438,6 +441,7 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
         return;
     } 
 
+    // Find neighboring nodes from the added nodes set
     SET *deg_set = SetAlloc(G->n);
     SET *next_step = SetAlloc(G->n);
     for(i=0; i<prev_nodes_count; i++) {
@@ -457,13 +461,16 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int *count) {
     assert(SetToArray(deg_arr, deg_set) == deg_count);
     SetFree(next_step);
     SetFree(deg_set);
-    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc);
-    for (i=0; i<deg_count; i++) {
+    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order
+    _numWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
+    // Loop through neighbor nodes with Top N (-lDEGN) degrees
+    // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
+    for (i=0; i<_numWindowRepLimit; i++) {
         max_deg = deg_arr[i];
         for(j=0; j<tie_count; j++) {
             if (G->degree[next_step_arr[j]] == max_deg) {
                 SetAdd(prev_nodes, next_step_arr[j]);
-                buildTGraphlet(G, prev_nodes, count);
+                buildTGraphlet(G, prev_nodes, numSamples, count);
                 SetDelete(prev_nodes, next_step_arr[j]);
             }
         }
@@ -481,12 +488,12 @@ void processExpandSeeds(int startNode, int count) {
     }
 }
 
-int ExpandSeedsT1(GRAPH* G) {
+int ExpandSeedsT1(GRAPH* G, int numSamples) {
     int i, count = 0;
     SET *prev_nodes = SetAlloc(G->n);
     for(i=0; i<G->n; i++) {
         SetAdd(prev_nodes, i);
-        buildTGraphlet(G, prev_nodes, &count);
+        buildTGraphlet(G, prev_nodes, numSamples, &count);
         assert(SetCardinality(prev_nodes) == 1);
         SetDelete(prev_nodes, i);
         processExpandSeeds(i, count);
