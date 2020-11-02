@@ -1,4 +1,10 @@
 #!/bin/bash
+if [ -f git-at -a `git log -1 --format=%at` -eq `tail -1 git-at` ]; then
+    echo -n "Repo unchanged; returning same status code as "
+    tail -1 git-at | xargs -I{} date -d @{} +%Y-%m-%d-%H:%M:%S
+    exit `head -1 git-at`
+fi
+
 die() { echo "FATAL ERROR: $@" >&2; exit 1
 }
 warn() { echo "WARNING: $@" >&2;
@@ -43,4 +49,5 @@ for REG_DIR in regression-tests/*; do
     fi
 done
 echo Number of failures: $NUM_FAILS
+(echo $NUM_FAILS; git log -1 --format=%at) > git-at
 exit $NUM_FAILS
