@@ -159,7 +159,7 @@ test_blant: blant blant-sanity $(canon_map_bins) test_sanity test_freq test_GDV
 
 test_sanity:
 	# First run blant-sanity for various values of k
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
+	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -u -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
 test_freq:
 	# Test to see that for k=6, the most frequent 10 graphlets in syeast appear in the expected order in frequency
