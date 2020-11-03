@@ -25,7 +25,7 @@ static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 mean
 char **_nodeNames, _supportNodeNames = true;
 
 char * _sampleFileName;
-Boolean UNIQ_GRAPHLETS = false; // Should we remove duplicate graphlets?
+Boolean UNIQ_GRAPHLETS = true; // Should we remove duplicate graphlets?
 
 #define USE_INSERTION_SORT 0
 
@@ -709,21 +709,54 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 }
 
 const char const * const USAGE = 
-    "USAGE: blant [-r seed] [-t threads (default=1)] [-m{outputMode}] [-d{displayMode}] {-n nSamples | -c confidence} {-k k} {-w windowSize} {-s samplingMethod} {-p windowRepSamplingMethod} {-P windowRepIterationMethods} {-l windowRepLimitMethod} {graphInputFile}\n" \
-    "Graph must be in one of the following formats with its extension name .\n" \
-          "GML (.gml) GraphML (.xml) LGF(.lgf) CSV(.csv) LEDA(.leda) Edgelist (.el) .\n" \
-    "outputMode is one of: o (ODV, the default); i (indexGraphlets); g (GDV); f (graphletFrequency); d (graphletNeighborDistribution).\n" \
-	"-m{f}{frequencyDisplayMode} is allowed with frequencyDisplayMode being one of: i(integer or count) and d(decimal or concentration)\n" \
-    "samplingMethod is one of: NBE (Node Based Expansion); EBE (Edge Based Expansion); MCMC (Markov chain Monte Carlo); RES (Lu Bressan's reservoir); AR (Accept-Reject).\n" \
-    "windowRepSamplingMethod is one of: [Prefix u|U (unambiguous)] MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance); LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer).\n" \
-	"windowRepIterationMethods is one of: COMB (Combination); DFS\n"
-	"windowRepLimitMethod is one of: DEG (graphlet Total Degree); EDGE (1-step away numEdges) [suffix N: limit to Top N satisfied graphlets]\n"
-	"displayMode controls how the graphlet is displayed: options are:\n"\
-	"\ti (integer ordinal), d(decimal), b (binary), j (JESSE), o (ORCA).\n" \
-    "At the moment, nodes must be integers numbered 0 through n-1, inclusive.\n" \
-    "Duplicates and self-loops should be removed before calling BLANT.\n" \
-    "k is the number of nodes in graphlets to be sampled. If w is 1, k must be 6 or greater." \
-    "";
+"BLANT: Basic Local Alignment for Networks Tool (work in progress)\n"\
+"\n"\
+"PURPOSE: randomly sample graphlets up to size 8 from a graph. Default output is similar to ORCA though stochastic\n"\
+"    rather than exaustive. Thus APPROXIMATE results but MUCH faster than ORCA on large or dense networks.\n"\
+"\n"\
+"USAGE: blant [OPTIONS] -k K -n numSamples -s samplingMethod graphInputFile\n"\
+"where the following are REQUIRED:\n"\
+"    K is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
+"    numSamples is the number of samples to take (try 1000000 or 1000000000)\n"\
+"	(note: -c {confidence} option is mutually exclusive to -n but is pending implementation)\n"\
+"    samplingMethod is:\n"\
+"	MCMC (Markov Chain Monte Carlo): asymptotically correct statistics but many duplicates in indexing modes\n"\
+"	RES (Lu Bressan's reservoir): also asymptotically correct but slower than MCMC, also duplicates\n"\
+"	NBE (node based expansion): start with a random node each time and expand randomly outward (fewer duplicates)\n"\
+"	EBE (edge based expansion): faster than NBE on very dense networks but more biased results.\n"\
+"	AR (Accept-Reject): EXTREMELY SLOW but asymptotically correct: pick k nodes entirely at random, reject if\n"\
+"	    resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
+"    graphInputFile: graph must be in one of the following formats with its extension name:\n"\
+"	Edgelist (.el), LEDA(.leda), GML (.gml), GraphML (.xml), LGF(.lgf), CSV(.csv)\n"\
+"	(extensions .gz and .xz are automatically decompressed using gunzip and unxz, respectively)\n"\
+"	Duplicate edges (either direction) and self-loops should be removed!\n"\
+"\n"\
+"COMMON OPTIONS:\n"\
+"    -m{outputMode}, where {outputMode} is a single character, one of:\n"\
+"	o = the default, which is ODV (Orbit Degree Vector), identical to ORCA (commonly and mistakenly called a GDV)\n"\
+"	g = GDV (Graphlet Degree Vector) Note this is NOT what is commonly called a GDV, which is actually an ODV (above).\n"\
+"	f = graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across our random samples.\n"\
+"	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
+"	i = {i}ndex: each line is a graphlet with columns: canonical ID, then k nodes in canonical order; useful since\n"\
+"	    two lines with the same first column constitutes a PERFECT k-node local alignment between the two graphlets.\n"\
+"	d = graphlet neighbor {D}istribution\n"\
+"    -d{displayMode} [no default--MANDATORY for indexing modes]: single character controls how canonical IDs are displayed:\n"\
+"	o = ORCA numbering\n"\
+"	j = JESSE numbering\n"\
+"	b = explicit binary representation of the half-adjacency matrix of the canonical graphlet\n"\
+"	d = decimal (base-10) integer representation of the above binary\n"\
+"	i = integer ordinal = sorting the above integers and numbering them 0, 1, 2, 3, etc.\n"\
+"\n"\
+"Less Common OPTIONS:\n"\
+"    -t threads: (default=1): parallellism to speed up sampling (not implemented for all methods yet)\n"\
+"    -r seed: pick your own random seed\n"\
+"    -w windowSize: DEPRECATED except for w=1, in which case k msut be 6 or greater.\n"\
+"	-p windowRepSamplingMethod: (deprecated) one of the below, possibly with prefix [u|U] (meaning unambiguous)\n"\
+"	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
+"	    LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer)\n"\
+"	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n"\
+"	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
+"	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -737,7 +770,7 @@ int main(int argc, char *argv[])
 
     if(argc == 1)
     {
-	fprintf(stderr, "%s\n", USAGE);
+	printf("%s\n", USAGE);
 	exit(1);
     }
 
@@ -915,7 +948,7 @@ int main(int argc, char *argv[])
         else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
         else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
         break;
-	case 'u': UNIQ_GRAPHLETS = true;
+	case 'u': UNIQ_GRAPHLETS = false;
 	    break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
