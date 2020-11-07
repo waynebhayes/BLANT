@@ -882,29 +882,27 @@ int main(int argc, char *argv[])
 		} // First k indicates stamping size, second k indicates KS test size.
 	    if (!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
-	case 'w': _window = true; _windowSize = atoi(optarg); 
-        if (_windowSize == 1 && _k <= 5) Fatal("k must be between larger than 5 for window size of 1"); 
-	    break;
+	case 'w': _window = true; _windowSize = atoi(optarg); break;
 	case 'p':
-        if (*optarg == 'u' | *optarg == 'U')
-            {_windowRep_unambig = true; optarg += 1;}
-        if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
-        else if (strncmp(optarg, "DMIN", 4) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MIN_D;
-        else if (strncmp(optarg, "DMAX", 4) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MAX_D;
-        else if (strncmp(optarg, "MIN", 3) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MIN;
-        else if (strncmp(optarg, "MAX", 3) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MAX;
-        else if (strncmp(optarg, "LFMIN", 5) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
-        else if (strncmp(optarg, "LFMAX", 5) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
-		else if (strncmp(optarg, "DEGMAX", 6) == 0)
-			_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX;
-        else
-		    Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
+	    if (*optarg == 'u' | *optarg == 'U')
+		{_windowRep_unambig = true; optarg += 1;}
+	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
+	    else if (strncmp(optarg, "DMIN", 4) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
+	    else if (strncmp(optarg, "DMAX", 4) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MAX_D;
+	    else if (strncmp(optarg, "MIN", 3) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MIN;
+	    else if (strncmp(optarg, "MAX", 3) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MAX;
+	    else if (strncmp(optarg, "LFMIN", 5) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
+	    else if (strncmp(optarg, "LFMAX", 5) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
+	    else if (strncmp(optarg, "DEGMAX", 6) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX;
+	    else
+		Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
 	    break;
 	case 'P':
 		if (strncmp(optarg, "COMB", 4) == 0)
@@ -953,6 +951,8 @@ int main(int argc, char *argv[])
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
+
+    if (_windowSize == 1 && _k <= 5) Fatal("k is %d but must be between larger than 5 for window size of 1 since there are no unambiguous graphlets for k<=5",_k); 
 
     if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
