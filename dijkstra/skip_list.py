@@ -45,15 +45,16 @@ class SkipList:
 
     def find_by_name(self, value, node_info, update = None): #get node with the given value
         if update == None:
-            update = self.updateList(value, node_info) #path to the given value
+            update = self.updateListInfo(value, node_info) #path to the given value
         if len(update) > 0:
             candidate = update[0].next[0] #bottom node of the entire route
             #found = None
             if candidate != None and candidate.value == value and candidate.info == node_info:
                 return candidate
+            return None
 
     def __contains__(self, value): #check whether a value in this list
-        return self.find(value, update=None) != None 
+        return self.find(value) != None
 
     def flip_coin(self): #determine the height of the new node
         count = 1
@@ -72,6 +73,7 @@ class SkipList:
             while x.next[i] != None and x.next[i].value == value and x.next[i].info < info: #next_value>=given_value => walk down
                 x = x.next[i] #go to next value
             update[i] = x #save the route
+            # print("Update list info [level",i,"]:", x.info, info, value)
         return update
         
     def updateList(self, value:float): #get a route to the node
@@ -112,7 +114,6 @@ class SkipList:
         x = self.find(value, update)
         #if find the value
         if x != None:
-
             for i in reversed(range(len(x.next))):
                 #update every rank, change the left node pointer
                 update[i].next[i] = x.next[i]
@@ -122,17 +123,19 @@ class SkipList:
                     self.maxHeight -= 1
             #change list size
             self.len -= 1
-        #1 means removed, 0 means cannot find the value
-            return 1
+        # x.info means removed, 0 means cannot find the value
+            return x.info
         return 0
     
-    def remove_by_name(self, value, node_info):
+    def remove_by_name(self, value, node_info, update=None):
         #find the route to the given value
         value = value*self.switch 
         #print("removing by " + str(node_info))
         #print("removing by " + str(value))
-        update = self.updateListInfo(value, node_info)
+        if update == None:
+            update = self.updateListInfo(value, node_info)
         #whether the value exist, the route can accelerate the find progress
+        # print(update[0].info)
         x = self.find_by_name(value, node_info, update)
         #if find the value
         if x != None:
@@ -178,55 +181,94 @@ class SkipList:
             x = x.next[0]
         return None
 
-    def pop(self,domain=0.1):
-        #check not empty
-        if self.__len__()==0:
-            raise IndexError()
-        #get a random value in the given random value range
-        #rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
-        next_value = self.head.next[0].value+1
-        res = self.head.next[0]
-        temp = res.next
-        while random.randint(0,1)!=0 and temp[0] and temp[0].value < next_value:
-            res, temp = temp[0], temp[0].next
-        
-            
-        self.remove_by_name(res.value*self.switch, res.info)
-        return (res.value*self.switch,res.info)
-       
-        
-    def _pop(self,domain=0.1):
-        #check not empty
-        if self.__len__()==0:
-            raise IndexError()
-        #get a random value in the given random value range
-        #rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
-        rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
-        #if this value exist, directly remove it
-        if self.__contains__(rand_value):
-            temp=self.find(rand_value)
-            self.remove_by_name(rand_value*self.switch, temp.info)
-            return (temp.value*self.switch,temp.info)
-        #if this value not in list, remove the nearest one
-        else:
-            update = self.updateList(rand_value)
-            #get the left one & right one, compare them
-            candidate1 = update[0]
-            candidate2 = update[0].next[0]
-            #if the right one not exist, return the left on
-            if candidate2==None:
-                self.remove_by_name(candidate1.value*self.switch,candidate1.info)
-                return (candidate1.value*self.switch,candidate1.info)
-            #otherwise compare them
-            if abs(candidate1.value-rand_value)<=abs(candidate2.value-rand_value):
-                self.remove_by_name(candidate1.value*self.switch,candidate1.info)
-                return (candidate1.value*self.switch,candidate1.info)
-            if abs(candidate2.value-rand_value)<abs(candidate1.value-rand_value):
-                self.remove_by_name(candidate2.value*self.switch,candidate2.info)
-                return (candidate2.value*self.switch,candidate2.info)
-            return None
+    def updateListEnd(self, value:float): #get a route to the node
+        update = [None]*self.maxHeight #save the route
+        x = self.head #from the left headnode
+        for i in reversed(range(self.maxHeight)): #from top to bottom
+            while x.next[i] != None and x.next[i].value <= value:
+                x = x.next[i]
+            update[i] = x #save the route
+        return update
 
-    def opop(self,domain=0.1):
+    def findEnd(self, value, update=None):
+        if update == None:
+            update = self.updateListEnd(value) #path to the given value
+        if len(update) > 0:
+            candidate = update[0]
+            if candidate != None:
+                if candidate.value == value:
+                    return candidate
+        return None #cannot find node with this value
+
+    def removeRand(self, value, start=None, end=None):
+        # find the start nodes and the end nodes that have such value
+        if start == None:
+            start = self.updateList(value)[0].next[0]
+        if end == None:
+            end = self.updateListEnd(value)[0]
+        # print("nodes range for value", value, "is [", start.info, end.info, "]")
+        # assert start.value == end.value, "start and end have different value!"+ str(start.value) + str(end.value)
+        # random choose one info
+        g1_info = random.randint(min(start.info[0], end.info[0]), max(start.info[0], end.info[0]))
+        g2_info = random.randint(min(start.info[1], end.info[1]), max(start.info[1], end.info[1]))
+        # print("Random node info:", (g1_info,g2_info))
+        # get the nearest path to that node
+        update = self.updateListInfo(value, (g1_info, g2_info))
+        # TODO: low probability to choose the last one?
+        cand1 = update[0] if update[0] and update[0].info != None else update[0].next[0]
+        # print("candidate for removeRand", cand1.info, cand1.value)
+        self.remove_by_name(cand1.value*self.switch, cand1.info)
+        return (cand1.value, cand1.info)
+
+    def pop(self, domain=0.1):
+        # check not empty
+        if self.__len__() == 0:
+            raise IndexError()
+        # get a random value in the given random value range
+        rand_value = random.uniform(self.head.next[0].value, self.head.next[0].value + domain)
+        cand1 = self.updateList(rand_value)[0]
+        cand2 = self.updateListEnd(rand_value)[0]
+        # print(cand1.value, cand2.value)
+        if cand1 and cand2 and cand1.next[0] and cand1.next[0].value == cand2.value:
+            ret = self.removeRand(cand1.value, start=cand1, end=cand2)
+        elif cand2 and abs(cand2.value-rand_value) < abs(cand1.value-rand_value):
+            ret = self.removeRand(cand2.value, start=cand2, end=None)
+        else:
+            ret = self.removeRand(cand1.value, start=None, end=cand1)
+        return ret
+
+
+    # def pop(self, domain=0.1):
+    #     #check not empty
+    #     if self.__len__()==0:
+    #         raise IndexError()
+    #     #get a random value in the given random value range
+    #     #rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
+    #     rand_value=random.uniform(self.head.next[0].value, self.head.next[0].value+domain)
+    #     #if this value exist, directly remove it
+    #     if self.__contains__(rand_value):
+    #         info = self.remove(rand_value)
+    #         return (rand_value * self.switch, info)
+    #     #if this value not in list, remove the nearest one
+    #     else:
+    #         update = self.updateList(rand_value)
+    #         #get the left one & right one, compare them
+    #         candidate1 = update[0]
+    #         candidate2 = update[0].next[0]
+    #         #if the right one not exist, return the left one
+    #         if candidate2==None:
+    #             info = self.remove(candidate1.value)
+    #             return (candidate1.value*self.switch,info)
+    #         #otherwise compare them
+    #         if abs(candidate1.value-rand_value)<=abs(candidate2.value-rand_value):
+    #             info = self.remove(candidate1.value)
+    #             return (candidate1.value*self.switch,info)
+    #         if abs(candidate2.value-rand_value)<abs(candidate1.value-rand_value):
+    #             info = self.remove(candidate2.value)
+    #             return (candidate2.value*self.switch,info)
+    #         return None
+
+    def opop(self, domain=0.1):
         #that's the new one
         if self.__len__()==0:
             raise IndexError()

@@ -13,22 +13,23 @@ from collections import defaultdict
 
 def initParser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-g1", "--graph1", required=True, help ="first graph file")
-    parser.add_argument("-g2", "--graph2", required=True, help ="second graph file")
-    parser.add_argument("-s", "--sim", required=False, help ="sim file")
-    parser.add_argument("-r", "--runs", required=False, default = 1, help = "number of times to run")
-    parser.add_argument("-g1s", "--g1seed", required=False, help ="g1 seed file")
-    parser.add_argument("-g2s", "--g2seed", required=False, help ="g2 seed file")
-    parser.add_argument("-ec1", "--ec1bound", required=False, default = "0.0", help ="lower bound for ec1")
-    parser.add_argument("-ec2", "--ec2bound", required=False, default = "0.0", help ="lower bound for ec2")
-    parser.add_argument("-s3", "--s3bound", required=False, default = "0.0", help ="lower bound for s3")
-    parser.add_argument("-a", "--alpha", required=False, default = "1.0", help = "weight given to aligning based on local measurement")
-    parser.add_argument("-K", "--Kloops", required=False, default = "10", help = "number of random local alignments to generate")
-    parser.add_argument("-sb", "--simbound", required=False, default = "0.0", help = "similarity lower bound")
-    parser.add_argument("-b", "--beta", required=False, default = "", help = "weight given to aligning based on similarity matrix")
-    parser.add_argument("-ed", "--edbound", required=False, default = "0.0", help = "edge density lower bound")
+    parser.add_argument("-g1", "--graph1", required=True, help="first graph file")
+    parser.add_argument("-g2", "--graph2", required=True, help="second graph file")
+    parser.add_argument("-s", "--sim", required=False, help="sim file")
+    parser.add_argument("-r", "--runs", required=False, type=int, default=1, help = "number of times to run")
+    parser.add_argument("-g1s", "--g1seed", required=False, help="g1 seed file")
+    parser.add_argument("-g2s", "--g2seed", required=False, help="g2 seed file")
+    parser.add_argument("-d", "--delta", required=False, type=float, default=0.0, help="delta value to accept worse pair")
+    parser.add_argument("-ec1", "--ec1bound", required=False, type=float, default=0.0, help ="lower bound for ec1")
+    parser.add_argument("-ec2", "--ec2bound", required=False, type=float, default=0.0, help ="lower bound for ec2")
+    parser.add_argument("-s3", "--s3bound", required=False, type=float, default=0.0, help ="lower bound for s3")
+    parser.add_argument("-a", "--alpha", required=False, type=float, default=1.0, help = "weight given to aligning based on local measurement")
+    # parser.add_argument("-b", "--beta", required=False, default="", help = "weight given to aligning based on similarity matrix")
+    parser.add_argument("-sb", "--simbound", required=False, type=float, default ="0.0", help = "similarity lower bound")
+    parser.add_argument("-ed", "--edbound", required=False, type=float, default = "0.0", help = "edge density lower bound")
+    parser.add_argument("-K", "--Kloops", required=False, type=int, default="10", help = "number of random local alignments to generate")
     parser.add_argument("-pk", "--pickle", required=False, default = "", help = "location of existing pickle file")
-    parser.add_argument("-t", "--timestop", required=False, default = "-1.0", help = "Stop program after specified time, units in hours")
+    parser.add_argument("-t", "--timestop", required=False, type=float, default = "-1.0", help = "Stop program after specified time, units in hours")
     parser.add_argument('-debug', "--debugval",action='store_true', help="adding debug will set to True, no entry is False")
 
     return parser
@@ -97,6 +98,13 @@ if __name__ == '__main__':
         curr_seed = next(seeding.get_aligned_seed(zip(*seed),graph1, graph2))
         print(curr_seed)
 
-        alignments = iter_alignment.iter_align(graph1, graph2, curr_seed, sims, ec_mode, ed, m, sb, K, debug=args.debugval)    
+        # alignments = iter_alignment.iter_align(graph1, graph2, curr_seed, seednum=seednum, sims=sims, ec_mode=ec_mode, ed=ed, m=m, sb=sb
+        #                                        , K=K, debug=args.debugval, delta=args.delta)
+
+        alignments = iter_alignment.fast_align(graph1, graph2, curr_seed, seednum=seednum, sims=sims, ec_mode=ec_mode, ed=ed, m=m, sb=sb
+                                               , K=K, debug=args.debugval, delta=args.delta)
+
+        # alignments = iter_alignment.fast_align2(graph1, graph2, curr_seed, seednum=seednum, sims=sims, ec_mode=ec_mode, ed=ed, m=m, sb=sb
+        #                                        , K=K, debug=args.debugval, delta=args.delta)
+
         print(alignments)
-        break
