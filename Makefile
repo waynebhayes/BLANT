@@ -27,7 +27,7 @@ CC=gcc -O3 #-ggdb
 CXX=g++
 
 ### Generated File Lists ###
-EIGHT := 8#
+EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
 SEVEN := 7#
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
 canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
@@ -44,11 +44,21 @@ alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
+base: .firsttime $(LIBWAYNE_HOME)/made blant $(canon_map_files)
+
+.firsttime:
+	@echo "This may take 30-60 minutes if EIGHT is not commented out in the Makefile"
+	@echo "(You will only see this message once. Pausing 10 seconds...)"
+	@sleep 10
+	@touch .firsttime
+
+most: base magic_table $(alpha_nbe_txts) $(alpha_mcmc_txts) $(ehd_txts) Draw subcanon_maps
+
+tests: test_maps test_blant
+
+all: most tests
+
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
-
-most: $(LIBWAYNE_HOME)/made blant $(canon_map_files) magic_table $(alpha_nbe_txts) $(alpha_mcmc_txts) $(ehd_txts) Draw subcanon_maps
-
-all: most test_maps test_blant
 
 .PHONY: all most test_blant test_maps realclean clean_canon_maps
 
@@ -185,7 +195,7 @@ clean:
 
 realclean: clean # also clean all canonical data and libwayne
 	cd $(LIBWAYNE_HOME); $(MAKE) clean
-	/bin/rm -f canon_maps/*
+	/bin/rm -f canon_maps/* .firsttime
 
 clean_canon_maps:
 	/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create
