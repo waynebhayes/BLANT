@@ -1085,14 +1085,10 @@ int main(int argc, char *argv[])
         exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
-    if(_windowSize == 1) {
+    if(_windowSize == 1) { // -w1 mode used for deterministic walk
         if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
             Fatal("currently only -mi and -mj output modes are supported for -w1 option");
-//            _outputMode = indexGraphlets;
         }
-        _numWindowRepArrSize = 50;
-        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
-        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
         exitStatus = ExpandSeedsT1(G, numSamples);
     } else
 	exitStatus = RunBlantInThreads(_k, numSamples, G);

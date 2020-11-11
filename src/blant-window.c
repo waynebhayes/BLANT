@@ -422,27 +422,10 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int numSamples, int *count) {
 
     // Set a maximum number N of returned windowReps (-n N) in case there is a bunch 
     // If (-n N) flag is not given, then will return all satisfied windowReps.
-    if (numSamples != 0 && *count >= numSamples) return;  
-    if (prev_nodes_count == _k) {
-        if (*count == _numWindowRepArrSize) {
-            _numWindowRepArrSize *= 2;
-            _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
-            for(i=*count; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
-        }
-
-//        TINY_GRAPH *gTest = TinyGraphAlloc(_k);
-//        TinyGraphInducedFromGraph(gTest, G, prev_nodes_array);
-//        Gint = TinyGraph2Int(gTest, _k);
-//        TinyGraphFree(gTest);
-        // only return unambiguous windowReps. Can add more constraints in the future
-//        if(SetIn(_windowRep_unambig_set, _K[Gint])) {
-//            for(i=0; i<_k; i++) _windowReps[*count][i] = prev_nodes_array[i];
-//            _windowReps[*count][_k] = _K[Gint];
-//            assert(canonValTest == _K[Gint]);
-//        }
-
+    if (numSamples != 0 && *count >= numSamples) return;  // already enough samples found, no need to search further
+    if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
         char perm[maxK+1];
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g);
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g); //
         *count = *count + 1;
         return;
     } 
@@ -483,27 +466,15 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int numSamples, int *count) {
     }
 }
 
-void processExpandSeeds(int startNode, int count) {
-    int i, j;
-    PrintNode(startNode,'\n');
-    for(i=0; i<count; i++) {
-        for(j=0; j<_k; j++) 
-            PrintNode(_windowReps[i][j],' ');
-       printf("%i", _windowReps[i][_k]); // Uncomment this line to print oridinal canonical ID at the end of the line. 
-        printf("\n");
-    }
-}
-
 int ExpandSeedsT1(GRAPH* G, int numSamples) {
     int i, count = 0;
     SET *prev_nodes = SetAlloc(G->n);
     for(i=0; i<G->n; i++) {
         SetAdd(prev_nodes, i);
-        PrintNode(i, '\n');
+        PrintNode(i, '\n'); // print the start node for the deterministic walk
         buildTGraphlet(G, prev_nodes, numSamples, &count);
         assert(SetCardinality(prev_nodes) == 1);
         SetDelete(prev_nodes, i);
-//        processExpandSeeds(i, count);
         count = 0;
     }
     SetFree(prev_nodes);
