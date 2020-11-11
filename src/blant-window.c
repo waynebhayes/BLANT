@@ -425,7 +425,7 @@ void buildTGraphlet(GRAPH* G, SET* prev_nodes, int numSamples, int *count) {
     if (numSamples != 0 && *count >= numSamples) return;  // already enough samples found, no need to search further
     if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
         char perm[maxK+1];
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g); //
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g);
         *count = *count + 1;
         return;
     } 
@@ -471,7 +471,6 @@ int ExpandSeedsT1(GRAPH* G, int numSamples) {
     SET *prev_nodes = SetAlloc(G->n);
     for(i=0; i<G->n; i++) {
         SetAdd(prev_nodes, i);
-        PrintNode(i, '\n'); // print the start node for the deterministic walk
         buildTGraphlet(G, prev_nodes, numSamples, &count);
         assert(SetCardinality(prev_nodes) == 1);
         SetDelete(prev_nodes, i);
