@@ -179,6 +179,10 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
     if(UNIQ_GRAPHLETS && GraphletSeenRecently(G, Varray,k)) return;
     TinyGraphInducedFromGraph(g, G, Varray);
     int Gint = TinyGraph2Int(g,k), j, GintOrdinal=_K[Gint];
+    if (_window && _windowSize == 1 && !SetIn(_windowRep_unambig_set, GintOrdinal)) { // the graphlet is "ambiguous", so we don't print it and return directly
+        return;
+    }
+    if (_window)
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif

@@ -710,10 +710,8 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 const char const * const USAGE =
 "BLANT: Basic Local Alignment for Networks Tool (work in progress)\n"\
-"\n"\
 "PURPOSE: randomly sample graphlets up to size 8 from a graph. Default output is similar to ORCA though stochastic\n"\
 "    rather than exaustive. Thus APPROXIMATE results but MUCH faster than ORCA on large or dense networks.\n"\
-"\n"\
 "USAGE: blant [OPTIONS] -k K -n numSamples -s samplingMethod graphInputFile\n"\
 "where the following are REQUIRED:\n"\
 "    K is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
@@ -730,11 +728,12 @@ const char const * const USAGE =
 "	Edgelist (.el), LEDA(.leda), GML (.gml), GraphML (.xml), LGF(.lgf), CSV(.csv)\n"\
 "	(extensions .gz and .xz are automatically decompressed using gunzip and unxz, respectively)\n"\
 "	Duplicate edges (either direction) and self-loops should be removed!\n"\
-"\n"\
 "COMMON OPTIONS:\n"\
 "    -m{outputMode}, where {outputMode} is a single character, one of:\n"\
-"	o = the default, which is ODV (Orbit Degree Vector), identical to ORCA (commonly and mistakenly called a GDV)\n"\
+"	o = the default, which is ODV (Orbit Degree Vector), identical to ORCA (commonly though incorrectly called a GDV)\n"\
 "	g = GDV (Graphlet Degree Vector) Note this is NOT what is commonly called a GDV, which is actually an ODV (above).\n"\
+"	NOTE: the difference is that an ODV counts the number of nodes that touch all possible *orbits*, while a GDV lists\n"\
+"		only the smaller vector of how many nodes touch each possible *graphlet* (independent of orbit).\n"\
 "	f = graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across our random samples.\n"\
 "	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
 "	i = {i}ndex: each line is a graphlet with columns: canonical ID, then k nodes in canonical order; useful since\n"\
@@ -746,11 +745,11 @@ const char const * const USAGE =
 "	b = explicit binary representation of the half-adjacency matrix of the canonical graphlet\n"\
 "	d = decimal (base-10) integer representation of the above binary\n"\
 "	i = integer ordinal = sorting the above integers and numbering them 0, 1, 2, 3, etc.\n"\
-"\n"\
 "Less Common OPTIONS:\n"\
 "    -t threads: (default=1): parallellism to speed up sampling (not implemented for all methods yet)\n"\
 "    -r seed: pick your own random seed\n"\
-"    -w windowSize: DEPRECATED except for w=1, in which case k msut be 6 or greater.\n"\
+"    -w windowSize: DEPRECATED except for w=1, in which case k must be 6 or greater. (use '-h' option for more)",
+* const USAGE2 = \
 "	-p windowRepSamplingMethod: (deprecated) one of the below, possibly with prefix [u|U] (meaning unambiguous)\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
 "	    LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer)\n"\
@@ -778,10 +777,11 @@ int main(int argc, char *argv[])
     _THREADS = 1;
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:r:s:c:k:K:e:g:w:p:P:l:n:u:M:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:u:M:")) != -1)
     {
 	switch(opt)
 	{
+	case 'h': printf("%s\n%s\n", USAGE,USAGE2); exit(1); break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
@@ -883,29 +883,27 @@ int main(int argc, char *argv[])
 		} // First k indicates stamping size, second k indicates KS test size.
 	    if (!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
-	case 'w': _window = true; _windowSize = atoi(optarg);
-        if (_windowSize == 1 && _k <= 5) Fatal("k must be between larger than 5 for window size of 1");
-	    break;
+	case 'w': _window = true; _windowSize = atoi(optarg); break;
 	case 'p':
-        if (*optarg == 'u' | *optarg == 'U')
-            {_windowRep_unambig = true; optarg += 1;}
-        if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
-        else if (strncmp(optarg, "DMIN", 4) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MIN_D;
-        else if (strncmp(optarg, "DMAX", 4) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MAX_D;
-        else if (strncmp(optarg, "MIN", 3) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MIN;
-        else if (strncmp(optarg, "MAX", 3) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_MAX;
-        else if (strncmp(optarg, "LFMIN", 5) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
-        else if (strncmp(optarg, "LFMAX", 5) == 0)
-		    _windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
-		else if (strncmp(optarg, "DEGMAX", 6) == 0)
-			_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX;
-        else
-		    Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
+	    if (*optarg == 'u' | *optarg == 'U')
+		{_windowRep_unambig = true; optarg += 1;}
+	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
+	    else if (strncmp(optarg, "DMIN", 4) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
+	    else if (strncmp(optarg, "DMAX", 4) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MAX_D;
+	    else if (strncmp(optarg, "MIN", 3) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MIN;
+	    else if (strncmp(optarg, "MAX", 3) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_MAX;
+	    else if (strncmp(optarg, "LFMIN", 5) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
+	    else if (strncmp(optarg, "LFMAX", 5) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
+	    else if (strncmp(optarg, "DEGMAX", 6) == 0)
+		_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX;
+	    else
+		Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
 	    break;
 	case 'P':
 		if (strncmp(optarg, "COMB", 4) == 0)
@@ -957,6 +955,8 @@ int main(int argc, char *argv[])
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
+
+    if (_windowSize == 1 && _k <= 5) Fatal("k is %d but must be between larger than 5 for window size of 1 since there are no unambiguous graphlets for k<=5",_k);
 
     if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
@@ -1112,10 +1112,10 @@ int main(int argc, char *argv[])
         exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
-    if(_windowSize == 1) {
-        _numWindowRepArrSize = 50;
-        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
-        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+    if(_windowSize == 1) { // -w1 mode used for deterministic walk
+        if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
+            Fatal("currently only -mi and -mj output modes are supported for -w1 option");
+        }
         exitStatus = ExpandSeedsT1(G, numSamples);
     } else
 	exitStatus = RunBlantInThreads(_k, numSamples, G);
