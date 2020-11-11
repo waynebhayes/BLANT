@@ -27,7 +27,7 @@ CC=gcc -O3 #-ggdb
 CXX=g++
 
 ### Generated File Lists ###
-EIGHT := 8#
+EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
 SEVEN := 7#
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
 canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
@@ -44,9 +44,21 @@ alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
-most: $(LIBWAYNE_HOME)/made blant $(canon_map_files) magic_table $(alpha_nbe_txts) $(alpha_mcmc_txts) $(ehd_txts) Draw subcanon_maps
+base: .firsttime $(LIBWAYNE_HOME)/made blant $(canon_map_files)
 
-all: most test_maps test_blant
+.firsttime:
+	@echo "This may take 30-60 minutes if EIGHT is not commented out in the Makefile"
+	@echo "(You will only see this message once. Pausing 10 seconds...)"
+	@sleep 10
+	@touch .firsttime
+
+most: base magic_table $(alpha_nbe_txts) $(alpha_mcmc_txts) $(ehd_txts) Draw subcanon_maps
+
+tests: test_maps test_blant
+
+all: most tests
+
+canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
 .PHONY: all most test_blant test_maps realclean clean_canon_maps
 
@@ -170,7 +182,7 @@ test_freq:
 
 test_GDV:
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | $(LIBWAYNE_HOME)/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -u -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | $(LIBWAYNE_HOME)/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
 test_maps: blant blant-sanity
 	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.xz' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
@@ -183,7 +195,7 @@ clean:
 
 realclean: clean # also clean all canonical data and libwayne
 	cd $(LIBWAYNE_HOME); $(MAKE) clean
-	/bin/rm -f canon_maps/*
+	/bin/rm -f canon_maps/* .firsttime
 
 clean_canon_maps:
 	/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create
