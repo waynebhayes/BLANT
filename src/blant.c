@@ -38,7 +38,7 @@ int _numCanon, _canonList[MAX_CANONICALS]; // map ordinals to integer representa
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 int _numConnectedCanon;
 unsigned int _numConnectedComponents;
-unsigned int *_componentSize; 
+unsigned int *_componentSize;
 
 int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // map from [ordinal][canonicalNode] to orbit ID.
 int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
@@ -119,7 +119,7 @@ static int InitializeConnectedComponents(GRAPH *G)
     _probOfComponent = Calloc(G->n, sizeof(double*)); // probably bigger...
     _cumulativeProb = Calloc(G->n, sizeof(double*)); // probably bigger...
     _componentSet = Calloc(G->n, sizeof(SET*));
-    
+
     int nextStart = 0;
     _componentList[0] = Varray;
     for(v=0; v < G->n; v++) if(!SetIn(visited, v))
@@ -238,7 +238,7 @@ void finalizeMCMC() {
 }
 
 // Compute the degree of the state in the state graph (see Lu&Bressen)
-// Given the big graph G, and a set of nodes S (|S|==k), compute the 
+// Given the big graph G, and a set of nodes S (|S|==k), compute the
 // degree of the *state* represented by these nodes, which is:
 //     Degree(S) = k*|NN2| + (k-1)*|NN1|
 // where NN1 is the set of nodes one step outside S that have only 1 connection back into S,
@@ -321,7 +321,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     SET *intersect_node = SetAlloc(G->n);
     TINY_GRAPH *g = TinyGraphAlloc(k);
     int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
-    unsigned Varray[varraySize]; 
+    unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
@@ -334,7 +334,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     {
         if(_window) {
             SampleGraphlet(G, V, Varray, _windowSize);
-            _numWindowRep = 0; 
+            _numWindowRep = 0;
             if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
                 windowRepInt = getMaximumIntNumber(_k);
             if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
@@ -344,7 +344,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             if(_numWindowRep > 0)
                 ProcessWindowRep(G, Varray, windowRepInt);
         }
-        else if (_outputMode == graphletDistribution) 
+        else if (_outputMode == graphletDistribution)
             ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
         else {
             SampleGraphlet(G, V, Varray, k);
@@ -547,7 +547,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
         for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
-	
+
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
@@ -559,7 +559,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
         _THREAD_NUM = i;
         fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
     }
-	
+
 
     int threadsDone = 0; // count of how many threads signaled EOF
     int lineNum = 0;
@@ -641,8 +641,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		break;
 	    case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 		fputs(line, stdout);
-		if(_window) 
-		    while(fgets(line, sizeof(line), fpThreads[thread])) 
+		if(_window)
+		    while(fgets(line, sizeof(line), fpThreads[thread]))
 			fputs(line, stdout);
 		break;
 	    case kovacsPairs:
@@ -708,7 +708,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
-const char const * const USAGE = 
+const char const * const USAGE =
 "BLANT: Basic Local Alignment for Networks Tool (work in progress)\n"\
 "\n"\
 "PURPOSE: randomly sample graphlets up to size 8 from a graph. Default output is similar to ORCA though stochastic\n"\
@@ -754,16 +754,17 @@ const char const * const USAGE =
 "	-p windowRepSamplingMethod: (deprecated) one of the below, possibly with prefix [u|U] (meaning unambiguous)\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
 "	    LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer)\n"\
-"	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n"\
+"	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
-"	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)";
+"	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
+"	-M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=1 is a special case and means no max)";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
 // in the parent.
 int main(int argc, char *argv[])
 {
-    int i, j, opt, numSamples=0;
+    int i, j, opt, numSamples=0, multiplicity=1;
     confidence = 0;
     double windowRep_edge_density = 0.0;
     int exitStatus = 0;
@@ -774,10 +775,10 @@ int main(int argc, char *argv[])
 	exit(1);
     }
 
-    _THREADS = 1; 
+    _THREADS = 1;
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "m:d:t:r:s:c:k:K:e:g:w:p:P:l:n:u")) != -1)
+    while((opt = getopt(argc, argv, "m:d:t:r:s:c:k:K:e:g:w:p:P:l:n:u:M:")) != -1)
     {
 	switch(opt)
 	{
@@ -844,7 +845,7 @@ int main(int argc, char *argv[])
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 	    else if (strncmp(optarg, "NBE", 3) == 0)
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
-	    else if (strncmp(optarg, "FAYE", 3) == 0) 
+	    else if (strncmp(optarg, "FAYE", 3) == 0)
 		_sampleMethod = SAMPLE_FAYE;
 	    else if (strncmp(optarg, "EBE", 3) == 0)
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
@@ -875,15 +876,15 @@ int main(int argc, char *argv[])
 	    break;
 	case 'k': _k = atoi(optarg);
 		if (_GRAPH_GEN && _k >= 33) {
-			_k_small = _k % 10; 
+			_k_small = _k % 10;
 			if (!(3 <= _k_small && _k_small <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
-			_k /= 10; 
+			_k /= 10;
 			assert(_k_small <= _k);
 		} // First k indicates stamping size, second k indicates KS test size.
 	    if (!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 	    break;
-	case 'w': _window = true; _windowSize = atoi(optarg); 
-        if (_windowSize == 1 && _k <= 5) Fatal("k must be between larger than 5 for window size of 1"); 
+	case 'w': _window = true; _windowSize = atoi(optarg);
+        if (_windowSize == 1 && _k <= 5) Fatal("k must be between larger than 5 for window size of 1");
 	    break;
 	case 'p':
         if (*optarg == 'u' | *optarg == 'U')
@@ -919,30 +920,30 @@ int main(int argc, char *argv[])
         if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
             _windowRep_limit_neglect_trivial = true; optarg += 1;
         }
-		if (strncmp(optarg, "DEG", 3) == 0) { 
-			_windowRep_limit_method = WINDOW_LIMIT_DEGREE; optarg += 3; 
+		if (strncmp(optarg, "DEG", 3) == 0) {
+			_windowRep_limit_method = WINDOW_LIMIT_DEGREE; optarg += 3;
 		}
-		else if (strncmp(optarg, "EDGE", 4) == 0) { 
-			_windowRep_limit_method = WINDOW_LIMIT_EDGES; optarg += 4; 
+		else if (strncmp(optarg, "EDGE", 4) == 0) {
+			_windowRep_limit_method = WINDOW_LIMIT_EDGES; optarg += 4;
 		}
-		else 
+		else
 			Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{EDGE}{limit_num}\n");
 		_numWindowRepLimit = atoi(optarg);
         if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
 		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
 		break;
-	case 'n': numSamples = atoi(optarg);
+    case 'n': numSamples = atoi(optarg);
 	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
 	    break;
-    case 'K': _KS_NUMSAMPLES = atoi(optarg); 
+    case 'K': _KS_NUMSAMPLES = atoi(optarg);
     	break;
-    case 'e': 
-        _GRAPH_GEN_EDGES = atoi(optarg); 
+    case 'e':
+        _GRAPH_GEN_EDGES = atoi(optarg);
         windowRep_edge_density = atof(optarg);
         break;
-    case 'g': 
+    case 'g':
         if (!GEN_SYN_GRAPH) Fatal("Turn on Global Variable GEN_SYN_GRAPH");
-        _GRAPH_GEN = true; 
+        _GRAPH_GEN = true;
         if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
         else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = GEN_NODE_EXPANSION;
         else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
@@ -950,6 +951,9 @@ int main(int argc, char *argv[])
         break;
 	case 'u': UNIQ_GRAPHLETS = false;
 	    break;
+    case 'M': multiplicity = atoi(optarg);
+        if(multiplicity < 0) Fatal("multiplicity must be non-negative\n%s", USAGE);
+        break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
@@ -986,7 +990,7 @@ int main(int argc, char *argv[])
     LoadMagicTable(); // needs _k to be set
 
     if (_window && _windowSize >= 3) {
-        if (_windowSampleMethod == -1) Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");   
+        if (_windowSampleMethod == -1) Fatal("Haven't specified window searching method. Options are: -p{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX}\n");
         if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
         _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
         _numWindowRepArrSize = _MAXnumWindowRep > 0 ? MIN(_numWindowRepArrSize, _MAXnumWindowRep) : _numWindowRepArrSize;
@@ -1001,10 +1005,33 @@ int main(int argc, char *argv[])
     if (_windowRep_unambig || _window && _windowSize < 3){
         _windowRep_unambig_set = SetAlloc(_numCanon);
         SET *orbit_temp = SetAlloc(_numOrbits);
-        for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i) 
+        for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i)
         {
+            // calculate number of permutations for the given canonical graphlet (loop through all unique orbits and count how many times they appear)
+            // the formula is for every unique orbit, multiply the number of permutations by the factorial of how many appearances that unique orbit has
+            // if there is one orbit with three nodes and a second orbit with 2 nodes, the number of permutations would be (3!)(2!)
             for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
-            if(SetCardinality(orbit_temp) == _k) SetAdd(_windowRep_unambig_set, i);
+            unsigned uniq_orbits[_k];
+            unsigned num_uniq_orbits = SetToArray(uniq_orbits, orbit_temp);
+            unsigned uniq_orbit_i;
+            unsigned total_orbit_perms = 1;
+
+            for (uniq_orbit_i=0; uniq_orbit_i<num_uniq_orbits; uniq_orbit_i++) {
+                unsigned orbit_appearances = 0;
+                unsigned orbit_i = 0;
+
+                for (orbit_i=0; orbit_i<_k; orbit_i++) {
+                    if (_orbitList[i][orbit_i] == uniq_orbits[uniq_orbit_i]) {
+                        orbit_appearances++;
+                        total_orbit_perms *= orbit_appearances;
+                    }
+                }
+            }
+
+            // I know it's inefficient to put multiplicity here instead of around the whole orbit perm calculation code but it increases readability, at least until orbit perm calculation is put into a function
+            if(multiplicity == 0 || total_orbit_perms <= multiplicity) { // multiplicity = 0 means any ambiguity is allowed
+                SetAdd(_windowRep_unambig_set, i);
+            }
             SetEmpty(orbit_temp);
         }
         SetFree(orbit_temp);
