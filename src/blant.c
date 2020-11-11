@@ -756,7 +756,7 @@ const char const * const USAGE =
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
 "	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
-"	-M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=1 is a special case and means no max)";
+"	-M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -950,7 +950,7 @@ int main(int argc, char *argv[])
 	case 'u': UNIQ_GRAPHLETS = false;
 	    break;
     case 'M': multiplicity = atoi(optarg);
-        if(multiplicity < 0) Fatal("multiplicity must be non-negative\n%s", USAGE);
+        if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
         break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
