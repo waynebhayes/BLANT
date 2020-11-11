@@ -952,7 +952,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if (_windowSize == 1 && _k <= 5) Fatal("k is %d but must be between larger than 5 for window size of 1 since there are no unambiguous graphlets for k<=5",_k); 
+    if (_windowSize == 1 && _k <= 5) Fatal("k is %d but must be between larger than 5 for window size of 1 since there are no unambiguous graphlets for k<=5",_k);
 
     if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
@@ -1085,10 +1085,10 @@ int main(int argc, char *argv[])
         exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
-    if(_windowSize == 1) {
-        _numWindowRepArrSize = 50;
-        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
-        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+    if(_windowSize == 1) { // -w1 mode used for deterministic walk
+        if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
+            Fatal("currently only -mi and -mj output modes are supported for -w1 option");
+        }
         exitStatus = ExpandSeedsT1(G, numSamples);
     } else
 	exitStatus = RunBlantInThreads(_k, numSamples, G);
