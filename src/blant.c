@@ -777,7 +777,7 @@ int main(int argc, char *argv[])
     _THREADS = 1;
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:u:M:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:uM:")) != -1)
     {
 	switch(opt)
 	{
