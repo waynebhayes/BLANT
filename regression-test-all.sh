@@ -35,8 +35,8 @@ echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
 
 if $MAKE ; then
-    make realclean
-    make all || die "failed to make"
+    make pristine
+    make -j$MAKE_CORES all || die "failed to make"
 fi
 
 [ -x "$EXE" ] || die "no executable '$EXE' exists to test!"
