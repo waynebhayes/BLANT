@@ -9,7 +9,7 @@
 int _sampleMethod = -1;
 FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
 char _sampleFileEOF;
-Boolean _MCMC_UNIFORM = false; // Should MCMC restart at each edge
+Boolean _MCMC_EVERY_EDGE = false; // Should MCMC restart at each edge
 int _samplesPerEdge = 0;
 int _numSamples = 0;
 unsigned _MCMC_L;
@@ -715,11 +715,11 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	}
 
 	// The first time we run this, or when we restart. We want to find our initial L d graphlets.
-	if (!setup && !_MCMC_UNIFORM) {
+	if (!setup && !_MCMC_EVERY_EDGE) {
 		setup = true;
 		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, -1);
 	}
-	else if (_MCMC_UNIFORM && (!setup || currSamples >= _samplesPerEdge))
+	else if (_MCMC_EVERY_EDGE && (!setup || currSamples >= _samplesPerEdge))
 	{
 		setup = true;
 		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, currEdge);
