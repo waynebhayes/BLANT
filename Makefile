@@ -194,7 +194,7 @@ clean:
 	/bin/rm -f $(OBJDIR)/*
 
 realclean:
-	echo "I think you mean 'pristine', not realclean"
+	echo "'realclean' is now called 'pristine'; try again"
 	false
 
 pristine: clean # also clean all canonical data and libwayne
