@@ -25,7 +25,6 @@ static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 mean
 char **_nodeNames, _supportNodeNames = true;
 
 char * _sampleFileName;
-Boolean UNIQ_GRAPHLETS = true; // Should we remove duplicate graphlets?
 
 #define USE_INSERTION_SORT 0
 
@@ -348,7 +347,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
         else {
             SampleGraphlet(G, V, Varray, k);
-            ProcessGraphlet(G, V, Varray, k, perm, g);
+            if(!ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
         }
     }
     if(_window) {
@@ -777,7 +776,7 @@ int main(int argc, char *argv[])
     _THREADS = 1;
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:uM:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:")) != -1)
     {
 	switch(opt)
 	{
@@ -947,8 +946,6 @@ int main(int argc, char *argv[])
         else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
         else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
         break;
-	case 'u': UNIQ_GRAPHLETS = false;
-	    break;
     case 'M': multiplicity = atoi(optarg);
         if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
         break;

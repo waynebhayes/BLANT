@@ -60,8 +60,6 @@ extern char* _BLANT_DIR;
 
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
-extern Boolean UNIQ_GRAPHLETS; // this is now TRUE by default (as of Nov. 2020), and -u turns it off
-
 extern unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
 extern unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
 extern double *_doubleOrbitDegreeVector[MAX_ORBITS];
@@ -114,7 +112,7 @@ extern double *_cumulativeProb;
 
 #define SPARSE true // do not try false at the moment, it's broken
 
-Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k);
+Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);
 
 void BuildGraph(TINY_GRAPH* G, int Gint);
