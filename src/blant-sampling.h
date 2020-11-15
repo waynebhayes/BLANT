@@ -32,7 +32,7 @@ extern int _samplesPerEdge;
 extern int _numSamples;
 
 extern unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
-extern Boolean _MCMC_UNIFORM; // Should MCMC restart at each edge
+extern Boolean _MCMC_EVERY_EDGE; // Should MCMC restart at each edge
 
 static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC);
 static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC);

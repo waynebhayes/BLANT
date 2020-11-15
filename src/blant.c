@@ -25,7 +25,6 @@ static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 mean
 char **_nodeNames, _supportNodeNames = true;
 
 char * _sampleFileName;
-Boolean UNIQ_GRAPHLETS = true; // Should we remove duplicate graphlets?
 
 #define USE_INSERTION_SORT 0
 
@@ -348,7 +347,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
         else {
             SampleGraphlet(G, V, Varray, k);
-            ProcessGraphlet(G, V, Varray, k, perm, g);
+            if(!ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
         }
     }
     if(_window) {
@@ -421,7 +420,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_UNIFORM || _sampleMethod != SAMPLE_MCMC) printf(" %lu", ODV(i,orbit_index));
+		if (!_MCMC_EVERY_EDGE || _sampleMethod != SAMPLE_MCMC) printf(" %lu", ODV(i,orbit_index));
 		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 	    }
 	    printf("\n");
@@ -442,7 +441,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
-	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
+	if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
     if(_outputMode == kovacsPairs) {
 	int i;
 	for(i=0; i<G->n;i++){Free(_KovacsScore[i]);Free(_KovacsNorm[i]);}
@@ -511,7 +510,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
     }
-    if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<_numOrbits;i++){
+    if (_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++){
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
@@ -777,7 +776,7 @@ int main(int argc, char *argv[])
     _THREADS = 1;
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:u:M:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:")) != -1)
     {
 	switch(opt)
 	{
@@ -852,7 +851,7 @@ int main(int argc, char *argv[])
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
 		_sampleMethod = SAMPLE_MCMC;
 		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
-		    _MCMC_UNIFORM=true;
+		    _MCMC_EVERY_EDGE=true;
 	    }
 	    else if (strncmp(optarg, "RES", 3) == 0)
 		_sampleMethod = SAMPLE_RESERVOIR;
@@ -947,8 +946,6 @@ int main(int argc, char *argv[])
         else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
         else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
         break;
-	case 'u': UNIQ_GRAPHLETS = false;
-	    break;
     case 'M': multiplicity = atoi(optarg);
         if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
         break;

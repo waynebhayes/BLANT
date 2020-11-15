@@ -15,7 +15,11 @@ remove_temp_file () {
 
 #Can change the parameter later
 w=20
-k=7
+if [ -f canon_maps/canon_map7.bin ]; then
+    k=7
+else
+    k=6
+fi
 n=5
 max_depth_attempt=10
 declare -a sampleName=("MCMC" "NBE")

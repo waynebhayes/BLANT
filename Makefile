@@ -28,7 +28,7 @@ CXX=g++
 
 ### Generated File Lists ###
 EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
-SEVEN := 7#
+SEVEN := 7# Same as above but be aware windowRep regression will fail
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
 canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
 perm_map_bins := $(foreach k,$(K), canon_maps/perm_map$(k).bin)
@@ -60,7 +60,7 @@ all: most tests
 
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
-.PHONY: all most test_blant test_maps realclean clean_canon_maps
+.PHONY: all most test_blant test_maps pristine clean_canon_maps
 
 ### Executables ###
 
@@ -167,24 +167,24 @@ $(magic_table_txts): .created-magic-tables
 blant-sanity: $(LIBWAYNE_HOME)/made $(SRCDIR)/blant-sanity.c
 	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_OPTS)
 	
-test_blant: blant blant-sanity $(canon_map_bins) test_sanity test_freq test_GDV
+test_all: test_sanity test_freq test_GDV
 
-test_sanity:
+test_sanity: blant blant-sanity $(canon_map_bins)
 	# First run blant-sanity for various values of k
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -u -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
+	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
-test_freq:
-	# Test to see that for k=6, the most frequent 10 graphlets in syeast appear in the expected order in frequency
-	# Need 10 million samples to ensure with high probability we get the same graphlets.
+test_freq: blant $(canon_map_bins) 
+	# Test to see that the most frequent 10 graphlets in syeast appear in the expected order in
+	# frequency; need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
 	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t $(CORES) -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
 
-test_GDV:
+test_GDV: blant $(canon_map_files) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -u -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | $(LIBWAYNE_HOME)/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | $(LIBWAYNE_HOME)/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
-test_maps: blant blant-sanity
+test_maps: blant blant-sanity $(canon_map_files) $(alphas) $(subcanon_txts)
 	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.xz' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 ### Cleaning ###
@@ -193,7 +193,11 @@ clean:
 	/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
 	/bin/rm -f $(OBJDIR)/*
 
-realclean: clean # also clean all canonical data and libwayne
+realclean:
+	echo "'realclean' is now called 'pristine'; try again"
+	false
+
+pristine: clean # also clean all canonical data and libwayne
 	cd $(LIBWAYNE_HOME); $(MAKE) clean
 	/bin/rm -f canon_maps/* .firsttime
 

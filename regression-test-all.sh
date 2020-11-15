@@ -1,9 +1,15 @@
 #!/bin/bash
-if [ -f git-at ] && [ `wc -l < git-at` -eq 2 -a `git log -1 --format=%at` -eq `tail -1 git-at` ]; then
-    echo -n "Repo unchanged; returning same status code as "
-    tail -1 git-at | xargs -I{} date -d @{} +%Y-%m-%d-%H:%M:%S
-    exit `head -1 git-at`
-fi
+case "$1" in
+-use-git-at)
+    if [ -f git-at ] && [ `wc -l < git-at` -eq 2 -a `git log -1 --format=%at` -eq `tail -1 git-at` ]; then
+	echo -n "Repo unchanged; returning same status code as "
+	tail -1 git-at | xargs -I{} date -d @{} +%Y-%m-%d-%H:%M:%S
+	exit `head -1 git-at`
+    fi
+    shift
+    ;;
+esac
+
 USAGE="USAGE: $0 [ -make ] [ -x BLANT_EXE ][ list of tests to run, defaults to regression-tests/*/*.sh ]"
 source ~/bin/misc.sh
 PATH=`pwd`:`pwd`/scripts:$PATH
@@ -29,8 +35,8 @@ echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
 
 if $MAKE ; then
-    make realclean
-    make all || die "failed to make"
+    make pristine
+    make -j$MAKE_CORES all || die "failed to make"
 fi
 
 [ -x "$EXE" ] || die "no executable '$EXE' exists to test!"

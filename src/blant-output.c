@@ -62,7 +62,7 @@ void PrintCanonical(int GintOrdinal)
 #define MCMC_KOVACS_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
 #define MCMC_KOVACS_MAX_HASH 2147483647 // this value should be prime; at 2^31/8 it's 256MB of RAM.
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
-Boolean GraphletSeenRecently(GRAPH *G, unsigned Varray[], int k) {
+Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_KOVACS_CIRC_BUF], bufPos;
     static SET *seen;
     static unsigned Vcopy[maxK];
@@ -174,13 +174,14 @@ void PrintAllMotifs(TINY_GRAPH *g, int Gint, int GintOrdinal, GRAPH *G, unsigned
     }
 }
 
-void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm[], TINY_GRAPH *g)
+Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm[], TINY_GRAPH *g)
 {
-    if(UNIQ_GRAPHLETS && GraphletSeenRecently(G, Varray,k)) return;
+    Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
     int Gint = TinyGraph2Int(g,k), j, GintOrdinal=_K[Gint];
-    if (_window && _windowSize == 1 && !SetIn(_windowRep_unambig_set, GintOrdinal)) { // the graphlet is "ambiguous", so we don't print it and return directly
-        return;
+    if (_window && _windowSize == 1 && !SetIn(_windowRep_unambig_set, GintOrdinal)) {
+	// the graphlet is "ambiguous", so we don't print it and return directly
+        return false;
     }
     if (_window)
 #if PARANOID_ASSERTS
@@ -195,23 +196,28 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
+	if(NodeSetSeenRecently(G, Varray,k)) processed=false;
+	else PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case indexMotifs: case indexMotifOrbits:
-	PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
+	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
+	else PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
 	break;
     case kovacsAllOrbits:
-	ProcessKovacsAllOrbits(g,G,Varray);
+	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
+	else ProcessKovacsAllOrbits(g,G,Varray);
 	break;
     case kovacsPairs:
 	// ProcessKovacsPreComputed(g,Varray);
-	ProcessKovacsNorm(g,G,Varray);
+	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
+	else ProcessKovacsNorm(g,G,Varray);
 	break;
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, k);
+	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
+	else PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
@@ -229,4 +235,5 @@ void ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm
     default: Abort("ProcessGraphlet: unknown or un-implemented outputMode");
 	break;
     }
+    return processed;
 }
