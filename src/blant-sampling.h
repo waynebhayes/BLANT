@@ -23,7 +23,7 @@
 #define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
 #define SAMPLE_MCMC 5 // MCMC Algorithm estimates graphlet frequency with a random walk
 #define SAMPLE_FAYE 6
-#define SAMPLE_SEEDS 7 // Use deterministic walk to find seeds which are used for extensions
+#define SAMPLE_INDEX 7 // Use deterministic walk to find seeds which are used for extensions
 
 extern int _sampleMethod;
 extern FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
@@ -44,6 +44,7 @@ static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k);
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC);
 static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k);
 static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k);
+void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr);
 static int NumReachableNodes(TINY_GRAPH *g, int startingNode);
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge);
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);

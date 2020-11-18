@@ -329,15 +329,15 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(g, G, Varray);
     }
-    if (_sampleMethod == SAMPLE_SEEDS) { // sample numSamples graphlets for each node in the graph
+    if (_sampleMethod == SAMPLE_INDEX) { // sample numSamples graphlets for each node in the graph
 		if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
-			Fatal("currently only -mi and -mj output modes are supported for -w1 option");
+			Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 		}
         int i, count = 0;
         SET *prev_nodes = SetAlloc(G->n);
         for(i=0; i<G->n; i++) {
             SetAdd(prev_nodes, i);
-            BuildGraphletsAsSeeds(G, prev_nodes, numSamples, &count);
+            SampleGraphletIndexAndPrint(G, prev_nodes, numSamples, &count);
             assert(SetCardinality(prev_nodes) == 1);
             SetDelete(prev_nodes, i);
             count = 0;
@@ -568,8 +568,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
-    if (_sampleMethod == SAMPLE_SEEDS)
-        Fatal("Currently the SEEDS sample method does not support multithreading");
+    if (_sampleMethod == SAMPLE_INDEX)
+        Fatal("Currently the -s INDEX sampling method does not support multithreading");
 
 
     // At this point, _THREADS must be greater than 1.
@@ -729,69 +729,6 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
-/**
- * This function builds graphlets (seeds) for -s SEEDS mode. For each valid sample it takes, it calls the processGraphlet
- * function to print the graphlet directly
- *
- * @param G the graph
- * @param prev_nodes  the temporary set of nodes in the graphlet to build
- * @param numSamplesPerNode  the number of samples to take for each node as the start node in the determistic walk
- * @param tempCountPtr  the pointer to the temporary count of the number of samples taken so far; when the temporary
- *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
- *                      being processed
- */
-void BuildGraphletsAsSeeds(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr) {
-    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
-    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);   // keep track of added nodes
-    assert(prev_nodes_count == SetCardinality(prev_nodes));
-    TINY_GRAPH *g = TinyGraphAlloc(_k);
-
-    // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
-    // If (-n N) flag is not given, then will return all satisfied windowReps.
-    if (numSamplesPerNode != 0 && *tempCountPtr >= numSamplesPerNode) return;  // already enough samples found, no need to search further
-    if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
-        char perm[maxK+1];
-        if (ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g))
-            *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies the multiplicity constraint
-        return;
-    }
-
-    // Find neighboring nodes from the added nodes set
-    SET *deg_set = SetAlloc(G->n);
-    SET *next_step = SetAlloc(G->n);
-    for(i=0; i<prev_nodes_count; i++) {
-        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
-            neigh = G->neighbor[prev_nodes_array[i]][j];
-            if(!SetIn(prev_nodes, neigh)) {
-                SetAdd(deg_set, G->degree[neigh]);
-                SetAdd(next_step, neigh);
-            }
-        }
-    }
-    tie_count = SetCardinality(next_step);
-    deg_count = SetCardinality(deg_set);
-    int next_step_arr[tie_count];
-    int deg_arr[deg_count];
-    assert(SetToArray(next_step_arr, next_step) == tie_count);
-    assert(SetToArray(deg_arr, deg_set) == deg_count);
-    SetFree(next_step);
-    SetFree(deg_set);
-    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order
-    _numWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
-    // Loop through neighbor nodes with Top N (-lDEGN) degrees
-    // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
-    for (i=0; i<_numWindowRepLimit; i++) {
-        max_deg = deg_arr[i];
-        for(j=0; j<tie_count; j++) {
-            if (G->degree[next_step_arr[j]] == max_deg) {
-                SetAdd(prev_nodes, next_step_arr[j]);
-                BuildGraphletsAsSeeds(G, prev_nodes, numSamplesPerNode, tempCountPtr);
-                SetDelete(prev_nodes, next_step_arr[j]);
-            }
-        }
-    }
-}
-
 const char const * const USAGE =
 "BLANT: Basic Local Alignment for Networks Tool (work in progress)\n"\
 "PURPOSE: randomly sample graphlets up to size 8 from a graph. Default output is similar to ORCA though stochastic\n"\
@@ -799,8 +736,8 @@ const char const * const USAGE =
 "USAGE: blant [OPTIONS] -k K -n numSamples -s samplingMethod graphInputFile\n"\
 "where the following are REQUIRED:\n"\
 "    K is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
-"    numSamples is the number of samples to take in the graph (try 1000000 or 1000000000) for every mode except when using SEEDS sampling mode;\n"\
-"	When using SEEDS sampling method by calling with \"-s SEEDS\" option, the numSamples is the number of samples to take for each node\n"\
+"    numSamples is the number of samples to take in the graph (try 1000000 or 1000000000) for every mode except when using INDEX sampling mode;\n"\
+"	When using INDEX sampling method by calling with \"-s INDEX\" option, the numSamples is the number of samples to take for each node\n"\
 "	and in this mode the actual number of samples for a starting node might be less than numSamples if there are not enough samples for that node\n"\
 "	(note: -c {confidence} option is mutually exclusive to -n but is pending implementation)\n"\
 "    samplingMethod is:\n"\
@@ -808,7 +745,7 @@ const char const * const USAGE =
 "	RES (Lu Bressan's reservoir): also asymptotically correct but slower than MCMC, also duplicates\n"\
 "	NBE (node based expansion): start with a random node each time and expand randomly outward (fewer duplicates)\n"\
 "	EBE (edge based expansion): faster than NBE on very dense networks but more biased results.\n"\
-"	SEEDS: sample the given amount (numSamples) of graphlets for each node in the network deterministically. Requires k to be 6 or greater\n"\
+"	INDEX: sample the given amount (numSamples) of graphlets for each node in the network deterministically, and thus build the index. Requires k to be 6 or greater\n"\
 "	AR (Accept-Reject): EXTREMELY SLOW but asymptotically correct: pick k nodes entirely at random, reject if\n"\
 "	    resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
 "    graphInputFile: graph must be in one of the following formats with its extension name:\n"\
@@ -945,8 +882,8 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_RESERVOIR;
 	    else if (strncmp(optarg, "AR", 2) == 0)
 		_sampleMethod = SAMPLE_ACCEPT_REJECT;
-	    else if (strncmp(optarg, "SEEDS", 5) == 0)
-        _sampleMethod = SAMPLE_SEEDS;
+	    else if (strncmp(optarg, "INDEX", 5) == 0)
+        _sampleMethod = SAMPLE_INDEX;
 	    else
 	    {
 		_sampleFileName = optarg;
@@ -1043,7 +980,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if (_sampleMethod == SAMPLE_SEEDS && _k <= 5) Fatal("k is %d but must be between larger than 5 for SEEDS sampling method since there are no unambiguous graphlets for k<=5",_k);
+    if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be between larger than 5 for INDEX sampling method since there are no unambiguous graphlets for k<=5",_k);
 
     if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
@@ -1089,7 +1026,7 @@ int main(int argc, char *argv[])
 		if (_windowRep_min_num_edge < 0) Fatal("WindowRep minimum number of edges must be larger than 0. Check edge density\n");
     }
 
-    if (_windowRep_unambig || _sampleMethod == SAMPLE_SEEDS){
+    if (_windowRep_unambig || _sampleMethod == SAMPLE_INDEX){
         _windowRep_unambig_set = SetAlloc(_numCanon);
         SET *orbit_temp = SetAlloc(_numOrbits);
         for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i)
