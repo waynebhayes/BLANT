@@ -993,7 +993,11 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     case SAMPLE_FROM_FILE:
 	SampleGraphletFromFile(V, Varray, G, k);
 	break;
+    case -1:
+	Fatal("Please specify a sampling method using the '-s' option");
+	break;
     default:
 	Fatal("unknown sampling method");
+	break;
     }
 }

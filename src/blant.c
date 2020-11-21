@@ -569,7 +569,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	return RunBlantFromGraph(k, numSamples, G);
 
     if (_sampleMethod == SAMPLE_INDEX)
-        Fatal("Currently the -s INDEX sampling method does not support multithreading");
+        Fatal("The sampling method '-s INDEX' does not yet support multithreading (feel free to add it!)");
 
 
     // At this point, _THREADS must be greater than 1.
@@ -736,18 +736,25 @@ const char const * const USAGE =
 "USAGE: blant [OPTIONS] -k K -n numSamples -s samplingMethod graphInputFile\n"\
 "where the following are REQUIRED:\n"\
 "    K is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
-"    numSamples is the number of samples to take in the graph (try 1000000 or 1000000000) for every mode except when using INDEX sampling mode;\n"\
-"	When using INDEX sampling method by calling with \"-s INDEX\" option, the numSamples is the number of samples to take for each node\n"\
-"	and in this mode the actual number of samples for a starting node might be less than numSamples if there are not enough samples for that node\n"\
+"    numSamples is the number of graphlet samples to take (large samples are recommended), except in INDEX sampling mode,\n"\
+"	where it specifies the maximum number of samples to take from each node in the graph.\n"\
 "	(note: -c {confidence} option is mutually exclusive to -n but is pending implementation)\n"\
 "    samplingMethod is:\n"\
-"	MCMC (Markov Chain Monte Carlo): asymptotically correct statistics but many duplicates in indexing modes\n"\
-"	RES (Lu Bressan's reservoir): also asymptotically correct but slower than MCMC, also duplicates\n"\
-"	NBE (node based expansion): start with a random node each time and expand randomly outward (fewer duplicates)\n"\
-"	EBE (edge based expansion): faster than NBE on very dense networks but more biased results.\n"\
-"	INDEX: sample the given amount (numSamples) of graphlets for each node in the network deterministically, and thus build the index. Requires k to be 6 or greater\n"\
+"	NBE (node-based expansion): pick a node at random and add it to the node set S; add new nodes by choosing uniformly\n"\
+"           at random from all nodes one step outside S. (Fast on sparse networks, slightly biased counts)\n"\
+"	EBE (edge-based expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
+"           uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
+"	MCMC (Markov Chain Monte Carlo): Build the first set S of k nodes using NBE; then randomly remove and add nodes to S\n"\
+"           using an MCMC graph walking algorithm with restarts. (Asymptotically correct relative graphlet frequencies when\n"\
+"           using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
+"           duplicates in indexing modes.)\n"\
+"	RES (Lu Bressan's reservoir sampling): also asymptotically correct but much slower than MCMC.\n"\
 "	AR (Accept-Reject): EXTREMELY SLOW but asymptotically correct: pick k nodes entirely at random, reject if\n"\
 "	    resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
+"	INDEX: unlike all other sampling methods that use randomness, this mode is deterministic: for each node v in the graph,\n"\
+"           build a topologically deterministic set of k-graphlets to be used as indices for seed-and-extend local\n"\
+"           alignments (using, eg., our onw Dijkstra-inspired local aligner--see Dijkstra diretory). When using INDEX sampling,\n"\
+"           the -n command-line option specifies the maximum number of index entries per starting node v.\n"\
 "    graphInputFile: graph must be in one of the following formats with its extension name:\n"\
 "	Edgelist (.el), LEDA(.leda), GML (.gml), GraphML (.xml), LGF(.lgf), CSV(.csv)\n"\
 "	(extensions .gz and .xz are automatically decompressed using gunzip and unxz, respectively)\n"\
