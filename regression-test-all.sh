@@ -11,7 +11,38 @@ case "$1" in
 esac
 
 USAGE="USAGE: $0 [ -make ] [ -x BLANT_EXE ][ list of tests to run, defaults to regression-tests/*/*.sh ]"
-source ~/bin/misc.sh
+
+
+# Functions
+die(){ (echo "$USAGE"; echo "FATAL ERROR: $@")>&2; exit 1; }
+warn(){ (echo "WARNING: $@")>&2; }
+not(){ if eval "$@"; then return 1; else return 0; fi; }
+newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
+parse(){ awk "BEGIN{print $@}" </dev/null; }
+cpus() {
+    TMP=/tmp/cpus.$$
+    trap "/bin/rm -f $TMP; exit" 0 1 2 3 15
+
+    # Most Linux machines:
+    lscpu >$TMP 2>/dev/null && awk '/^CPU[(s)]*:/{cpus=$NF}END{if(cpus)print cpus; else exit 1}' $TMP && return
+
+    # MacOS:
+    ([ `arch` = Darwin -o `uname` = Darwin ] || uname -a | grep Darwin >/dev/null) && sysctl -n hw.ncpu && return
+
+    # Cygwin:
+    case `arch` in
+    CYGWIN*) grep -c '^processor[ 	]*:' /proc/cpuinfo; return ;;
+    *) if [ -d /dev/cpu -a ! -f /dev/cpu/microcode ]; then
+	ls -F /dev/cpu | fgrep -c
+	return
+       fi
+	;;
+    esac
+
+    # Oops
+    echo "couldn't figure out number of CPUs" >&2; exit 1
+}
+
 PATH=`pwd`:`pwd`/scripts:$PATH
 export PATH
 
