@@ -8,7 +8,7 @@ import time, datetime
 from skip_list import *
 import lzma
 import sys
-from measures import edgecoverage 
+from measures import edgecoverage
 import uuid
 import sys
 import structs
@@ -187,7 +187,7 @@ def update_info(g1, g2, curralign, candidatePairs, sims, debug):
         val = 2 * M / (n1 + n2)  # the percentage of the common edges
         curralign.pq.add((val,pair), debug=debug)
 
-'''
+
 def update_skip_list(g1, g2, curralign, candidatePairs, sims, debug):
     for g1node, g2node in candidatePairs:
         if g1node in curralign.g1alignednodes or g2node in curralign.g2alignednodes:
@@ -209,7 +209,7 @@ def update_skip_list(g1, g2, curralign, candidatePairs, sims, debug):
         # val = curralign.edge_freq[pair][0]
         val = 2 * M / (n1 + n2)  # the percentage of the common edges
         curralign.pq.add((val,pair), debug=debug)
-'''
+
         
 def writelog(curralign): 
     g1edges = induced_graph1(g1, curralign.aligned_pairs)
@@ -286,7 +286,12 @@ def get_n1n2M(g1,g2,g1node,g2node,curralign):
     n1 = num_edges_back_to_subgraph(g1, g1node, curralign.g1alignednodes)
     n2 = num_edges_back_to_subgraph(g2, g2node, curralign.g2alignednodes)
     M = num_edge_pairs_back_to_subgraph(g1, g2, g1node, g2node, curralign.aligned_pairs)
-    assert (M <= n1 and M <= n2), f"M={M}, n1={n1}, n2={n2}, nodes=({g1node},{g2node}), curralign=({curralign.aligned_pairs})"
+    # assert (M <= n1 and M <= n2), f"M={M}, n1={n1}, n2={n2}, nodes=({g1node},{g2node}), curralign=({curralign.aligned_pairs})"
+    # n1, n2, M = 0, 0, 0
+    # for node1, node2 in curralign.aligned_pairs:
+    #     n1 += g1.has_edge(g1node, node1)
+    #     n2 += g2.has_edge(g2node, node2)
+    #     M += g1.has_edge(g1node, node1) and g2.has_edge(g2node, node2)
     return n1, n2, M
 
 
@@ -314,6 +319,7 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
     curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats"
     for i in range(K):
         start = time.time()
+        print("Iteration", i)
         # m is number of edges in seed graphlet
         curralign.g1alignednodes = {seed1}
         curralign.g2alignednodes = {seed2}
@@ -323,10 +329,10 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
         visited = 0
         while len(C) - visited > 0:
             # random pick one candidate from C
-            k = random.randint(0, len(C)-1)
+            k = random.randint(0, len(C)-visited-1)
             g1node, g2node = C[k]
-            if debug:
-                print("Pick ", g1node, g2node)
+            # if debug:
+            #     print("Pick ", g1node, g2node)
 
             if g1node in curralign.g1alignednodes or g2node in curralign.g2alignednodes:
                 visited += 1
@@ -340,9 +346,11 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
                 continue
 
             # checking ec
-            n1 = num_edges_back_to_subgraph(g1, g1node, curralign.g1alignednodes)
-            n2 = num_edges_back_to_subgraph(g2, g2node, curralign.g2alignednodes)
-            M = num_edge_pairs_back_to_subgraph(g1, g2, g1node, g2node, curralign.aligned_pairs)
+            # n1 = num_edges_back_to_subgraph(g1, g1node, curralign.g1alignednodes)
+            # n2 = num_edges_back_to_subgraph(g2, g2node, curralign.g2alignednodes)
+            # M = num_edge_pairs_back_to_subgraph(g1, g2, g1node, g2node, curralign.aligned_pairs)
+            n1, n2, M = get_n1n2M(g1, g2, g1node, g2node, curralign)
+            # print(f"n1={n1}, n2={n2}, M={M}")
 
             if ((EA + M) / (E1 + n1)) < ec1 or ((EA + M) / (E2 + n2)) < ec2:
                 visited += 1
@@ -358,8 +366,8 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
                 continue
 
             # adding pair
-            if debug:
-                print("Adding pair:", (g1node, g2node))
+            # if debug:
+            #     print("Adding pair:", (g1node, g2node))
             curralign.g1alignednodes.add(g1node)
             curralign.g2alignednodes.add(g2node)
             curralign.aligned_pairs.add((g1node, g2node))
@@ -369,7 +377,7 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
             E2 += n2
             EA += M
 
-            # update condidate pairs by choosing a random pair to explore
+            # update condidate pairs by exploring with the added pair
             new_C = get_ec_candidates(g1, g2, g1node, g2node, curralign, ec1, ec2)
             if len(new_C) > 0:
                 visited += 1
@@ -377,7 +385,7 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
                 C = C[:-visited] + new_C
                 visited = 0
 
-        print("Iteration", i)
+
         print(time.time() - start)
         print("EA:", EA, "E1:", E1, "E2:", E2)
         alignments.append(curralign.aligned_pairs)
@@ -387,7 +395,6 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
 
 def update_edgefreq(g1, g2, g1node, g2node, curralign, ec1, ec2):
     EA, E1, E2 = curralign.EA, curralign.E1, curralign.E2
-    S_num = len(curralign.aligned_pairs)
     for node1 in g1.get_neighbors(g1node):
         for node2 in g2.get_neighbors(g2node):
             if node1 in curralign.g1alignednodes or node2 in curralign.g2alignednodes:
@@ -399,8 +406,8 @@ def update_edgefreq(g1, g2, g1node, g2node, curralign, ec1, ec2):
 
 
 
-def fast_align2(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
-    ''' align without skiplist: random pick node to explore '''
+def fast_align_with_edgefreq(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
+    ''' align without skiplist: random pick node to explore; use edge freq to save calculation '''
     alignments = []
     ec1 = ec_mode[0]
     ec2 = ec_mode[1]
@@ -438,7 +445,7 @@ def fast_align2(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0,
                 del curralign.edge_freq[(g1node, g2node)]
                 continue
 
-            print("Adding pair:", (g1node, g2node))
+            # print("Adding pair:", (g1node, g2node))
             # adding pair
             if debug:
                 print("Adding pair:", (g1node, g2node))
@@ -464,7 +471,7 @@ def fast_align2(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0,
 
     return alignments
 
-def iter_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
+def iter_align_with_skiplist(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
     # date = str(datetime.datetime.today()[:-10])
     # filename = g1.name+"-"+g2.name+date+".align"
     # to save each alignment

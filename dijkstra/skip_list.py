@@ -215,12 +215,23 @@ class SkipList:
         # get the nearest path to that node
         update = self.updateListInfo(value, (g1_info, g2_info))
         # TODO: low probability to choose the last one?
+        # cand1 = update[0]
+        # cand2 = update[0].next[0]
+        # if cand1 and cand2 and g1_info + g2_info - cand1.info[1] -cand2.info[2] < cand1.info[1]
+
         cand1 = update[0] if update[0] and update[0].info != None else update[0].next[0]
         # print("candidate for removeRand", cand1.info, cand1.value)
         self.remove_by_name(cand1.value*self.switch, cand1.info)
         return (cand1.value, cand1.info)
 
-    def pop(self, domain=0.1):
+    def pop(self, domain=0.1, fast=True):
+        if fast:
+            return self.popfast(domain)
+        else:
+            return self.popUniform(domain)
+
+
+    def popUniform(self, domain=0.1):
         # check not empty
         if self.__len__() == 0:
             raise IndexError()
@@ -238,37 +249,39 @@ class SkipList:
         return ret
 
 
-    # def pop(self, domain=0.1):
-    #     #check not empty
-    #     if self.__len__()==0:
-    #         raise IndexError()
-    #     #get a random value in the given random value range
-    #     #rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
-    #     rand_value=random.uniform(self.head.next[0].value, self.head.next[0].value+domain)
-    #     #if this value exist, directly remove it
-    #     if self.__contains__(rand_value):
-    #         info = self.remove(rand_value)
-    #         return (rand_value * self.switch, info)
-    #     #if this value not in list, remove the nearest one
-    #     else:
-    #         update = self.updateList(rand_value)
-    #         #get the left one & right one, compare them
-    #         candidate1 = update[0]
-    #         candidate2 = update[0].next[0]
-    #         #if the right one not exist, return the left one
-    #         if candidate2==None:
-    #             info = self.remove(candidate1.value)
-    #             return (candidate1.value*self.switch,info)
-    #         #otherwise compare them
-    #         if abs(candidate1.value-rand_value)<=abs(candidate2.value-rand_value):
-    #             info = self.remove(candidate1.value)
-    #             return (candidate1.value*self.switch,info)
-    #         if abs(candidate2.value-rand_value)<abs(candidate1.value-rand_value):
-    #             info = self.remove(candidate2.value)
-    #             return (candidate2.value*self.switch,info)
-    #         return None
+    def popfast(self, domain=0.1):
+        '''Pop out the first node with a random value'''
+        #check not empty
+        if self.__len__()==0:
+            raise IndexError()
+        #get a random value in the given random value range
+        #rand_value=random.uniform(self.head.next[0].value,self.head.next[0].value+domain)
+        rand_value=random.uniform(self.head.next[0].value, self.head.next[0].value+domain)
+        #if this value exist, directly remove it
+        if self.__contains__(rand_value):
+            info = self.remove(rand_value)
+            return (rand_value * self.switch, info)
+        #if this value not in list, remove the nearest one
+        else:
+            update = self.updateList(rand_value)
+            #get the left one & right one, compare them
+            candidate1 = update[0]
+            candidate2 = update[0].next[0]
+            #if the right one not exist, return the left one
+            if candidate2==None:
+                info = self.remove(candidate1.value)
+                return (candidate1.value*self.switch,info)
+            #otherwise compare them
+            if abs(candidate1.value-rand_value)<=abs(candidate2.value-rand_value):
+                info = self.remove(candidate1.value)
+                return (candidate1.value*self.switch,info)
+            if abs(candidate2.value-rand_value)<abs(candidate1.value-rand_value):
+                info = self.remove(candidate2.value)
+                return (candidate2.value*self.switch,info)
+            return None
 
     def opop(self, domain=0.1):
+        '''Reservoir Sampling: slow!'''
         #that's the new one
         if self.__len__()==0:
             raise IndexError()

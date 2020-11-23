@@ -54,7 +54,15 @@ def build_graph(file):
             g.nodes[count] = n2
             count += 1
         g.add_edge(g.indexes[n1], g.indexes[n2])
+
+    g.adj_mat = np.zeros((count, count), dtype=np.int16)
+
+    for line in open(file):
+        n1, n2 = line.split()
+        g.build_adjmat(g.indexes[n1], g.indexes[n2])
+
     return g
+
 """
 
 # bitMat version
