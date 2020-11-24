@@ -335,12 +335,15 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		}
         int i, count = 0;
         SET *prev_nodes = SetAlloc(G->n);
+        fprintf(stderr, "PAT DEBUG _numWindowRepLimit: %d\n", _numWindowRepLimit);
         for(i=0; i<G->n; i++) {
+            fprintf(stderr, "PAT DEBUG starting node %d out of %d\n", i, G->n);
             SetAdd(prev_nodes, i);
             SampleGraphletIndexAndPrint(G, prev_nodes, numSamples, &count);
             assert(SetCardinality(prev_nodes) == 1);
             SetDelete(prev_nodes, i);
             count = 0;
+            fprintf(stderr, "PAT DEBUG done with node %d out of %d\n", i, G->n);
         }
         SetFree(prev_nodes);
     }
@@ -1041,6 +1044,8 @@ int main(int argc, char *argv[])
             // calculate number of permutations for the given canonical graphlet (loop through all unique orbits and count how many times they appear)
             // the formula is for every unique orbit, multiply the number of permutations by the factorial of how many appearances that unique orbit has
             // if there is one orbit with three nodes and a second orbit with 2 nodes, the number of permutations would be (3!)(2!)
+            // NOTE: this is not the most efficient algorithm since it doesn't use hash tables. I didn't want to overcomplicate it because it only happens once per run.
+            // however, if speed is important (this currently takes about 5 seconds on k=8) this can be sped up
             for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
             unsigned uniq_orbits[_k];
             unsigned num_uniq_orbits = SetToArray(uniq_orbits, orbit_temp);
