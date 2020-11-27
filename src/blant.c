@@ -334,18 +334,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 			Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 		}
         int i, count = 0;
-        SET *prev_nodes = SetAlloc(G->n);
-        fprintf(stderr, "PAT DEBUG _numWindowRepLimit: %d\n", _numWindowRepLimit);
+        int prev_nodes_array[_k];
         for(i=0; i<G->n; i++) {
-            fprintf(stderr, "PAT DEBUG starting node %d out of %d\n", i, G->n);
-            SetAdd(prev_nodes, i);
-            SampleGraphletIndexAndPrint(G, prev_nodes, numSamples, &count);
-            assert(SetCardinality(prev_nodes) == 1);
-            SetDelete(prev_nodes, i);
+            // fprintf(stderr, "PAT DEBUG starting node %d out of %d\n", i, G->n);
+            prev_nodes_array[0] = i;
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count);
             count = 0;
-            fprintf(stderr, "PAT DEBUG done with node %d out of %d\n", i, G->n);
+            // fprintf(stderr, "PAT DEBUG done with node %d out of %d\n", i, G->n);
         }
-        SetFree(prev_nodes);
     }
     else { // sample numSamples graphlets for the entire graph
         for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)

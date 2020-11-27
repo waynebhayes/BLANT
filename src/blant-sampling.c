@@ -896,6 +896,27 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 }
 
 
+// PAT DEBUG
+void printArray(char* arrName, int* arr, int size) {
+    fprintf(stderr, " %s (%d): ", arrName, size);
+    int i;
+    for(i=0; i<size; i++) {
+        fprintf(stderr, "%d ", arr[i]);
+    }
+    fprintf(stderr, "\n");
+}
+
+Boolean arrayIn(int* arr, int size, int item) {
+    int i;
+    for(i=0; i<size; i++) {
+        if (arr[i] == item) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 /**
  * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes, it calls the processGraphlet
  * function to print the graphlet directly. It is called inside RunBlantFromGraph function to take the given amount of
@@ -908,10 +929,8 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
  *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
  *                      being processed in RunBlantFromGraph function
  */
-void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr) {
-    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
-    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);   // keep track of added nodes
-    assert(prev_nodes_count == SetCardinality(prev_nodes));
+void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr) {
+    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, Gint, rolling_max[prev_nodes_count];
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
     // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
@@ -923,19 +942,51 @@ void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNod
             *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies the multiplicity constraint
         return;
     }
-
-    // Find neighboring nodes from the added nodes set
-    SET *deg_set = SetAlloc(G->n);
+    
+    // Populate next_step with the following algorithm
+    // Intuition: Patrick will write later (PAT DEBUG)
+    // Implementation: first, fill out rolling_max by going backwards in the array
+    rolling_max[prev_nodes_count-1] = prev_nodes_array[prev_nodes_count-1];
+    for(i=prev_nodes_count-2; i>=0; i--) {
+        int curr_node = prev_nodes_array[i];
+        if (curr_node > rolling_max[i + 1]) {
+            rolling_max[i] = curr_node;
+        } else {
+            rolling_max[i] = rolling_max[i + 1];
+        }
+    }
+    // Then, go forwards in the array and find valid neighbors
     SET *next_step = SetAlloc(G->n);
+    SET *deg_set = SetAlloc(G->n);
+    SET *all_neighbors = SetAlloc(G->n);
     for(i=0; i<prev_nodes_count; i++) {
-        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) { // loop through all neighbors for the current node
             neigh = G->neighbor[prev_nodes_array[i]][j];
-            if(!SetIn(prev_nodes, neigh)) {
-                SetAdd(deg_set, G->degree[neigh]);
-                SetAdd(next_step, neigh);
+            if (!SetIn(all_neighbors, neigh) && !arrayIn(prev_nodes_array, prev_nodes_count, neigh)) { // we're only processing it if it's not an old neighbor and it's not a node in the graphlet we're building
+                Boolean neigh_is_valid = true;
+                if (i == prev_nodes_count - 1) {
+                    if (neigh > prev_nodes_array[0]) {
+                        neigh_is_valid = true;
+                    } else {
+                        neigh_is_valid = false;
+                    }
+                } else {
+                    if (neigh > rolling_max[i + 1]) {
+                        neigh_is_valid = true;
+                    } else {
+                        neigh_is_valid = false;
+                    }
+                }
+                if (neigh_is_valid) {
+                    SetAdd(next_step, neigh);
+                    SetAdd(deg_set, G->degree[neigh]);
+                }
+                SetAdd(all_neighbors, neigh);
             }
         }
     }
+    SetFree(all_neighbors);
+
     tie_count = SetCardinality(next_step);
     deg_count = SetCardinality(deg_set);
     int next_step_arr[tie_count];
@@ -948,15 +999,13 @@ void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNod
     int effectiveNumWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
     // Loop through neighbor nodes with Top N (-lDEGN) degrees
     // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
-    unsigned num_added = 0;
     for (i=0; i<effectiveNumWindowRepLimit; i++) {
         max_deg = deg_arr[i];
         for(j=0; j<tie_count; j++) {
             if (G->degree[next_step_arr[j]] == max_deg) {
-                num_added++;
-                SetAdd(prev_nodes, next_step_arr[j]);
-                SampleGraphletIndexAndPrint(G, prev_nodes, numSamplesPerNode, tempCountPtr);
-                SetDelete(prev_nodes, next_step_arr[j]);
+                prev_nodes_array[prev_nodes_count] = next_step_arr[j];
+                SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr);
+                // we don't need to unset prev_nodes_array[prev_nodes_count] because it'll get overwritten anyways
             }
         }
     }
