@@ -337,7 +337,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         SET *prev_nodes = SetAlloc(G->n);
         for(i=0; i<G->n; i++) {
             SetAdd(prev_nodes, i);
-            BuildGraphletsAsSeeds(G, prev_nodes, numSamples, &count);
+            buildGraphlets(G, prev_nodes, numSamples, &count);
             assert(SetCardinality(prev_nodes) == 1);
             SetDelete(prev_nodes, i);
             count = 0;
@@ -729,18 +729,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
-/**
- * This function builds graphlets (seeds) for -s SEEDS mode. For each valid sample it takes, it calls the processGraphlet
- * function to print the graphlet directly
- *
- * @param G the graph
- * @param prev_nodes  the temporary set of nodes in the graphlet to build
- * @param numSamplesPerNode  the number of samples to take for each node as the start node in the determistic walk
- * @param tempCountPtr  the pointer to the temporary count of the number of samples taken so far; when the temporary
- *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
- *                      being processed
- */
-void BuildGraphletsAsSeeds(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr) {
+void buildGraphlets(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr) {
     int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
     int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);   // keep track of added nodes
     assert(prev_nodes_count == SetCardinality(prev_nodes));
@@ -778,6 +767,7 @@ void BuildGraphletsAsSeeds(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int
     SetFree(deg_set);
     qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order
     _numWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
+    // fixme: should not update the limit here
     // Loop through neighbor nodes with Top N (-lDEGN) degrees
     // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
     for (i=0; i<_numWindowRepLimit; i++) {
@@ -785,7 +775,7 @@ void BuildGraphletsAsSeeds(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int
         for(j=0; j<tie_count; j++) {
             if (G->degree[next_step_arr[j]] == max_deg) {
                 SetAdd(prev_nodes, next_step_arr[j]);
-                BuildGraphletsAsSeeds(G, prev_nodes, numSamplesPerNode, tempCountPtr);
+                buildGraphlets(G, prev_nodes, numSamplesPerNode, tempCountPtr);
                 SetDelete(prev_nodes, next_step_arr[j]);
             }
         }
@@ -808,7 +798,7 @@ const char const * const USAGE =
 "	RES (Lu Bressan's reservoir): also asymptotically correct but slower than MCMC, also duplicates\n"\
 "	NBE (node based expansion): start with a random node each time and expand randomly outward (fewer duplicates)\n"\
 "	EBE (edge based expansion): faster than NBE on very dense networks but more biased results.\n"\
-"	SEEDS: sample the given amount (numSamples) of graphlets for each node in the network deterministically. Requires k to be 6 or greater\n"\
+"	SEEDS: sample n graphlets for each node in the network deterministically\n"\
 "	AR (Accept-Reject): EXTREMELY SLOW but asymptotically correct: pick k nodes entirely at random, reject if\n"\
 "	    resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
 "    graphInputFile: graph must be in one of the following formats with its extension name:\n"\
