@@ -2,7 +2,6 @@
 #include "blant-output.h"
 #include "blant-kovacs.h"
 #include "blant-utils.h"
-#include "blant-sampling.h"
 
 void PrintNode(int v, char c) {
 #if SHAWN_AND_ZICAN
@@ -180,7 +179,11 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
     Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
     int Gint = TinyGraph2Int(g,k), j, GintOrdinal=_K[Gint];
-
+    if (_window && _windowSize == 1 && !SetIn(_windowRep_unambig_set, GintOrdinal)) {
+	// the graphlet is "ambiguous", so we don't print it and return directly
+        return false;
+    }
+    if (_window)
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
@@ -193,7 +196,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	if(NodeSetSeenRecently(G, Varray,k) || _sampleMethod == SAMPLE_SEEDS && !SetIn(_windowRep_unambig_set, GintOrdinal)) processed=false;
+	if(NodeSetSeenRecently(G, Varray,k)) processed=false;
 	else PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case indexMotifs: case indexMotifOrbits:
@@ -213,7 +216,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	if(NodeSetSeenRecently(G,Varray,k) || _sampleMethod == SAMPLE_SEEDS && !SetIn(_windowRep_unambig_set, GintOrdinal)) processed=false;
+	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case outputGDV:

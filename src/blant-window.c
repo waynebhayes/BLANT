@@ -413,3 +413,69 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
         default: Abort("ProcessWindowRep: unknown or un-implemented outputMode");
     }
 }
+
+void buildTGraphlet(GRAPH* G, SET* prev_nodes, int numSamples, int *count) {
+    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
+    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);   // keep track of added nodes
+    assert(prev_nodes_count == SetCardinality(prev_nodes));
+    TINY_GRAPH *g = TinyGraphAlloc(_k);
+
+    // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
+    // If (-n N) flag is not given, then will return all satisfied windowReps.
+    if (numSamples != 0 && *count >= numSamples) return;  // already enough samples found, no need to search further
+    if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
+        char perm[maxK+1];
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g);
+        *count = *count + 1;
+        return;
+    }
+
+    // Find neighboring nodes from the added nodes set
+    SET *deg_set = SetAlloc(G->n);
+    SET *next_step = SetAlloc(G->n);
+    for(i=0; i<prev_nodes_count; i++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+            neigh = G->neighbor[prev_nodes_array[i]][j];
+            if(!SetIn(prev_nodes, neigh)) {
+                SetAdd(deg_set, G->degree[neigh]);
+                SetAdd(next_step, neigh);
+            }
+        }
+    }
+    tie_count = SetCardinality(next_step);
+    deg_count = SetCardinality(deg_set);
+    int next_step_arr[tie_count];
+    int deg_arr[deg_count];
+    assert(SetToArray(next_step_arr, next_step) == tie_count);
+    assert(SetToArray(deg_arr, deg_set) == deg_count);
+    SetFree(next_step);
+    SetFree(deg_set);
+    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order
+    _numWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
+    // Loop through neighbor nodes with Top N (-lDEGN) degrees
+    // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
+    for (i=0; i<_numWindowRepLimit; i++) {
+        max_deg = deg_arr[i];
+        for(j=0; j<tie_count; j++) {
+            if (G->degree[next_step_arr[j]] == max_deg) {
+                SetAdd(prev_nodes, next_step_arr[j]);
+                buildTGraphlet(G, prev_nodes, numSamples, count);
+                SetDelete(prev_nodes, next_step_arr[j]);
+            }
+        }
+    }
+}
+
+int ExpandSeedsT1(GRAPH* G, int numSamples) {
+    int i, count = 0;
+    SET *prev_nodes = SetAlloc(G->n);
+    for(i=0; i<G->n; i++) {
+        SetAdd(prev_nodes, i);
+        buildTGraphlet(G, prev_nodes, numSamples, &count);
+        assert(SetCardinality(prev_nodes) == 1);
+        SetDelete(prev_nodes, i);
+        count = 0;
+    }
+    SetFree(prev_nodes);
+    return 0;
+}

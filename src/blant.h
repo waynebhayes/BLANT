@@ -122,6 +122,5 @@ SET *canonListPopulate(char *BUF, int *canon_list, int k); // returns a SET cont
 int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
-void buildGraphlets(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr);
 
 #endif
