@@ -329,27 +329,45 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(g, G, Varray);
     }
-    for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
-    {
-        if(_window) {
-            SampleGraphlet(G, V, Varray, _windowSize);
-            _numWindowRep = 0;
-            if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
-                windowRepInt = getMaximumIntNumber(_k);
-            if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
-                windowRepInt = -1;
-            D = _k * (_k - 1) / 2;
-            FindWindowRepInWindow(G, V, &windowRepInt, &D, perm);
-            if(_numWindowRep > 0)
-                ProcessWindowRep(G, Varray, windowRepInt);
+    if (_sampleMethod == SAMPLE_INDEX) { // sample numSamples graphlets for each node in the graph
+		if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
+			Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
+		}
+        int i, count = 0;
+        SET *prev_nodes = SetAlloc(G->n);
+        for(i=0; i<G->n; i++) {
+            SetAdd(prev_nodes, i);
+            SampleGraphletIndexAndPrint(G, prev_nodes, numSamples, &count);
+            assert(SetCardinality(prev_nodes) == 1);
+            SetDelete(prev_nodes, i);
+            count = 0;
         }
-        else if (_outputMode == graphletDistribution)
-            ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
-        else {
-            SampleGraphlet(G, V, Varray, k);
-            if(!ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
+        SetFree(prev_nodes);
+    }
+    else { // sample numSamples graphlets for the entire graph
+        for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
+        {
+            if(_window) {
+                SampleGraphlet(G, V, Varray, _windowSize);
+                _numWindowRep = 0;
+                if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
+                    windowRepInt = getMaximumIntNumber(_k);
+                if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
+                    windowRepInt = -1;
+                D = _k * (_k - 1) / 2;
+                FindWindowRepInWindow(G, V, &windowRepInt, &D, perm);
+                if(_numWindowRep > 0)
+                    ProcessWindowRep(G, Varray, windowRepInt);
+            }
+            else if (_outputMode == graphletDistribution)
+                ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
+            else {
+                SampleGraphlet(G, V, Varray, k);
+                if(!ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
+            }
         }
     }
+
     if(_window) {
         for(i=0; i<_numWindowRepArrSize; i++)
             free(_windowReps[i]);
@@ -550,6 +568,10 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
+    if (_sampleMethod == SAMPLE_INDEX)
+        Fatal("The sampling method '-s INDEX' does not yet support multithreading (feel free to add it!)");
+
+
     // At this point, _THREADS must be greater than 1.
     int samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
 
@@ -714,15 +736,25 @@ const char const * const USAGE =
 "USAGE: blant [OPTIONS] -k K -n numSamples -s samplingMethod graphInputFile\n"\
 "where the following are REQUIRED:\n"\
 "    K is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
-"    numSamples is the number of samples to take (try 1000000 or 1000000000)\n"\
+"    numSamples is the number of graphlet samples to take (large samples are recommended), except in INDEX sampling mode,\n"\
+"	where it specifies the maximum number of samples to take from each node in the graph.\n"\
 "	(note: -c {confidence} option is mutually exclusive to -n but is pending implementation)\n"\
 "    samplingMethod is:\n"\
-"	MCMC (Markov Chain Monte Carlo): asymptotically correct statistics but many duplicates in indexing modes\n"\
-"	RES (Lu Bressan's reservoir): also asymptotically correct but slower than MCMC, also duplicates\n"\
-"	NBE (node based expansion): start with a random node each time and expand randomly outward (fewer duplicates)\n"\
-"	EBE (edge based expansion): faster than NBE on very dense networks but more biased results.\n"\
+"	NBE (node-based expansion): pick a node at random and add it to the node set S; add new nodes by choosing uniformly\n"\
+"           at random from all nodes one step outside S. (Fast on sparse networks, slightly biased counts)\n"\
+"	EBE (edge-based expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
+"           uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
+"	MCMC (Markov Chain Monte Carlo): Build the first set S of k nodes using NBE; then randomly remove and add nodes to S\n"\
+"           using an MCMC graph walking algorithm with restarts. (Asymptotically correct relative graphlet frequencies when\n"\
+"           using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
+"           duplicates in indexing modes.)\n"\
+"	RES (Lu Bressan's reservoir sampling): also asymptotically correct but much slower than MCMC.\n"\
 "	AR (Accept-Reject): EXTREMELY SLOW but asymptotically correct: pick k nodes entirely at random, reject if\n"\
 "	    resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
+"	INDEX: unlike all other sampling methods that use randomness, this mode is deterministic: for each node v in the graph,\n"\
+"           build a topologically deterministic set of k-graphlets to be used as indices for seed-and-extend local\n"\
+"           alignments (using, eg., our onw Dijkstra-inspired local aligner--see Dijkstra diretory). When using INDEX sampling,\n"\
+"           the -n command-line option specifies the maximum number of index entries per starting node v.\n"\
 "    graphInputFile: graph must be in one of the following formats with its extension name:\n"\
 "	Edgelist (.el), LEDA(.leda), GML (.gml), GraphML (.xml), LGF(.lgf), CSV(.csv)\n"\
 "	(extensions .gz and .xz are automatically decompressed using gunzip and unxz, respectively)\n"\
@@ -747,7 +779,7 @@ const char const * const USAGE =
 "Less Common OPTIONS:\n"\
 "    -t threads: (default=1): parallellism to speed up sampling (not implemented for all methods yet)\n"\
 "    -r seed: pick your own random seed\n"\
-"    -w windowSize: DEPRECATED except for w=1, in which case k must be 6 or greater. (use '-h' option for more)",
+"    -w windowSize: DEPRECATED. (use '-h' option for more)",
 * const USAGE2 = \
 "	-p windowRepSamplingMethod: (deprecated) one of the below, possibly with prefix [u|U] (meaning unambiguous)\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
@@ -857,6 +889,8 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_RESERVOIR;
 	    else if (strncmp(optarg, "AR", 2) == 0)
 		_sampleMethod = SAMPLE_ACCEPT_REJECT;
+	    else if (strncmp(optarg, "INDEX", 5) == 0)
+        _sampleMethod = SAMPLE_INDEX;
 	    else
 	    {
 		_sampleFileName = optarg;
@@ -953,7 +987,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if (_windowSize == 1 && _k <= 5) Fatal("k is %d but must be between larger than 5 for window size of 1 since there are no unambiguous graphlets for k<=5",_k);
+    if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be between larger than 5 for INDEX sampling method since there are no unambiguous graphlets for k<=5",_k);
 
     if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
@@ -999,7 +1033,7 @@ int main(int argc, char *argv[])
 		if (_windowRep_min_num_edge < 0) Fatal("WindowRep minimum number of edges must be larger than 0. Check edge density\n");
     }
 
-    if (_windowRep_unambig || _window && _windowSize < 3){
+    if (_windowRep_unambig || _sampleMethod == SAMPLE_INDEX){
         _windowRep_unambig_set = SetAlloc(_numCanon);
         SET *orbit_temp = SetAlloc(_numOrbits);
         for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i)
@@ -1109,12 +1143,7 @@ int main(int argc, char *argv[])
         exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
-    if(_windowSize == 1) { // -w1 mode used for deterministic walk
-        if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
-            Fatal("currently only -mi and -mj output modes are supported for -w1 option");
-        }
-        exitStatus = ExpandSeedsT1(G, numSamples);
-    } else
+
 	exitStatus = RunBlantInThreads(_k, numSamples, G);
 #endif
     return exitStatus;
