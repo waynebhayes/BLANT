@@ -5,7 +5,6 @@
 #include "graph.h"
 #include "queue.h"
 #include "multisets.h"
-#include "blant-output.h"
 
 int _sampleMethod = -1;
 FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
@@ -894,72 +893,6 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 	}
 	return V;
 }
-
-
-/**
- * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes, it calls the processGraphlet
- * function to print the graphlet directly. It is called inside RunBlantFromGraph function to take the given amount of
- * samples (the amount is given with -n option) for each node in the graph as the start node
- *
- * @param G the graph
- * @param prev_nodes  the temporary set of nodes in the graphlet to build
- * @param numSamplesPerNode  the number of samples to take for each node as the start node in the determistic walk
- * @param tempCountPtr  the pointer to the temporary count of the number of samples taken so far; when the temporary
- *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
- *                      being processed in RunBlantFromGraph function
- */
-void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr) {
-    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
-    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);   // keep track of added nodes
-    assert(prev_nodes_count == SetCardinality(prev_nodes));
-    TINY_GRAPH *g = TinyGraphAlloc(_k);
-
-    // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
-    // If (-n N) flag is not given, then will return all satisfied windowReps.
-    if (numSamplesPerNode != 0 && *tempCountPtr >= numSamplesPerNode) return;  // already enough samples found, no need to search further
-    if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
-        char perm[maxK+1];
-        if (ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g))
-            *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies the multiplicity constraint
-        return;
-    }
-
-    // Find neighboring nodes from the added nodes set
-    SET *deg_set = SetAlloc(G->n);
-    SET *next_step = SetAlloc(G->n);
-    for(i=0; i<prev_nodes_count; i++) {
-        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
-            neigh = G->neighbor[prev_nodes_array[i]][j];
-            if(!SetIn(prev_nodes, neigh)) {
-                SetAdd(deg_set, G->degree[neigh]);
-                SetAdd(next_step, neigh);
-            }
-        }
-    }
-    tie_count = SetCardinality(next_step);
-    deg_count = SetCardinality(deg_set);
-    int next_step_arr[tie_count];
-    int deg_arr[deg_count];
-    assert(SetToArray(next_step_arr, next_step) == tie_count);
-    assert(SetToArray(deg_arr, deg_set) == deg_count);
-    SetFree(next_step);
-    SetFree(deg_set);
-    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order
-    _numWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
-    // Loop through neighbor nodes with Top N (-lDEGN) degrees
-    // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
-    for (i=0; i<_numWindowRepLimit; i++) {
-        max_deg = deg_arr[i];
-        for(j=0; j<tie_count; j++) {
-            if (G->degree[next_step_arr[j]] == max_deg) {
-                SetAdd(prev_nodes, next_step_arr[j]);
-                SampleGraphletIndexAndPrint(G, prev_nodes, numSamplesPerNode, tempCountPtr);
-                SetDelete(prev_nodes, next_step_arr[j]);
-            }
-        }
-    }
-}
-
 
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     int cc;
