@@ -5,11 +5,6 @@
 #include "blant-sampling.h"
 
 void PrintNode(int v, char c) {
-    /*int i;
-    for (i = 0; i < 424; ++i) {
-        fprintf(stderr, "%d %s\n", i, _nodeNames[i]);
-    }
-    exit(0);*/
 #if SHAWN_AND_ZICAN
     printf("%s", _nodeNames[v]);
 #else
