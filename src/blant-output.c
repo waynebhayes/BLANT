@@ -198,7 +198,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	if(/*NodeSetSeenRecently(G, Varray,k) || */_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_unambig_set, GintOrdinal)) processed=false;
+	if(/*NodeSetSeenRecently(G, Varray,k) || */_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) processed=false;
 	else PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case indexMotifs: case indexMotifOrbits:
@@ -218,7 +218,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	if(NodeSetSeenRecently(G,Varray,k) || _sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_unambig_set, GintOrdinal)) processed=false;
+	if(NodeSetSeenRecently(G,Varray,k) || _sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) processed=false;
 	else PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, k);
 	break;
     case outputGDV:

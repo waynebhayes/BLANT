@@ -335,12 +335,11 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		}
         int i, count = 0;
         int prev_nodes_array[_k];
+
         for(i=0; i<G->n; i++) {
-            // fprintf(stderr, "PAT DEBUG starting node %d out of %d\n", i, G->n);
             prev_nodes_array[0] = i;
             SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count);
             count = 0;
-            // fprintf(stderr, "PAT DEBUG done with node %d out of %d\n", i, G->n);
         }
     }
     else { // sample numSamples graphlets for the entire graph
@@ -780,7 +779,7 @@ const char const * const USAGE =
 "    -r seed: pick your own random seed\n"\
 "    -w windowSize: DEPRECATED. (use '-h' option for more)",
 * const USAGE2 = \
-"	-p windowRepSamplingMethod: (deprecated) one of the below, possibly with prefix [u|U] (meaning unambiguous)\n"\
+"	-p windowRepSamplingMethod: (deprecated) one of the below\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
 "	    LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer)\n"\
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
@@ -917,8 +916,6 @@ int main(int argc, char *argv[])
 	    break;
 	case 'w': _window = true; _windowSize = atoi(optarg); break;
 	case 'p':
-	    if (*optarg == 'u' | *optarg == 'U')
-		{_windowRep_unambig = true; optarg += 1;}
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
 	    else if (strncmp(optarg, "DMIN", 4) == 0)
 		_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
@@ -1032,11 +1029,10 @@ int main(int argc, char *argv[])
 		if (_windowRep_min_num_edge < 0) Fatal("WindowRep minimum number of edges must be larger than 0. Check edge density\n");
     }
 
-    if (_windowRep_unambig || _sampleMethod == SAMPLE_INDEX){
-        _windowRep_unambig_set = SetAlloc(_numCanon);
-        SET *orbit_temp = SetAlloc(_numOrbits);
-        for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i)
-        {
+    _windowRep_allowed_ambig_set = SetAlloc(_numCanon);
+    SET *orbit_temp = SetAlloc(_numOrbits);
+    for(i=0; i<_numCanon; i++) {
+        if (SetIn(_connectedCanonicals, i)) {
             // calculate number of permutations for the given canonical graphlet (loop through all unique orbits and count how many times they appear)
             // the formula is for every unique orbit, multiply the number of permutations by the factorial of how many appearances that unique orbit has
             // if there is one orbit with three nodes and a second orbit with 2 nodes, the number of permutations would be (3!)(2!)
@@ -1062,12 +1058,12 @@ int main(int argc, char *argv[])
 
             // I know it's inefficient to put multiplicity here instead of around the whole orbit perm calculation code but it increases readability, at least until orbit perm calculation is put into a function
             if(multiplicity == 0 || total_orbit_perms <= multiplicity) { // multiplicity = 0 means any ambiguity is allowed
-                SetAdd(_windowRep_unambig_set, i);
+                SetAdd(_windowRep_allowed_ambig_set, i);
             }
             SetEmpty(orbit_temp);
         }
-        SetFree(orbit_temp);
     }
+    SetFree(orbit_temp);
 
 #if SHAWN_AND_ZICAN
   #if CPP_CALLS_C  // false by default

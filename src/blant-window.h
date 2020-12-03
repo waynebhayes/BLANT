@@ -33,8 +33,7 @@ extern int _numWindowRepArrSize;
 
 extern int _windowSize;
 extern Boolean _window;
-extern Boolean _windowRep_unambig;
-extern SET *_windowRep_unambig_set;
+extern SET *_windowRep_allowed_ambig_set;
 extern int _windowRep_min_num_edge;
 extern float *_graphNodeImportance;
 extern Boolean _supportNodeImportance;

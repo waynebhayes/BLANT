@@ -895,17 +895,7 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 	return V;
 }
 
-
-// PAT DEBUG
-void printArray(char* arrName, int* arr, int size) {
-    fprintf(stderr, " %s (%d): ", arrName, size);
-    int i;
-    for(i=0; i<size; i++) {
-        fprintf(stderr, "%d ", arr[i]);
-    }
-    fprintf(stderr, "\n");
-}
-
+// should probably move this somewhere
 Boolean arrayIn(int* arr, int size, int item) {
     int i;
     for(i=0; i<size; i++) {
@@ -944,7 +934,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     }
     
     // Populate next_step with the following algorithm
-    // Intuition: Patrick will write later (PAT DEBUG)
+    // Intuition: check "Antidup Algorithm" Google Doc (https://docs.google.com/document/d/1ABv_XBYKbOOZeBMEILDdt7Q4YaAAzrVjnht_3Vf_G4U/edit?usp=sharing)
     // Implementation: first, fill out rolling_max by going backwards in the array
     rolling_max[prev_nodes_count-1] = prev_nodes_array[prev_nodes_count-1];
     for(i=prev_nodes_count-2; i>=0; i--) {
