@@ -12,6 +12,8 @@ from measures import edgecoverage
 import uuid
 import sys
 import structs
+import random
+random.seed(0)
 
 class Alignment:
     def __init__(self, seed, m, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0.0, alpha=0.0, delta=0.0, seednum=0, outputdir="",timestop=-1, alignstop=1000):
@@ -283,15 +285,15 @@ def append_result(g1,g2, curralign):
         f.write('\n')
 
 def get_n1n2M(g1,g2,g1node,g2node,curralign):
-    n1 = num_edges_back_to_subgraph(g1, g1node, curralign.g1alignednodes)
-    n2 = num_edges_back_to_subgraph(g2, g2node, curralign.g2alignednodes)
-    M = num_edge_pairs_back_to_subgraph(g1, g2, g1node, g2node, curralign.aligned_pairs)
-    # assert (M <= n1 and M <= n2), f"M={M}, n1={n1}, n2={n2}, nodes=({g1node},{g2node}), curralign=({curralign.aligned_pairs})"
-    # n1, n2, M = 0, 0, 0
-    # for node1, node2 in curralign.aligned_pairs:
-    #     n1 += g1.has_edge(g1node, node1)
-    #     n2 += g2.has_edge(g2node, node2)
-    #     M += g1.has_edge(g1node, node1) and g2.has_edge(g2node, node2)
+    # n1 = num_edges_back_to_subgraph(g1, g1node, curralign.g1alignednodes)
+    # n2 = num_edges_back_to_subgraph(g2, g2node, curralign.g2alignednodes)
+    # M = num_edge_pairs_back_to_subgraph(g1, g2, g1node, g2node, curralign.aligned_pairs)
+    # # assert (M <= n1 and M <= n2), f"M={M}, n1={n1}, n2={n2}, nodes=({g1node},{g2node}), curralign=({curralign.aligned_pairs})"
+    n1, n2, M = 0, 0, 0
+    for node1, node2 in curralign.aligned_pairs:
+        n1 += g1.has_edge(g1node, node1)
+        n2 += g2.has_edge(g2node, node2)
+        M += g1.has_edge(g1node, node1) and g2.has_edge(g2node, node2)
     return n1, n2, M
 
 
@@ -372,6 +374,8 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
             curralign.g2alignednodes.add(g2node)
             curralign.aligned_pairs.add((g1node, g2node))
 
+            print(g1node, g2node)
+            
             # update E1, E2, EA
             E1 += n1
             E2 += n2

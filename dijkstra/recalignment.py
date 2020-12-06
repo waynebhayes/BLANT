@@ -240,8 +240,8 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
     if curralign.numaligns > curralign.alignstop:
         sys.exit()
 
-    #if curralign.timestop and curralign.currtime >= curralign.timestop:
-    #    sys.exit()
+    if curralign.timestop and curralign.currtime >= curralign.timestop:
+       sys.exit()
 
     start1 = time.time()
    
@@ -262,8 +262,8 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
     curralign.currtime += interval1
     while(True): 
         try:
-            #if curralign.timestop and  curralign.currtime >= curralign.timestop:
-            #    sys.exit()
+            if curralign.timestop and  curralign.currtime >= curralign.timestop:
+               sys.exit()
 
             start2 = time.time()
 
@@ -281,7 +281,7 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
             mval = curralign.edge_freq[pair][0]
             n1val = curralign.edge_freq[pair][1]
             n2val = curralign.edge_freq[pair][2]
-            assert n1val >= mval and n2val >= mval, "mval is smaller than n1val and n2val"
+            # assert n1val >= mval and n2val >= mval, "mval is smaller than n1val and n2val"
             S=len(curralign.aligned_pairs)
             newed = (curralign.EA+mval)/(((S+1)*S)/2)
            
@@ -378,7 +378,7 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
                 n1 = num_edges_back_to_subgraph(g1, node1, curralign.g1alignednodes)   
                 n2 = num_edges_back_to_subgraph(g2, node2, curralign.g2alignednodes)   
                 M = num_edge_pairs_back_to_subgraph(g1, g2, node1, node2, curralign.aligned_pairs)            
-                assert(M <= n1 and M <= n2), f"M={M}, n1={n1}, n2={n2}, nodes=({g1node},{g2node})"
+                # assert(M <= n1 and M <= n2), f"M={M}, n1={n1}, n2={n2}, nodes=({g1node},{g2node})"
                 curralign.edge_freq[(node1, node2)] = [M, n1, n2]
                 val = curralign.edge_freq[(node1, node2)][0]
                 curralign.pq.add((val, (node1,node2))) 

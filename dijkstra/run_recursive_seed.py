@@ -82,14 +82,14 @@ if __name__ == '__main__':
         print("Building sim..")
         sims = builder.get_sim(args.sim, graph1, graph2, args.pickle)
         print("sim built")
-        #recalignment.rec_align(graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, timestop=timestop_arg, debug=args.debugval)   
-        p = multiprocessing.Process(target=recalignment.rec_align, name = "alignfunc", args=((graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, args.alignstop,timestop_arg, args.debugval)))
-        p.start()
-        p.join(timestop_arg)
-        #time.sleep(timestop_arg)
-        if p.is_alive():
-            p.terminate()
-            p.join()
+        recalignment.rec_align(graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, alignstop=args.alignstop, timestop=timestop_arg, debug=args.debugval)
+        # p = multiprocessing.Process(target=recalignment.rec_align, name = "alignfunc", args=((graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, args.alignstop,timestop_arg, args.debugval)))
+        # p.start()
+        # p.join(timestop_arg)
+        # time.sleep(timestop_arg)
+        # if p.is_alive():
+        #     p.terminate()
+        #     p.join()
 
     else:
         p = multiprocessing.Process(target=recalignment_nosim.rec_align, name = "alignfunc", args=((graph1, graph2, seed, ec_mode, ed, e1, delta, alpha, seednum, args.outputdir, timestop_arg, args.debugval)))
