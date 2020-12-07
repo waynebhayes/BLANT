@@ -919,7 +919,7 @@ Boolean arrayIn(int* arr, int size, int item) {
  *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
  *                      being processed in RunBlantFromGraph function
  */
-void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr) {
+void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, int *degreeOrder) {
     int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, Gint, rolling_max[prev_nodes_count];
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
@@ -936,11 +936,13 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     // Populate next_step with the following algorithm
     // Intuition: check "Antidup Algorithm" Google Doc (https://docs.google.com/document/d/1ABv_XBYKbOOZeBMEILDdt7Q4YaAAzrVjnht_3Vf_G4U/edit?usp=sharing)
     // Implementation: first, fill out rolling_max by going backwards in the array
-    rolling_max[prev_nodes_count-1] = prev_nodes_array[prev_nodes_count-1];
+    int last_degree_order = degreeOrder[prev_nodes_array[prev_nodes_count-1]];
+    rolling_max[prev_nodes_count-1] = last_degree_order;
     for(i=prev_nodes_count-2; i>=0; i--) {
         int curr_node = prev_nodes_array[i];
-        if (curr_node > rolling_max[i + 1]) {
-            rolling_max[i] = curr_node;
+        int curr_degree_order = degreeOrder[curr_node];
+        if (curr_degree_order > rolling_max[i + 1]) {
+            rolling_max[i] = curr_degree_order;
         } else {
             rolling_max[i] = rolling_max[i + 1];
         }
@@ -949,19 +951,21 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     SET *next_step = SetAlloc(G->n);
     SET *deg_set = SetAlloc(G->n);
     SET *all_neighbors = SetAlloc(G->n);
+    int first_degree_order = degreeOrder[prev_nodes_array[0]];
     for(i=0; i<prev_nodes_count; i++) {
         for(j=0; j<G->degree[prev_nodes_array[i]]; j++) { // loop through all neighbors for the current node
             neigh = G->neighbor[prev_nodes_array[i]][j];
+            int neigh_degree_order = degreeOrder[neigh];
             if (!SetIn(all_neighbors, neigh) && !arrayIn(prev_nodes_array, prev_nodes_count, neigh)) { // we're only processing it if it's not an old neighbor and it's not a node in the graphlet we're building
                 Boolean neigh_is_valid = true;
                 if (i == prev_nodes_count - 1) {
-                    if (neigh > prev_nodes_array[0]) {
+                    if (neigh_degree_order > first_degree_order) {
                         neigh_is_valid = true;
                     } else {
                         neigh_is_valid = false;
                     }
                 } else {
-                    if (neigh > rolling_max[i + 1]) {
+                    if (neigh_degree_order > rolling_max[i + 1]) {
                         neigh_is_valid = true;
                     } else {
                         neigh_is_valid = false;
@@ -994,7 +998,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         for(j=0; j<tie_count; j++) {
             if (G->degree[next_step_arr[j]] == max_deg) {
                 prev_nodes_array[prev_nodes_count] = next_step_arr[j];
-                SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr);
+                SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, degreeOrder);
                 // we don't need to unset prev_nodes_array[prev_nodes_count] because it'll get overwritten anyways
             }
         }

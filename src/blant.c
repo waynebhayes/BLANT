@@ -333,14 +333,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
 			Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 		}
+
         int i, count = 0;
         int prev_nodes_array[_k];
+        int *degreeOrder = enumerateDegreeOrder(G);
 
         for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = i;
-            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count);
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, degreeOrder);
             count = 0;
         }
+
+        free(degreeOrder);
     }
     else { // sample numSamples graphlets for the entire graph
         for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)

@@ -84,6 +84,11 @@ int descompFunc(const void *a, const void *b)
     return (*j)-(*i);
 }
 
+int nwd_descompFunc(const void *a, const void *b) {
+    int i = ((node_wdegree*)a)->degree_val, j = ((node_wdegree*)b)->degree_val;
+    return j - i;
+}
+
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
 {
@@ -100,4 +105,99 @@ int getMaximumIntNumber(int K)
     assert(K >= 3 && K <= 8);
     int num_of_bits = K * (K-1) / 2;
     return pow(2, num_of_bits);
+}
+
+int* enumerateDegreeOrder(GRAPH *G) {
+    node_wdegree orderArray[G->n];
+    int i;
+
+    for (i = 0; i < G->n; ++i) {
+        orderArray[i].node = i;
+    }
+
+    enumerateDegreeOrderHelper(G, orderArray, 0, G->n, 0);
+    int* degreeOrder = malloc(sizeof(int) * G->n);
+
+    for (i = 0; i < G->n; ++i) {
+        degreeOrder[orderArray[i].node] = i;
+    }
+
+    return degreeOrder;
+}
+
+void enumerateDegreeOrderHelper(GRAPH *G, node_wdegree* orderArray, int start, int end, int layer) {
+    // fill in degree vals in orderArray based on the layer, from start to end
+    SET *old_nodes = SetAlloc(G->n);
+    SET *new_nodes = SetAlloc(G->n);
+    SET *all_nodes = SetAlloc(G->n);
+    int curr_i, curr_node, curr_layer, old_i, old_node, neigh_i, neigh_node, layer_deg_sum, i;
+
+    for (curr_i = start; curr_i < end; ++curr_i) {
+        curr_node = orderArray[curr_i].node;
+        SetAdd(old_nodes, curr_node);
+        SetAdd(all_nodes, curr_node);
+
+        for (curr_layer = 0; curr_layer < layer; ++curr_layer) {
+            int old_nodes_count = SetCardinality(old_nodes);
+            int old_nodes_arr[old_nodes_count];
+            assert(SetToArray(old_nodes_arr, old_nodes) == old_nodes_count);
+
+            for (old_i = 0; old_i < old_nodes_count; ++old_i) {
+                old_node = old_nodes_arr[old_i];
+
+                for (neigh_i = 0; neigh_i < G->degree[old_node]; ++neigh_i) {
+                    neigh_node = G->neighbor[old_node][neigh_i];
+
+                    if (!SetIn(all_nodes, neigh_node)) {
+                        SetAdd(new_nodes, neigh_node);
+                        SetAdd(all_nodes, neigh_node);
+                    }
+                }
+            }
+
+            SetFree(old_nodes); // doing this is faster than copying new_nodes to old_nodes
+            old_nodes = new_nodes;
+            new_nodes = SetAlloc(G->n);
+        }
+
+        int old_nodes_count = SetCardinality(old_nodes);
+        int old_nodes_arr[old_nodes_count];
+        assert(SetToArray(old_nodes_arr, old_nodes) == old_nodes_count);
+        layer_deg_sum = 0;
+
+        for (old_i = 0; old_i < old_nodes_count; ++old_i) {
+            old_node = old_nodes_arr[old_i];
+            layer_deg_sum += G->degree[old_node];
+        }
+
+        orderArray[curr_i].degree_val = layer_deg_sum;
+        SetEmpty(old_nodes);
+        SetEmpty(all_nodes);
+    }
+
+    SetFree(old_nodes);
+    SetFree(new_nodes);
+
+    // sort start through end by degree val
+    qsort((void*)(orderArray + start), end - start, sizeof(node_wdegree), nwd_descompFunc);
+
+    // sort next layer for all tied sections between start and end
+    int new_start;
+    int new_end;
+
+    for (i = start; i < end; ++i) {
+        if (i == start || orderArray[i].degree_val != orderArray[i - 1].degree_val) {
+            new_start = i;
+        }
+
+        if (i == end || orderArray[i].degree_val != orderArray[i + 1].degree_val) {
+            new_end = i + 1;
+
+            if (new_end - new_start >= 2) { // make sure it's a tie with more than one number
+                if (orderArray[i].degree_val != 0) { // if the degree is 0, it's an edge case because none of the nodes' degree_vals will change, causing an infinite loop
+                    enumerateDegreeOrderHelper(G, orderArray, new_start, new_end, layer + 1);
+                }
+            }
+        }
+    }
 }
