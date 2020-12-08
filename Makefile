@@ -1,15 +1,35 @@
+# Number of cores to use when invoking parallelism
+ifndef CORES
+    CORES := 2
+endif
+
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
-LIBWAYNE=-O3 -I ./libwayne/include -L libwayne -lwayne -lm $(STACKSIZE) # -static OPTIMIZED
-#LIBWAYNE=-O0 -I ./libwayne/include -L libwayne -lwayne-g  -lm -ggdb $(STACKSIZE) # for debugging
-#LIBWAYNE=-I ./libwayne/include -L libwayne -lwayne-pg -lm -pg   # for profiling
+export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
+LIBWAYNE_OPTS=-O3 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(STACKSIZE) # -static OPTIMIZED
+#LIBWAYNE_OPTS=-O0 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-g  -lm -ggdb $(STACKSIZE) # for debugging
+#LIBWAYNE_OPTS=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-pg -lm -pg  # for profiling
 
-CC=gcc
+# Name of BLANT source directory
+SRCDIR = src
+# Put all c files in SRCDIR below.
+BLANT_SRCS = blant.c \
+			 blant-window.c \
+			 blant-output.c \
+			 blant-kovacs.c \
+			 blant-utils.c \
+			 blant-sampling.c \
+			 blant-synth-graph.c
+
+OBJDIR = _objs
+OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
+CC=gcc -O3 #-ggdb
 CXX=g++
 
 ### Generated File Lists ###
-EIGHT := 8#
-K := 3 4 5 6 7 $(EIGHT)
+EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
+SEVEN := 7# Same as above but be aware windowRep regression will fail
+K := 3 4 5 6 $(SEVEN) $(EIGHT)
 canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
 perm_map_bins := $(foreach k,$(K), canon_maps/perm_map$(k).bin)
 canon_map_txts := $(foreach k,$(K), canon_maps/canon_map$(k).txt)
@@ -21,79 +41,99 @@ canon_map_files := $(canon_map_bins) $(perm_map_bins) $(canon_map_txts) $(canon_
 ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
 alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
 alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
-subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt)
+subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
-most: libwayne/made blant $(canon_map_files) magic_table $(alpha_nbe_txts) $(alpha_mcmc_txts) $(ehd_txts) Draw subcanon_maps
+base: .firsttime $(LIBWAYNE_HOME)/made blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table test_maps test_sanity
 
-all: most test_maps test_blant
+.firsttime:
+	@echo "This may take 30-60 minutes unless EIGHT is commented out in the Makefile"
+	@echo "(You will only see this message once on a 'pristine' repo. Pausing 10 seconds...)"
+	@sleep 10
+	@touch .firsttime
 
-.PHONY: all most test_blant test_maps realclean clean_canon_maps
+most: base Draw subcanon_maps
+
+test_all: test_freq test_GDV
+
+all: most $(ehd_txts) test_all
+
+canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
+
+.PHONY: all most test_blant test_maps pristine clean_canon_maps
 
 ### Executables ###
 
-fast-canon-map: libwayne/made fast-canon-map.c | blant.h libblant.o
-	$(CC) '-std=c99' -O3 -o $@ libblant.o fast-canon-map.c $(LIBWAYNE)
+fast-canon-map: $(LIBWAYNE_HOME)/made $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_OPTS)
 
-slow-canon-maps: libwayne/made slow-canon-maps.c | blant.h libblant.o
-	$(CC) -o $@ libblant.o slow-canon-maps.c $(LIBWAYNE)
+slow-canon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_OPTS)
 
-make-orbit-maps: libwayne/made make-orbit-maps.c | blant.h libblant.o
-	$(CC) -o $@ libblant.o make-orbit-maps.c $(LIBWAYNE)
+make-orbit-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_OPTS)
 
-blant: libwayne/made blant.c blant.h convert.o libblant.o | libwayne/MT19937/mt19937.o
-	$(CC) -c blant.c $(LIBWAYNE)
-	$(CXX) -o $@ libblant.o blant.o convert.o $(LIBWAYNE) libwayne/MT19937/mt19937.o
+blant: $(LIBWAYNE_HOME)/made $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_OPTS) $(LIBWAYNE_HOME)/MT19937/mt19937.o
 
-synthetic: libwayne/made synthetic.c syntheticDS.h syntheticDS.c | libblant.o
-	$(CC) -c syntheticDS.c synthetic.c $(LIBWAYNE)
-	$(CXX) -o $@ syntheticDS.o libblant.o synthetic.o $(LIBWAYNE)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(LIBWAYNE_OPTS)
 
-CC: libwayne/made CC.c convert.o | blant.h libblant.o
-	$(CXX) -o $@ libblant.o CC.c convert.o $(LIBWAYNE)
+synthetic: $(LIBWAYNE_HOME)/made $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
+	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_OPTS)
+	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE_OPTS)
 
-makeEHD: libwayne/made makeEHD.c | libblant.o
-	$(CC) -c makeEHD.c $(LIBWAYNE)
-	$(CXX) -o $@ libblant.o makeEHD.o $(LIBWAYNE)
+CC: $(LIBWAYNE_HOME)/made $(SRCDIR)/CC.c $(OBJDIR)/convert.o | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE_OPTS)
 
-compute-alphas-NBE: libwayne/made compute-alphas-NBE.c | libblant.o
-	$(CC) -Wall -O3 -o $@ compute-alphas-NBE.c libblant.o $(LIBWAYNE)
+makeEHD: $(OBJDIR)/makeEHD.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_OPTS)
 
-compute-alphas-MCMC: libwayne/made compute-alphas-MCMC.c | libblant.o
-	$(CC) -Wall -O3 -o $@ compute-alphas-MCMC.c libblant.o $(LIBWAYNE)
+compute-alphas-NBE: $(LIBWAYNE_HOME)/made $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
+
+compute-alphas-MCMC: $(LIBWAYNE_HOME)/made $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
 
 Draw: Draw/graphette2dot
 
-Draw/graphette2dot: libwayne/made Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | blant.h libblant.o
-	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp libblant.o -o $@ $(LIBWAYNE)
+Draw/graphette2dot: $(LIBWAYNE_HOME)/made Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ $(LIBWAYNE_OPTS)
 
-make-subcanon-maps: libwayne/made make-subcanon-maps.c | libblant.o
-	$(CC) -Wall -o $@ make-subcanon-maps.c libblant.o $(LIBWAYNE)
+make-subcanon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
 
-make-orca-jesse-blant-table: libwayne/made magictable.cpp | libblant.o
-	$(CXX) -std=c++11 -Wall -o $@ magictable.cpp libblant.o $(LIBWAYNE)
+make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
+	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
 
 ### Object Files/Prereqs ###
 
-convert.o: convert.cpp
-	$(CXX) -std=c++11 -c convert.cpp
+$(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) -std=c++11 -c $(SRCDIR)/convert.cpp -o $@
 
-libwayne/MT19937/mt19937.o: libwayne/made
-	cd libwayne/MT19937 && $(MAKE)
+$(LIBWAYNE_HOME)/MT19937/mt19937.o: $(LIBWAYNE_HOME)/made
+	cd $(LIBWAYNE_HOME)/MT19937 && $(MAKE)
 
-libblant.o: libwayne/made libblant.c
-	$(CC) -c libblant.c $(LIBWAYNE)
+$(OBJDIR)/libblant.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/libblant.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE_OPTS) -o $@
 
-libwayne/made:
-	cd libwayne && $(MAKE) all
+$(OBJDIR)/makeEHD.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
+	@mkdir -p $(dir $@)
+	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE_OPTS) -o $@
+
+$(LIBWAYNE_HOME)/made:
+	cd $(LIBWAYNE_HOME) && $(MAKE) all
 
 ### Generated File Recipes ###
 
 canon_maps/orbit_map%.txt: make-orbit-maps | canon_maps/canon_list%.txt
 	./make-orbit-maps $* > $@
 
-canon_maps/canon_map%.bin canon_maps/perm_map%.bin: libwayne/made create-bin-data.c | libblant.o blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt
-	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* libblant.c create-bin-data.c $(LIBWAYNE)
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin: $(LIBWAYNE_HOME)/made $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_OPTS)
 	./create-bin-data$*
 	/bin/rm -f create-bin-data$*
 
@@ -102,7 +142,8 @@ canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to
 	./fast-canon-map $* | cut -f2- | tee canon_maps/canon_map$*.txt | awk '!seen[$$1]{seen[$$1]=1;numEdges[n]=$$4;connected[n]=$$3;map[n++]=$$1}END{print n;for(i=0;i<n;i++)printf "%d %d %d\n", map[i],connected[i],numEdges[i]}' | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
 
 canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_maps/canon_map%.bin
-	@if [ -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then echo "EdgeHammingDistance8.txt takes weeks to generate, and 7 can't be done on a 32-bit machine; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; else ./makeEHD $* > $@; fi
+	@if [ ! -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp canon_maps.correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
+	#(cd canon_maps.correct && ls EdgeHammingDistance$*.txt*) | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
@@ -120,44 +161,44 @@ $(subcanon_txts): .created-subcanon-maps
 magic_table: $(magic_table_txts) ;  	
 $(magic_table_txts): .created-magic-tables
 .created-magic-tables: make-orca-jesse-blant-table | $(canon_list_txts) $(canon_map_bins)
-	./make-orca-jesse-blant-table $(if $(EIGHT),8,7)
+	./make-orca-jesse-blant-table $(if $(EIGHT),8,$(if $(SEVEN),7,6))
 
 ### Testing ###
 
-blant-sanity: libwayne/made blant-sanity.c
-	$(CC) -o $@ blant-sanity.c $(LIBWAYNE)
+blant-sanity: $(LIBWAYNE_HOME)/made $(SRCDIR)/blant-sanity.c
+	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_OPTS)
 	
-test_blant: blant blant-sanity $(canon_map_bins) test_sanity test_freq test_GDV regression
-
-test_sanity:
+test_sanity: blant blant-sanity $(canon_map_bins)
 	# First run blant-sanity for various values of k
 	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
-test_freq:
-	# Test to see that for k=6, the most frequent 10 graphlets in syeast appear in the expected order in frequency
-	# Need 10 million samples to ensure with high probability we get the same graphlets.
+test_freq: blant $(canon_map_bins) 
+	# Test to see that the most frequent 10 graphlets in syeast appear in the expected order in
+	# frequency; need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t 4 -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
+	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t $(CORES) -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
 
-test_GDV:
+test_GDV: blant $(canon_map_files) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t 4 -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | ./libwayne/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | ./libwayne/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | ./libwayne/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | $(LIBWAYNE_HOME)/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
-test_maps: blant blant-sanity
-	ls canon_maps.correct/ | egrep -v '$(if $(EIGHT),,8|)README|\.xz' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
-
-regression:
-	./regression-test-all.sh
+test_maps: blant blant-sanity $(canon_map_files) $(alphas) $(subcanon_txts)
+	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.xz|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 ### Cleaning ###
 
 clean:
 	/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
+	/bin/rm -f $(OBJDIR)/*
 
-realclean: clean # also clean all canonical data and libwayne
-	cd libwayne; $(MAKE) clean
-	/bin/rm -f canon_maps/*
+realclean:
+	echo "'realclean' is now called 'pristine'; try again"
+	false
+
+pristine: clean # also clean all canonical data and libwayne
+	cd $(LIBWAYNE_HOME); $(MAKE) clean
+	/bin/rm -f canon_maps/* .firsttime
 
 clean_canon_maps:
 	/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create

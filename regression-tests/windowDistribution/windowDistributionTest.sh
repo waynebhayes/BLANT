@@ -21,7 +21,7 @@ declare -a fnames=("SCerevisiae.el" "AThaliana.el" "CElegans.el")
 for k in {3..6}; do
     for nnw in "${fnames[@]}"
     do
-        if ! [ `./blant -k$k -md -sMCMC -t5 -n$n networks/$nnw | tr ' ' '\n' | awk '{sum+=$1} END {print sum}'` -eq $n ]; then
+        if ! [ `./blant -k$k -md -sMCMC -t5 -n$n networks/$nnw | tr ' ' '\n' | awk '{sum+=$1} END {print 1*sum}'` -eq $n ]; then
             echo "Distribution table entries do not sum up to $n" >&2
             echo "cmd: ./blant -k$k -md -sMCMC -t5 -n$n networks/$nnw" >&2
             exit 1
