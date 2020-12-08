@@ -1,3 +1,8 @@
+# Number of cores to use when invoking parallelism
+ifndef CORES
+    CORES := 2
+endif
+
 CC=gcc $(OPT) $(DEBUG) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 
 default:
@@ -8,16 +13,16 @@ all:
 	/bin/rm -f *.a
 	# Make the pg versions (for profiling)
 	$(MAKE) debug_clean
-	$(MAKE) -j4 'PG=-pg' debug
+	$(MAKE) -j$(CORES) 'PG=-pg' debug
 	$(MAKE) opt_clean
-	$(MAKE) -j4 'PG=-pg' opt
+	$(MAKE) -j$(CORES) 'PG=-pg' opt
 	for i in *.a; do b=`basename $$i .a`; mv $$i $$b-pg.a; done
 	# Make the non-pg versions (for profiling)
 	$(MAKE) debug_clean
-	$(MAKE) -j4 debug
+	$(MAKE) -j$(CORES) debug
 	$(MAKE) opt_clean
-	$(MAKE) -j4 opt
-	if [ ! -x bin/stats ]; then (cd tests; make stats; mv stats ../bin); fi
+	$(MAKE) -j$(CORES) opt
+	if [ ! -x bin/stats ]; then (cd tests; $(MAKE) stats; mv stats ../bin); fi
 	touch made
 
 opt:
@@ -42,6 +47,8 @@ raw_clean:
 	cd MT19937; $(MAKE) clean
 
 clean:
+	# The following is meant to remove the non-Windows binary, ie stats but not stats.exe.
+	if arch | grep -q CYGWIN; then /bin/rm -f bin/stats; fi
 	/bin/rm -f *.a
 	$(MAKE) debug_clean
 	$(MAKE) opt_clean

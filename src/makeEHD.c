@@ -12,8 +12,8 @@
 #include "blant.h"
 #include "sets.h"
 
-static int _numCanon;
-static short int* _K;
+int _numCanon;
+short int* _K;
 
 void SetGlobalCanonMaps(int k){
     assert(3 <= k && k <= 8);

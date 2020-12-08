@@ -138,4 +138,14 @@ int gcd(int a, int b);
 int IsPrime(long long n);
 int PrimeFactors(int n, int count[]);
 
+/* Try to compute a seed that will be different for all processes even if they're all started at
+** the same time, on the same or different servers. We use the host's IPv4 address, the time
+** (to the nearest second), the process ID, and the parent process ID. The only gotcha is that
+** if you call this twice within the same second within the same process, the result will be the
+** same. But since you should *never* seed twice within the same code, that's your problem.
+** (This problem can be offset by setting "trulyRandom" to true.)
+*/
+unsigned int GetFancySeed(Boolean trulyRandom);
+
 #endif  /* _MISC_H */
+

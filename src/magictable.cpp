@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
             }
             orbitInfile.close();
         } else if (k < 8) {
-            cerr << "Warn: Expected to find num_nodes_first_orbit" << k << ".txt\n";
+            cerr << "WARNING: Expected to find num_nodes_first_orbit" << k << ".txt\n";
         }
 
         //Load upper orbit information
@@ -268,7 +268,7 @@ int main(int argc, char* argv[]) {
         ss << DIR << "orbit_map" << k << ".txt";
         orbitInfile.open(ss.str());
         if (!orbitInfile) {
-            cerr << "Warn: Failed to open: " << ss.str() << "\n";
+            cerr << "WARNING: Failed to open: " << ss.str() << "\n";
         } else {
             orbitInfile >> num;
             while (orbitInfile) {
@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
             }
             if (orbits.size() != table[i][NUM_ORBITS]) {
                 static int prev_k;
-                if(k != prev_k){
+                if(prev_k && k != prev_k){
                     cerr << "WARNING: (orbits.size() != table[i][NUM_ORBITS]) for k="<<k<<'\n';
                     prev_k = k;
                 }
