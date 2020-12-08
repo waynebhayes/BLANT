@@ -226,6 +226,7 @@ class SkipList:
 
     def pop(self, domain=0.1, fast=True):
         if fast:
+            # random value, but the first one with that value
             return self.popfast(domain)
         else:
             return self.popUniform(domain)

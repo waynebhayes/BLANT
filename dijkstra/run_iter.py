@@ -2,14 +2,7 @@ import argparse
 import iter_alignment
 import seeding
 import builder
-import lzma
-
-
-import time
 import os.path
-import time
-import uuid
-from collections import defaultdict
 
 def initParser():
     parser = argparse.ArgumentParser()
