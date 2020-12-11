@@ -60,7 +60,7 @@ done
 
 CORES=${CORES:=`cpus 2>/dev/null | awk '{c2=int($1/2); if(c2>0)print c2; else print 1}'`}
 [ "$CORES" -gt 0 ] || die "can't figure out how many cores this machine has"
-MAKE_CORES=$CORES
+MAKE_CORES=1 # for BLANT, we don't want or need paralellism during make
 
 echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
