@@ -14,9 +14,11 @@ int getMaximumIntNumber(int K);
 int asccompFunc(const foint i, const foint j);
 int descompFunc(const void *a, const void *b);
 int nwd_descompFunc(const void *a, const void *b);
+int nwd_asccompFunc(const void *a, const void *b);
 void SetGlobalCanonMaps(void);
 void LoadMagicTable();
 int* enumerateDegreeOrder(GRAPH *G);
 void enumerateDegreeOrderHelper(GRAPH *G, node_wdegree* orderArray, int start, int end, int layer);
+void antidupFillNextStepSet(SET **next_step, SET **deg_set, GRAPH *G, int *prev_nodes_array, int prev_nodes_count, int *degreeOrder);
 
 #endif

@@ -336,7 +336,13 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
         int i, count = 0;
         int prev_nodes_array[_k];
-        int *degreeOrder = enumerateDegreeOrder(G);
+        int *degreeOrder;
+        
+        if (_useAntidup) {
+            degreeOrder = enumerateDegreeOrder(G);
+        } else {
+            degreeOrder = NULL;
+        }
 
         for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = i;
@@ -344,7 +350,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             count = 0;
         }
 
-        free(degreeOrder);
+        if (degreeOrder != NULL) {
+            free(degreeOrder);
+        }
     }
     else { // sample numSamples graphlets for the entire graph
         for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
@@ -789,7 +797,8 @@ const char const * const USAGE =
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
 "	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
-"	-M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)";
+"   -M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n"\
+"   -A = use the antidup algorithm in sINDEX, which eliminates duplicates using a descending degree order\n";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -810,7 +819,7 @@ int main(int argc, char *argv[])
     _THREADS = 1;
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:A")) != -1)
     {
 	switch(opt)
 	{
@@ -982,6 +991,8 @@ int main(int argc, char *argv[])
         break;
     case 'M': multiplicity = atoi(optarg);
         if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
+        break;
+    case 'A': _useAntidup = true;
         break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}

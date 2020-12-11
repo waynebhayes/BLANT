@@ -89,6 +89,11 @@ int nwd_descompFunc(const void *a, const void *b) {
     return j - i;
 }
 
+int nwd_asccompFunc(const void *a, const void *b) {
+    int i = ((node_wdegree*)a)->degree_val, j = ((node_wdegree*)b)->degree_val;
+    return i - j;
+}
+
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
 {
@@ -126,6 +131,11 @@ int* enumerateDegreeOrder(GRAPH *G) {
 }
 
 void enumerateDegreeOrderHelper(GRAPH *G, node_wdegree* orderArray, int start, int end, int layer) {
+    // this is a temporary solution that will stop this function if it's called on two nodes with identical neighbors. this is pretty common since there are a lot of nodes of degree 1 and if both of them have the same neighbor, the algorithm will go through the entire graph before declaring them a tie. this just does that earlier while barely missing out on any real ties. I'm leaving this temporary solution here because the whole thing is temporary; I'm gonna test out many different methods of sorting the array
+    if (layer >= 3) {
+        return;
+    }
+
     // fill in degree vals in orderArray based on the layer, from start to end
     SET *old_nodes = SetAlloc(G->n);
     SET *new_nodes = SetAlloc(G->n);
@@ -200,4 +210,57 @@ void enumerateDegreeOrderHelper(GRAPH *G, node_wdegree* orderArray, int start, i
             }
         }
     }
+}
+
+void antidupFillNextStepSet(SET **next_step_pointer, SET **deg_set_pointer, GRAPH *G, int *prev_nodes_array, int prev_nodes_count, int *degreeOrder) {
+    assert(_useAntidup); // make sure this setting is set
+    assert(degreeOrder != NULL); // assert this because degreeOrder is NULL when useAntidup is true
+    int i, j, neigh, rolling_max[prev_nodes_count];
+
+    int last_degree_order = degreeOrder[prev_nodes_array[prev_nodes_count-1]];
+    rolling_max[prev_nodes_count-1] = last_degree_order;
+    for(i=prev_nodes_count-2; i>=0; i--) {
+        int curr_node = prev_nodes_array[i];
+        int curr_degree_order = degreeOrder[curr_node];
+        if (curr_degree_order > rolling_max[i + 1]) {
+            rolling_max[i] = curr_degree_order;
+        } else {
+            rolling_max[i] = rolling_max[i + 1];
+        }
+    }
+    // Then, go forwards in the array and find valid neighbors
+    SET *next_step = SetAlloc(G->n);
+    SET *deg_set = SetAlloc(G->n);
+    *next_step_pointer = next_step;
+    *deg_set_pointer = deg_set;
+    SET *all_neighbors = SetAlloc(G->n);
+    int first_degree_order = degreeOrder[prev_nodes_array[0]];
+    for(i=0; i<prev_nodes_count; i++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) { // loop through all neighbors for the current node
+            neigh = G->neighbor[prev_nodes_array[i]][j];
+            int neigh_degree_order = degreeOrder[neigh];
+            if (!SetIn(all_neighbors, neigh) && !arrayIn(prev_nodes_array, prev_nodes_count, neigh)) { // we're only processing it if it's not an old neighbor and it's not a node in the graphlet we're building
+                Boolean neigh_is_valid = true;
+                if (i == prev_nodes_count - 1) {
+                    if (neigh_degree_order > first_degree_order) {
+                        neigh_is_valid = true;
+                    } else {
+                        neigh_is_valid = false;
+                    }
+                } else {
+                    if (neigh_degree_order > rolling_max[i + 1]) {
+                        neigh_is_valid = true;
+                    } else {
+                        neigh_is_valid = false;
+                    }
+                }
+                if (neigh_is_valid) {
+                    SetAdd(next_step, neigh);
+                    SetAdd(deg_set, G->degree[neigh]);
+                }
+                SetAdd(all_neighbors, neigh);
+            }
+        }
+    }
+    SetFree(all_neighbors);
 }
