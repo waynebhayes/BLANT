@@ -333,16 +333,26 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
 			Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 		}
+
         int i, count = 0;
-        SET *prev_nodes = SetAlloc(G->n);
+        int prev_nodes_array[_k];
+        int *degreeOrder;
+        
+        if (_useAntidup) {
+            degreeOrder = enumerateDegreeOrder(G);
+        } else {
+            degreeOrder = NULL;
+        }
+
         for(i=0; i<G->n; i++) {
-            SetAdd(prev_nodes, i);
-            SampleGraphletIndexAndPrint(G, prev_nodes, numSamples, &count);
-            assert(SetCardinality(prev_nodes) == 1);
-            SetDelete(prev_nodes, i);
+            prev_nodes_array[0] = i;
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, degreeOrder);
             count = 0;
         }
-        SetFree(prev_nodes);
+
+        if (degreeOrder != NULL) {
+            free(degreeOrder);
+        }
     }
     else { // sample numSamples graphlets for the entire graph
         for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
@@ -781,13 +791,14 @@ const char const * const USAGE =
 "    -r seed: pick your own random seed\n"\
 "    -w windowSize: DEPRECATED. (use '-h' option for more)",
 * const USAGE2 = \
-"	-p windowRepSamplingMethod: (deprecated) one of the below, possibly with prefix [u|U] (meaning unambiguous)\n"\
+"	-p windowRepSamplingMethod: (deprecated) one of the below\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
 "	    LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer)\n"\
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
 "	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
-"	-M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)";
+"   -M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n"\
+"   -A = use the antidup algorithm in sINDEX, which eliminates duplicates using a descending degree order\n";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -808,7 +819,7 @@ int main(int argc, char *argv[])
     _THREADS = 1;
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:A")) != -1)
     {
 	switch(opt)
 	{
@@ -918,8 +929,6 @@ int main(int argc, char *argv[])
 	    break;
 	case 'w': _window = true; _windowSize = atoi(optarg); break;
 	case 'p':
-	    if (*optarg == 'u' | *optarg == 'U')
-		{_windowRep_unambig = true; optarg += 1;}
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
 	    else if (strncmp(optarg, "DMIN", 4) == 0)
 		_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
@@ -983,6 +992,8 @@ int main(int argc, char *argv[])
     case 'M': multiplicity = atoi(optarg);
         if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
         break;
+    case 'A': _useAntidup = true;
+        break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
@@ -1033,14 +1044,15 @@ int main(int argc, char *argv[])
 		if (_windowRep_min_num_edge < 0) Fatal("WindowRep minimum number of edges must be larger than 0. Check edge density\n");
     }
 
-    if (_windowRep_unambig || _sampleMethod == SAMPLE_INDEX){
-        _windowRep_unambig_set = SetAlloc(_numCanon);
-        SET *orbit_temp = SetAlloc(_numOrbits);
-        for(i=0; i<_numCanon; i++) if SetIn(_connectedCanonicals, i)
-        {
+    _windowRep_allowed_ambig_set = SetAlloc(_numCanon);
+    SET *orbit_temp = SetAlloc(_numOrbits);
+    for(i=0; i<_numCanon; i++) {
+        if (SetIn(_connectedCanonicals, i)) {
             // calculate number of permutations for the given canonical graphlet (loop through all unique orbits and count how many times they appear)
             // the formula is for every unique orbit, multiply the number of permutations by the factorial of how many appearances that unique orbit has
             // if there is one orbit with three nodes and a second orbit with 2 nodes, the number of permutations would be (3!)(2!)
+            // NOTE: this is not the most efficient algorithm since it doesn't use hash tables. I didn't want to overcomplicate it because it only happens once per run.
+            // however, if speed is important (this currently takes about 5 seconds on k=8) this can be sped up
             for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
             unsigned uniq_orbits[_k];
             unsigned num_uniq_orbits = SetToArray(uniq_orbits, orbit_temp);
@@ -1061,12 +1073,12 @@ int main(int argc, char *argv[])
 
             // I know it's inefficient to put multiplicity here instead of around the whole orbit perm calculation code but it increases readability, at least until orbit perm calculation is put into a function
             if(multiplicity == 0 || total_orbit_perms <= multiplicity) { // multiplicity = 0 means any ambiguity is allowed
-                SetAdd(_windowRep_unambig_set, i);
+                SetAdd(_windowRep_allowed_ambig_set, i);
             }
             SetEmpty(orbit_temp);
         }
-        SetFree(orbit_temp);
     }
+    SetFree(orbit_temp);
 
 #if SHAWN_AND_ZICAN
   #if CPP_CALLS_C  // false by default
