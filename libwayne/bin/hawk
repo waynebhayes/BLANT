@@ -1,6 +1,44 @@
-#!/bin/sh
-# Wayne Hayes's awk
+#!/bin/bash
+# hawk = Hayes awk, by Wayne Hayes (whayes@uci.edu)
+
+# Functions
+die(){ (echo "$USAGE"; echo "FATAL ERROR: $@")>&2; exit 1; }
+warn(){ (echo "WARNING: $@")>&2; }
+not(){ if eval "$@"; then return 1; else return 0; fi; }
+newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
+parse(){ awk "BEGIN{print $@}" </dev/null; }
+
+# generally useful Variables
+NL='
+'
+TAB='	'
+
+# Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
+TMP=`mktemp /tmp/hawk.XXXXXX`
+trap "/bin/rm -rf $TMP; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+
+DIR="`dirname $0`"
+TAB_CHAR=" " # space
+if [ "$1" = -T ]; then
+    TAB_CHAR="$TAB"; shift
+fi
 PROG="$1"
 shift
-hawkDir=`dirname $0`
-exec awk "`cat $hawkDir/misc.awk`$PROG" "$@"
+
+echo "`cat "$DIR/misc.awk"`$PROG" > $TMP
+
+if gawk -F "$TAB_CHAR" -f "$TMP" "$@"; then : # do nothing, just exit
+else
+    STATUS=$?
+    # egrep-like regular expression of exit status/signal names to ignore
+    IGNORE="PIPE"
+    # Automatically convert the names above to integers
+    if kill -l | fgrep -q "$TAB"; then # kill -l has the format "13) SIGPIPE", each separated by tabs
+	kill -l | tr "$TAB" "$NL"
+    else # kill -l has the format of space-separated "HUP INT QUIT", etc...
+	kill -l | newlines | grep -v IOT | nl   # but note IOT is a duplicate of TRAP--both are signal 6
+    fi | head -20 | egrep -i "$IGNORE" | awk '128+$1=='"$STATUS{good=1}END{exit !good}" && exit 0
+    echo "gawk failed with status $STATUS program file is in directory $TMP" >&2
+    trap "" 0 1 2 3 15 # do not remove file
+    exit $STATUS
+fi
