@@ -16,11 +16,11 @@ int _MAXnumWindowRep = 0;
 int _numWindowRep = 0;
 int _numWindowRepLimit = 0;
 int _numWindowRepArrSize = 100;
+Boolean _useAntidup = false;
 
 int _windowSize = 0;
 Boolean _window = false;
-Boolean _windowRep_unambig = false;
-SET *_windowRep_unambig_set;
+SET *_windowRep_allowed_ambig_set;
 int _windowRep_min_num_edge = -1;
 float *_graphNodeImportance;
 Boolean _supportNodeImportance = false;
@@ -207,7 +207,7 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextensi
     if(*varraySize == _k)
     {
         Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
-        if(!_windowRep_unambig || SetIn(_windowRep_unambig_set, _K[Gint]))
+        if(SetIn(_windowRep_allowed_ambig_set, _K[Gint]))
         	if(numEdges >= _windowRep_min_num_edge) {
                 updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
             }
@@ -340,7 +340,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char per
             Gint = combWindow2Int(windowAdjList, VArray, &numEdges);
             GintOrdinal = _K[Gint];
             if(SetIn(_connectedCanonicals, GintOrdinal) && numEdges >= _windowRep_min_num_edge)
-                if(!_windowRep_unambig || SetIn(_windowRep_unambig_set, _K[Gint]))
+                if(SetIn(_windowRep_allowed_ambig_set, _K[Gint]))
                     updateWindowRep(G, windowRepInt, D, Gint, numEdges, WArray, VArray, canonMSET, perm);
         } while(CombinNext(c));
     }
