@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <ctype.h>
+#include <errno.h>
 #include <math.h>
 #include <limits.h>
 #include "misc.h"
@@ -310,7 +312,7 @@ void convertFrequencies(int numSamples)
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
-int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+int RunBlantFromGraph(int k, int numSamples, GRAPH *G, int *indexSamplingRange)
 {
     int i,j, windowRepInt, D;
     char perm[maxK+1];
@@ -344,7 +346,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             degreeOrder = NULL;
         }
 
-        for(i=0; i<G->n; i++) {
+        for(i=indexSamplingRange[0]; i<=indexSamplingRange[1]; i++) {
             prev_nodes_array[0] = i;
             SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, degreeOrder);
             count = 0;
@@ -355,7 +357,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         }
     }
     else { // sample numSamples graphlets for the entire graph
-        for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
+        for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF) || numSamples == -1; i++) // if numSamples == -1, the loop is an infinite loop
         {
             if(_window) {
                 SampleGraphlet(G, V, Varray, _windowSize);
@@ -373,7 +375,16 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
                 ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
             else {
                 SampleGraphlet(G, V, Varray, k);
-                if(!ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
+                if(numSamples != -1 && !ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
+                if (numSamples == -1) {
+                    // simply print out all nodes in the Varray and let the parent to process the graphlet
+                    if (write(1, Varray, k * sizeof(unsigned)) == -1) {
+                        if (errno == EPIPE)
+                            break; // the parent has stopped reading, no need to continue
+                        else
+                            break; // this situation is not possible
+                    }
+                }
             }
         }
     }
@@ -489,7 +500,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 ** Caller is responsible for reading all the stuff from the returned FILE pointer,
 ** detecting EOF on it, and fclose'ing it.
 */
-FILE *ForkBlant(int k, int numSamples, GRAPH *G)
+FILE *ForkBlant(int k, int numSamples, GRAPH *G, int *indexSamplingRange)
 {
     int fds[2];
     assert(pipe(fds) >= 0);
@@ -502,6 +513,7 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
     }
     else if(pid == 0) // we are the child
     {
+        signal(SIGPIPE, SIG_IGN); // ignore the signal when writing to a pipe with a closed read end
 	_seed = threadSeed;
 	RandomSeed(_seed);
 	(void)close(fds[0]); // we will not be reading from the pipe, so close it.
@@ -512,7 +524,7 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 	// For any "counting" mode, use internal numbering when communicating through pipes to the parent
 	if(_outputMode != indexGraphlets && _outputMode != indexOrbits) _supportNodeNames = false;
 
-	RunBlantFromGraph(k, numSamples, G);
+	RunBlantFromGraph(k, numSamples, G, indexSamplingRange);
 	exit(0);
 	_exit(0);
 	Abort("Both exit() and _exit failed???");
@@ -575,34 +587,70 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
-    if(_THREADS == 1)
-	return RunBlantFromGraph(k, numSamples, G);
-
-    if (_sampleMethod == SAMPLE_INDEX)
-        Fatal("The sampling method '-s INDEX' does not yet support multithreading (feel free to add it!)");
-
-
-    // At this point, _THREADS must be greater than 1.
-    int samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
-
-    FILE *fpThreads[_THREADS]; // these will be the pipes reading output of the parallel blants
-    for(i=0;i<_THREADS;i++) {
-        _THREAD_NUM = i;
-        fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
+    int indexSamplingRange[2];
+    if(_THREADS == 1) {
+        if (_sampleMethod == SAMPLE_INDEX) {
+            indexSamplingRange[0] = 0;
+            indexSamplingRange[1] = G->n - 1;
+        }
+        return RunBlantFromGraph(k, numSamples, G, _sampleMethod == SAMPLE_INDEX ? indexSamplingRange : NULL);
     }
 
+    // At this point, _THREADS must be greater than 1.
+    int samplesPerThread = (    _outputMode == indexMotifs
+                            ||  _outputMode == indexMotifOrbits
+                            ||  _outputMode == indexOrbits
+                            ||  _outputMode == indexGraphlets) ? -1 : numSamples/_THREADS; // -1 indicates that the child processes will run infinitely until a stop signal from parent is received
+                                                                                            // will handle leftovers later if numSamples is not divisible by _THREADS
+    int startNodesPerThread = G->n / _THREADS;
+    FILE *fpThreads[_THREADS]; // these will be the pipes reading output of the parallel blants
+
+    for(i=0;i<_THREADS;i++) {
+        _THREAD_NUM = i;
+        if (_sampleMethod == SAMPLE_INDEX) {
+            indexSamplingRange[0] = i * startNodesPerThread;
+            indexSamplingRange[1] = (i + 1) * startNodesPerThread - 1;
+            fpThreads[i] = ForkBlant(_k, numSamples, G, indexSamplingRange);
+        }
+        else {
+            fpThreads[i] = ForkBlant(_k, samplesPerThread, G, NULL);
+        }
+    }
 
     int threadsDone = 0; // count of how many threads signaled EOF
     int lineNum = 0;
     do
     {
 	char line[_numOrbits * BUFSIZ];
+	unsigned Varray[_k];
 	int thread;
+	int validCount = 0;
+	char perm[maxK+1];
+	TINY_GRAPH *g = TinyGraphAlloc(_k);
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
 	    if(!fpThreads[thread]) continue; // threads that have finished output have this pointer set to NULL below
-	    char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
-	    assert(tmp>=0);
+        if ((    _outputMode == indexMotifs
+             ||  _outputMode == indexMotifOrbits
+             ||  _outputMode == indexOrbits
+             ||  _outputMode == indexGraphlets
+             )
+             && _sampleMethod != SAMPLE_INDEX
+             && !_window
+             ) {
+            if (validCount >= numSamples) { // if there are enough samples, close the fd for current thread
+                fclose(fpThreads[thread]);
+                fpThreads[thread] = NULL; // signify this pointer is finished.
+                threadsDone++;
+                continue;
+            }
+            assert(fread(Varray, sizeof(unsigned), _k, fpThreads[thread]) == _k); // read the varray for processing
+        }
+        else {
+            char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
+            assert(tmp>=0);
+        }
+
 	    if(feof(fpThreads[thread]))
 	    {
 		fclose(fpThreads[thread]);
@@ -671,10 +719,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		assert(*nextChar == '\0');
 		break;
 	    case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
-		fputs(line, stdout);
 		if(_window)
+            fputs(line, stdout);
 		    while(fgets(line, sizeof(line), fpThreads[thread]))
 			fputs(line, stdout);
+        if (_sampleMethod == SAMPLE_INDEX)
+            fputs(line, stdout);
+        else if (ProcessGraphlet(G, NULL, Varray, _k, perm, g)) validCount++;
 		break;
 	    case kovacsPairs:
 		numRead = sscanf(line, "%d%d%f",&i,&j,&fValue);
@@ -689,9 +740,26 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	lineNum++;
     } while(threadsDone < _THREADS);
 
+    if (_sampleMethod == SAMPLE_INDEX) {
+        if (G->n % _THREADS == 0) {
+            return 0;
+        }
+        indexSamplingRange[0] = _THREADS * startNodesPerThread;
+        indexSamplingRange[1] = G->n - 1;
+        return RunBlantFromGraph(_k, numSamples, G, indexSamplingRange);
+    };
+
+    if ((       _outputMode == indexMotifs
+             ||  _outputMode == indexMotifOrbits
+             ||  _outputMode == indexOrbits
+             ||  _outputMode == indexGraphlets
+        )
+        && !_window)
+        return 0; // no leftovers
+
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     int leftovers = numSamples % _THREADS;
-    return RunBlantFromGraph(_k, leftovers, G);
+    return RunBlantFromGraph(_k, leftovers, G, NULL);
 }
 
 void BlantAddEdge(int v1, int v2)
