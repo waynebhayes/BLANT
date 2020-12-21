@@ -377,12 +377,12 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G, int *indexSamplingRange)
                 SampleGraphlet(G, V, Varray, k);
                 if(numSamples != -1 && !ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
                 if (numSamples == -1) {
-                    // simply print out all nodes in the Varray and let the parent to process the graphlet
+                    // simply write the Varray to the pipe and let the parent to process the graphlet
                     if (write(1, Varray, k * sizeof(unsigned)) == -1) {
                         if (errno == EPIPE)
                             break; // the parent has stopped reading, no need to continue
                         else
-                            break; // this situation is not possible
+                            break; // this line should not be reached
                     }
                 }
             }
@@ -513,7 +513,7 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G, int *indexSamplingRange)
     }
     else if(pid == 0) // we are the child
     {
-        signal(SIGPIPE, SIG_IGN); // ignore the signal when writing to a pipe with a closed read end
+    signal(SIGPIPE, SIG_IGN); // ignore the signal when writing to a pipe with a closed read end
 	_seed = threadSeed;
 	RandomSeed(_seed);
 	(void)close(fds[0]); // we will not be reading from the pipe, so close it.
@@ -597,11 +597,21 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     }
 
     // At this point, _THREADS must be greater than 1.
-    int samplesPerThread = (    _outputMode == indexMotifs
-                            ||  _outputMode == indexMotifOrbits
-                            ||  _outputMode == indexOrbits
-                            ||  _outputMode == indexGraphlets) ? -1 : numSamples/_THREADS; // -1 indicates that the child processes will run infinitely until a stop signal from parent is received
-                                                                                            // will handle leftovers later if numSamples is not divisible by _THREADS
+
+    //
+    char childrenRunInfinitely = (_outputMode == indexMotifs
+            ||  _outputMode == indexMotifOrbits
+            ||  _outputMode == indexOrbits
+            ||  _outputMode == indexGraphlets
+    )
+    && _sampleMethod != SAMPLE_INDEX
+    && !_window;
+
+
+    // determine the numSamples per thread. -1 indicates that the child processes will run infinitely until a stop signal from parent is received
+    // Leftovers will be handled later if numSamples is not divisible by _THREAD
+    int samplesPerThread = childrenRunInfinitely ? -1 : numSamples/_THREADS;
+
     int startNodesPerThread = G->n / _THREADS;
     FILE *fpThreads[_THREADS]; // these will be the pipes reading output of the parallel blants
 
@@ -619,32 +629,26 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 
     int threadsDone = 0; // count of how many threads signaled EOF
     int lineNum = 0;
+    int validCount = 0;
+    char perm[maxK+1];
+    TINY_GRAPH *g = TinyGraphAlloc(_k);
+    char line[_numOrbits * BUFSIZ];
+    unsigned Varray[_k];
     do
     {
-	char line[_numOrbits * BUFSIZ];
-	unsigned Varray[_k];
 	int thread;
-	int validCount = 0;
-	char perm[maxK+1];
-	TINY_GRAPH *g = TinyGraphAlloc(_k);
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
 	    if(!fpThreads[thread]) continue; // threads that have finished output have this pointer set to NULL below
-        if ((    _outputMode == indexMotifs
-             ||  _outputMode == indexMotifOrbits
-             ||  _outputMode == indexOrbits
-             ||  _outputMode == indexGraphlets
-             )
-             && _sampleMethod != SAMPLE_INDEX
-             && !_window
-             ) {
+        if (childrenRunInfinitely) {
             if (validCount >= numSamples) { // if there are enough samples, close the fd for current thread
-                fclose(fpThreads[thread]);
+                fclose(fpThreads[thread]); // after the read end of the pipe is closed, child will receive EPIPE errno when writing to the pipe and then it will terminate
                 fpThreads[thread] = NULL; // signify this pointer is finished.
                 threadsDone++;
                 continue;
             }
-            assert(fread(Varray, sizeof(unsigned), _k, fpThreads[thread]) == _k); // read the varray for processing
+            else
+                assert(fread(Varray, sizeof(unsigned), _k, fpThreads[thread]) == _k); // read the varray for processing
         }
         else {
             char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
@@ -719,13 +723,16 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		assert(*nextChar == '\0');
 		break;
 	    case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
-		if(_window)
+        if (childrenRunInfinitely) {
+            if (ProcessGraphlet(G, NULL, Varray, _k, perm, g)) validCount++; // increment the count only if the graphlet sampled is a valid one
+        }
+		else if(_window) {
             fputs(line, stdout);
-		    while(fgets(line, sizeof(line), fpThreads[thread]))
-			fputs(line, stdout);
-        if (_sampleMethod == SAMPLE_INDEX)
+            while(fgets(line, sizeof(line), fpThreads[thread]))
+                fputs(line, stdout);
+        }
+        else
             fputs(line, stdout);
-        else if (ProcessGraphlet(G, NULL, Varray, _k, perm, g)) validCount++;
 		break;
 	    case kovacsPairs:
 		numRead = sscanf(line, "%d%d%f",&i,&j,&fValue);
@@ -749,13 +756,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
         return RunBlantFromGraph(_k, numSamples, G, indexSamplingRange);
     };
 
-    if ((       _outputMode == indexMotifs
-             ||  _outputMode == indexMotifOrbits
-             ||  _outputMode == indexOrbits
-             ||  _outputMode == indexGraphlets
-        )
-        && !_window)
-        return 0; // no leftovers
+    if (childrenRunInfinitely)
+        return 0; // numSamples already satisfied; no leftovers
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     int leftovers = numSamples % _THREADS;
