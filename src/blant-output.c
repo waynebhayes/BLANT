@@ -4,7 +4,8 @@
 #include "blant-utils.h"
 #include "blant-sampling.h"
 
-void PrintNode(int v, char c) {
+void PrintNode(char c, int v) {
+    if(c) putchar(c);
 #if SHAWN_AND_ZICAN
     printf("%s", _nodeNames[v]);
 #else
@@ -13,7 +14,6 @@ void PrintNode(int v, char c) {
     else
 	printf("%d", v);
 #endif
-    if(c) putchar(c);
 }
 
 static int IntCmp(const void *a, const void *b)
@@ -88,10 +88,9 @@ void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], 
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
     PrintCanonical(GintOrdinal);
+    assert(PERMS_CAN2NON);
     for(j=0;j<k;j++) {
-	printf(" ");
-	assert(PERMS_CAN2NON);
-	PrintNode(Varray[(int)perm[j]],0);
+	PrintNode(' ', Varray[(int)perm[j]]);
     }
     puts("");
 }
@@ -105,17 +104,16 @@ void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], char pe
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
     PrintCanonical(GintOrdinal);
+    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
     for(j=0;j<k;j++) if(!SetIn(printed,j))
     {
-	putchar(' ');
-	assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
-	PrintNode(Varray[(int)perm[j]],0);
+	PrintNode(' ', Varray[(int)perm[j]]);
 	SetAdd(printed, j);
 	int j1;
 	for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
 	{
 	    assert(!SetIn(printed, j1));
-	    putchar(':'); PrintNode(Varray[(int)perm[j1]],0);
+	    PrintNode(':', Varray[(int)perm[j1]]);
 	    SetAdd(printed, j1);
 	}
     }

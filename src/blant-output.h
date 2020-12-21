@@ -9,7 +9,7 @@ void PrintCanonical(int GintOrdinal);
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 
 // You should print a node EXCLUSIVELY with this function; it automatically determines if we're supporting names or not.
-// If c is non-zero, the character is appended, using putchar(), after the node is printed (usually '\t', or ' ' or '\n');
-void PrintNode(int v, char c);
+// If c is non-zero, the character is prepended, using putchar(), before the node is printed (eg ' ', ';' or '\t').
+void PrintNode(char c, int v);
 
 #endif
