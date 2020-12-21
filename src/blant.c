@@ -436,7 +436,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case outputGDV:
 	for(i=0; i < G->n; i++)
 	{
-	    PrintNode(i,0);
+	    PrintNode(0,i);
 	    for(canon=0; canon < _numCanon; canon++)
 		printf(" %lu", GDV(i,canon));
 	    puts("");
@@ -444,7 +444,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break;
     case outputODV:
         for(i=0; i<G->n; i++) {
-	    PrintNode(i,0);
+	    PrintNode(0,i);
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];

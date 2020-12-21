@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 	char perm[9], *tmp;
 	tmp = fgets(buf, sizeof(buf), fp); // shut the compiler up
 	assert(tmp >= 0);
-	numRead = sscanf(buf, "%d %s %d %d", &canonical, perm, &isGraphlet, &numEdges);
+	numRead = sscanf(buf, "%d\t%s\t%d %d", &canonical, perm, &isGraphlet, &numEdges);
 #if 1
 	assert(numRead == 2 || numRead == 4);
 #else
