@@ -23,11 +23,11 @@ BLANT_SRCS = blant.c \
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc -O3 -g#-ggdb
-CXX=g++ -g
+CC=gcc -O3 #-ggdb
+CXX=g++
 
 ### Generated File Lists ###
-# EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
+EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
 SEVEN := 7# Same as above but be aware windowRep regression will fail
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
 canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
