@@ -13,6 +13,7 @@ if module avail 2>/dev/null; then
     module load python/3.6.8
 fi
 ./Dijkstracmd
+rm -f *.pickle
 
 echo "=====Comparing .log with past log file====="
 for i in oldlog.log seed7/*.log; do echo `sed 's/time:[0-9.:]*//' $i | md5sum` $i; done | tee /dev/tty |
