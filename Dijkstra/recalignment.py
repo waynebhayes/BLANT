@@ -170,6 +170,7 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
     if curralign.timestop and curralign.currtime >= curralign.timestop:
         sys.exit()
 
+
     start1 = time.time()
    
     if len(candidatePairs) == 0 and len(curralign.pq) == 0:
@@ -222,7 +223,9 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
             # if debug:
             #     print("Trying to add New Pair: " + str(pair) ,end=" ")
 
+
             s = len(curralign.aligned_pairs)
+
             # if debug:
             #     print("S: ", len(curralign.aligned_pairs))
             #     print("recdepth: ", curralign.recdepth)

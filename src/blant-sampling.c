@@ -84,7 +84,7 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int wi
 
     MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
-	
+
 	// Add windowSize-1 d graphlets to our sliding window. The edge we added is the first d graphlet
 	int i, j;
 	for (i = 1; i < windowSize; i++) {
@@ -103,7 +103,7 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int wi
 // when we start/restart.
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge)
 {
-	
+
 	//For now d must be equal to 2 because we start by picking a random edge
 	if (mcmc_d != 2) {
 		Fatal("mcmc_d must be set to 2 in blant.h for now");
@@ -281,7 +281,7 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 
     /* Faye: Mark v1 and v2 as visited */
     visited[v1] = 1;
-    visited[v2] = 1;    
+    visited[v2] = 1;
 
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
@@ -317,8 +317,8 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    assert(SetCardinality(outSet) == 0);
 	    assert(SetCardinality(V) < k);
 #if ALLOW_DISCONNECTED_GRAPHLETS
-	    /* Faye: check if the random node is visited instead 
-        *while(SetIn(V, (j = G->n*RandomUniform()))    
+	    /* Faye: check if the random node is visited instead
+        *while(SetIn(V, (j = G->n*RandomUniform()))
         */
         while(visited[(j = G->n*RandomUniform())])
 		; // must terminate since k <= G->n
@@ -760,7 +760,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 				Varray[numNodes++] = node;
 				SetAdd(V, node);
 			}
-			
+
 			graphletDegree += G->degree[node];
 		}
 #if PARANOID_ASSERTS
@@ -856,16 +856,16 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 }
 
 // Fit SampleGraphletMCMC for windowRep implementation (alphalist and overcounting is not used here)
-static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC) 
+static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 {
-	//Original SampleGraphletMCMC initial step. 
+	//Original SampleGraphletMCMC initial step.
 	// Not using tinyGraph to compute overcounting since W_size exceeeds the max tinygrpah size
 	assert(W == _windowSize);
 	static Boolean setup = false;
 	static int currSamples = 0;
-	static MULTISET *XLS = NULL; 
-	static QUEUE *XLQ = NULL; 
-	static int Xcurrent[mcmc_d]; 
+	static MULTISET *XLS = NULL;
+	static QUEUE *XLQ = NULL;
+	static int Xcurrent[mcmc_d];
 	if (!XLQ || !XLS ) {
 		XLQ = QueueAlloc(W*mcmc_d);
 		XLS = MultisetAlloc(G->n);
@@ -895,6 +895,17 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 	return V;
 }
 
+// should probably move this somewhere
+Boolean arrayIn(int* arr, int size, int item) {
+    int i;
+    for(i=0; i<size; i++) {
+        if (arr[i] == item) {
+            return true;
+        }
+    }
+    return false;
+}
+
 
 /**
  * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes, it calls the processGraphlet
@@ -908,10 +919,8 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
  *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
  *                      being processed in RunBlantFromGraph function
  */
-void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNode, int *tempCountPtr) {
-    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, prev_nodes_array[_k], Gint;
-    int prev_nodes_count = SetToArray(prev_nodes_array, prev_nodes);   // keep track of added nodes
-    assert(prev_nodes_count == SetCardinality(prev_nodes));
+void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, int *degreeOrder) {
+    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, Gint;
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
     // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
@@ -923,19 +932,27 @@ void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNod
             *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies the multiplicity constraint
         return;
     }
+    
+    // Populate next_step with the following algorithm
+    SET *next_step;
+    SET *deg_set;
 
-    // Find neighboring nodes from the added nodes set
-    SET *deg_set = SetAlloc(G->n);
-    SET *next_step = SetAlloc(G->n);
-    for(i=0; i<prev_nodes_count; i++) {
-        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
-            neigh = G->neighbor[prev_nodes_array[i]][j];
-            if(!SetIn(prev_nodes, neigh)) {
-                SetAdd(deg_set, G->degree[neigh]);
-                SetAdd(next_step, neigh);
+    if (_useAntidup) {
+        antidupFillNextStepSet(&next_step, &deg_set, G, prev_nodes_array, prev_nodes_count, degreeOrder);
+    } else {
+        next_step = SetAlloc(G->n);
+        deg_set = SetAlloc(G->n);
+        for(i=0; i<prev_nodes_count; i++) {
+            for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+                neigh = G->neighbor[prev_nodes_array[i]][j];
+                if(!arrayIn(prev_nodes_array, prev_nodes_count, neigh)) {
+                    SetAdd(next_step, neigh);
+                    SetAdd(deg_set, G->degree[neigh]);
+                }
             }
         }
     }
+
     tie_count = SetCardinality(next_step);
     deg_count = SetCardinality(deg_set);
     int next_step_arr[tie_count];
@@ -945,16 +962,16 @@ void SampleGraphletIndexAndPrint(GRAPH* G, SET* prev_nodes, int numSamplesPerNod
     SetFree(next_step);
     SetFree(deg_set);
     qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order
-    _numWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
+    int effectiveNumWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
     // Loop through neighbor nodes with Top N (-lDEGN) degrees
     // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
-    for (i=0; i<_numWindowRepLimit; i++) {
+    for (i=0; i<effectiveNumWindowRepLimit; i++) {
         max_deg = deg_arr[i];
         for(j=0; j<tie_count; j++) {
             if (G->degree[next_step_arr[j]] == max_deg) {
-                SetAdd(prev_nodes, next_step_arr[j]);
-                SampleGraphletIndexAndPrint(G, prev_nodes, numSamplesPerNode, tempCountPtr);
-                SetDelete(prev_nodes, next_step_arr[j]);
+                prev_nodes_array[prev_nodes_count] = next_step_arr[j];
+                SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, degreeOrder);
+                // we don't need to unset prev_nodes_array[prev_nodes_count] because it'll get overwritten anyways
             }
         }
     }

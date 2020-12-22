@@ -162,7 +162,7 @@ void canon_map(void){
 
 	unsigned long long num = 0;
 	decimalToBitArray(bitarray, t);
-	for(long nP=1; nP<f; nP++)//while( nextPermutation(permutation) )
+	for(long nP=1; nP<f; nP++)
 	{
 	    num=bitArrayToDecimal(bitarray, Permutations[nP], bitVectorSize);
 	    if(!check[num]){
@@ -196,11 +196,12 @@ void canon_map(void){
 	if(canonPerm == 0) {
 	    G = TinyGraphAlloc(k);
 	    BuildGraph(G, i);
-	    int nodeArray[k], distArray[k];
-	    if(TinyGraphBFS(G, 0, k, nodeArray, distArray) == k)
-		fprintf(fcanon, " 1 %d", TinyGraphNumEdges(G)); // connected, thus graphlet
-	    else
-		fprintf(fcanon, " 0 %d", TinyGraphNumEdges(G)); // disconnected, thus not graphlet
+	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(G, 0, k, nodeArray, distArray) == k);
+	    fprintf(fcanon, "\t%d %d", connected, TinyGraphNumEdges(G));
+	    int u,v,sep='\t';
+	    for(u=0;u<k;u++)for(v=u+1;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
+		fprintf(fcanon, "%c%d,%d",sep,u,v); sep=' ';
+	    }
 	}
 	fprintf(fcanon,"\n");
     }
