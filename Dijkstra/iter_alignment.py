@@ -1,6 +1,6 @@
 from collections import defaultdict
 import time
-from skip_list import *
+from skip_list_iter import *
 import random
 random.seed(0)
 from aligner_helper import *
