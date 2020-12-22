@@ -1,23 +1,20 @@
 #!/bin/bash
-
+cd `dirname $0`
 echo "Testing recursive Dijkstra"
 
 exitCode=0
 
+rm -rf /tmp/seed7/
+mkdir -p /tmp/seed7; ln -sf /tmp/seed7 .
+
 echo "=====Generating 10 alignments====="
-module load python/3.6.8
+if module avail 2>/dev/null; then
+    module unload python
+    module load python/3.6.8
+fi
 ./Dijkstracmd
 
 echo "=====Comparing .log with past log file====="
-python3 checkDiff.py oldlog.log seed7/IIDmouse_IIDhuman_7.log 
-if [ $? != 0 ];
-then 
-    echo "Failed to pass!"
-    exitCode=1
-fi
-
-rm -rf seed7/
-
-echo "Done testing recursive Dijkstra"
-
-exit $exitCode
+for i in oldlog.log seed7/*.log; do echo `sed 's/time:[0-9.:]*//' $i | md5sum` $i; done | tee /dev/tty |
+    awk '{print NR, $0; md5[NR]=$1}END{exit(!(md5[1]==md5[2]))}'
+exit $?
