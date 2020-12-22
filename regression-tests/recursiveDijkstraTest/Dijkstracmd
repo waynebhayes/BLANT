@@ -1,0 +1,1 @@
+python3 ../../Dijkstra/run_recursive_seed.py  -g1 IIDmouse.el  -g2 IIDhuman.el  -g1s IIDmouse_perfect_Deg32.txt -g2s IIDhuman_perfect_Deg32.txt -s /home/sana/sims/Importance/IIDmouse-IIDhuman.sim.xz -d 0.0 -ed 0.3 -t 1 -at 10 -pk IIDmouseIIDhuman.sim.pickle  -ec1 0.6 -ec2 0.6  -sb 0.064  -g1sline 7 -g2sline 7 -sn 7

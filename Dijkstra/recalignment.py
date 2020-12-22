@@ -85,8 +85,8 @@ def num_edges_back_to_subgraph(graph, node, aligned_nodes, trace=False):
     edges = 0
     for neighbor_node in aligned_nodes:
         if graph.has_edge(node, neighbor_node):
-            if trace:
-                print("Nnode in graph : " + str(neighbor_node)) 
+            # if trace:
+            #     print("Nnode in graph : " + str(neighbor_node))
             edges += 1
     return edges
 
@@ -135,14 +135,14 @@ def printoutput(g1, g2, curralign):
     output_file = output_dir + "/" + curralign.logfile
 
     with open(output_file, "a") as f:
-        f.write(result+"\n") 
+        f.write(result+"\n")
         for n1, n2 in curralign.aligned_pairs:
             f.write(str(g1.nodes[n1])+" "+str(g2.nodes[n2])+"\n")
 
 def append_result(g1,g2, curralign):
     #uuidstr = str(uuid.uuid4())
     #uid = uuidstr[:13]
-    fname = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--seed"  + str(curralign.seednum) + ".dijkstra"
+    fname = curralign.alignfile
 
     if curralign.outputdir == "":
         output_dir =  "seed" + str(curralign.seednum)
@@ -155,7 +155,7 @@ def append_result(g1,g2, curralign):
             #print(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]))
             f.write(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]) + '\n')
         f.write('\n')
-   
+
 def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
 
     curralign.recdepth += 1
@@ -168,7 +168,8 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
         sys.exit()
 
     if curralign.timestop and curralign.currtime >= curralign.timestop:
-       sys.exit()
+        sys.exit()
+
 
     start1 = time.time()
    
@@ -222,7 +223,9 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
             # if debug:
             #     print("Trying to add New Pair: " + str(pair) ,end=" ")
 
-            # s = len(curralign.aligned_pairs)
+
+            s = len(curralign.aligned_pairs)
+
             # if debug:
             #     print("S: ", len(curralign.aligned_pairs))
             #     print("recdepth: ", curralign.recdepth)
@@ -333,7 +336,9 @@ def rec_align(g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, seednum, out
 
     curralign = Alignment(seed, m, ec_mode, ed, sb, alpha, delta, seednum, outputdir, timestop, alignstop)
     curralign.logfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".log" 
-    curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats" 
+    curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats"
+
+
 
     if debug:
         print("seed: ", seed)
@@ -372,6 +377,9 @@ def rec_align(g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, seednum, out
 
     curralign.g1seedstr += curralign.g2seedstr
     curralign.k = len(curralign.aligned_pairs)
+
+    curralign.alignfile = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--seed" + str(
+        curralign.seednum) + ".dijkstra"
 
     print('initial alignment:',curralign.aligned_pairs)
 

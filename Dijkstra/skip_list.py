@@ -32,6 +32,18 @@ class SkipList:
                     return candidate
         return None #cannot find node with this value
    
+    '''
+    def find_by_name(self, value, node_info, update = None): #get node with the given value
+        if update == None:
+            update = self.updateList(value) #path to the given value
+        if len(update) > 0:
+            candidate = update[0].next[0] #bottom node of the entire route
+            if candidate != None:
+                print("candinfo: " + str(candidate.info))
+                print("candval: " + str(candidate.value))
+                if candidate.value == value and candidate.info == node_info:
+                    return candidate
+    '''
 
     def print_list(self):
         for i in range(self.maxHeight-1, -1, -1):
@@ -53,6 +65,7 @@ class SkipList:
                 return candidate
             return None
 
+
     def __contains__(self, value): #check whether a value in this list
         return self.find(value) != None
 
@@ -68,6 +81,8 @@ class SkipList:
         update = [None]*self.maxHeight #save the route
         x = self.head #from the left headnode
         for i in reversed(range(self.maxHeight)): #from top to bottom
+            #while x.next[i] != None and x.next[i].value < value: #next_value>=given_value => walk down
+            #while x.next[i] != None and x.next[i].value < value and x.next[i].info < info: #next_value>=given_value => walk down
             while x.next[i] != None and x.next[i].value < value: 
                 x = x.next[i] 
             while x.next[i] != None and x.next[i].value == value and x.next[i].info < info: #next_value>=given_value => walk down
