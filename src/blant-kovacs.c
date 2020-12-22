@@ -135,7 +135,7 @@ void ProcessKovacsNorm(TINY_GRAPH *g, GRAPH *G, unsigned Varray[])
     #if 0
         printf("\tM %d ",depth);
         PrintCanonical(GintOrdinal);
-        for(l=0;l<_k;l++) {putchar(' '); PrintNode(Varray[(int)perm[l]],0);}
+        for(l=0;l<_k;l++) PrintNode(' ',Varray[(int)perm[l]]);
         putchar('\n');
     #endif
         // Stop the recursion since removing more edges can't possibly get the canonical again.
@@ -206,8 +206,8 @@ void KovacsProcessIndexEntry(GRAPH *G, int Gint, int GintOrdinal, unsigned Varra
     #define OUTPUT_MOTIF_ORBIT_PAIR 1
     #if OUTPUT_MOTIF_ORBIT_PAIR
             // preserve order so we can associate the node with the orbit.
-            PrintNode(u,' '); PrintNode(v,' ');
-	        printf("%d\t%d %d\n", edge, orbit0, orbit1);
+            PrintNode(0, u); PrintNode(' ', v);
+	        printf(" %d\t%d %d\n", edge, orbit0, orbit1);
     #else
             int oMin=MIN(orbit0,orbit1), oMax=MAX(orbit0,orbit1);
             // when recording the orbit pair without the nodes, order doesn't matter
