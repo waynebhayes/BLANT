@@ -22,7 +22,7 @@ all:
 	$(MAKE) -j$(CORES) debug
 	$(MAKE) opt_clean
 	$(MAKE) -j$(CORES) opt
-	if [ ! -x bin/stats ]; then (cd tests; $(MAKE) stats; mv stats ../bin); fi
+	for x in stats hashtest; do if [ ! -x bin/$$x ]; then (cd tests; $(MAKE) $$x; mv $$x ../bin); fi; done
 	touch made
 
 opt:

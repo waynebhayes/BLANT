@@ -7,10 +7,6 @@
 
 #include "hashmap.h"
 
-/*
- * Generic map implementation. This class is thread-safe.
- * free() must be invoked when only one thread has access to the hashmap.
- */
 #include <stdlib.h>
 #include <stdio.h>
 //#include <minithreads/hashmap.h>
@@ -31,7 +27,7 @@ typedef struct _hashmap_map{
     int table_size;
     int size;
     hashmap_element *data;
-//    semaphore_t lock;
+    //semaphore_t lock;
 } hashmap_map;
 
 /*

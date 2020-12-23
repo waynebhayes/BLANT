@@ -1,5 +1,6 @@
 /*
  * Found by WBH via Google on 2020-12-23 and taken from https://gist.github.com/warmwaffles/6fb6786be7c86ed51fce
+ * Adopted to allow foint rather than void* by Wayne B. Hayes.
  * Original comment:
  * Generic hashmap manipulation functions
  * SEE: http://elliottback.com/wp/hashmap-implementation-in-c/
