@@ -6,7 +6,8 @@
 # 
 # Wayne Hayes, whayes@uci.edu (previously wayne@cs.toronto.edu)
 #LIBWAYNE_HOME:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/..
-CC=$(LIBWAYNE_HOME)/bin/wgcc
+#CC=$(LIBWAYNE_HOME)/bin/wgcc
+CC=../bin/wgcc
 
 #% : %.c
 #	$(CC) -c $(CFLAGS) %.c

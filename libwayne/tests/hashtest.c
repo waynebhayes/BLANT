@@ -13,7 +13,9 @@
 
 int main(int argc, char *argv[])
 {
-    FILE *fp=fopen(argv[1],"r");
+    FILE *fp = stdin;
+    if(argc==2) fp=fopen(argv[1],"r");
+    assert(fp);
     int key;
     char *value, line[BUFSIZ];
     map_t H = hashmap_new();
