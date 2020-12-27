@@ -23,8 +23,8 @@ BLANT_SRCS = blant.c \
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc -O3 #-O0 -ggdb
-CXX=g++ -O3 #-O0 -ggdb
+CC=gcc -O3 #-ggdb
+CXX=g++ -O3 #-ggdb
 
 ### Generated File Lists ###
 EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)

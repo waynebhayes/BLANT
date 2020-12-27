@@ -50,7 +50,7 @@ enum OutputMode _outputMode = undef;
 unsigned long int _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
 double _graphletConcentration[MAX_CANONICALS];
-extern hashmap_t **_PredictGraph; // half-matrix of (G->n choose 2) hashmaps, one for each node pair
+extern hashmap_t **_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -416,18 +416,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	break;
     case predict:
-	for(i=0; i < (G->n)-1; i++) for(j=i+1; j<G->n; j++)
+	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
 	    if(_PredictGraph[i][j]) {  // only output node pairs with non-zero counts
-		if(_supportNodeNames){
-		    char *s1 = _nodeNames[i], *s2 = _nodeNames[j];
-		    if(strcmp(s1,s2) < 0) printf("%s %s",s1,s2);
-		    else                  printf("%s %s",s2,s1);
-		}
-		else printf("%d %d", i, j);
-		assert(!SetIn(G->A[i],j) == !SetIn(G->A[j],i)); // use ! in case non-zero isn't 1
-		printf(" %d", !!SetIn(G->A[i],j)); // !! converts any non-zero to 1
+		PrintNode(0,i); PrintNode(' ',j);
+		printf(" %d", GraphAreConnected(G,i,j));
 		hashmap_iterate(_PredictGraph[i][j], HashPrintOrbitCount);
+		puts("");
 	    }
+	}
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
@@ -534,8 +530,11 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode == predict) {
-	_PredictGraph = Calloc(G->n, sizeof(hashmap_t*));
-	for(i=0; i<G->n-1; i++) _PredictGraph[i] = Calloc(G->n-1-i, sizeof(hashmap_t));
+	_PredictGraph = Calloc(G->n-1, sizeof(hashmap_t**));
+	for(i=1; i<G->n; i++) {
+	    _PredictGraph[i] = Calloc(i, sizeof(hashmap_t*));
+	    //for(j=0;j<i;j++) assert((_PredictGraph[i][j]=hashmap_new())!=NULL);
+	}
     }
     if (_outputMode == graphletDistribution) {
         _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
