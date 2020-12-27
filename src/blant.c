@@ -14,8 +14,9 @@
 #include "queue.h"
 #include "multisets.h"
 #include "sorts.h"
+#include "hashmap.h"
 #include "blant-window.h"
-#include "blant-kovacs.h"
+#include "blant-predict.h"
 #include "blant-output.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
@@ -49,6 +50,7 @@ enum OutputMode _outputMode = undef;
 unsigned long int _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
 double _graphletConcentration[MAX_CANONICALS];
+extern hashmap_t **_PredictGraph; // half-matrix of (G->n choose 2) hashmaps, one for each node pair
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -305,7 +307,7 @@ void convertFrequencies(int numSamples)
     }
 }
 
-// This is the single-threaded BLANT function. YOU SHOULD PROBABLY NOT CALL THIS.
+// This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
 // Call RunBlantInThreads instead, it's the top-level entry point to call once the
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
@@ -388,6 +390,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	finalizeMCMC();
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
+
     switch(_outputMode)
     {
 	int canon;
@@ -412,25 +415,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	}
 	break;
-    case kovacsAllOrbits: {
-	int g,i,j;
-	for(g=0;g<_numCanon;g++) {
-	    for(i=0;i<k;i++)for(j=0;j<k;j++) if(_kovacsOrbitPairSeen[g][i][j])
-		printf("%d %d %d %d %d %g\n", g, i,j,
-		    _kovacsOrbitPairEdge[g][i][j], _kovacsOrbitPairSeen[g][i][j],
-		    _kovacsOrbitPairEdge[g][i][j]/(double)_kovacsOrbitPairSeen[g][i][j]);
-	}}
-	break;
-    case kovacsPairs:
-	for(i=1; i < G->n; i++) for(j=0; j<i; j++)
-	    if(_KovacsScore[i][j]) {  // only output node pairs with non-zero counts
+    case predict:
+	for(i=0; i < (G->n)-1; i++) for(j=i+1; j<G->n; j++)
+	    if(_PredictGraph[i][j]) {  // only output node pairs with non-zero counts
 		if(_supportNodeNames){
 		    char *s1 = _nodeNames[i], *s2 = _nodeNames[j];
-		    if(strcmp(s1,s2) < 0) printf("%s\t%s",s1,s2);
-		    else                  printf("%s\t%s",s2,s1);
+		    if(strcmp(s1,s2) < 0) printf("%s %s",s1,s2);
+		    else                  printf("%s %s",s2,s1);
 		}
-		else printf("%d\t%d", i, j);
-		printf("\t%g\n", _KovacsScore[i][j]);
+		else printf("%d %d", i, j);
+		assert(!SetIn(G->A[i],j) == !SetIn(G->A[j],i)); // use ! in case non-zero isn't 1
+		printf(" %d", !!SetIn(G->A[i],j)); // !! converts any non-zero to 1
+		hashmap_iterate(_PredictGraph[i][j], HashPrintOrbitCount);
 	    }
 	break;
     case outputGDV:
@@ -470,11 +466,6 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
 	if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
-    if(_outputMode == kovacsPairs) {
-	int i;
-	for(i=0; i<G->n;i++){Free(_KovacsScore[i]);Free(_KovacsNorm[i]);}
-	Free(_KovacsScore); Free(_KovacsNorm);
-    }
     TinyGraphFree(g);
     SetFree(V);
     GraphFree(G);
@@ -542,32 +533,9 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
-    if(_outputMode == kovacsPairs) {
-	_KovacsScore = Calloc(G->n, sizeof(*_KovacsScore));
-	_KovacsNorm = Calloc(G->n, sizeof(*_KovacsNorm));
-	for(i=0; i<G->n;i++) _KovacsScore[i] = Calloc(i, sizeof(**_KovacsScore));
-	for(i=0; i<G->n;i++) _KovacsNorm[i] = Calloc(i, sizeof(**_KovacsNorm));
-	// The user uses the orbitID *relative* to the first "true" orbit listed in the orbit map,
-	// so now convert that relative orbit ID to an absolute one.
-	_kovacsOrbit1 += _orbitList[_kovacsOrdinal][0];
-	_kovacsOrbit2 += _orbitList[_kovacsOrdinal][0];
-	//printf("kC %d k1 %d k2 %d\n",_kovacsOrdinal,_kovacsOrbit1,_kovacsOrbit2);
-	//printf("Kord %d Kcanon %d _K %d\n",_kovacsOrdinal, _canonList[_kovacsOrdinal], _K[_canonList[_kovacsOrdinal]]);
-	TINY_GRAPH *T = TinyGraphAlloc(_k), *topT = NULL;
-	int canonOrdinal;
-	for(canonOrdinal=0; canonOrdinal<_numCanon; canonOrdinal++) {
-	    if(!SetIn(_connectedCanonicals, canonOrdinal)) continue;
-	    int canonInt = _canonList[canonOrdinal];
-	    assert(_K[canonInt] == canonOrdinal);
-	    TinyGraphEdgesAllDelete(T);
-	    BuildGraph(T, canonInt);
-	    topT = TinyGraphCopy(topT, T);
-	    if(TinyGraphDFSConnected(T,0)) {
-		char j, perm[maxK];
-		for(j=0;j<_k;j++) perm[j]=j; // start with the identity permutation for the canonical
-		PreComputeKovacs(T, canonOrdinal, topT, perm);
-	    }
-	}
+    if(_outputMode == predict) {
+	_PredictGraph = Calloc(G->n, sizeof(hashmap_t*));
+	for(i=0; i<G->n-1; i++) _PredictGraph[i] = Calloc(G->n-1-i, sizeof(hashmap_t));
     }
     if (_outputMode == graphletDistribution) {
         _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
@@ -580,7 +548,6 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 
     if (_sampleMethod == SAMPLE_INDEX)
         Fatal("The sampling method '-s INDEX' does not yet support multithreading (feel free to add it!)");
-
 
     // At this point, _THREADS must be greater than 1.
     int samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
@@ -676,10 +643,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		    while(fgets(line, sizeof(line), fpThreads[thread]))
 			fputs(line, stdout);
 		break;
-	    case kovacsPairs:
-		numRead = sscanf(line, "%d%d%f",&i,&j,&fValue);
-		assert(numRead == 3);
-		_KovacsScore[i][j] += fValue;
+	    case predict:
+		Fatal("multi-threading not yet supported in mode -mp (predict)\n");
 		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
@@ -832,21 +797,6 @@ int main(int argc, char *argv[])
 	    case 'M': _outputMode = indexMotifOrbits; break;
 	    case 'i': _outputMode = indexGraphlets; break;
 	    case 'j': _outputMode = indexOrbits; break;
-	    case 'K': _outputMode = kovacsAllOrbits; break;
-	    case 'k': _outputMode = kovacsPairs;
-		char *s = optarg+1;
-		_kovacsOrdinal=atoi(s);
-		until(*s++==',') ;
-		_kovacsOrbit1 = atoi(s);
-		until(*s++==',') ;
-		_kovacsOrbit2 = atoi(s);
-		if(_kovacsOrbit2 < _kovacsOrbit1) {
-		    int tmp = _kovacsOrbit2;
-		    _kovacsOrbit2 = _kovacsOrbit1;
-		    _kovacsOrbit1 = tmp;
-		}
-		assert(_kovacsOrbit1 <= _kovacsOrbit2);
-		break;
 	    case 'f': _outputMode = graphletFrequency;
 		switch (*(optarg + 1))
 		{
@@ -860,9 +810,9 @@ int main(int argc, char *argv[])
 	    break;
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
-        case 'd': _outputMode = graphletDistribution; break;
-	    default: Fatal("-m%c: unknown output mode;\n"
-	       "\tmodes are i=indexGraphlets, j=indexOrbits, kINT,i,j=kovacsPairs of canonical INT columns i and j, f=graphletFrequency, g=GDV, o=ODV", *optarg);
+	    case 'd': _outputMode = graphletDistribution; break;
+	    case 'p': _outputMode = predict; break;
+	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
 	    break;
 	    }
 	    break;
@@ -901,7 +851,7 @@ int main(int argc, char *argv[])
 	    else if (strncmp(optarg, "AR", 2) == 0)
 		_sampleMethod = SAMPLE_ACCEPT_REJECT;
 	    else if (strncmp(optarg, "INDEX", 5) == 0)
-        _sampleMethod = SAMPLE_INDEX;
+		_sampleMethod = SAMPLE_INDEX;
 	    else
 	    {
 		_sampleFileName = optarg;
@@ -957,9 +907,9 @@ int main(int argc, char *argv[])
 		break;
 	case 'l':
 		if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF) Fatal("Tried to define window limiting method twice");
-        if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
-            _windowRep_limit_neglect_trivial = true; optarg += 1;
-        }
+		if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
+		    _windowRep_limit_neglect_trivial = true; optarg += 1;
+		}
 		if (strncmp(optarg, "DEG", 3) == 0) {
 			_windowRep_limit_method = WINDOW_LIMIT_DEGREE; optarg += 3;
 		}
@@ -969,32 +919,32 @@ int main(int argc, char *argv[])
 		else
 			Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{EDGE}{limit_num}\n");
 		_numWindowRepLimit = atoi(optarg);
-        if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
+		if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
 		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
 		break;
-    case 'n': numSamples = atoi(optarg);
-	    if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
+	case 'n': numSamples = atoi(optarg);
+		if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
+		break;
+	case 'K': _KS_NUMSAMPLES = atoi(optarg);
 	    break;
-    case 'K': _KS_NUMSAMPLES = atoi(optarg);
-    	break;
-    case 'e':
-        _GRAPH_GEN_EDGES = atoi(optarg);
-        windowRep_edge_density = atof(optarg);
-        break;
-    case 'g':
-        if (!GEN_SYN_GRAPH) Fatal("Turn on Global Variable GEN_SYN_GRAPH");
-        _GRAPH_GEN = true;
-        if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
-        else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = GEN_NODE_EXPANSION;
-        else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
-        else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
-        break;
-    case 'M': multiplicity = atoi(optarg);
-        if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
-        break;
-    case 'A': _useAntidup = true;
-        break;
-	default: Fatal("unknown option %c\n%s", opt, USAGE);
+	case 'e':
+	    _GRAPH_GEN_EDGES = atoi(optarg);
+	    windowRep_edge_density = atof(optarg);
+	    break;
+	case 'g':
+	    if (!GEN_SYN_GRAPH) Fatal("Turn on Global Variable GEN_SYN_GRAPH");
+	    _GRAPH_GEN = true;
+	    if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
+	    else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = GEN_NODE_EXPANSION;
+	    else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
+	    else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
+	    break;
+	case 'M': multiplicity = atoi(optarg);
+	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
+	    break;
+	case 'A': _useAntidup = true;
+	    break;
+	    default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
 

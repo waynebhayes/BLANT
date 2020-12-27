@@ -33,7 +33,7 @@ typedef struct _hashmap_map{
 /*
  * Return an empty hashmap, or NULL on failure.
  */
-map_t hashmap_new(void) {
+hashmap_t hashmap_new(void) {
     hashmap_map* m = (hashmap_map*) malloc(sizeof(hashmap_map));
     if(!m) goto err;
 
@@ -78,7 +78,7 @@ unsigned int hashmap_hash_int(hashmap_map * m, unsigned int key){
  * Return the integer of the location in data
  * to store the point to the item, or MAP_FULL.
  */
-int hashmap_hash(map_t in, int key){
+int hashmap_hash(hashmap_t in, int key){
     int curr;
     int i;
 
@@ -108,7 +108,7 @@ int hashmap_hash(map_t in, int key){
 /*
  * Doubles the size of the hashmap, and rehashes all the elements
  */
-int hashmap_rehash(map_t in){
+int hashmap_rehash(hashmap_t in){
     int i;
     int old_size;
     hashmap_element* curr;
@@ -143,7 +143,7 @@ int hashmap_rehash(map_t in){
 /*
  * Add a pointer to the hashmap with some key
  */
-int hashmap_put(map_t in, int key, any_t value){
+int hashmap_put(hashmap_t in, int key, any_t value){
     int index;
     hashmap_map* m;
 
@@ -178,7 +178,7 @@ int hashmap_put(map_t in, int key, any_t value){
 /*
  * Get your pointer out of the hashmap with a key
  */
-int hashmap_get(map_t in, int key, any_t *arg){
+int hashmap_get(hashmap_t in, int key, any_t *arg){
     int curr;
     int i;
     hashmap_map* m;
@@ -216,7 +216,7 @@ int hashmap_get(map_t in, int key, any_t *arg){
 /*
  * Get a random element from the hashmap
  */
-int hashmap_get_one(map_t in, any_t *arg, int remove){
+int hashmap_get_one(hashmap_t in, any_t *arg, int remove){
     int i;
     hashmap_map* m;
 
@@ -249,11 +249,9 @@ int hashmap_get_one(map_t in, any_t *arg, int remove){
 }
 
 /*
- * Iterate the function parameter over each element in the hashmap.  The
- * additional any_t argument is passed to the function as its first
- * argument and the hashmap element is the second.
+ * Iterate the function parameter over each element in the hashmap.
  */
-int hashmap_iterate(map_t in, PFany f, any_t item) {
+int hashmap_iterate(hashmap_t in, PFany f) {
     int i;
 
     /* Cast the hashmap */
@@ -269,8 +267,9 @@ int hashmap_iterate(map_t in, PFany f, any_t item) {
     /* Linear probing */
     for(i = 0; i< m->table_size; i++)
         if(m->data[i].in_use != 0) {
+            int key    = (int) (m->data[i].key);
             any_t data = (any_t) (m->data[i].data);
-            int status = f(item, data);
+            int status = f(key, data);
             if (status != MAP_OK) {
                 //semaphore_V(m->lock);
                 return status;
@@ -286,7 +285,7 @@ int hashmap_iterate(map_t in, PFany f, any_t item) {
 /*
  * Remove an element with that key from the map
  */
-int hashmap_remove(map_t in, int key){
+int hashmap_remove(hashmap_t in, int key){
     int i;
     int curr;
     hashmap_map* m;
@@ -324,7 +323,7 @@ int hashmap_remove(map_t in, int key){
 }
 
 /* Deallocate the hashmap */
-void hashmap_free(map_t in){
+void hashmap_free(hashmap_t in){
     hashmap_map* m = (hashmap_map*) in;
     free(m->data);
     //semaphore_destroy(m->lock);
@@ -332,7 +331,7 @@ void hashmap_free(map_t in){
 }
 
 /* Return the length of the hashmap */
-int hashmap_length(map_t in){
+int hashmap_length(hashmap_t in){
     hashmap_map* m = (hashmap_map *) in;
     if(m != NULL) return m->size;
     else return 0;

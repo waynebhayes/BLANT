@@ -1,6 +1,6 @@
 #include "blant.h"
 #include "blant-output.h"
-#include "blant-kovacs.h"
+#include "blant-predict.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
 
@@ -60,25 +60,25 @@ void PrintCanonical(int GintOrdinal)
 
 // Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
 // Empirically I've found that neither of these need to be very big since most repetition happens with high locality
-#define MCMC_KOVACS_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
-#define MCMC_KOVACS_MAX_HASH 2147483647 // this value should be prime; at 2^31/8 it's 256MB of RAM.
+#define MCMC_PREDICT_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
+#define MCMC_PREDICT_MAX_HASH 2147483647 // this value should be prime; at 2^31/8 it's 256MB of RAM.
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
-    static unsigned circBuf[MCMC_KOVACS_CIRC_BUF], bufPos;
+    static unsigned circBuf[MCMC_PREDICT_CIRC_BUF], bufPos;
     static SET *seen;
     static unsigned Vcopy[maxK];
     unsigned hash=0, i;
-    if(!seen) seen=SetAlloc(MCMC_KOVACS_MAX_HASH);
+    if(!seen) seen=SetAlloc(MCMC_PREDICT_MAX_HASH);
     for(i=0;i<k;i++) Vcopy[i]=Varray[i];
     VarraySort(Vcopy, k);
     for(i=0;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will overflow. Shouldn't matter.
-    hash = hash % MCMC_KOVACS_MAX_HASH;
+    hash = hash % MCMC_PREDICT_MAX_HASH;
     if(SetIn(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
     //for(i=0;i<k;i++) printf("%d ", Vcopy[i]); printf("\thash %d\n",hash); // checking for rareness.
     SetDelete(seen, circBuf[bufPos]);
     SetAdd(seen, hash);
     circBuf[bufPos++] = hash;
-    if(bufPos >= MCMC_KOVACS_CIRC_BUF) bufPos=0;
+    if(bufPos >= MCMC_PREDICT_CIRC_BUF) bufPos=0;
     return false;
 }
 
@@ -198,14 +198,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
 	break;
-    case kovacsAllOrbits:
+    case predict:
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else ProcessKovacsAllOrbits(g,G,Varray);
+	else CountSubmotifOrbitPairs(g,G,Varray);
 	break;
-    case kovacsPairs:
-	// ProcessKovacsPreComputed(g,Varray);
-	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else ProcessKovacsNorm(g,G,Varray);
 	break;
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.

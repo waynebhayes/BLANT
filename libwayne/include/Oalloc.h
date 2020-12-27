@@ -1,5 +1,6 @@
 #ifndef _OALLOC_H
 #define _OALLOC_H
+#include <sys/types.h>
 
 /*
 Oalloc library: these functions are best used when you need to

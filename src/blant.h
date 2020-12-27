@@ -81,7 +81,7 @@ extern short int *_K;
 extern SET *_connectedCanonicals;
 
 enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
-    kovacsPairs, kovacsAllOrbits, graphletFrequency, outputODV, outputGDV,
+    predict, graphletFrequency, outputODV, outputGDV,
     graphletDistribution // used in Windowing
 };
 extern enum OutputMode _outputMode;

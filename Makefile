@@ -16,15 +16,15 @@ SRCDIR = src
 BLANT_SRCS = blant.c \
 			 blant-window.c \
 			 blant-output.c \
-			 blant-kovacs.c \
+			 blant-predict.c \
 			 blant-utils.c \
 			 blant-sampling.c \
 			 blant-synth-graph.c
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc -O3 #-ggdb
-CXX=g++
+CC=gcc -O3 #-O0 -ggdb
+CXX=g++ -O3 #-O0 -ggdb
 
 ### Generated File Lists ###
 EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
@@ -48,8 +48,8 @@ base: .firsttime $(LIBWAYNE_HOME)/made blant $(canon_map_files) $(alpha_nbe_txts
 
 .firsttime:
 	@echo "This may take 30-60 minutes unless EIGHT is commented out in the Makefile"
-	@echo "(You will only see this message once on a 'pristine' repo. Pausing 10 seconds...)"
-	@sleep 10
+	@echo "(You will only see this message once on a 'pristine' repo. Pausing 5 seconds...)"
+	@sleep 5
 	@touch .firsttime
 
 most: base Draw subcanon_maps

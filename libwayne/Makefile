@@ -48,7 +48,7 @@ raw_clean:
 
 clean:
 	# The following is meant to remove the non-Windows binary, ie stats but not stats.exe.
-	if arch | grep -q CYGWIN; then /bin/rm -f bin/stats; fi
+	/bin/rm -f bin/stats bin/hashtest
 	/bin/rm -f *.a
 	$(MAKE) debug_clean
 	$(MAKE) opt_clean

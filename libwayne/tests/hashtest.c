@@ -11,6 +11,13 @@
 #define MAP_OK 0
 */
 
+int PrintHashEntry(int key, any_t data)
+{
+    char *s=(char*)data;
+    printf("entry %d is \"%s\"\n", key, s);
+    return MAP_OK;
+}
+
 int main(int argc, char *argv[])
 {
     FILE *fp = stdin;
@@ -18,7 +25,7 @@ int main(int argc, char *argv[])
     assert(fp);
     int key;
     char *value, line[BUFSIZ];
-    map_t H = hashmap_new();
+    hashmap_t H = hashmap_new();
     while(fgets(line,sizeof(line),fp) && strlen(line)>1){
 	assert(1==sscanf(line, "%d", &key));
 	line[strlen(line)-1]='\0';
@@ -30,14 +37,9 @@ int main(int argc, char *argv[])
 	hashmap_put(H, key, strdup(value));
     }
 
-    /*
-     * Iteratively call f with argument (item, data) for
-     * each element data in the hashmap. The function must
-     * return a map status code. If it returns anything other
-     * than MAP_OK the traversal is terminated. f must
-     * not reenter any hashmap functions, or deadlock may arise.
-     */
-    //extern int hashmap_iterate(map_t in, PFany f, any_t item);
+    printf("Finished entering. Now iterate through all elements:\n");
+    hashmap_iterate(H, PrintHashEntry);
+    printf("Finished enumerating elements\n");
 
     int hash_status;
     while(fgets(line,sizeof(line),stdin) && 1==sscanf(line, "%d", &key)) {
@@ -55,27 +57,27 @@ int main(int argc, char *argv[])
 /*
  * Get an element from the hashmap. Return MAP_OK or MAP_MISSING.
  */
-extern int hashmap_get(map_t in, int key, any_t *arg);
+extern int hashmap_get(hashmap_t in, int key, any_t *arg);
 
 /*
  * Remove an element from the hashmap. Return MAP_OK or MAP_MISSING.
  */
-extern int hashmap_remove(map_t in, int key);
+extern int hashmap_remove(hashmap_t in, int key);
 
 /*
  * Get any element. Return MAP_OK or MAP_MISSING.
  * remove - should the element be removed from the hashmap
  */
-extern int hashmap_get_one(map_t in, any_t *arg, int remove);
+extern int hashmap_get_one(hashmap_t in, any_t *arg, int remove);
 
 /*
  * Free the hashmap
  */
-extern void hashmap_free(map_t in);
+extern void hashmap_free(hashmap_t in);
 
 /*
  * Get the current size of a hashmap
  */
-extern int hashmap_length(map_t in);
+extern int hashmap_length(hashmap_t in);
 
 #endif 
