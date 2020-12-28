@@ -129,13 +129,12 @@ $(LIBWAYNE_HOME)/made:
 
 ### Generated File Recipes ###
 
-canon_maps/orbit_map%.txt: make-orbit-maps | canon_maps/canon_list%.txt
-	./make-orbit-maps $* > $@
-
-canon_maps/canon_map%.bin canon_maps/perm_map%.bin: $(LIBWAYNE_HOME)/made $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: $(LIBWAYNE_HOME)/made $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_OPTS)
 	./create-bin-data$*
 	/bin/rm -f create-bin-data$*
+	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
+	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
 
 canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map 
 	mkdir -p canon_maps
@@ -147,9 +146,6 @@ canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_
 
 canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
-
-canon_maps/alpha_list_mcmc%.txt: compute-alphas-MCMC | canon_maps/canon_list%.txt
-	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > $@; fi
 
 .INTERMEDIATE: .created-magic-tables .created-subcanon-maps
 subcanon_maps: $(subcanon_txts) ;
