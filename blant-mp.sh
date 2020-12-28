@@ -1,14 +1,17 @@
 #!/bin/sh
 USAGE="USAGE: $0 blant-exec [blant args without specifying mode, which must be -mp]"
 
+BLANT=$1; shift
+k=`echo "$@" | sed 's/.*-k//' | awk '{print $1}'`
+
 #output looks like:
 #P  u:v    e  o:p   q:r   x:y
 #P 680:265 0 37:37 38:39 517:476
 #P 680:265 0 37:37 38:39 517:25
 #P 265:517 1 37:38 37:39 680:476
-BLANT=$1; shift
 
 $BLANT -mp "$@" | hawk '{
+	sub("^","'$k':",$4);
 	G[$2]=$3;
 	#PG4[$2][$4][$5][$6]=1
 	#PG[$2][$4][$5" "$6]=1 # PG=PredictGraph

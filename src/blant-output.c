@@ -201,7 +201,6 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else CountSubmotifOrbitPairs(g,G,Varray);
 	break;
-	break;
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
