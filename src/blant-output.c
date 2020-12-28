@@ -34,7 +34,7 @@ void VarraySort(int *Varray, int k)
 
 void PrintCanonical(int GintOrdinal)
 {
-    int j, GintNumBits;
+    int j, GintNumBits = _k*(_k-1)/2;
     char GintBinary[GintNumBits+1]; // Only used in -db output mode for indexing
     switch (_displayMode) {
     case undefined:
@@ -45,7 +45,6 @@ void PrintCanonical(int GintOrdinal)
 	printf("%d", _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
-	GintNumBits = _k*(_k-1)/2;
 	for (j=0;j<GintNumBits;j++)
 	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';

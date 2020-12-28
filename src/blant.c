@@ -14,7 +14,6 @@
 #include "queue.h"
 #include "multisets.h"
 #include "sorts.h"
-#include "hashmap.h"
 #include "blant-window.h"
 #include "blant-predict.h"
 #include "blant-output.h"
@@ -50,7 +49,11 @@ enum OutputMode _outputMode = undef;
 unsigned long int _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
 double _graphletConcentration[MAX_CANONICALS];
+
+#if PREDICT_USE_HASH
+#include "hashmap.h"
 extern hashmap_t **_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
+#endif
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -178,6 +181,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 	}
 	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
     }
+    SetFree(visited);
     return _numConnectedComponents;
 }
 
@@ -416,6 +420,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	break;
     case predict:
+#if PREDICT_USE_HASH
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
 	    if(_PredictGraph[i][j]) {  // only output node pairs with non-zero counts
 		PrintNode(0,i); PrintNode(' ',j);
@@ -424,6 +429,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		puts("");
 	    }
 	}
+#endif
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
@@ -463,11 +469,12 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
 	if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
     TinyGraphFree(g);
-    SetFree(V);
-    GraphFree(G);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
     	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
+    SetFree(V);
+    SetFree(prev_node_set);
+    SetFree(intersect_node);
     return 0;
 }
 
@@ -530,11 +537,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode == predict) {
+#if PREDICT_USE_HASH
 	_PredictGraph = Calloc(G->n-1, sizeof(hashmap_t**));
 	for(i=1; i<G->n; i++) {
 	    _PredictGraph[i] = Calloc(i, sizeof(hashmap_t*));
 	    //for(j=0;j<i;j++) assert((_PredictGraph[i][j]=hashmap_new())!=NULL);
 	}
+#endif
     }
     if (_outputMode == graphletDistribution) {
         _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
@@ -1107,5 +1116,6 @@ int main(int argc, char *argv[])
 
 	exitStatus = RunBlantInThreads(_k, numSamples, G);
 #endif
+    GraphFree(G);
     return exitStatus;
 }
