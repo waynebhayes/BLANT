@@ -28,4 +28,10 @@ $BLANT -mp "$@" | hawk '{
 	    }
 	    print ""
 	}
-    }'
+    }' &
+
+pid=`jobs -l | head -1 | awk '{print $2}'`
+
+while free -g | awk '/Mem:/&&$NF<2{print;++flag}/Swap:/&&$NF<2{print;++flag}flag==2{exit(flag)}'; do
+    sleep 10; free -g|head -1;
+done; kill $pid # nuke the $BLANT generating the stuff for hawk
