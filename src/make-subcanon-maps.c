@@ -6,9 +6,11 @@
 #include "tinygraph.h"
 #include "blant.h"
 
-// Here we are allocating 256MB x sizeof(short int) = 512MB for the canon map.
-//static short int K[maxBk] __attribute__ ((aligned (8192)));
-static short int *K; // Allocating space dynamically
+// A "sub-canononical" is the (k-1)-graphlet you get when you delete one of the k nodes of a k-graphlet.
+// This program creates the list of k sub-canonicals, each of size (k-1), that result from deleting each node
+// of a k-graphlet, across all k-graphlet canonicals.
+
+static short int *K; // The (k-1)-graphlet canonmap.
 static int canon_list[MAX_CANONICALS];
 
 int main(int argc, char* argv[]) {
