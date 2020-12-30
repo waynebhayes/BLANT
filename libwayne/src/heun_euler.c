@@ -117,7 +117,7 @@ void init_heun_euler(int n, double t0, double dt, double *r, double *v, FF_EVAL 
     VecCopy(n, internal_r, R);
     VecCopy(n, internal_v, V);
     F = f;
-    
+
     F(N, T, internal_r, A);
 }
 
@@ -136,7 +136,7 @@ double integrate_heun_euler(double tout)
     assert(tout > T);
 
     /* Algorithm: as long as the positions are at a time
-     * less than tout, keep going.  
+     * less than tout, keep going.
      */
 
   while(T + DT < tout)
@@ -150,7 +150,7 @@ double integrate_heun_euler(double tout)
     }
 
     F(N, T, tempinternal_r, A);
-    
+
     for(i=0;i<N; i++)
     {
     	temp_Rv[i]= -0.5*k11[i]+0.5*k21[i];
@@ -165,7 +165,7 @@ double integrate_heun_euler(double tout)
 	/* STEP 6 */
 	/* APPROXIMATION ACCEPTED */
 	T = T + DT;
-					    
+
 	//printf("%f\t %f \n", T, DT);
 	//Stage W = W +K0
 	for(i=0; i<N; i++)
@@ -203,9 +203,9 @@ double integrate_heun_euler(double tout)
      }
     }
   }
-    
+
     // Now we're close.  Take a weird mutant baby Euler step to tout.
-    
+
 
     assert(T <= tout);
     for(i=0; i<N; i++)

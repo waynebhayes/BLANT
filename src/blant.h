@@ -103,9 +103,9 @@ extern int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_orderi
 extern int _connectedOrbits[MAX_ORBITS];
 extern int _numConnectedOrbits;
 
-extern unsigned int _numConnectedComponents;
-extern unsigned int *_componentSize; // number of nodes in each CC
-extern unsigned int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
+extern int _numConnectedComponents;
+extern int *_componentSize; // number of nodes in each CC
+extern int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
 extern SET **_componentSet;
 
 extern double *_cumulativeProb;
@@ -116,7 +116,7 @@ extern double *_cumulativeProb;
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);
 
-void BuildGraph(TINY_GRAPH* G, int Gint);
+void Int2TinyGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 short int* mapCanonMap(char* BUF, short int *K, int k);
 SET *canonListPopulate(char *BUF, int *canon_list, int k); // returns a SET containing list of connected ordinals

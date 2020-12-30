@@ -57,7 +57,7 @@ int combWindow2Int(int (*windowAdjList)[_windowSize], int *Varray, int *numEdges
     return Gint;
 }
 
-int ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node)
+void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node)
 {
     int num_difference, Gint_prev_ordinal, Gint_curr_ordinal;
     SampleGraphlet(G, V, Varray, k);
@@ -395,8 +395,8 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
             printf("\n%i %i\n", windowRepInt, _numWindowRep);
             for(i=0; i<_numWindowRep; i++)
             {
-                if(!(_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[limitIndex[i]], _k) ||
-                    !_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[i], _k)) ||
+                if(!((_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[limitIndex[i]], _k)) ||
+                    (!_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[i], _k))) ||
                     _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
                 {
                         for(j=0; j<_k; j++)

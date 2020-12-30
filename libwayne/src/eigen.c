@@ -11,7 +11,7 @@ int Eigen(int N, double A[N][N], double eigval[N], double eigvec[N][N])
 
     jobz='V';
     uplo='L';   /* upper part in C, but F sees it transposed */
-    
+
     for(i=0; i<N; i++)
 	for(j=i; j<N; j++)
 	    eigvec[i][j] = A[i][j];

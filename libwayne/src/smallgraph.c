@@ -19,7 +19,7 @@ SMALL_GRAPH *SmallGraphAlloc(unsigned int n)
 }
 
 SMALL_GRAPH *SmallGraphConnect(SMALL_GRAPH *G, int i, int j)
-{   
+{
     if(SmallGraphAreConnected(G, i, j))
 	return G;
     SSetAdd(G->A[i], j);
@@ -41,7 +41,7 @@ SMALL_GRAPH *SmallGraphEdgesAllDelete(SMALL_GRAPH *G)
 }
 
 SMALL_GRAPH *SmallGraphDisconnect(SMALL_GRAPH *G, int i, int j)
-{   
+{
     if(!SmallGraphAreConnected(G, i, j))
 	return G;
     SSetDelete(G->A[i], j);
@@ -124,7 +124,7 @@ SMALL_GRAPH *SmallGraphUnion(SMALL_GRAPH *dest, SMALL_GRAPH *G1, SMALL_GRAPH *G2
 
     if(G1->n != G2->n)
 	return NULL;
-    
+
     if(dest)
 	dest->n = G1->n;
     else
@@ -282,7 +282,7 @@ CLIQUE *SmallGraphKnFirst(SMALL_GRAPH *g, int k)
     assert(k <= g->n);
     if(k == 0)
 	return NULL;
-    
+
     c = (CLIQUE*)Calloc(1,sizeof(CLIQUE));
     c->G = SmallGraphAlloc(g->n);
     *(c->G) = *g;
@@ -439,7 +439,7 @@ Boolean SmallGraphsIsomorphic(int *perm, SMALL_GRAPH *G1, SMALL_GRAPH *G2)
     */
     if(G1->n != G2->n)
 	return false;
-    
+
     if(n < 2)
 	return true;
 

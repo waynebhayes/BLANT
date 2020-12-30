@@ -174,7 +174,7 @@ void MatRand(int n, int m, double A[n][m])
     for(i=0; i<n; i++) for(j=0;j<m;j++)
 	A[i][j] = drand48();
 }
-    
+
 void MatCopy(int n, int m, double dest[n][m], double const src[n][m])
 {
     int i,j;
@@ -455,7 +455,7 @@ void MatGaussJordan(int n, double A[n][n], int m, double B[n][m])
     int i,j,k,l,ll,irow=-1,icol=-1;
     double dum,pivinv,big;
     int ipiv[n], indxr[n], indxc[n];
-    
+
     for(i=0; i<n; i++) ipiv[i] = indxr[i] = indxc[i] = 0;
 
     for(i=0;i<n;i++)
@@ -570,14 +570,14 @@ void MatTranspose(int n, int m, double AT[m][n], double const A[n][m])
     assert(!MatIsSparse(n,m,A));
     for(i=0; i<n; i++) for(j=0; j<m; j++)
 	at[j][i] = A[i][j];
-    
+
     MatCopy(m, n, AT, (const double (*)[])at);
 }
 
 void MatLUFact(int n, double L[n][n], double U[n][n], double const A[n][n])
 {
     int i, j, k;
-    
+
     assert(!MatIsSparse(n,n,A));
 
     /* L := Id; U := A */

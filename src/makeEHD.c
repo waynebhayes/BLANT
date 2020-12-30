@@ -23,7 +23,7 @@ void SetGlobalCanonMaps(int k){
     SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k);
     _numCanon = _connectedCanonicals->n;
     _K = (short int*) mapCanonMap(BUF, _K, k);
-    
+
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
 }
 
@@ -32,7 +32,7 @@ int getHammingDistance(int a, int b){
     int xor = a^b;
     int i;
     int ans = 0;
-    
+
     for(i=0; i < (sizeof(int) * 8); i++){
     	if((xor%2) != 0)
     		ans += 1;
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]){
 
 	int k = atoi(argv[1]);
 	SetGlobalCanonMaps(k);  // construct lookup table
-	
+
 	int EHD[_numCanon][_numCanon];
 	int i, j, c1, c2, id1, id2;
 
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]){
 		for(j=0; j<_numCanon; j++)
 			EHD[i][j] = k*k + 1;   // some big number
 
-	int perms = pow(2, (k*(k-1))/2);  // total number of permutations of all canonicals. 
+	int perms = pow(2, (k*(k-1))/2);  // total number of permutations of all canonicals.
 	// loop through this number -> thus creating all possible canonical permutations
 
 	// given a canonical number, store any integer ID (this can also be done by reading the canon_maps files)

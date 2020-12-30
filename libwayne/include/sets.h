@@ -13,7 +13,7 @@
 ** It is very space efficient, and reasonably time efficient, except for
 ** SetToArray in sets.c, which can be very slow for sparse sets inside a
 ** large SET structure.
-** 
+**
 ** Any operations on more than one set *must* have both operands of the
 ** exact same size and type of set (this restriction will be laxed in
 ** later implementations).

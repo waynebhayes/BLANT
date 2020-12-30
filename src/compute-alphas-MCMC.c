@@ -69,7 +69,7 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, unsigne
 				}
 				SSize++;
 			}
-		} while (CombinNext(Dcombin)); 
+		} while (CombinNext(Dcombin));
 	} else {
 		do { //if there is an edge between any two vertices in the graphlet
 			if (TinyGraphAreConnected(Gk, combinArrayD[0], combinArrayD[1]))
@@ -97,11 +97,11 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, unsigne
 		{
 			int permArray[L];
 			memset(permArray, L, sizeof(int));
-			//all permutations of elements within s do 
+			//all permutations of elements within s do
 			CombinAllPermutations(L, permArray, _permuteDgraphlets);
 		}
 	} while (CombinNext(Lcombin));
-	
+
 	CombinFree(Dcombin);
 	CombinFree(Lcombin);
 	return _alpha / 2;
@@ -118,14 +118,14 @@ int main(int argc, char* argv[]) {
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
     SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k);
     int numCanon = _connectedCanonicals->n;
-    
+
     L = k - mcmc_d  + 1;
     unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
 	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
 	// create the alpha list
 	int i;
 	for (i = 0; i < numCanon; i++) {
-		BuildGraph(gk, _canonList[i]);
+		Int2TinyGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
 		if (SetIn(_connectedCanonicals, i)) {
 			_alphaList[i] = ComputeAlpha(gk, gd, combinArrayD, combinArrayL, k, L);

@@ -11,9 +11,9 @@
 ** functions. Then you could do stuff like:
 **
 **  stream48 (0);       // the default stream ;
-**  srand48 (4345);     // seed stream 0 with 4345 
+**  srand48 (4345);     // seed stream 0 with 4345
 **  stream48 (1);
-**  srand48 (6);        // give stream 1 a different seed ... 
+**  srand48 (6);        // give stream 1 a different seed ...
 **
 **  etc.
 ** Stream() returns the previous stream. (the one you just replaced).

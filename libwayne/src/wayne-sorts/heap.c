@@ -59,7 +59,7 @@ foint HeapInsert(HEAP *Heap, foint newEntry)
 {
     int place;
     foint *heap = Heap->heap;
-    
+
     heap[0].i++;
     if(heap[0].i > Heap->HEAPSIZE)  /* growing pains... */
     {
@@ -96,7 +96,7 @@ foint HeapNext(HEAP *Heap)
 {
     int place, child1, child2;
     foint *heap = Heap->heap, top, bubble;
-    
+
     if(heap[0].i < 1)       /* the heap is empty! */
 	return ABSTRACT_ERROR;
     top = heap[1];      /* store the top element so we can return it */
@@ -165,7 +165,7 @@ foint HeapDelete(HEAP *Heap, foint delete)
 		place /= 2;
 		heap[place] = entry;
 	    }
-	    
+
 	    /* Now bubble down.  This loop will not execute if we bubbled up at all.
 	    */
 	    while( /* set child1 and child2 */
@@ -185,7 +185,7 @@ foint HeapDelete(HEAP *Heap, foint delete)
 		place = smallestChild;
 		heap[place] = entry;
 	    }
-	    
+
 	    return delete;
 	}
     }
@@ -201,8 +201,8 @@ foint HeapDelete(HEAP *Heap, foint delete)
     else
 	return puts("HeapDelete: item not found"), ABSTRACT_ERROR;
 }
-		    
-		
+
+
 
 /* I know we don't need HeapSort in an event driven simulaiton, but since I
 ** have HeapInsert and HeapNext, it's trivial and fun, so what the heck?
@@ -217,7 +217,7 @@ int HeapSort(foint *array)
     heap = array;
     HEAPSIZE = N;
     heap[0].i = 0;
-    
+
     for(i=1; i<=N; i++)
 	HeapInsert(array[i]);
     for(i=1; i<=N; i++)

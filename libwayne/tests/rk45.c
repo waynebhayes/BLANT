@@ -110,7 +110,7 @@ int main(void)
    int I,N;
 
    double F(double, double);
-   void INPUT(int *, double *, double *, double *, double *L, double *, double *, int *); 
+   void INPUT(int *, double *, double *, double *, double *L, double *, double *, int *);
    void OUTPUT(FILE **);
 
    INPUT(&OK, &A, &B, &ALPHA, &TOL, &HMIN, &HMAX, &N);
@@ -125,7 +125,7 @@ int main(void)
       /* STEP 2 */
       while ((T < B) && OK) {
 	RKStep(&W, &T, &H, B);
-      }   
+      }
       if (!OK) fprintf(*OUP, "Minimal H exceeded\n");
       /* STEP 12 */
       /* PROCESS IS COMPLETE */
@@ -136,7 +136,7 @@ int main(void)
 
 void INPUT(int *OK, double *A, double *B, double *ALPHA, double *TOL, double *HMIN, double *HMAX, int *N)
 {
-   double X; 
+   double X;
    char AA;
 
    printf("This is the Runge-Kutta-Fehlberg Method.\n");
@@ -149,7 +149,7 @@ void INPUT(int *OK, double *A, double *B, double *ALPHA, double *TOL, double *HM
       while (!(*OK)) {
          printf("Input left and right endpoints separated by blank\n");
          scanf("%lf %lf", A, B);
-         if (*A >= *B) 
+         if (*A >= *B)
             printf("Left endpoint must be less than right endpoint\n");
          else *OK = true;
       }
@@ -175,14 +175,14 @@ void INPUT(int *OK, double *A, double *B, double *ALPHA, double *TOL, double *HM
          }
       }
    }
-   else 
+   else
       printf("The program will end so that the functions can be created.\n");
 }
 
 void OUTPUT(FILE **OUP)
 {
    char NAME[30];
-   int FLAG; 
+   int FLAG;
 
    printf("Choice of output method:\n");
    printf("1. Output to screen\n");

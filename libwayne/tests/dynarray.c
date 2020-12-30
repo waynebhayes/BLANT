@@ -4,7 +4,7 @@
 int ArrCmp(foint a, foint b) {return a.i - b.i;}
 
 int main(void)
-{ 	
+{
 	int i;
 	printf("Construcing Dynamic Array A... \n");
 	ARRAY *A = ArrayAlloc(5);
@@ -29,7 +29,7 @@ int main(void)
 	// Modifying dynArray A by specified position
 	// Set the second element of dynArray A to be 4
 	ArraySet(A, 1, (foint)4);
-	// Set the the third element of dynArray A to be 5	
+	// Set the the third element of dynArray A to be 5
 	ArraySet(A, 2, (foint)5);
 	// Set the fourth element of dynArray A to be 5
 	ArraySet(A, 3, (foint)5);
@@ -69,7 +69,7 @@ int main(void)
 	printf("\n");
 
 	// Add other data type floating, double
-	double d = 3.14; float f = 2.18; 
+	double d = 3.14; float f = 2.18;
 	ArrayAdd(A, (foint)d);
 	ArrayAdd(A, (foint)f);
 	// A = [0, 5, 3.14, 2.18]

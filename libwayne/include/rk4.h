@@ -15,7 +15,7 @@ typedef struct _rk4
 /*
  * RK4 is the "classical" 4-stage, 4th order RK formula.
 
- */ 
+ */
 RK4 *Rk4Alloc(int n, double t, double *y, F_EVAL f, int stiff_flag,
     double dt, double zero);
 

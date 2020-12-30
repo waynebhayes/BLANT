@@ -16,7 +16,7 @@ typedef struct _rk4s
 /*
  * RK4S is a symplectic 5-stage, 4th order RK formula from
  * _Numerical_Hamiltonian_Problems_ by Sanz-Serna & Calvo (1994).
- */ 
+ */
 RK4S *Rk4sAlloc(int n, double t, double *y, F_EVAL f, int stiff_flag,
     double dt, double zero);
 

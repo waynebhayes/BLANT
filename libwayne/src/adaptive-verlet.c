@@ -47,7 +47,7 @@ void init_leapfrog(int n, double t0, double dt, double *r, double *v, FF_EVAL f)
     VecCopy(n, internal_v, V);
     F = f;
 
-    
+
 }
 
 
@@ -64,7 +64,7 @@ double integrate_leapfrog(double tout)
 	return T;
 
     assert(tout >= T);
-    
+
     /*
     ** calculate acceleration and intial value for rho
     ** rho is what makes the timestep variable
@@ -100,8 +100,8 @@ double integrate_leapfrog(double tout)
 	R[i] = internal_r[i];
 	for(i=0; i < N; i++)
 	V[i] = internal_v[i];
-   
-  /* 
+
+  /*
     for(i=0; i<N; i++)
 	R[i] = internal_r[i] + (tout - T) * internal_v[i];
     F(N, tout, R, A);

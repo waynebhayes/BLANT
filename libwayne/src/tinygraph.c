@@ -25,7 +25,7 @@ TINY_GRAPH *TinyGraphAlloc(unsigned int n)
 }
 
 TINY_GRAPH *TinyGraphConnect(TINY_GRAPH *G, int i, int j)
-{   
+{
     if(TinyGraphAreConnected(G, i, j))
 	return G;
     TSetAdd(G->A[i], j);
@@ -47,7 +47,7 @@ TINY_GRAPH *TinyGraphEdgesAllDelete(TINY_GRAPH *G)
 }
 
 TINY_GRAPH *TinyGraphDisconnect(TINY_GRAPH *G, int i, int j)
-{   
+{
     if(!TinyGraphAreConnected(G, i, j))
 	return G;
     TSetDelete(G->A[i], j);
@@ -130,7 +130,7 @@ TINY_GRAPH *TinyGraphUnion(TINY_GRAPH *dest, TINY_GRAPH *G1, TINY_GRAPH *G2)
 
     if(G1->n != G2->n)
 	return NULL;
-    
+
     if(dest)
 	dest->n = G1->n;
     else
@@ -352,7 +352,7 @@ Boolean TinyGraphsIsomorphic(int *perm, TINY_GRAPH *G1, TINY_GRAPH *G2)
     */
     if(G1->n != G2->n)
 	return false;
-    
+
     if(n < 2)
 	return true;
 
@@ -408,9 +408,9 @@ Boolean TinyGraphsIsomorphic(int *perm, TINY_GRAPH *G1, TINY_GRAPH *G2)
 		return false;
 
 	    /* Now ask if the remainder of the graphs are isomorphic */
-	    TSET all = ((unsigned char)-1) >> (8-G1->n); 
+	    TSET all = ((unsigned char)-1) >> (8-G1->n);
 	    TinyGraphInduced(&restG1i, G1, TSetDelete(all, i));
-	    all = ((unsigned char)-1) >> (8-G1->n); 
+	    all = ((unsigned char)-1) >> (8-G1->n);
 	    TinyGraphInduced(&restG2j, G2, TSetDelete(all, j));
 	    if(!TinyGraphsIsomorphic(perm, &restG1i, &restG2j))
 		return false;

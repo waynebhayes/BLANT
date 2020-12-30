@@ -2,7 +2,7 @@
 #define _PRIORITY_QUEUE_H
 
 /*
-** These are mutually exclusive: pick your favourite implementation of a 
+** These are mutually exclusive: pick your favourite implementation of a
 ** priority queue: Heap or LinkedList.
 */
 #define PQ_HEAP 1

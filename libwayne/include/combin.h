@@ -29,7 +29,7 @@ Boolean CombinAssign(COMBIN *c, unsigned newCombin[c->m]);
 /*
 ** Just counts the number of M-subsets from a set of size N.
 ** This is a tad slow, using an O(m*(n-m)) algorithm to drastically reduce
-** frequency of intermediate overflows. 
+** frequency of intermediate overflows.
 */
 unsigned long long CombinChoose(int n, int m);
 double CombinChooseDouble(int n, int m);
@@ -50,7 +50,7 @@ double CombinCumulativeBinomialDensity(int n, int k, double x);
 /*
 ** AllCombinations will call (*fcn)(m, [m-sized array]) once for each possible
 ** combination of m integers out of 0..n-1 inclusive.
-** AllPermutations will call (*fcn)(n, [n-sized array]) once for each of 
+** AllPermutations will call (*fcn)(n, [n-sized array]) once for each of
 ** all n! permutations of the integers 0..n-1 inclusive.
 ** In both cases, (*fcn) should return 0 if the iterations should continue, or
 ** non-zero otherwise.  The return value of All* will be 0 if we went through

@@ -8,6 +8,7 @@ typedef struct nwd { // this struct is needed for enumerateDegreeOrder
     int degree_val;
 } node_wdegree;
 
+Boolean arrayIn(int* arr, int size, int item);
 void ExtractPerm(char perm[_k], int i);
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray);
 int getMaximumIntNumber(int K);

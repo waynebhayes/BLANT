@@ -25,7 +25,7 @@ main()
 
    double absval(double);
    double F(double, double);
-   void INPUT(int *, double *, double *, double *, double *L, double *, double *, int *); 
+   void INPUT(int *, double *, double *, double *, double *L, double *, double *, int *);
    void OUTPUT(FILE **);
 
    INPUT(&OK, &A, &B, &ALPHA, &TOL, &HMIN, &HMAX, &N);
@@ -78,7 +78,7 @@ main()
                if (absval(B-T) < TOL) T = B;
                else H = B - T;
          }
-      }   
+      }
       if (!OK) fprintf(*OUP, "Minimal H exceeded\n");
       /* STEP 12 */
       /* PROCESS IS COMPLETE */
@@ -89,7 +89,7 @@ main()
 /*  Change function F for a new problem   */
 double F(double T, double Y)
 {
-   double f; 
+   double f;
 
    f = Y;// - T*T + 1.0;
    return f;
@@ -97,7 +97,7 @@ double F(double T, double Y)
 
 void INPUT(int *OK, double *A, double *B, double *ALPHA, double *TOL, double *HMIN, double *HMAX, int *N)
 {
-   double X; 
+   double X;
    char AA;
 
    printf("This is the Bogacki-Shampine Method.\n");
@@ -110,7 +110,7 @@ void INPUT(int *OK, double *A, double *B, double *ALPHA, double *TOL, double *HM
       while (!(*OK)) {
          printf("Input left and right endpoints separated by blank\n");
          scanf("%lf %lf", A, B);
-         if (*A >= *B) 
+         if (*A >= *B)
             printf("Left endpoint must be less than right endpoint\n");
          else *OK = true;
       }
@@ -136,14 +136,14 @@ void INPUT(int *OK, double *A, double *B, double *ALPHA, double *TOL, double *HM
          }
       }
    }
-   else 
+   else
       printf("The program will end so that the functions can be created.\n");
 }
 
 void OUTPUT(FILE **OUP)
 {
    char NAME[30];
-   int FLAG; 
+   int FLAG;
 
    printf("Choice of output method:\n");
    printf("1. Output to screen\n");

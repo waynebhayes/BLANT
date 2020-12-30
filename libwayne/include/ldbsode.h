@@ -22,7 +22,7 @@ typedef struct _ldbsode
 ** stiff_flag: 0 = no is the only option.
 ** eps = allowable relative error.
 ** zero = "problem zero"; I think it's allowable absolute error.
-*/ 
+*/
 LDBSODE *LDBsodeAlloc(int n, long double t, long double *y, LD_EVAL f, int stiff_flag,
     long double eps, long double zero);
 

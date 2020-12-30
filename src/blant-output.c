@@ -16,6 +16,16 @@ void PrintNode(char c, int v) {
 #endif
 }
 
+void PrintNodePairSorted(int u, char c, int v) {
+    if(_supportNodeNames) {
+	char *s1=_nodeNames[u], *s2=_nodeNames[v];
+	if(strcmp(s1,s2)>0) { char *tmp=s1;s1=s2;s2=tmp; }
+	printf("%s%c%s", s1,c,s2);
+    }
+    else
+	printf("%d%c%d", MIN(u,v),c,MAX(u,v));
+}
+
 static int IntCmp(const void *a, const void *b)
 {
     int *i = (int*)a, *j = (int*)b;
@@ -191,7 +201,8 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	if(NodeSetSeenRecently(G, Varray,k) || _sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) processed=false;
+	if(NodeSetSeenRecently(G, Varray,k) ||
+	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else PrintIndexEntry(Gint, GintOrdinal, Varray, g, k);
 	break;
     case indexMotifs: case indexMotifOrbits:
@@ -200,13 +211,14 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	break;
     case predict:
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else CountSubmotifOrbitPairs(g,G,Varray);
+	else AccumulateGraphletOrbitPairCounts(G,Varray,g,Gint,GintOrdinal);
 	break;
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-	if(NodeSetSeenRecently(G,Varray,k) || _sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) processed=false;
+	if(NodeSetSeenRecently(G,Varray,k) ||
+	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k);
 	break;
     case outputGDV:
@@ -215,14 +227,14 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     case outputODV:
 	memset(perm, 0, _k);
 	ExtractPerm(perm, Gint);
-#if PERMS_CAN2NON            
+#if PERMS_CAN2NON
 	for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ]);
 #else
 	for(j=0;j<k;j++) ++ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]]);
 #endif
 	break;
-	    
-    default: Abort("ProcessGraphlet: unknown or un-implemented outputMode");
+
+    default: Abort("ProcessGraphlet: unknown or un-implemented outputMode %d", _outputMode);
 	break;
     }
     return processed;

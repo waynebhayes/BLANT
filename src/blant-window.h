@@ -11,7 +11,7 @@
 #define WINDOW_SAMPLE_MIN_D 3   // Find the k-graphlet with minimal canonicalInt and balanced numEdges
 #define WINDOW_SAMPLE_MAX_D 4   // Find the k-graphlet with maximal canonicalInt and balanced numEdges
 #define WINDOW_SAMPLE_LEAST_FREQ_MIN 5 // Find the k-graphlet with least fequent cacnonicalInt. IF there is a tie, pick the minimal one
-#define WINDOW_SAMPLE_LEAST_FREQ_MAX 6 // Find the k-graphlet with least fequent cacnonicalInt. IF there is a tie, pick the maximial one 
+#define WINDOW_SAMPLE_LEAST_FREQ_MAX 6 // Find the k-graphlet with least fequent cacnonicalInt. IF there is a tie, pick the maximial one
 #define WINDOW_SAMPLE_DEG_MAX 7
 extern int _windowSampleMethod;
 
@@ -43,6 +43,6 @@ extern Boolean _windowRep_limit_neglect_trivial;
 
 void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char perm[]);
 void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt);
-int ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node);
+void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node);
 
 #endif

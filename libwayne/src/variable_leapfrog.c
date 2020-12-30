@@ -58,7 +58,7 @@ double integrate_variable_leapfrog(double tout)
      * and the velocities are half a step ahead after each loop iteration, it's
      * possible the velocities could be *past* tout when we're done.  That's OK.
      */
-    
+
     new_dt = DT_EVAL(N, T, DT, internal_r, internal_v);
     while(T + new_dt <= tout)
     {

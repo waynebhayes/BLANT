@@ -1,6 +1,6 @@
 /*
 ** linked-list.h
-*/ 
+*/
 
 #ifndef _LINKED_LIST_H
 #define _LINKED_LIST_H  /* to ensure we don't include it more than once */
@@ -11,7 +11,7 @@
 ** LinkedList routines: a smallest-at-top list.  You also supply a
 ** comparison function.  You allocate a LL using LinkedListAlloc, and
 ** LinkedListCmp is a pointer to a function to compare your entries.
-** Entries are of type foint, which is as close to a general "object" 
+** Entries are of type foint, which is as close to a general "object"
 ** that you can get in C without doing major surgery.
 */
 typedef struct _linkedListType LINKED_LIST;
@@ -70,8 +70,6 @@ foint LinkedListPop( LINKED_LIST *ll );
 */
 Boolean LinkedListTraverse( LINKED_LIST *ll, foint *pNextElement );
 
-
-
 /*
 ** LinkedListPrepend: insert a new element at the front of the list, ignoring
 ** the comparison function.  The new value is returned after inserting.
@@ -80,10 +78,10 @@ foint LinkedListPrepend( LINKED_LIST *ll, foint newEntry );
 
 
 /*
-** LinkedListAppend:  insert something at the end of the list, igroning the 
+** LinkedListAppend:  insert something at the end of the list, igroning the
 ** comparison function.  The new value is returned after inserting.
 */
-foint LinkedListAppend( LINKED_LIST *ll, foint newEntry ); 
+foint LinkedListAppend( LINKED_LIST *ll, foint newEntry );
 
 
 /*

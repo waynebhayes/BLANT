@@ -20,7 +20,7 @@ typedef struct _rkd78
 ** eps = allowable relative error.
 **
 ** stiff_flag must be 0, and zero must 0.0.
-*/ 
+*/
 RKD78 *Rkd78Alloc(int n, double time, double *y, F_EVAL f,
     int stiff_flag, double eps, double zero);
 

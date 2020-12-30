@@ -61,7 +61,7 @@ int getIntMedian(int* nums, int start, int end);
 double getDoubleMedian(double* nums, int start, int end);
 double PoissonDistribution(double l, int k);
 
-// optimum histogram bin size 
+// optimum histogram bin size
 double getDoubleBinSize(int n, double localClustCoff[n], double* scratchspace);
 int getIntegerBinSize(int n, int GDVcolumn[n], int* scratchspace);
 

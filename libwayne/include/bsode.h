@@ -22,7 +22,7 @@ typedef struct _bsode
 ** stiff_flag: 0 = no is the only option.
 ** eps = allowable relative error.
 ** zero = "problem zero"; I think it's allowable absolute error.
-*/ 
+*/
 BSODE *BsodeAlloc(int n, double t, double *y, F_EVAL f, int stiff_flag,
     double eps, double zero);
 

@@ -11,7 +11,7 @@
 ** it with all possible permutations.  The top call is
 **
 **      _allPermutations(n, 0, [array of n ints], fcn)
-** 
+**
 ** where fcn is a function to call for each permutation.  The function
 ** will take the array and it's size as arguments.  (*fcn) should
 ** return 0 to continue listing the permutations, or non-zero to exit.
@@ -120,7 +120,7 @@ COMBIN *CombinIth(int N, int M, unsigned *A, unsigned long long I)
     COMBIN *c = CombinZeroth(N,M,A);
     unsigned long long currentIndex = 0;
     int element;
-    
+
     assert(I < CombinChoose(N,M));
 
     /*
@@ -164,7 +164,7 @@ Boolean CombinSkipN(COMBIN *c, int n)
 Boolean CombinNext(COMBIN *c)
 {
     int i;
-    
+
     if(c->m == 0)   /* special case */
 	return false;
 

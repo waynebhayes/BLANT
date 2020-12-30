@@ -13,7 +13,7 @@ ARRAY *ArrayAlloc(int initNumobjs)
 	return A;
 }
 
-void ArrayFree(ARRAY *A) 
+void ArrayFree(ARRAY *A)
 {
 	free(A->array);
 	free(A);
@@ -39,7 +39,7 @@ foint ArraySet(ARRAY *A, int pos, foint new)
 	return new;
 }
 
-foint ArrayAt(ARRAY *A, int pos) 
+foint ArrayAt(ARRAY *A, int pos)
 {
 	assert(pos < A->size && pos >= 0);
 	return A->array[pos];
@@ -51,7 +51,7 @@ ARRAY *ArrayAppend(ARRAY *C, ARRAY *A, ARRAY *B)
 	C = ArrayAlloc(A->size + B->size);
 	assert(C->maxSize >= A->size + B->size);
 	int i;
-	for(i=0; i<A->size; i++) 
+	for(i=0; i<A->size; i++)
 		C->array[i] = A->array[i];
 	for(i=0; i<B->size; i++)
 		C->array[A->size + i] = B->array[i];
@@ -74,7 +74,7 @@ foint ArrayRemove(ARRAY *A, foint elem, pCmpFcn cmp)
 {
 	int i;
 	for(i=0; i<A->size; i++)
-		if(cmp(A->array[i], elem) == 0) 
+		if(cmp(A->array[i], elem) == 0)
 		{
 			ArrayRemoveAt(A, i);
 			break;

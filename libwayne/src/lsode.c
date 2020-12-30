@@ -11,7 +11,7 @@
 /*
 ** n = number of equations
 ** stiff_flag: 0 = no, 1 = yes.
-*/ 
+*/
 LSODE *LsodeAlloc(int n, double time, double *y, F_EVAL f, int stiff_flag, double eps, double zero)
 {
     LSODE *l = Calloc(1, sizeof(LSODE));

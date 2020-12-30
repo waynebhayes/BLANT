@@ -93,7 +93,7 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
     }
     unsigned long long z=power(2,19);
     *indexD=x%z;
-    *indexP=x/z; 
+    *indexP=x/z;
 }
 
 long factorial(int n) {
@@ -111,7 +111,7 @@ bool nextPermutation(int permutation[]) {
 		    permutation[i-1]=permutation[j];
 		    permutation[j]=t;
 		    break;
-		}	
+		}
 	    }
 	    int l=i;
 	    for(int j=k-1;j>l;j--) {
@@ -178,10 +178,10 @@ void canon_map(void){
     if(PERMS_CAN2NON){
 	int tmp[k];
 	for(int i=0; i<f; i++){
-	    for(int j=0; j<k; j++) 
+	    for(int j=0; j<k; j++)
 		tmp[(int)Permutations[i][j]]=j;
 	    for(int j=0; j<k; j++)
-		Permutations[i][j]=tmp[j]; 
+		Permutations[i][j]=tmp[j];
 	}
     }
 
@@ -195,7 +195,7 @@ void canon_map(void){
 	    fprintf(fcanon,"%d", Permutations[canonPerm][p]);
 	if(canonPerm == 0) {
 	    G = TinyGraphAlloc(k);
-	    BuildGraph(G, i);
+	    Int2TinyGraph(G, i);
 	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(G, 0, k, nodeArray, distArray) == k);
 	    fprintf(fcanon, "\t%d %d", connected, TinyGraphNumEdges(G));
 	    int u,v,sep='\t';

@@ -45,13 +45,13 @@ int QuickSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 ** Finally, if there is no pile onto which we can place it either or top,
 ** or append to the bottom, then it has to be put is the lone item in a
 ** new pile all by itself.
-** 
+**
 ** In an effort to keep the number of piles small, we also want to find
 ** the top or bottom element that is closest to the new element in hand;
 ** that results in the fewest "holes" in the ordering in the piles.  If the
 ** number of piles is q, then this takes exactly 2*q computations, as we
 ** look for the optimal place to put the new element.
-** 
+**
 ** To implement the piles, we'd basically keep a pointer top and bottom for
 ** each pile.  Each pile is implemented as a fixed-size array (not sure
 ** what size to use here...), and we put the first element in the middle
@@ -256,26 +256,26 @@ int InsertionSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
     return numCopies;
 }
 //Insertion sort for integers only. Less overheads
-void InsertionSortInt(int arr[], size_t n) 
-{ 
+void InsertionSortInt(int arr[], size_t n)
+{
    //printf("%d\n",n);
-   int i, key, j; 
-   for (i = 1; i < n; i++) 
-   { 
-       key = arr[i]; 
-       j = i-1; 
-  
-       /* Move elements of arr[0..i-1], that are 
-          greater than key, to one position ahead 
+   int i, key, j;
+   for (i = 1; i < n; i++)
+   {
+       key = arr[i];
+       j = i-1;
+
+       /* Move elements of arr[0..i-1], that are
+          greater than key, to one position ahead
           of their current position */
-       while (j >= 0 && arr[j] > key) 
-       { 
-           arr[j+1] = arr[j]; 
-           j = j-1; 
-       } 
-       arr[j+1] = key; 
-   } 
-} 
+       while (j >= 0 && arr[j] > key)
+       {
+           arr[j+1] = arr[j];
+           j = j-1;
+       }
+       arr[j+1] = key;
+   }
+}
 
 /* Merge two sorted lists.
 */
@@ -523,35 +523,35 @@ int PointerSort(SortFcn Sort, void *a, size_t n, size_t w, pfnCmpFcn compare)
 ** in the following talk.  I didn't understand the author's extension
 ** very well, but Frederickson's algorithm is quite trivial.  In essence,
 ** it is this:
-** 
+**
 **     Split the input into n/logn blocks of size logn.  Keep a priority
 **     queue P of the smallest elements in each block (P has size n/logn).
 **     After deleting an element in P, delete the same element from its
 **     block, and use a brute-force search of the block for the next
 **     smallest element.
-** 
+**
 ** Here is the abstract of the talk.
-** 
+**
 **            Department of Computer Science, University of Toronto
 **          (SF = Sandford Fleming Building, 10 King's College Road)
-** 
+**
 **        -------------------------------------------------------------
-** 
+**
 **                                   THEORY
 **                 SF1101, at 11:00 a.m., Friday 12 June 1998
-** 
+**
 **                                 Theis Rauhe
 **                         BRICS, University of Aarhus
-** 
+**
 **                 "Optimal Time-Space Trade-offs for Sorting"
-** 
+**
 ** This talk addresses the fundamental problem of sorting n elements from an
 ** ordered universe in a sequential model of computation and in particular
 ** consider the time-space trade-off (product of time and space) for this
 ** problem.  Beame has shown a lower bound of $Omega(n^2)$ for this product
 ** leaving a gap of a logarithmic factor up to the previously best known upper
 ** bound of $O(n^2log n)$ due to Frederickson.
-** 
+**
 ** In this talk a comparison based sorting algorithm which closes this gap is
 ** presented.  This algorithm obtain the optimal time-space product $O(n^2)$
 ** for the full range of space bounds between $log n$ and $n/log n$.
@@ -616,7 +616,7 @@ int FredSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
     char output[n*w];
 
 	int next, nextsBlock, found;
-    
+
     fredArray = a;
     fredSize = n;
     fredWidth = w;
@@ -631,7 +631,7 @@ int FredSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 	HeapInsert(P, (foint)found);
     }
     assert(HeapSize(P) == numBlocks);
-    
+
     for(i=0; i<n; i++)
     {
 	next = HeapNext(P).i;

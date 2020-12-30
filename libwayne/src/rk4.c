@@ -13,7 +13,7 @@
 ** n = number of equations
 ** stiff_flag must be 0, as must the problem zero.
 ** eps is actually the timestep.
-*/ 
+*/
 RK4 *Rk4Alloc(int n, double Time, double *y, F_EVAL f, int stiff_flag,
     double dt, double zero)
 {

@@ -8,7 +8,7 @@
 ** NDEBUG.
 */
 
-#ifndef _DEBUG_H_ 
+#ifndef _DEBUG_H_
 #define _DEBUG_H_ /* to ensure we don't include it more than once */
 
 
@@ -108,7 +108,7 @@ void Free_fl( void *memoryBlock, const char *file, const int line );
 ** number in that file) where the blocks was allocated.  The function
 ** EnableMemoryTracking must be called BEFORE any calls to Malloc (MALLOC)
 ** for MemoryAllocationReport to function correctly.
-** 
+**
 ** IMPORTANT NOTES:
 ** 1. Only memory blocks allocated with Malloc (MALLOC) and released with
 **    Free (FREE) are tracked and reported.
@@ -135,7 +135,7 @@ void MemoryAllocationReport( const char *file, const int line );
 #ifdef DEBUG
 #define DEBUGPRINTF printf
 #else
-#define DEBUGPRINTF debugprintf 
+#define DEBUGPRINTF debugprintf
 #endif
 void debugprintf( const char *format, ... ); /* do not call this function directly, call DEBUGPRINTF instead */
 #define TRACE DEBUGPRINTF

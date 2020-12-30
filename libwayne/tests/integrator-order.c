@@ -83,7 +83,7 @@ int main(void)
     int i;
     BSODE *bsode;
     RK23 *rk23;
-    
+
     srand48(time(NULL)+getpid());
 
     for(i=0; i<NUM_H; i++)

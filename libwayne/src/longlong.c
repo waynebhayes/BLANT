@@ -44,7 +44,7 @@ char *lltoa(char *foo, long long n)
 	strcpy(foo, "-9223372036854775808");
 	return foo;
     }
-    
+
     /* generate characters in reverse order */
     do
     {
@@ -59,7 +59,7 @@ char *lltoa(char *foo, long long n)
 
     /* now reverse order */
     for(i=0; i < (d >> 1); i++)
-    {   
+    {
 	char temp = foo[i];
 	foo[i] = foo[d-1-i];
 	foo[d-1-i] = temp;

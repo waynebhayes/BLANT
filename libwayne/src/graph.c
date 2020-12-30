@@ -210,7 +210,7 @@ GRAPH *GraphEdgesAllDelete(GRAPH *G)
 }
 
 GRAPH *GraphDisconnect(GRAPH *G, int i, int j)
-{   
+{
     int k;
     assert(0 <= i && i < G->n && 0 <= j && j < G->n);
     if(!GraphAreConnected(G, i, j))
@@ -251,7 +251,7 @@ GRAPH *GraphDisconnect(GRAPH *G, int i, int j)
 	k++;
     assert(k <= G->degree[i] && G->neighbor[i][k] == j); /* this is the new degree, so using "<=" is correct */
     G->neighbor[i][k] = G->neighbor[i][G->degree[i]];
-    
+
     k=0;
     while(G->neighbor[j][k] != i)
 	k++;
@@ -566,7 +566,7 @@ GRAPH *GraphReadConnections(FILE *fp, Boolean sparse)
 	Fatal("GraphReadConnections: failed to read 'n'");
     assert(n >= 0);
     G = GraphAlloc(n, sparse, false);
-    
+
     while((d=fscanf(fp, "%d %d", &i, &j)) == 2)
     {
 	if(i==-1 && j==-1)
@@ -608,7 +608,7 @@ GRAPH *GraphUnion(GRAPH *dest, GRAPH *G1, GRAPH *G2)
 
     if(G1->n != G2->n)
 	return NULL;
-    
+
     assert(G1->sparse == G2->sparse);
 
     if(dest)
@@ -865,7 +865,7 @@ CLIQUE *GraphKnFirst(GRAPH *G, int k)
     assert(k <= G->n);
     if(k == 0)
 	return NULL;
-    
+
     setDegk = SetAlloc(G->n);
     c = (CLIQUE*)Calloc(1,sizeof(CLIQUE));
     c->G = GraphCopy(NULL, G);
@@ -993,7 +993,7 @@ Boolean GraphsIsomorphic(int *perm, GRAPH *G1, GRAPH *G2)
     */
     if(G1->n != G2->n)
 	return false;
-    
+
     if(n < 2)
 	return true;
 

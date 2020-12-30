@@ -44,7 +44,7 @@ void Ddriv2Size(DDRIV2 *d)
 /*
 ** n = number of equations
 ** stiff_flag: 0 = no, 1 = yes, 2 = dynamically decided by DDRIV2
-*/ 
+*/
 DDRIV2 *Ddriv2Alloc(int n, double time, double *y, F_EVAL f, int stiff_flag,
     double eps, double zero)
 {
@@ -152,7 +152,7 @@ double Ddriv2Integrate(DDRIV2 *d, double TOUT) /* returns actual tout */
 	    assert(d->NROOT > 0);
 	    d->whichRoot = IFA(d->IW,6)-1;
 	    return d->T;
-	    break;       
+	    break;
 	case 6:           /* F set N to zero */
 	    Fatal("F set N to zero");
 	    break;

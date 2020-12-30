@@ -22,7 +22,7 @@ static int perm[MAX_TSET];
 */
 void CheckGraph(int Gint)
 {
-    BuildGraph(G, Gint);
+    Int2TinyGraph(G, Gint);
     int i, j;
     for(i=0; i<_numCanonicals; i++)
     {

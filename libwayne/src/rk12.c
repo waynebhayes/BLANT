@@ -1,5 +1,5 @@
 /*
-*    Heun-Euler 
+*    Heun-Euler
 *
 *    TO APPROXIMATE THE SOLUTION OF THE INITIAL VALUE PROBLEM:
 *               Y' = F(T,Y), A<=T<=B, Y(A) = ALPHA,
@@ -58,13 +58,13 @@ double Rk12Integrate(RK12 *r, double B)
 	// stage K1 = H*F(T+H,W+K0);
 	VecCopy(r->n, t1, K0); VecAdd(r->n, t1, t1, r->w);
 	r->F(r->n, r->T+r->H, t1, K1); VecScalMul(r->n, K1, r->H, K1);
-	
+
 	/* STEP 4 */
 	//stage R = absval(-K0/2+K1/2)/H;
 	VecCopy(r->n, t1, K0); VecCopy(r->n, t2, K1);
 	VecScalMul(r->n, t1, -0.5, t1); VecScalMul(r->n, t2, 0.5, t2);
 	VecAdd(r->n, t2, t2, t1);
-	
+
 	R=minNorm(r->n, t2)/r->H;
 	/* STEP 5 */
 	if (r->TOL < 0 || R <= r->TOL) {

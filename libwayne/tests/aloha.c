@@ -104,7 +104,7 @@ void Die(void *p)
 void Simulate(void)
 {
     EventInfo *e;
-    
+
     while((e = EventNext()))
 	free(e);
 }

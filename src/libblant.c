@@ -9,7 +9,7 @@ char* _BLANT_DIR = DEFAULT_BLANT_DIR;
 int TinyGraph2Int(TINY_GRAPH *g, int k)
 {
     int i, j, bitPos=0, Gint = 0, bit;
-    
+
 #if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
     for(i=k-1;i>0;i--)
     {
@@ -35,7 +35,7 @@ int TinyGraph2Int(TINY_GRAPH *g, int k)
 ** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
 ** Handles either upper or lower triangle representation depending upon compile-time option below.
 */
-void BuildGraph(TINY_GRAPH* G, int Gint)
+void Int2TinyGraph(TINY_GRAPH* G, int Gint)
 {
     int i, j, bitPos=0, k = G->n;
     int Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
@@ -63,7 +63,7 @@ void BuildGraph(TINY_GRAPH* G, int Gint)
 
 /*
 ** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
-** Mmap the canon_map binary file to the aligned array. 
+** Mmap the canon_map binary file to the aligned array.
 */
 short int* mapCanonMap(char* BUF, short int *K, int k) {
     int Bk = (1 <<(k*(k-1)/2));
@@ -92,7 +92,7 @@ SET *canonListPopulate(char *BUF, int *canon_list, int k) {
     fclose(fp_ord);
     return connectedCanonicals;
 }
-	
+
 int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K], int orbit_canon_mapping[MAX_ORBITS],
     int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k) {
     sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, CANON_DIR, k);

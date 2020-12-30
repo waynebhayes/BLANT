@@ -24,7 +24,7 @@
 ** they want.  When we get called again, we start from the internally
 ** stored position.  That way the solution is always advanced with the
 ** timestep the user requested.
-*/ 
+*/
 RK4S *Rk4sAlloc(int n, double Time, double *y, F_EVAL f, int stiff_flag,
     double dt, double zero)
 {

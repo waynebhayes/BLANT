@@ -6,7 +6,7 @@
 #include "hashmap.h"
 /*
 #define MAP_MISSING -3
-#define MAP_FULL -2 
+#define MAP_FULL -2
 #define MAP_OMEM -1
 #define MAP_OK 0
 */
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
     int hash_status;
     while(fgets(line,sizeof(line),stdin) && 1==sscanf(line, "%d", &key)) {
-	hash_status = hashmap_get(H, key, &value);
+	hash_status = hashmap_get(H, key, (void**)&value);
 	if(hash_status == MAP_MISSING)
 	    printf("No such element %d\n", key);
 	else if(hash_status == MAP_OK)
@@ -80,4 +80,4 @@ extern void hashmap_free(hashmap_t in);
  */
 extern int hashmap_length(hashmap_t in);
 
-#endif 
+#endif

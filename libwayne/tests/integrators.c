@@ -292,7 +292,7 @@ for(try=0; try<TRIES; try++)
 	printf("eps=%g y=%.16g err=%g err/eps=%g order=%g\n", (double)eps, y_y, (double)error[i], (double)(error[i]/eps), order);
 	eps /= base;
     }
-    
+
 #endif	/* COMPUTE_OBSERVED_ORDER */
 }
     return 0;

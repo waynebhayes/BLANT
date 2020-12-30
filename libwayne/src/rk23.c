@@ -1,5 +1,5 @@
 /*
-*    Heun-Euler 
+*    Heun-Euler
 *
 *    TO APPROXIMATE THE SOLUTION OF THE INITIAL VALUE PROBLEM:
 *               Y' = F(T,Y), A<=T<=B, Y(A) = ALPHA,
@@ -66,15 +66,15 @@ double Rk23Integrate(RK23 *r, double B)
 	VecScalMul(r->n, t1, 2/9.0, t1); VecScalMul(r->n, t2, 3/9.0, t2); VecScalMul(r->n, t3, 4/9.0, t3);
 	VecAdd(r->n, t1, t1, r->w); VecAdd(r->n, t2, t2, t1); VecAdd(r->n, t3, t3, t2);
 	r->F(r->n, r->T+r->H, t3, K3); VecScalMul(r->n, K3, r->H, K3);
-	
+
 	/* STEP 4 */
 	//stage R = absval(-K0/2+K1/2)/H;
 	//stage R = absval(5*K0/72-K1/12-K2/9+K3/8)/H
 	VecCopy(r->n, t1, K0); VecCopy(r->n, t2, K1); VecCopy(r->n, t3, K2); VecCopy(r->n, t4, K3);
-	VecScalMul(r->n, t1, 5/72.0, t1); VecScalMul(r->n, t2, -1/12.0, t2); VecScalMul(r->n, t3, -1/9.0, t3); 
+	VecScalMul(r->n, t1, 5/72.0, t1); VecScalMul(r->n, t2, -1/12.0, t2); VecScalMul(r->n, t3, -1/9.0, t3);
 	VecScalMul(r->n, t4, 3/8.0, t4);
 	VecAdd(r->n, t2, t2, t1); VecAdd(r->n, t3, t3, t2); VecAdd(r->n, t4, t4, t3);
-	
+
 	R=minNorm(r->n, t4)/r->H;
 	/* STEP 5 */
 	if (r->TOL < 0 || R <= r->TOL) {

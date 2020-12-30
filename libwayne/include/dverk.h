@@ -22,7 +22,7 @@ typedef struct _dverk
 ** eps = allowable relative error.
 **
 ** stiff_flag must be 0, and zero must 0.0.
-*/ 
+*/
 DVERK *DverkAlloc(int n, double time, double *y, F_EVAL f,
     int stiff_flag, double eps, double zero);
 

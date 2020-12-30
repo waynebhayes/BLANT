@@ -176,7 +176,7 @@ else // n is even
 ***********************************************************************/
 
 static SMALL_GRAPH_CIRCULANTS *SmallGraphCirculantConnect(SMALL_GRAPH_CIRCULANTS *rrg)
-{   
+{
     int n = rrg->G->n, r = rrg->G->degree[0], i, last;
     SSET s = SSetFromArray(rrg->C->m, rrg->C->array);
 
@@ -205,7 +205,7 @@ static SMALL_GRAPH_CIRCULANTS *SmallGraphCirculantConnect(SMALL_GRAPH_CIRCULANTS
     ** representing the adjacency list by 1 for each new row.
     */
     for(i=0; i<n; i++)
-    {   
+    {
 	rrg->G->A[i] = s;
 	s = RotLeft(SSET, s,n,1);
     }
@@ -214,14 +214,14 @@ static SMALL_GRAPH_CIRCULANTS *SmallGraphCirculantConnect(SMALL_GRAPH_CIRCULANTS
     ** (i,j) \in E <=> (j,i) \in E.
     */
     for(i=0; i<n; i++)
-    {   
+    {
 	int j;
 	for(j=i+1; j<n; j++)
 	    assert(!SmallGraphAreConnected(rrg->G, i, j) ==
 		    !SmallGraphAreConnected(rrg->G, j, i));
     }
     for(i=0; i<n; i++)
-    {   
+    {
 	int card = SSetCardinality(rrg->G->A[i]);
 	assert(r == rrg->G->degree[i]);
 	assert(card == r);
@@ -277,14 +277,14 @@ static Boolean coprime(int a,int b){
 static Boolean smallsym(int multiplier, int pattern[], int length, int n)
 {
     //Test whether multiplying by m makes pattern smaller.
-    
+
     Boolean smallable=false;
     int i;
     for(i=0; i<length; i++)
     {
-	
+
 	int j = ((i+1)*multiplier)%n - 1;
-	
+
 	if(j >= length)
 	    j = n - j - 2;
 	assert(i >= 0 && i < length);
@@ -317,20 +317,20 @@ static Boolean smallerable(int pattern[], int length, int n)
     return false;
 }
 /*
- circulants(): Works only for the n= prime case and for the n= prime square-free 
-	case.  This function takes in a number of nodes n and computes either the 
-	number of connection set classes using symmetries made by multipliers prime to n, 
+ circulants(): Works only for the n= prime case and for the n= prime square-free
+	case.  This function takes in a number of nodes n and computes either the
+	number of connection set classes using symmetries made by multipliers prime to n,
 	or may also store representative connection sets from each connection set class
 	as they are computed in a two dimensional array.
  Parameters: int n- the number of nodes in the circulant
 			 int ncs-the number of connection set classes, this parameter is attained
 					 from previously running the function, and will only
-					 useful when the function is used to list and store the 
-					 connection sets. 
+					 useful when the function is used to list and store the
+					 connection sets.
 			 boolean simply_count-when set to true, this flag designates that
 				the function will count the connection set representatives, when set
 				to false, the function will also be stored.
-			char cs[][]- a 2-d array used to store the representatives of each 
+			char cs[][]- a 2-d array used to store the representatives of each
 				connection set class.
  Returns: The number of connection set classes that pertain to n, which is synonymous
 	with the number of rows in the 2 dimensional array used to store the representatives.
@@ -374,7 +374,7 @@ been tested, and (3) translating to a faster language than Python.
     if(!simply_count)
     {
 	if(cs ==NULL)//error handling
-	{	
+	{
 	    fprintf(stderr, "Fill is set, but the array is null");
 	    return -2;
 	}
@@ -383,10 +383,10 @@ been tested, and (3) translating to a faster language than Python.
 	    int j;
 	    for(i=0; i<ncs; i++)
 		for(j=0; j<n/2; j++)
-		    cs[i][j]=-1; 
+		    cs[i][j]=-1;
 	}
     }
-   
+
 
     while(pos >= 0)
     {
@@ -404,7 +404,7 @@ been tested, and (3) translating to a faster language than Python.
 		    if (pattern[i] == 1)
 		    {
 			cs[row][col]=i;
-			col=col+1;    
+			col=col+1;
 		    }
 		}
 	    }
@@ -414,7 +414,7 @@ been tested, and (3) translating to a faster language than Python.
 	{
 	    pattern[pos] += 1;
 	    if (pattern[pos] > 1)
-	    {  
+	    {
 		pattern[pos] = -1;  //backtracking, reset last changed index
 		pos -= 1;           //go back to the parent of this node
 	    }
@@ -438,7 +438,7 @@ static void init_ary(int n)
 
     if(ary[n])
 	return;
-    
+
     num_ary[n] = circulants(n, 1, true, NULL);  // number of connection sets, or rows for the array
     ary[n] = Malloc(num_ary[n]*(n/2));
     nd = circulants(n, num_ary[n], false, (char (*)[])ary[n]);

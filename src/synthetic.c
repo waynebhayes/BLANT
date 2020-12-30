@@ -39,7 +39,7 @@ static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 /* khop distribution is computed (bfs from each node) and used to make
 the synthetic more/less like a small-world network (or keep things as they are).
-So, compute khop of target and synthetic & then compare the MEDIANS of the two distributions. 
+So, compute khop of target and synthetic & then compare the MEDIANS of the two distributions.
 Now, do node-selection to make the network more/less small-worldy (details in GetNodes function)
 This has the effect of tuning the centrality measures - node eccentricity; node & edge betweenness; KHOP; diameter; ....
 */
@@ -90,7 +90,7 @@ void SetGlobalCanonMaps(void){
     unsigned int _Bk;
     int i;
     for(i=0; i<MAX_K; i++){  // for all values of 'k'
-        if (_k[i] == -1) 
+        if (_k[i] == -1)
             break;
         assert(3 <= _k[i] && _k[i] <= 8);
         _Bk = (1 <<(_k[i]*(_k[i]-1)/2));
@@ -123,7 +123,7 @@ static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varr
 double FastEuclideanObjective(double oldcost, double olddelta, double change){
     // oldcost is the original cost
     // olddelta is the original difference b/w 2 graphlet counts D[1][...canon...] - D[0][...canon...]
-    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code 
+    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code
     double unchanged = (oldcost * oldcost) - (olddelta * olddelta);
     unchanged = MAX(0, unchanged);
     double newcost_sq = unchanged + SQR(olddelta+change);
@@ -136,7 +136,7 @@ double FastEuclideanObjective(double oldcost, double olddelta, double change){
 double FastGDVObjective(double oldcost, int olddelta, double change){
     // oldcost is the original cost
     // olddelta is the original difference b/w 2 graphlet counts D[1][...canon...] - D[0][...canon...]
-    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code 
+    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code
     double unchanged = (oldcost * oldcost) - (olddelta * olddelta);
     unchanged = MAX(0, unchanged);
     double newcost_sq = unchanged + (double) SQR(olddelta+change);
@@ -150,7 +150,7 @@ double FastSGKDiffObjective(double oldcost, int k, int canonNum, int D0, int D1,
     // oldcost is the original cost
     // k and canonNum specify a graphlet
     // D0 and D1 are the graphlet counts - D[0] and D[1]; for a particular k and canonNum
-    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code 
+    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code
     double oldratio, newratio;
     assert(abs(change) == 1);
     int diff;
@@ -185,12 +185,12 @@ double FastSGKDiffObjective(double oldcost, int k, int canonNum, int D0, int D1,
 // O(1) time
 double AdjustGraphletKernel(int D0, int D1, int change, GKState* gkstate){
     // D0 and D1 are the graphlet counts - D[0] and D[1]; for a particular k and canonNum
-    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code 
+    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code
     // GKState stores 3 integers - (1) u dot v (2) ||u||^2 (3) ||v||^2
     assert(abs(change) == 1);
 
     // update u dot v
-    gkstate->udotv += ((long) D0 * (long) change);  // after simplification :    += [(d1*d0) - ((d1-change)*d0)] 
+    gkstate->udotv += ((long) D0 * (long) change);  // after simplification :    += [(d1*d0) - ((d1-change)*d0)]
 
     // update ||v|| ** 2
     gkstate->sq_length_v += (long) ((2*D1*change) - 1);  // after simplification :    += [-(d1-change)**2 + (d1)**2]
@@ -207,7 +207,7 @@ double AdjustGraphletKernel(int D0, int D1, int change, GKState* gkstate){
 // Updates GDV matrices, and incrementally returns new GraphletGDV cost
 double AdjustGDV(int k, int canon, int change, int line[k+1], Dictionary GDVhistograms[2][MAX_K][_maxNumCanon], int GDVbinsize[2][MAX_K][_maxNumCanon], int GDV[2][MAX_K][_maxNumCanon][_numNodes], double oldcost){
     // k and canon identify a graphlet
-    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code 
+    // change = +1 (-1) if count of a graphlet increased (decreased) in the caller code
     // line is the BLANT sample line
     assert(abs(change) == 1);
     assert(line[0] == canon);
@@ -290,7 +290,7 @@ double AdjustDegree(const int x, const int y, const int connected, GRAPH* G, int
 
 // Updates Local Clustering CONNECTIONS arrays, and incrementally returns new ClustCoff objective cost
 // Should be called AFTER calling GraphConnect or GraphDisconnect
-// O(d) time, where d is the number of nodes connected to both x and y 
+// O(d) time, where d is the number of nodes connected to both x and y
 double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, int localConnections[2][_numNodes], ClustCoffState* ccstate, double oldcost){
     // x and y are the 2 nodes which were connected or disconnected
     // connected = +1 (-1) if x and y were connected (disconnected)
@@ -299,7 +299,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
 
     /*
     Local clustering coefficient calculation is more precise if number of connections in the neighboorhood
-    of a node (integers) are updated, instead of the exact local clustering coefficent (which is a float) 
+    of a node (integers) are updated, instead of the exact local clustering coefficent (which is a float)
     */
 
     assert(abs(connected) == 1);
@@ -314,7 +314,7 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
     for(i=0; i < G->degree[x]; i++)
         if (G->neighbor[x][i] != y)
             SetAdd(xn, G->neighbor[x][i]);
-    
+
     nodecount = 0;  // nodes which are connected both to x & y
     for(i=0; i < G->degree[y]; i++){
         node = G->neighbor[y][i];
@@ -460,7 +460,7 @@ double EHDObjective(int D[2][MAX_K][_maxNumCanon], int CanonicalEdges[MAX_K][_ma
             assert(diff >= 0);
             sum += diff;
             assert(sum >= 0);
-        }        
+        }
     }
 
     return (double) sum;
@@ -473,7 +473,7 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
     // GDV histograms and matrices for GraphletGDV objective
     // SET*** samples stores which lines (samples) is a particular node present in
     // Varrays is the same thing as SET*** samples; used because there is no set iterator
-    // BLANT stores the samples [canonNum n1 n2 n3 .... nk] 
+    // BLANT stores the samples [canonNum n1 n2 n3 .... nk]
     // v1 and v2 are the nodes which WERE connected or disconnected, by the caller
     // oldcost contains the current cost of the 4 GRAPHLET BASED objectives
     // rvStack is a stack used to revert changes to the BLANT samples, if a move is rejected (optimization to avoid calling ReBLANT)
@@ -487,14 +487,14 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
         if (_k[i] == -1)
             break;
         int k = _k[i];
-        
-        // allocate a tiny graph 
-        if (!g[k-1]) 
+
+        // allocate a tiny graph
+        if (!g[k-1])
             g[k-1] = TinyGraphAlloc(k);
 
-        for (s=1; line=Varrays[k-1][v1][s], s<=Varrays[k-1][v1][0]; s++)            
+        for (s=1; line=Varrays[k-1][v1][s], s<=Varrays[k-1][v1][0]; s++)
             if(SetIn(samples[k-1][v2], line)){
-            
+
                 // decrement a graphlet
                 canon = BLANT[k-1][line][0];
                 Boolean wasConnected = SetIn(_connectedCanonicals[k-1], canon);
@@ -516,17 +516,17 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
 
                 // Change object (to be pushed on the stack)
                 Change newchange;
-                newchange.k = k; 
-                newchange.linenum = line; 
+                newchange.k = k;
+                newchange.linenum = line;
                 newchange.original = (int) canon;
 
 
                 TinyGraphInducedFromGraph(g[k-1], G, &(BLANT[k-1][line][1])); // address of the Varray without element 0
                 BLANT[k-1][line][0] = _K[k-1][TinyGraph2Int(g[k-1], k)];
                 Boolean  isConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
-                if(wasConnected && !isConnected) 
+                if(wasConnected && !isConnected)
                     ++_numDisconnectedGraphlets;
-                if(!wasConnected && isConnected) 
+                if(!wasConnected && isConnected)
                     --_numDisconnectedGraphlets;
 
 
@@ -552,8 +552,8 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
                 // change object
                 newchange.new = (int) canon;
                 assert(push(rvStack, newchange) == 0);
-            }          
-            
+            }
+
     }
 
     // recomputed from scratch, can be outside 'iterate over k' loop
@@ -583,7 +583,7 @@ void Revert(int ***BLANT, int D[2][MAX_K][_maxNumCanon], Dictionary GDVhistogram
 
     while (pop(rvStack, &change) == 0){
         line = BLANT[change.k-1][change.linenum];
-        
+
         Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
         if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
             if (!ISZERO(weights[GraphletGDV]))
@@ -597,9 +597,9 @@ void Revert(int ***BLANT, int D[2][MAX_K][_maxNumCanon], Dictionary GDVhistogram
                 AdjustGDV(change.k, change.original, 1, line, GDVhistograms, GDVbinsize, GDV, 1000);
         }
 
-        if(wasConnected && !isConnected) 
+        if(wasConnected && !isConnected)
             ++_numDisconnectedGraphlets;
-        if(!wasConnected && isConnected) 
+        if(!wasConnected && isConnected)
             --_numDisconnectedGraphlets;
         --D[1][change.k-1][change.new];
         ++D[1][change.k-1][change.original];
@@ -611,7 +611,7 @@ void Revert(int ***BLANT, int D[2][MAX_K][_maxNumCanon], Dictionary GDVhistogram
 double Objective(double abscost[NUMPROPS]){
     double cost = 0;
     int i = 0;
-    
+
     for(i=0; i<NUMPROPS; i++){
         assert(abscost[i] >= 0);
         assert(max_abscost[i] >= 0);
@@ -620,7 +620,7 @@ double Objective(double abscost[NUMPROPS]){
         else
             cost += ((double) weights[i] * (abscost[i] / max_abscost[i]));
     }
-    
+
     assert(cost >= 0);
     return cost;
 }
@@ -639,7 +639,7 @@ double GraphletEuclideanObjective(int D[2][MAX_K][_maxNumCanon]){
         double pd = PoissonDistribution(D[0][_k[i]-1][j], D[1][_k[i]-1][j]);
         if(pd > 1)
         Fatal("umm.... PoissonDistribution returned a number greater than 1");
-        if(pd>0) 
+        if(pd>0)
         logP += log(pd); // if we're close, use probability
         */
         // use this one when we're so far away the probability is zero
@@ -666,7 +666,7 @@ double GraphletKernelObjective(const int D[2][MAX_K][_maxNumCanon], GKState* gks
 
     for(i=0; i<MAX_K; i++){
         int k = _k[i];
-        if (k == -1) 
+        if (k == -1)
             break;
 
         for(j=0; j<_numCanon[k-1]; j++){
@@ -697,8 +697,8 @@ double SGKDiffObjective(int D[2][MAX_K][_maxNumCanon]){
 
     for(i=0; i<MAX_K; i++){
         int k = _k[i];
-        if (k == -1) 
-            break;        
+        if (k == -1)
+            break;
         for (j=0; j<_numCanon[k-1]; j++){
             int diff = abs(D[0][k-1][j] - D[1][k-1][j]);
             int target = D[0][k-1][j];
@@ -732,11 +732,11 @@ double GDVObjective(Dictionary GDVhistograms[2][MAX_K][_maxNumCanon]){
     for(j=0; j<MAX_K; j++){
         k = _k[j];
         if (k == -1) break;
-        
+
         for(canon=0; canon < _numCanon[k-1]; canon++){
 
             // skip this canon if it is disconnected
-            if ((IGNORE_DISCONNECTED_GRAPHLETS) && (!SetIn(_connectedCanonicals[k-1], canon))) 
+            if ((IGNORE_DISCONNECTED_GRAPHLETS) && (!SetIn(_connectedCanonicals[k-1], canon)))
                 continue;
 
             // the 2 GDVhistograms (target & synthetic)
@@ -799,7 +799,7 @@ void GetConnections(GRAPH *G, int localConnections[G->n]){
     // used for local-clustering-coeffienct computation later on
     int n, x, node, degree;
     int i, j, edges;
-    
+
     // set for marking neighbors
     int scratch[G->n];
     for(i=0; i<G->n; i++){
@@ -815,10 +815,10 @@ void GetConnections(GRAPH *G, int localConnections[G->n]){
             localConnections[n] = 0;
             continue;
         }
-        
+
         for(i=0; i<degree; i++)
             scratch[(G->neighbor[n])[i]] = n;
-        
+
         for(i=0; i<degree; i++){
             node = (G->neighbor[n])[i];
             assert(node != n);
@@ -839,10 +839,10 @@ double ClustCoffObjective(const ClustCoffState* ccstate){
     double cost = 0;
     double temp;
     int j;
-    
+
     assert(ccstate->histograms_size[0] == ccstate->histograms_size[1]);
 
-    for(j=0; j < ccstate->histograms_size[0]; j++){  
+    for(j=0; j < ccstate->histograms_size[0]; j++){
         temp = (double) SQR(ccstate->histograms[0][j] - ccstate->histograms[1][j]);
         assert(temp >= 0);
         cost += temp;
@@ -883,7 +883,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
         connect node1-node2
         disconnect any random edge
 
-    Method 2 - 
+    Method 2 -
     If you need to make the synthetic MORE small-world; connect nodes with lesser num. of SPs through them, disconnect nodes with higher num. of SPs
     If you need to make the synthetic LESS small-world; connect nodes with higher num. of SPs through them, disconnect nodes with lower num. of SPs
     (these conditions are set on line 1358)
@@ -895,14 +895,14 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
             take random n3 in a particular interval (lower 35% or higher 35% indexes in nodesBySp)
             get random n4 connected to n3
         while:
-            n4 not in same interval as n3 
+            n4 not in same interval as n3
         disconnect n3 & n4
 
     */
 
 
     int x, y;
-    
+
     if ((node_selection==NODE_SEL_ALWAYS_RANDOM) || (sw.make == 0)){
         // random selection
 
@@ -1000,7 +1000,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
                 x = nodesBySp[(G->n -1) - (int)(lower*G->n) - random];
                 random = drand48() * interval * G->n;
                 y = nodesBySp[(G->n -1) - (int)(lower*G->n) - random];
-            }   
+            }
         }while((x==y) || (GraphAreConnected(G, x, y)));
         assert(!GraphAreConnected(G, x, y));
         assert(x!=y);
@@ -1021,7 +1021,7 @@ int main(int argc, char *argv[]){
 
     // initialize _k[]
     for(i=0; i<MAX_K; i++)
-        _k[i] = -1; 
+        _k[i] = -1;
 
     // Read objective function weights
     char* weightString = getenv("SYNTHETIC_GRAPHLET_WEIGHTS");
@@ -1058,19 +1058,19 @@ int main(int argc, char *argv[]){
         assert(fabs(wsum-1) < 0.0001);
     }
 
-    
+
     //Read node selection strategy, 0 for random | 1 for bfs-hops | 2 for nodes by ShortestPaths
     char* nselect = getenv("SYNTHETIC_NODE_SELECTION");
     if(nselect)
         node_selection = atoi(nselect);
     assert((node_selection>=0) && (node_selection<=2));
-    
-    
+
+
     //Read max value of k and stagnation
     int kmax;
     while((opt = getopt(argc, argv, "k:s:")) != -1){
         switch(opt){
-            case 'k': 
+            case 'k':
                 kmax = atoi(optarg);
                 if(!(3 <= kmax && kmax <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 
@@ -1107,7 +1107,7 @@ int main(int argc, char *argv[]){
     assert(_maxNumCanon != -1);  // this should be set >0 by calling SetGlobalCanonMaps() first
     int D[2][MAX_K][_maxNumCanon];
     for(i=0; i<MAX_K;i++)
-        for (j=0; j<_maxNumCanon; j++) 
+        for (j=0; j<_maxNumCanon; j++)
             D[0][i][j] = D[1][i][j] = 0;
 
     // GraphletKernel (initialization)
@@ -1115,12 +1115,12 @@ int main(int argc, char *argv[]){
     gkstate.udotv = gkstate.sq_length_u = gkstate.sq_length_v = 0;
 
     // GDV matrices (initialization)
-    /* The GDV is a matrix which has n rows and l columns, n = number of nodes in the graph 
-    and l = number of canonical graphlets for the size of k-graphlets you are working with. 
-    I can consider each column j of the GDV as the graphlet degree distribution of graphlet j in the graph. 
-    To get the degree distribution, you'd have to "summarize" the column as follows: 
-    Compute S(t)_j = The number of nodes appearing in a graphlet of type j, t times. 
-    In other words, in that column, how many times did t appear for t = 0, 1, 2, .... infinity 
+    /* The GDV is a matrix which has n rows and l columns, n = number of nodes in the graph
+    and l = number of canonical graphlets for the size of k-graphlets you are working with.
+    I can consider each column j of the GDV as the graphlet degree distribution of graphlet j in the graph.
+    To get the degree distribution, you'd have to "summarize" the column as follows:
+    Compute S(t)_j = The number of nodes appearing in a graphlet of type j, t times.
+    In other words, in that column, how many times did t appear for t = 0, 1, 2, .... infinity
     (it won't actually be infinity, but it can get very large).*/
     int GDV[2][MAX_K][_maxNumCanon][_numNodes];  // 4 dimensional
     for(i=0; i<2; i++){
@@ -1168,7 +1168,7 @@ int main(int argc, char *argv[]){
                 for (l=0; l<=_k[j]; l++){
                     assert(1 == fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])));
                     if (l>0){
-                        GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]] += 1; // update GDV matrix 
+                        GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]] += 1; // update GDV matrix
                     }
                 }
                 assert(BLANT[i][_k[j]-1][line][0] < _maxNumCanon);
@@ -1178,7 +1178,7 @@ int main(int argc, char *argv[]){
             fclose(fp);
             optind++;
         }
-    
+
     }
 
     // sanity check - squiggly vectors
@@ -1220,7 +1220,7 @@ int main(int argc, char *argv[]){
     for(i=0; i<2; i++){
         for(j=0; j<MAX_K; j++){
             if (_k[j] == -1) break;
-            
+
             int l, b;
             for(l=0; l<_numCanon[_k[j]-1]; l++){ // for every graphlet
 
@@ -1238,7 +1238,7 @@ int main(int argc, char *argv[]){
                 Dictionary* this = &(GDVhistograms[i][_k[j]-1][l]);
                 dictionary_create(this);
                 int n, key, prev;
-                
+
                 for (n=0; n < G[i]->n; n++){  // traverse the nodes involved in a particular graphlet
                     key = GDV[i][_k[j]-1][l][n];  // actual key value
                     key = (int) ((int) key/b) * b;  // binned key value
@@ -1285,7 +1285,7 @@ int main(int argc, char *argv[]){
     for (i=0; i<MAX_K; i++){
         if (_k[i] == -1) break;
         Varrays[_k[i]-1] = (int**) Malloc(G[1]->n * sizeof(int*));
-        
+
         for (j=0; j < G[1]->n; j++){
             Varrays[_k[i]-1][j] =  (int*) Malloc((1+SetCardinality(samples[_k[i]-1][j]))* sizeof(int));
             Varrays[_k[i]-1][j][0] = SetToArray(Varrays[_k[i]-1][j]+1, samples[_k[i]-1][j]);
@@ -1362,15 +1362,15 @@ int main(int argc, char *argv[]){
         if(_k[i] == -1) break;
         int k = _k[i];
         int c1,c2,d,index;
-        
+
         for(c1=0; c1<_numCanon[k-1]; c1++){
-            for(j=0; j<NC2(k); j++) 
+            for(j=0; j<NC2(k); j++)
                 EHDaway[k-1][c1][j][0] = 0;  // initialize the count to 0
             for(c2=0; c2<_numCanon[k-1]; c2++){
                 d = EHD[k-1][c1][c2];
                 EHDaway[k-1][c1][d][0] += 1;
                 index = EHDaway[k-1][c1][d][0];
-                EHDaway[k-1][c1][d][index] = c2; 
+                EHDaway[k-1][c1][d][index] = c2;
             }
         }
     }
@@ -1380,7 +1380,7 @@ int main(int argc, char *argv[]){
     for (i=0; i<2; i++)
         for (j=0; j < G[i]->n; j++)
             assert((G[i]->degree[j]) < (G[i]->n));
-    
+
     int Degree[2][maxdegree+1];   // indexing: nodes with degree=5, are at index 5
     for (i=0; i<2; i++)
         for (j=0; j <= maxdegree; j++)
@@ -1403,12 +1403,12 @@ int main(int argc, char *argv[]){
         GetConnections(G[i], localConnections[i]);   // populates the array with every nodes' local CONNECTIONS (not clustCoff)
 
     ClustCoffState ccstate;  // CC Histograms
-    
+
     // popluate the local-clust-coff histograms
     for(i=0; i<2; i++){
         int degree, nc2, key, value;
         double local_cc, b, localClustCoff[G[i]->n], scratchspace[G[i]->n];
-        
+
         for(j=0; j < G[i]->n; j++){
             degree = G[i]->degree[j];
             nc2 = (degree * (degree-1))/2;
@@ -1462,7 +1462,7 @@ int main(int argc, char *argv[]){
     max_abscost[EdgeHammingDistance] = EHDObjective(D, CanonicalEdges, EHD, EHDaway);
     max_abscost[DegreeDist] = DegreeDistObjective(Degree);
     max_abscost[ClustCoff] = ClustCoffObjective(&ccstate);
- 
+
     double abscost[NUMPROPS];
     memcpy(abscost, max_abscost, NUMPROPS * sizeof(double));
 
@@ -1470,14 +1470,14 @@ int main(int argc, char *argv[]){
     fprintf(stderr, "BLANT samples=%d\n", _numSamples);
     fprintf(stderr, "Starting ABSOLUTE costs: GraphletEuclidean: %g, GraphletKernel: %g, GraphDiff: %g, GDV: %g, EHD: %g, DegreeDist: %g, ClustCoff: %g\n", abscost[0], abscost[1], abscost[2], abscost[3], abscost[4], abscost[5], abscost[6]);
 
-    double cost = Objective(abscost), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start. 
+    double cost = Objective(abscost), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start.
     assert(cost == cost);
-    
+
     long int sa_iter = 0;
     long int a_iter = 0;  // accepted moves
     double pBad, unif_random;
     float temperature;  // it's okay to overflow and become 0
-    
+
     double newcost[NUMPROPS];
 
     /* MAIN LOOP */
@@ -1492,14 +1492,14 @@ int main(int argc, char *argv[]){
         sampleKHop(G[1], &(khop[1]), KHOP_QUALITY, nodesBySp[1]);
 
         // reverse lookup
-        for(i=0; i<G[1]->n; i++) 
+        for(i=0; i<G[1]->n; i++)
         index_in_nodesBySp[1][i] = -1;
 
         for(i=0; i<G[1]->n; i++){
         assert(index_in_nodesBySp[1][nodesBySp[1][i]] == -1);
         index_in_nodesBySp[1][nodesBySp[1][i]] = i;
         }
-        
+
         int medians[2];
         int MAX_Keys[2];
 
@@ -1581,13 +1581,13 @@ int main(int argc, char *argv[]){
         }
         cost = newCost;
         memcpy(abscost, newcost, NUMPROPS * sizeof(double));
-        
+
         // update max costs
         for(i=0; i<NUMPROPS; i++)
         max_abscost[i] = MAX(max_abscost[i], abscost[i]);
 
         // graphletKernel
-        memcpy(&gkstate, &newGkstate, sizeof(GKState));        
+        memcpy(&gkstate, &newGkstate, sizeof(GKState));
 
         same = 0;
         ++a_iter;
@@ -1616,7 +1616,7 @@ int main(int argc, char *argv[]){
         newcost[DegreeDist] = AdjustDegree(v1, v2, 1, G[1], Degree, newcost[DegreeDist]);
         if (!ISZERO(weights[ClustCoff]))
         newcost[ClustCoff] = AdjustClustCoff(v1, v2, 1, G[1], localConnections, &ccstate, newcost[ClustCoff]);
-        
+
         // revert changes
         Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &rvStack);
     }

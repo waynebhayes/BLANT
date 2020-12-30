@@ -28,7 +28,7 @@ typedef struct _lsode
 ** you're integrating, there is some restart overhead.  So, it's quite a bit
 ** more efficient to do a bunch of LSODE integrations in series than in
 ** parallel.
-*/ 
+*/
 LSODE *LsodeAlloc(int n, double t, double *y, F_EVAL f, int stiff_flag,
     double eps, double zero);
 

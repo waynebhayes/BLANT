@@ -38,7 +38,7 @@ void init_adaptive_verlet(int n, double t0, double dt, double *r, double *v, FF_
     VecCopy(n, internal_v, V);
     F = f;
 
-    
+
 }
 
 
@@ -56,7 +56,7 @@ double integrate_adaptive_verlet(double tout)
 	return T;
 
     assert(tout >= T);
-    
+
     /*
     ** calculate acceleration and intial value for rho
     ** rho is what makes the timestep variable
@@ -64,58 +64,58 @@ double integrate_adaptive_verlet(double tout)
     varT = T;
     F(N, T, internal_r, A);
     rho = Norm(N, internal_r, internal_v);
- 
+
     /* Algorithm: as long as the positions are at a time
      * less than tout, keep going.  Since T represents the time of the positions,
      * and the velocities are half a step ahead after each loop iteration, it's
      * possible the velocities could be *past* tout when we're done.  That's OK.
      */
-     
- 
+
+
 		for(i=0; i<N; i++)
 			internal_vh[i] = internal_v[i] + DT / (2*rho) * A[i];
 		for(i=0; i<N; i++)
 	    internal_rh[i] = internal_r[i] + DT / (2*rho) * internal_vh[i];
-		
+
     while(varT + (DT/2*rho) + (DT/2*temprho) <= tout)
     {
-	 
+
 	 	varT += DT/(2*rho);
   	rho = 2*Norm(N, internal_rh, internal_vh)-rho;
   	T += DT;
   	varT += DT/(2*rho);
-  	
+
   	for(i=0; i<N; i++)
   		internal_r[i] = internal_rh[i] + DT / (2*rho) * internal_vh[i];
   	F(N, T, internal_r, A);
   	for(i=0; i < N; i++)
   	  internal_v[i] = internal_vh[i] + DT / (2*rho) * A[i];
-  	    
+
   	for(i=0; i<N; i++)
   		internal_vh[i] = internal_v[i] + DT / (2*rho) * A[i];
   	for(i=0; i<N; i++)
   	  internal_rh[i] = internal_r[i] + DT / (2*rho) * internal_vh[i];
-  	    
+
   	temprho = 2*Norm(N, internal_rh, internal_vh)-rho;
-  	
+
   	}
-	
+
     /* Now we're close.  Take a weird mutant baby Euler step to tout.
      */
-  
+
    for(i=0; i<N; i++)
 	R[i] = internal_r[i] + (tout - varT) * internal_v[i];
     F(N, tout, R, A);
     for(i=0; i < N; i++)
 	V[i] = internal_v[i] + (tout - varT) * A[i];
-	
+
 	varT += (tout - varT);
-	
+
 	printf( "%g\t(%g)\t", T, varT);
 	for(i=0; i<N; i++)
 		printf("%g ", R[i]);
 	for(i=0; i<N; i++)
 		printf("%g \t", V[i]);
-    
+
     return tout;
 }

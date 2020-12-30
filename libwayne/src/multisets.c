@@ -113,7 +113,7 @@ MULTISET *MultisetAddSet(MULTISET *mset, SET *s) {
 
 /* Remove an element from a multiset. If the multiplicity of that element reaches 0, cardinality is decremented.
    First checks for underflow
-*/ 
+*/
 MULTISET *MultisetDelete(MULTISET *mset, unsigned element) {
     assert(element < mset->n);
     if (mset->array[element] == 0) //Check for unsigned underflow before decrementing

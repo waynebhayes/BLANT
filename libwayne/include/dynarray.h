@@ -15,7 +15,7 @@ foint ArrayAdd(ARRAY *A, foint new);
 foint ArraySet(ARRAY *A, int pos, foint new);
 // Get an item at specified position from the dynarray.
 foint ArrayAt(ARRAY *A, int pos);
-// Remove item at a specified postion. 
+// Remove item at a specified postion.
 foint ArrayRemoveAt(ARRAY *A, int pos);
 // Remove the first occurence of a specified element.
 foint ArrayRemove(ARRAY *A, foint elem, pCmpFcn cmp);

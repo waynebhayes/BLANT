@@ -10,14 +10,14 @@
 
 /*
     This file assumes LOWER_TRIANGLE is defined in blant.h
-    Otherwise, the graph won't be built correctly in BuildGraph
+    Otherwise, the graph won't be built correctly in Int2TinyGraph
 */
 
 //Functions from libwayne and libblant.c
 extern "C" {
     struct TINY_GRAPH;
     void mapCanonMap(char* BUF, short int *K, int k);
-    void BuildGraph(TINY_GRAPH* G, int Gint);
+    void Int2TinyGraph(TINY_GRAPH* G, int Gint);
     TINY_GRAPH *TinyGraphAlloc(unsigned int n);
     int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
     typedef unsigned char Boolean;
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
             table[i][LOWER_ORDINAL] = _K[lowerDecimal];
             table[i][LOWER_DECIMAL] = _canonList[table[i][LOWER_ORDINAL]];
 
-            BuildGraph(G, table[i][LOWER_DECIMAL]);
+            Int2TinyGraph(G, table[i][LOWER_DECIMAL]);
             table[i][CONNECTED] = TinyGraphDFSConnected(G,0 > 0);
         }
 

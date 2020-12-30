@@ -265,7 +265,7 @@ const char* getDecompressionProgram(char* fileName) {
 }
 FILE* decompressFile(const char* decompProg, char* fileName) {
     char result[512] = {0};
-    snprintf(result, sizeof(result), "%s%s%s", decompProg, " < ", fileName); 
+    snprintf(result, sizeof(result), "%s%s%s", decompProg, " < ", fileName);
     printf("Decompressing file %s using decompression program %s\n", fileName, decompProg);
     return popen(result, "r");
 }

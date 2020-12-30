@@ -13,7 +13,7 @@
 ** stiff_flag: 0 = no, 1 = yes, 2 = dynamically decided by SDRIV2
 ** eps = allowable relative error.
 ** zero = "problem zero"; I think it's allowable absolute error.
-*/ 
+*/
 void init_sdriv2(int n, double time, double *y, F_EVAL f, int stiff_flag, double eps, double zero);
 
 /* Do the actual integration.  Return the actual TOUT */

@@ -67,14 +67,20 @@ typedef union _voidInt {
 
 /* The comparison function type: used by heaps, binary trees and sorts.
 */
-typedef int (*pCmpFcn)(foint, foint);   
+typedef int (*pCmpFcn)(foint, foint);
 
 /* Copy a foint.  In all instances, you are expected to know what the
 ** foint actually is, and return a copy of it.  If a FointCopy function
 ** pointer is ever NULL, the code will do a shallow copy.
 */
-typedef foint (*pFointCopyFcn)(foint);   
+typedef foint (*pFointCopyFcn)(foint);
 typedef void (*pFointFreeFcn)(foint);
+
+/*
+** The function type that gets called during a traversal (eg of a binary tree).
+** It should return true to continue the traversal, or false to stop it.
+*/
+typedef Boolean (*pFointTraverseFcn)(foint key, foint data);
 
 /* this is is the general error return value for most abstract data types */
 extern const foint ABSTRACT_ERROR;

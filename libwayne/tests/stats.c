@@ -27,7 +27,7 @@ char USAGE[] = "USAGE: %s [-g|-gain] [-[h|p][c] numBins min max]\n"
 int main(int argc, char *argv[])
 {
     STAT *st;
-    double sample, histMin, histMax;
+    double sample, histMin=0, histMax=0;
     int numBins = 0, ss;
     Boolean histCumulative = false, histNormalize = false, geom=false, gain=false;
 

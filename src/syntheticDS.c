@@ -73,7 +73,7 @@ int init_stack(RevertStack* stack){
         return 0;
     else
         return -1;
-} 
+}
 
 int push(RevertStack* stack, Change elt){
     if (stack->tos == (stack->size-1))
@@ -92,13 +92,13 @@ int pop(RevertStack* stack, Change* elt){
 }
 
 
-// sort 
+// sort
 // comparison function definition (to be used by qsort)
 int compare_ints(const void* a, const void* b){
     // this function is from -> https://en.cppreference.com/w/c/algorithm/qsort
     int arg1 = *(const int*)a;
     int arg2 = *(const int*)b;
- 
+
     if (arg1 < arg2) return -1;
     if (arg1 > arg2) return 1;
     return 0;
@@ -108,7 +108,7 @@ int compare_doubles(const void* a, const void* b){
     // this function is from -> https://en.cppreference.com/w/c/algorithm/qsort
     double arg1 = *(const double*)a;
     double arg2 = *(const double*)b;
- 
+
     if (arg1 < arg2) return -1;
     if (arg1 > arg2) return 1;
     return 0;
@@ -157,7 +157,7 @@ double PoissonDistribution(double l, int k){
 
 
 double getDoubleBinSize(int n, double localClustCoff[n], double* scratchspace){
-    // sort 
+    // sort
     // getIQR
     // return (2IQR) / (n^1/3)
     //assert(n >= 5);
@@ -214,7 +214,7 @@ int getIntegerBinSize(int n, int GDVcolumn[n], int* scratchspace){
 
     if (returnVal < 1)
         return 1;
-    
+
     return returnVal;
 }
 
@@ -286,16 +286,16 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
     do a BFS starting from every node
         -during this BFS, keep track of how many nodes are a distance 1/2/3/... away from the current source
         -keep adding the number of nodes found at distance 1/2/3/... ; into a global array or dictionary
-    
+
     But, we only use the median of the khop distribution (in the main calling code); so it's okay to take
-    a sample of the nodes (every node is selected with probability p=quality); and the above algorithm is executed. 
+    a sample of the nodes (every node is selected with probability p=quality); and the above algorithm is executed.
 
     Now, this function also returns an array of nodes, sorted by the number of shortest paths going through them,
     which can be computed in the same bfs traversal.
 
-    Once you do a bfs traversal and reach the leaf nodes (you now have a tree), 
+    Once you do a bfs traversal and reach the leaf nodes (you now have a tree),
     you can backtrack to the source; while aggregating the shortest paths, using the following recursive algorithm
-    
+
     do a BFS starting from every node (SOURCE)
         - Now, for any node, the number of shortest paths going through it is: 1 + the sum of SPs going through it's child nodes (and just 1 for leaves)
           (every node that is discovered is actually a terminating point of a SP from SOURCE)
@@ -312,7 +312,7 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
     if (quality<0.0) quality = -1;
 
     for(i=0; i<G->n; i++)
-        nodesBySp[i] = 0;  // *TEMPORARILY*, before line 380, nodesBySp[i] stores num of shortest paths going through `i`th vertex 
+        nodesBySp[i] = 0;  // *TEMPORARILY*, before line 380, nodesBySp[i] stores num of shortest paths going through `i`th vertex
                             // later, it will be sorted where nodes with lesser num of shortest paths going through have lower indexes
 
     dictionary_create(khop);

@@ -11,7 +11,7 @@
 typedef struct _binTreeNode
 {
     foint key, info;
-    struct _binTreeNode *left, *right;
+    struct _binTreeNode *left, *right, *parent;
 } BINTREENODE;
 
 enum _treeType { unbalanced = 0 };   /* AVL next? */
@@ -36,9 +36,11 @@ void BinTreeInsert(BINTREE *, foint key, foint info);
 /* O(log n); returns false if failure, and true if found and then sets returnInfo to the pointer to foint; */
 Boolean BinTreeLookup(BINTREE *, foint key, foint *pInfo);
 
-#if 0
-foint BinTreeLookupKey(BINTREE *p, foint info); /* O(n), full traversal. */
-#endif
+/*
+** BinTreeTraverse: Traverse a binary tree, calling your function pointer (pFointTraversalFcn) on each
+** element, in order.
+*/
+Boolean BinTreeTraverse ( BINTREE *bt, pFointTraverseFcn);
 
 void BinTreeFree(BINTREE *);
 

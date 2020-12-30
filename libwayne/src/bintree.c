@@ -4,9 +4,9 @@
 ** you modify them please don't distribute your changes without a clear
 ** indication that you've done so.  If you think your change is spiffy,
 ** send it to me and maybe I'll include it in the next release.
-** 
+**
 ** Wayne Hayes, wayne@cs.utoronto.ca (preffered), or wayne@cs.toronto.edu
-*/ 
+*/
 
 /* Binary tree algorithms from Lewis & Denenberg
 */
@@ -67,7 +67,7 @@ void BinTreeInsert(BINTREE *tree, foint key, foint info)
     p = (BINTREENODE*) Calloc(1,sizeof(BINTREENODE));
     p->key = tree->copyKey(key);
     p->info = tree->copyInfo(info);
-    p->left = p->right = NULL;
+    p->parent = p->left = p->right = NULL;
     *locative = p;
 }
 
@@ -91,6 +91,19 @@ Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
     return false;
 }
 
+static Boolean BinTreeTraverseHelper ( BINTREENODE *p, pFointTraverseFcn f)
+{
+    Boolean cont = true;
+    if(p->left) cont &= BinTreeTraverseHelper(p->left, f);
+    if(cont) cont &= f(p->key, p->info);
+    if(cont && p->right) cont &= BinTreeTraverseHelper(p->right, f);
+    return cont;
+}
+
+Boolean BinTreeTraverse ( BINTREE *tree, pFointTraverseFcn f)
+{
+    return BinTreeTraverseHelper(tree->root, f);
+}
 
 #if 0
 /* LookupKey: the tree is ordered on key, not info.  So we have to do a

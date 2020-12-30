@@ -348,7 +348,7 @@ double StatACMStudentZ2P_D(double t, double df)
   // for large int df or double df
   // adapted from ACM algorithm 395
   // returns 1-tail probability
-      
+
   double n = df; // to sync with ACM parameter name
   double a, b, y;
 
@@ -392,7 +392,7 @@ double StatACMStudentZ2P(double t, int df)
   else
   {
     int j;
-    a = sqrt(b); 
+    a = sqrt(b);
     y = a * n;
     for(j = 2; a != z; j += 2)
     {

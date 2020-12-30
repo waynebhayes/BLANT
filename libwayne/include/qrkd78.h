@@ -12,7 +12,7 @@ typedef struct _qrkd78
 
 /*
 ** RKD78 is a 7/8 pair Runge-Kutta method using Defect-based error
-** control, written by Wayne Enright (+ others?)  QRKD is a 
+** control, written by Wayne Enright (+ others?)  QRKD is a
 ** quad-precision vesion of it.  Fortran's QUAD==gcc's long double.
 ** n = number of equations.
 ** Time = initial time.
@@ -21,7 +21,7 @@ typedef struct _qrkd78
 ** eps = allowable relative error.
 **
 ** stiff_flag must be 0, and zero must 0.0.
-*/ 
+*/
 QRKD78 *Qrkd78Alloc(int n, long double Time, long double *y, QF_EVAL f,
     int stiff_flag, long double eps, long double zero);
 

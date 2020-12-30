@@ -297,35 +297,35 @@ int PointerSort(SortFcn Sort, void *a, size_t n, size_t w, pfnCmpFcn compare)
 ** in the following talk.  I didn't understand the author's extension
 ** very well, but Frederickson's algorithm is quite trivial.  In essence,
 ** it is this:
-** 
+**
 **     Split the input into n/logn blocks of size logn.  Keep a priority
 **     queue P of the smallest elements in each block (P has size n/logn).
 **     After deleting an element in P, delete the same element from its
 **     block, and use a brute-force search of the block for the next
 **     smallest element.
-** 
+**
 ** Here is the abstract of the talk.
-** 
+**
 **            Department of Computer Science, University of Toronto
 **          (SF = Sandford Fleming Building, 10 King's College Road)
-** 
+**
 **        -------------------------------------------------------------
-** 
+**
 **                                   THEORY
 **                 SF1101, at 11:00 a.m., Friday 12 June 1998
-** 
+**
 **                                 Theis Rauhe
 **                         BRICS, University of Aarhus
-** 
+**
 **                 "Optimal Time-Space Trade-offs for Sorting"
-** 
+**
 ** This talk addresses the fundamental problem of sorting n elements from an
 ** ordered universe in a sequential model of computation and in particular
 ** consider the time-space trade-off (product of time and space) for this
 ** problem.  Beame has shown a lower bound of $Omega(n^2)$ for this product
 ** leaving a gap of a logarithmic factor up to the previously best known upper
 ** bound of $O(n^2log n)$ due to Frederickson.
-** 
+**
 ** In this talk a comparison based sorting algorithm which closes this gap is
 ** presented.  This algorithm obtain the optimal time-space product $O(n^2)$
 ** for the full range of space bounds between $log n$ and $n/log n$.
@@ -390,7 +390,7 @@ int FredSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
     char output[n*w];
 
 	int next, nextsBlock, found;
-    
+
     fredArray = a;
     fredSize = n;
     fredWidth = w;
@@ -405,7 +405,7 @@ int FredSort(void *a, size_t n, size_t w, pfnCmpFcn compare)
 	HeapInsert(P, (foint)found);
     }
     assert(HeapSize(P) == numBlocks);
-    
+
     for(i=0; i<n; i++)
     {
 	next = HeapNext(P).i;

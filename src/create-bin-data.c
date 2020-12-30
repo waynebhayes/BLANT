@@ -69,7 +69,7 @@ short int canon2ordinal(int numCanon, int canon_list[numCanon], int canonical)
 int main(int argc, char *argv[])
 {
     int i;
-    char buf[BUFSIZ];   
+    char buf[BUFSIZ];
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk);
     int numCanon = connectedCanonicals->n;
     SetFree(connectedCanonicals);

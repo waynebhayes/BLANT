@@ -25,13 +25,13 @@ Boolean nextPermutation(int permutation[])
 	{
 	    int j;
 	    for(j=k-1;j>i-1;j--){
-		if(permutation[i-1]<permutation[j]){ 
+		if(permutation[i-1]<permutation[j]){
 		    int t=permutation[i-1];
 		    permutation[i-1]=permutation[j];
 		    permutation[j]=t;
 		    break;
-		}	
-	    }              
+		}
+	    }
 	    int l=i;
 	    for(j=k-1;j>l;j--)
 	    {
@@ -44,7 +44,7 @@ Boolean nextPermutation(int permutation[])
 	    }
 	    return 1;
 	}
-    } 
+    }
     return 0;
 }
 
@@ -59,7 +59,7 @@ void getDecimal(int adj[k][k+1],long *D){
     for(i=k-2;i>=0;i--)
 	for(j=k-1;j>i;j--)
 #endif
-	{	
+	{
 	    if(adj[i][j]==1) *D+= (1 << bitPos);
 		bitPos++;
 	}
@@ -80,7 +80,7 @@ void getGraph(long int decimal, int adj[k][k+1]){
             adj[j][i]=adj[i][j];
             decimal/=2;
    	}
-    
+
      for(i=0; i<k; i++)
         for(j=0; j<k; j++)
             adj[i][k]+=adj[i][j];
@@ -94,7 +94,7 @@ void orbits(long int Decimal,long orbit[]){
     for(i = 0; i < k; i++){
         permutation[i]=i;
         orbit[i]=i;
-    } 
+    }
     int adj[k][k+1];
     for(i=0; i<k; i++)
      for(j=0; j<k+1; j++)
@@ -109,7 +109,7 @@ void orbits(long int Decimal,long orbit[]){
         permuteNodes(permutation,adj,&d);
         //Check for automorphism
         if(Decimal == d){
-          
+
               makeOrbit(permutation, orbit);
         }
     }
@@ -134,14 +134,14 @@ void permuteNodes(int permutation[], int adj[k][k+1], long* D){
     //Apply the permutation
     for(i = 0; i < k; i++){
         for(j =i+1; j < k; j++){
-            int pi = permutation[i], pj = permutation[j]; 
+            int pi = permutation[i], pj = permutation[j];
 	    pAdj[pi][pj] = adj[i][j];
 	    pAdj[pj][pi] = adj[i][j];
         }
     }
 
     getDecimal(pAdj, D);
-   
+
 }
 void makeOrbit(int permutation[], long orbit[]){
     int i, j;
@@ -155,7 +155,7 @@ void makeOrbit(int permutation[], long orbit[]){
             cycle[0]=0;
 	    int minOrbit=i;
             getCycle(permutation, cycle, i, i, visited);
-            
+
             for(j=1; j<=cycle[0]; j++)
                 minOrbit = MIN(orbit[cycle[j]], minOrbit);
             for(j=1; j<=cycle[0]; j++)
@@ -192,7 +192,7 @@ int main(int argc, char* argv[]){
 		orbit[i][j]=numOrbits++;
 	    else
                 orbit[i][j]=orbit[i][orbit[i][j]];
-        } 
+        }
     }
 
     //output

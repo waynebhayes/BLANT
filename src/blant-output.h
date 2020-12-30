@@ -11,5 +11,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 // You should print a node EXCLUSIVELY with this function; it automatically determines if we're supporting names or not.
 // If c is non-zero, the character is prepended, using putchar(), before the node is printed (eg ' ', ';' or '\t').
 void PrintNode(char c, int v);
+// Print a pair of nodes, but sorted so that u<=v, even if they are strings.
+void PrintNodePairSorted(int u, char c, int v);
 
 #endif

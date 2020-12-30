@@ -20,7 +20,7 @@ typedef struct _multisetType {
 MULTISET *MultisetAlloc(unsigned int n);
 MULTISET *MultisetResize(MULTISET *mset, unsigned int new_n);  /* resizes and copies elements that still fits */
 void MultisetFree(MULTISET *mset);
-#define MultisetReset MultisetEmpty 
+#define MultisetReset MultisetEmpty
 MULTISET *MultisetEmpty(MULTISET *mset); /* empties the multiset */
 unsigned MultisetSupport(MULTISET *mset); /* returns the support of the multiset */
 FREQTYPE MultisetMultiplicity(MULTISET *mset, unsigned element); /* returns the multiplicity of an element in the multiset */

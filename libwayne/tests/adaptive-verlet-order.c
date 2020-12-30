@@ -52,7 +52,7 @@ int main(void)
 {
     double base=2.0, ycheap[2], ygood[2], error[NUM_H];
     int i;
-    
+
     i=0; /* base case, with largest timestep */
     DT = IntPow(base, -i);
     ycheap[0] = 1.0;

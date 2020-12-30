@@ -18,7 +18,7 @@
 extern Boolean _GRAPH_GEN;
 extern int _GRAPH_GEN_EDGES;
 extern int _KS_NUMSAMPLES;
-extern float confidence; 
+extern float confidence;
 extern int _genGraphMethod;
 
 void reset_global_maps(int k_new);

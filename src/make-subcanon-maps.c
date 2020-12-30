@@ -43,8 +43,8 @@ int main(int argc, char* argv[]) {
     int tsetBit;
     for (i = 0; i < numCanon; i++) {
         int canonical = canon_list[i];
-        BuildGraph(G, canonical);
-        printf("%d ", canonical); 
+        Int2TinyGraph(G, canonical);
+        printf("%d ", canonical);
 
         //Reset induceTSET
         for (j = 0; j < k; j++) {

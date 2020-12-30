@@ -6,7 +6,7 @@ endif
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
-LIBWAYNE_OPTS=-O3 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(STACKSIZE) # -static OPTIMIZED
+LIBWAYNE_OPTS=-O3 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(STACKSIZE) -Wno-unused-command-line-argument # -static OPTIMIZED
 #LIBWAYNE_OPTS=-O0 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-g  -lm -ggdb $(STACKSIZE) # for debugging
 #LIBWAYNE_OPTS=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-pg -lm -pg  # for profiling
 
@@ -23,8 +23,8 @@ BLANT_SRCS = blant.c \
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc -O3 #-ggdb
-CXX=g++ -O3 #-ggdb
+CC=gcc -Wno-pointer-sign -O3 #-ggdb
+CXX=g++ -Wno-pointer-sign -O3 #-ggdb
 
 ### Generated File Lists ###
 EIGHT := #8 COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)

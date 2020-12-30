@@ -895,18 +895,6 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 	return V;
 }
 
-// should probably move this somewhere
-Boolean arrayIn(int* arr, int size, int item) {
-    int i;
-    for(i=0; i<size; i++) {
-        if (arr[i] == item) {
-            return true;
-        }
-    }
-    return false;
-}
-
-
 /**
  * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes, it calls the processGraphlet
  * function to print the graphlet directly. It is called inside RunBlantFromGraph function to take the given amount of
@@ -931,7 +919,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
             *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies the multiplicity constraint
         return;
     }
-    
+
     // Populate next_step with the following algorithm
     SET *next_step;
     SET *deg_set;

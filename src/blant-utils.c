@@ -32,16 +32,16 @@ void SetGlobalCanonMaps(void)
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
     _K = (short int*) mapCanonMap(BUF, _K, _k);
-    
+
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
     Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
     assert(Permutations != MAP_FAILED);
     _numConnectedOrbits = 0;
-    for (i=0; i < _numOrbits; i++) 
-	if (SetIn(_connectedCanonicals, _orbitCanonMapping[i])) 
+    for (i=0; i < _numOrbits; i++)
+	if (SetIn(_connectedCanonicals, _orbitCanonMapping[i]))
 	    _connectedOrbits[_numConnectedOrbits++] = i;
-    if (_outputMode == outputODV && (_k == 4) || (_k == 5))
+    if ((_outputMode == outputODV && _k == 4) || _k == 5)
 	orcaOrbitMappingPopulate(BUF, _orca_orbit_mapping, _k);
 }
 
@@ -58,11 +58,9 @@ void LoadMagicTable()
         }
     }
     fclose(fp_ord);
-    switch (_displayMode) {
-        case orca: // Load mapping from lower_ordinal to ORCA/Jesse ID into table for fast lookup
-        case jesse:
-            for (i=0; i < _numCanon; i++) _outputMapping[_magicTable[i][4]] = _magicTable[i][7];
-            break;
+    if(_displayMode == orca || _displayMode == jesse) {
+        // Load mapping from lower_ordinal to ORCA/Jesse ID into table for fast lookup
+	for (i=0; i < _numCanon; i++) _outputMapping[_magicTable[i][4]] = _magicTable[i][7];
     }
 }
 
@@ -76,9 +74,19 @@ void ExtractPerm(char perm[_k], int i)
 	perm[j] = (i32 >> 3*j) & 7;
 }
 
+Boolean arrayIn(int* arr, int size, int item) {
+    int i;
+    for(i=0; i<size; i++) {
+        if (arr[i] == item) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int asccompFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i ? 0 : -1;} // ascending (smallest at top)
 
-int descompFunc(const void *a, const void *b) 
+int descompFunc(const void *a, const void *b)
 {
     int *i = (int*)a, *j = (int*)b;
     return (*j)-(*i);
@@ -105,7 +113,7 @@ TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
     return Gv;
 }
 
-int getMaximumIntNumber(int K) 
+int getMaximumIntNumber(int K)
 {
     assert(K >= 3 && K <= 8);
     int num_of_bits = K * (K-1) / 2;

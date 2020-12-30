@@ -40,11 +40,11 @@ void debugprintf( const char *format, ... ) {}
 typedef struct _memoryBlockHeader {
     struct _memoryBlockHeader *next; /* pointer to next memory block */
     struct _memoryBlockHeader *prev; /* pointer to previous memory block */
-    const char *file; /* pointer to constant string containing the name of 
+    const char *file; /* pointer to constant string containing the name of
 			 the source file in which the block was allocated */
     int line;	/* line number file where the block was allcoated */
     int size;          /* size of the user portion of the block, in bytes */
-    const char *fileFree; /* pointer to constant string containing the name of 
+    const char *fileFree; /* pointer to constant string containing the name of
 			 the source file in which the block was freed */
     int lineFree;
     double align[ALIGN_PADDING];/*force alignement of the block and to provide
@@ -129,7 +129,7 @@ void *Malloc_fl( const int size, const char *file, const int line )
     }
 
     return memoryBlock;
-}       
+}
 
 
 void Free_fl( void *memoryBlock, const char *file, const int line )
@@ -176,7 +176,7 @@ void Free_fl( void *memoryBlock, const char *file, const int line )
 
 	free( memoryBlockHeader );
     }
-    else 
+    else
 	free( memoryBlock );
 }
 
@@ -188,7 +188,7 @@ void MemoryAllocationReport( const char *file, const int line )
     /* do nothing if memory tracking and leak detection is not enabled */
     if( !memoryTrackingEnabled )
 	return;
-    
+
     fprintf( stderr, "MemoryAllocationReport from file %s, line %d:\n",
 	file, line);
 
@@ -196,30 +196,30 @@ void MemoryAllocationReport( const char *file, const int line )
     {
 	fprintf( stderr, "Total leaked memory: %d byte%s in %d block%s.\n\n",
 	    memoryTotalUsage, ((memoryTotalUsage > 1)?"s":""),
-	    memoryBlockCount, ((memoryBlockCount > 1)?"s":"")); 
+	    memoryBlockCount, ((memoryBlockCount > 1)?"s":""));
 	fprintf( stderr, "Address:  Bytes:      Line:  File:\n" );
 	fprintf( stderr, "--------  ----------  -----  ----------\n" );
 
 	while( memoryBlockHeader != NULL )
 	{
-	    fprintf( stderr, "%8p  %10.1d  %5.1d  %s\n", 
+	    fprintf( stderr, "%8p  %10.1d  %5.1d  %s\n",
 		(void *)((unsigned char*)memoryBlockHeader +
-		    sizeof(MEMORY_BLOCK_HEADER) ), 
-		memoryBlockHeader->size, 
-		memoryBlockHeader->line, 
+		    sizeof(MEMORY_BLOCK_HEADER) ),
+		memoryBlockHeader->size,
+		memoryBlockHeader->line,
 		memoryBlockHeader->file );
 
 	    memoryBlockHeader = memoryBlockHeader->next;
 	}
     }
     else
-	fprintf( stderr, "No memory is currently allocated.\n" );	
+	fprintf( stderr, "No memory is currently allocated.\n" );
 }
 
 
 /*
 ** MemoryLeakDetect: detect memory leaks (if any) when your program terminates.
-** If memory leaks are detected, MemoryAllocationReport is called to display a 
+** If memory leaks are detected, MemoryAllocationReport is called to display a
 ** list of allocated memory blocks.  After displaying the list, the function
 ** released all memory blocks before the program terminates.
 **

@@ -43,11 +43,11 @@ int ComputeAlphaNode(TINY_GRAPH* g, int k) {
         for (j = i+1; j < k; j++) {
             if (!TinyGraphAreConnected(g, i, j))
                 continue;
-            
+
             TSetEmpty(candidates);
             TSetAdd(candidates, i);
             TSetAdd(candidates, j);
-            
+
             total += CountPath(g, seen, candidates, k);
             TSetEmpty(candidates);
         }
@@ -67,10 +67,10 @@ int main(int argc, char* argv[]) {
     int numCanon = _connectedCanonicals->n;
     int i;
     for (i = 0; i < numCanon; i++) {
-	    BuildGraph(g, _canonList[i]);
+	    Int2TinyGraph(g, _canonList[i]);
     if (!SetIn(_connectedCanonicals, i))
 	_alphaList[i] = 0;
-	    else 
+	    else
 	_alphaList[i] = ComputeAlphaNode(g, k);
     }
 

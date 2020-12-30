@@ -36,13 +36,13 @@ int _alphaList[MAX_CANONICALS];
 int _numCanon, _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 int _numConnectedCanon;
-unsigned int _numConnectedComponents;
-unsigned int *_componentSize;
+int _numConnectedComponents;
+int *_componentSize;
 
 int _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
 int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
-unsigned int *_whichComponent;
+int *_whichComponent;
 
 // char* _BLANT_DIR;
 
@@ -54,6 +54,16 @@ double _graphletConcentration[MAX_CANONICALS];
 #if PREDICT_USE_HASH
 #include "hashmap.h"
 extern hashmap_t **_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
+int HashPrintOrbitCount(int key, any_t data)
+{
+    int o = key/MAX_ORBITS, p = key % MAX_ORBITS;
+    int *pCount = data;
+    printf("\t%d:%d %d", o, p, *pCount);
+    return MAP_OK;
+}
+#else
+#include "bintree.h"
+extern BINTREE ***_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
 #endif
 
 enum CanonicalDisplayMode _displayMode = undefined;
@@ -100,7 +110,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
     return 1+numVisited;
 }
 
-static unsigned int **_componentList; // list of lists of components, largest to smallest.
+static int **_componentList; // list of lists of components, largest to smallest.
 static double _totalCombinations, *_combinations, *_probOfComponent;
 SET **_componentSet;
 
@@ -312,6 +322,15 @@ void convertFrequencies(int numSamples)
     }
 }
 
+
+Boolean TraverseOrbitCounts(foint key, foint data) {
+    ORBIT_PAIR *op = key.v;
+    int *pcount = data.v;
+    printf("\t%d:%d:%d %d",_k,op->p,op->o,*pcount);
+    return true;
+}
+
+
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
 // Call RunBlantInThreads instead, it's the top-level entry point to call once the
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
@@ -325,7 +344,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k); // allocate it here once, so functions below here don't need to do it repeatedly
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k); // allocate it here once, so functions below here don't need to do it repeatedly
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
@@ -334,22 +353,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if (_outputMode == graphletDistribution) {
         SampleGraphlet(G, V, Varray, k);
         SetCopy(prev_node_set, V);
-        TinyGraphInducedFromGraph(g, G, Varray);
+        TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
     if (_sampleMethod == SAMPLE_INDEX) { // sample numSamples graphlets for each node in the graph
-		if (_outputMode != indexGraphlets && _outputMode != indexOrbits) {
-			Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
-		}
+	if (_outputMode != indexGraphlets && _outputMode != indexOrbits)
+	    Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 
         int i, count = 0;
         int prev_nodes_array[_k];
         int *degreeOrder;
-        
-        if (_useAntidup) {
-            degreeOrder = enumerateDegreeOrder(G);
-        } else {
-            degreeOrder = NULL;
-        }
+
+        if (_useAntidup) degreeOrder = enumerateDegreeOrder(G);
+        else degreeOrder = NULL;
 
         for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = i;
@@ -361,15 +376,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             free(degreeOrder);
         }
     }
-    else { // sample numSamples graphlets for the entire graph
+    else // sample numSamples graphlets for the entire graph
+    {
         for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
         {
             if(_window) {
                 SampleGraphlet(G, V, Varray, _windowSize);
                 _numWindowRep = 0;
-                if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
+                if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D ||
+			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
                     windowRepInt = getMaximumIntNumber(_k);
-                if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
+                if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D ||
+			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
                     windowRepInt = -1;
                 D = _k * (_k - 1) / 2;
                 FindWindowRepInWindow(G, V, &windowRepInt, &D, perm);
@@ -377,13 +395,15 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
                     ProcessWindowRep(G, Varray, windowRepInt);
             }
             else if (_outputMode == graphletDistribution)
-                ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
+                ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
             else {
                 SampleGraphlet(G, V, Varray, k);
-                if(!ProcessGraphlet(G, V, Varray, k, g)) --i; // negate the sample count of duplicate graphlets
+                if(!ProcessGraphlet(G, V, Varray, k, empty_g)) --i; // negate the sample count of duplicate graphlets
             }
         }
     }
+
+    // Sampling done. Now generate output for output modes that require it.
 
     if(_window) {
         for(i=0; i<_numWindowRepArrSize; i++)
@@ -401,7 +421,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	int canon;
 	int orbit_index;
     case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
-	break; // already printed on-the-fly in the Sample/ProcessGraphlet loop above
+	break; // already printed on-the-fly in the Sample/Process loop above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
 	if (_freqDisplayMode == concentration) {
@@ -421,18 +441,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	break;
     case predict:
-#if PREDICT_USE_HASH
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
 	    if(_PredictGraph[i][j]) {  // only output node pairs with non-zero counts
-		PrintNode(0,i); PrintNode(' ',j);
+		PrintNodePairSorted(i,':',j);
 		printf(" %d", GraphAreConnected(G,i,j));
+#if PREDICT_USE_HASH
 		hashmap_iterate(_PredictGraph[i][j], HashPrintOrbitCount);
+#else
+		BinTreeTraverse(_PredictGraph[i][j], TraverseOrbitCounts);
+#endif
 		puts("");
 	    }
 	}
-#else
-	for(i=0;i<k;i++)for(j=0;j<k;j++) TinyGraphConnect(g,i,j);
-#endif
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
@@ -471,7 +491,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
 	if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
-    TinyGraphFree(g);
+    TinyGraphFree(empty_g);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
     	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -542,10 +562,10 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_outputMode == predict) {
 #if PREDICT_USE_HASH
 	_PredictGraph = Calloc(G->n-1, sizeof(hashmap_t**));
-	for(i=1; i<G->n; i++) {
-	    _PredictGraph[i] = Calloc(i, sizeof(hashmap_t*));
-	    //for(j=0;j<i;j++) assert((_PredictGraph[i][j]=hashmap_new())!=NULL);
-	}
+	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(hashmap_t*));
+#else
+	_PredictGraph = Calloc(G->n-1, sizeof(BINTREE**));
+	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(BINTREE*));
 #endif
     }
     if (_outputMode == graphletDistribution) {
@@ -715,7 +735,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
-const char const * const USAGE =
+const char * const USAGE =
 "BLANT: Basic Local Alignment for Networks Tool (work in progress)\n"\
 "PURPOSE: randomly sample graphlets up to size 8 from a graph. Default output is similar to ORCA though stochastic\n"\
 "    rather than exaustive. Thus APPROXIMATE results but MUCH faster than ORCA on large or dense networks.\n"\

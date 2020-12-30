@@ -235,7 +235,7 @@ unsigned int SetAssignSmallestElement1(SET *set)
     int i, old=set->smallestElement;
     assert(old == set->n || !SetIn(set, old)); // it should not be in there!
 
-    for(i=0; i<set->n; i++) 
+    for(i=0; i<set->n; i++)
         if(SetIn(set, i)) // the next smallest element is here
 	       break;
     set->smallestElement = i; // note this works even if there was no new smallest element, so it's now set->n
@@ -666,7 +666,7 @@ static SSETDICT *SSetDictDouble(SSETDICT *ssd)
 	ssd->array[itable] = newDict->array[itable];
     }
     assert(nAdded == ssd->nElem);
-    
+
     ssd->nCols = newDict->nCols;
     Free(newDict);
 
@@ -697,7 +697,7 @@ SSETDICT *SSetDictAdd(SSETDICT *ssd, SSET ss)
 	ssd->nElem++;
 	*place = ss;	/* it's either already ss or NULLSET; assign it either way */
     }
-		
+
     return ssd;
 }
 

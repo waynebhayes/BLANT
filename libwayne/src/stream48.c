@@ -59,7 +59,7 @@ int Stream48 (int n)
 
 	equ48(stream[0], seed48(stream[0]));
 	seed48(stream[0]);
-     
+
 	for(i=1; i< _rand48streams; i++)
 	    equ48(stream[i], stream[0]);
 
