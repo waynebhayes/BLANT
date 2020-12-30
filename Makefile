@@ -4,11 +4,10 @@ ifndef CORES
 endif
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
-STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
-LIBWAYNE_OPTS=-O3 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(STACKSIZE) -Wno-unused-command-line-argument # -static OPTIMIZED
-#LIBWAYNE_OPTS=-O0 -I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-g  -lm -ggdb $(STACKSIZE) # for debugging
-#LIBWAYNE_OPTS=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne-pg -lm -pg  # for profiling
+STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
+SPEED=-O3 #-O0 -ggdb -pg
+LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(STACKSIZE) -Wno-unused-command-line-argument $(SPEED)
 
 # Name of BLANT source directory
 SRCDIR = src
@@ -23,8 +22,8 @@ BLANT_SRCS = blant.c \
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc -Wno-pointer-sign -O3 #-ggdb
-CXX=g++ -Wno-pointer-sign -O3 #-ggdb
+CC=gcc  -Wno-pointer-sign $(SPEED)
+CXX=g++ -Wno-pointer-sign $(SPEED)
 
 ### Generated File Lists ###
 EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
@@ -65,47 +64,47 @@ canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 ### Executables ###
 
 fast-canon-map: $(LIBWAYNE_HOME)/made $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_OPTS)
+	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE)
 
 slow-canon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_OPTS)
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE)
 
 make-orbit-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_OPTS)
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE)
 
 blant: $(LIBWAYNE_HOME)/made $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_OPTS) $(LIBWAYNE_HOME)/MT19937/mt19937.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE) $(LIBWAYNE_HOME)/MT19937/mt19937.o
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(LIBWAYNE_OPTS)
+	$(CC) -c -o $@ $< $(LIBWAYNE)
 
 synthetic: $(LIBWAYNE_HOME)/made $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
-	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_OPTS)
-	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE_OPTS)
+	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE)
+	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE)
 
 CC: $(LIBWAYNE_HOME)/made $(SRCDIR)/CC.c $(OBJDIR)/convert.o | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE_OPTS)
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE)
 
 makeEHD: $(OBJDIR)/makeEHD.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_OPTS)
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE)
 
 compute-alphas-NBE: $(LIBWAYNE_HOME)/made $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE)
 
 compute-alphas-MCMC: $(LIBWAYNE_HOME)/made $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE)
 
 Draw: Draw/graphette2dot
 
 Draw/graphette2dot: $(LIBWAYNE_HOME)/made Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ $(LIBWAYNE_OPTS)
+	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ $(LIBWAYNE)
 
 make-subcanon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
+	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE)
 
 make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
-	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE_OPTS)
+	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE)
 
 ### Object Files/Prereqs ###
 
@@ -118,11 +117,11 @@ $(LIBWAYNE_HOME)/MT19937/mt19937.o: $(LIBWAYNE_HOME)/made
 
 $(OBJDIR)/libblant.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE_OPTS) -o $@
+	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE) -o $@
 
 $(OBJDIR)/makeEHD.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
 	@mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE_OPTS) -o $@
+	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE) -o $@
 
 $(LIBWAYNE_HOME)/made:
 	cd $(LIBWAYNE_HOME) && $(MAKE) all
@@ -130,7 +129,7 @@ $(LIBWAYNE_HOME)/made:
 ### Generated File Recipes ###
 
 canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: $(LIBWAYNE_HOME)/made $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
-	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_OPTS)
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE)
 	./create-bin-data$*
 	/bin/rm -f create-bin-data$*
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
@@ -162,7 +161,7 @@ $(magic_table_txts): .created-magic-tables
 ### Testing ###
 
 blant-sanity: $(LIBWAYNE_HOME)/made $(SRCDIR)/blant-sanity.c
-	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_OPTS)
+	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE)
 	
 test_sanity: blant blant-sanity $(canon_map_bins)
 	# First run blant-sanity for various values of k

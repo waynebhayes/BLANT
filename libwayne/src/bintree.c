@@ -94,9 +94,11 @@ Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
 static Boolean BinTreeTraverseHelper ( BINTREENODE *p, pFointTraverseFcn f)
 {
     Boolean cont = true;
-    if(p->left) cont &= BinTreeTraverseHelper(p->left, f);
-    if(cont) cont &= f(p->key, p->info);
-    if(cont && p->right) cont &= BinTreeTraverseHelper(p->right, f);
+    if(p) {
+	if(p->left) cont &= BinTreeTraverseHelper(p->left, f);
+	if(cont) cont &= f(p->key, p->info);
+	if(cont && p->right) cont &= BinTreeTraverseHelper(p->right, f);
+    }
     return cont;
 }
 
