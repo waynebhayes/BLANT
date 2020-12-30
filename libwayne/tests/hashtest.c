@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 	    printf("key %d gave <%s>\n", key, value);
 	else assert(0);
     }
+    return 0;
 }
 
 #if 0
