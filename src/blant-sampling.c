@@ -445,7 +445,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     int vCount = 2;
 
     int outDegree = G->degree[v1] + G->degree[v2];
-    static int cumulative[maxK];
+    static int cumulative[MAX_K];
     cumulative[0] = G->degree[v1]; // where v1 = Varray[0]
     cumulative[1] = G->degree[v2] + cumulative[0];
 
@@ -643,7 +643,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    {
 		static TINY_GRAPH *T;
 		if(!T) T = TinyGraphAlloc(k);
-		static int graphetteArray[maxK], distArray[maxK];
+		static int graphetteArray[MAX_K], distArray[MAX_K];
 #if PARANOID_ASSERTS
 		// ensure it's connected before we do the replacement
 		TinyGraphEdgesAllDelete(T);
@@ -848,7 +848,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 {
     if(startingNode == 0) TSetEmpty(_visited);
     TSetAdd(_visited,startingNode);
-    unsigned int j, Varray[maxK], numVisited = 0;
+    unsigned int j, Varray[MAX_K], numVisited = 0;
     int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
     assert(numNeighbors == g->degree[startingNode]);
     for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
@@ -927,8 +927,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     // If (-n N) flag is not given, then will return all satisfied windowReps.
     if (numSamplesPerNode != 0 && *tempCountPtr >= numSamplesPerNode) return;  // already enough samples found, no need to search further
     if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
-        char perm[maxK+1];
-        if (ProcessGraphlet(G, NULL, prev_nodes_array, _k, perm, g))
+        if (ProcessGraphlet(G, NULL, prev_nodes_array, _k, g))
             *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies the multiplicity constraint
         return;
     }

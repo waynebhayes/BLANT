@@ -93,15 +93,17 @@ SET *canonListPopulate(char *BUF, int *canon_list, int k) {
     return connectedCanonicals;
 }
 	
-int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK], int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k) {
+int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K], int orbit_canon_mapping[MAX_ORBITS],
+    int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k) {
     sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numOrbit, i, j;
     assert(1==fscanf(fp_ord, "%d",&numOrbit));
-    for(i=0; i<numCanon; i++) for(j=0; j<k; j++) {
+    for(i=0; i<numCanon; i++) for(j=k-1; j>=0; j--) { // go backwards in j so that non-singleton orbits get the lowest node#
 	assert(1==fscanf(fp_ord, "%d", &orbit_list[i][j]));
 	orbit_canon_mapping[orbit_list[i][j]] = i;
+	orbit_canon_node_mapping[orbit_list[i][j]] = j; // here--we want the lowest numbered node with this orbit value
     }
     fclose(fp_ord);
     return numOrbit;

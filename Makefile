@@ -27,7 +27,7 @@ CC=gcc -O3 #-ggdb
 CXX=g++ -O3 #-ggdb
 
 ### Generated File Lists ###
-EIGHT := 8# COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
+EIGHT := #8 COMMENT OUT THIS LINE to save "make" time (and disable k=8 sized graphlets)
 SEVEN := 7# Same as above but be aware windowRep regression will fail
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
 canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
@@ -54,13 +54,13 @@ base: .firsttime $(LIBWAYNE_HOME)/made blant $(canon_map_files) $(alpha_nbe_txts
 
 most: base Draw subcanon_maps
 
-test_all: test_freq test_GDV
+test_all: test_sanity test_maps test_freq test_GDV
 
 all: most $(ehd_txts) test_all
 
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
-.PHONY: all most test_blant test_maps pristine clean_canon_maps
+.PHONY: all most test_maps pristine clean_canon_maps
 
 ### Executables ###
 

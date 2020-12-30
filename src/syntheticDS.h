@@ -71,5 +71,5 @@ int getRandomConnectedNode(GRAPH* G, int src);
 
 // k-hop helpers
 void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n]);
-int compareKHopByMedian(Dictionary* khop[2], int medians[2], int maxKeys[2]);
+int compareKHopByMedian(Dictionary* khop[2], int medians[2], int MAX_Keys[2]);
 void print_khop_sample(Dictionary* khop);

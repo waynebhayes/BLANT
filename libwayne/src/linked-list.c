@@ -24,8 +24,7 @@ struct _linkedListType
 		                    ** points to dynamically allocated memory,
 				    ** false otherwise */
     pCmpFcn comparisonFunction;
-    LINKED_LIST_NODE *first;
-    LINKED_LIST_NODE *last;
+    LINKED_LIST_NODE *first, *last, *traverse;
 };
 
 LINKED_LIST *LinkedListAlloc( pCmpFcn comparisonFunction,
@@ -33,7 +32,7 @@ LINKED_LIST *LinkedListAlloc( pCmpFcn comparisonFunction,
 {
     LINKED_LIST *ll = MALLOC( sizeof(LINKED_LIST) );
 
-    ll->first = ll->last = NULL;
+    ll->first = ll->last = ll->traverse = NULL;
     ll->n = 0;
     ll->comparisonFunction = comparisonFunction;
     ll->dynamicData = dynamicData;
@@ -221,14 +220,14 @@ foint LinkedListPeek( LINKED_LIST *ll )
 }
 
 
-foint LinkedListNext( LINKED_LIST *ll )
+foint LinkedListPop( LINKED_LIST *ll )
 {
     foint data;
     LINKED_LIST_NODE *newFirst;
     if( ll->n == 0 )
     {
         assert( ll->first == NULL && ll->last == NULL );
-        FATAL( "LinkedListNext: nothing to return!" );
+        FATAL( "LinkedListPop: nothing to return!" );
     }
 
     data = ll->first->data;
@@ -242,6 +241,19 @@ foint LinkedListNext( LINKED_LIST *ll )
     ll->n--;
 
     return data;
+}
+
+
+Boolean LinkedListTraverse( LINKED_LIST *ll, foint *pNextElement )
+{
+    if(pNextElement == NULL) {
+	ll->traverse = ll->first;
+	return (ll->traverse != NULL);
+    }
+    if(ll->traverse == NULL) return false;
+    *pNextElement = ll->traverse->data;
+    ll->traverse = ll->traverse->next;
+    return true;
 }
 
 

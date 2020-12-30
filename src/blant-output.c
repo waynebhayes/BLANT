@@ -65,7 +65,7 @@ void PrintCanonical(int GintOrdinal)
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_PREDICT_CIRC_BUF], bufPos;
     static SET *seen;
-    static unsigned Vcopy[maxK];
+    static unsigned Vcopy[MAX_K];
     unsigned hash=0, i;
     if(!seen) seen=SetAlloc(MCMC_PREDICT_MAX_HASH);
     for(i=0;i<k;i++) Vcopy[i]=Varray[i];
@@ -81,9 +81,10 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], TINY_GRAPH *g, int k)
+void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k)
 {
     int j;
+    char perm[MAX_K];
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
     PrintCanonical(GintOrdinal);
@@ -94,12 +95,13 @@ void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], 
     puts("");
 }
 
-void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], char perm[], TINY_GRAPH *g, int k) {
+void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
     assert(TinyGraphDFSConnected(g,0));
     int j;
     static SET* printed;
     if(!printed) printed = SetAlloc(k);
     SetEmpty(printed);
+    char perm[MAX_K+1];
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
     PrintCanonical(GintOrdinal);
@@ -144,13 +146,11 @@ void PrintAllMotifs(TINY_GRAPH *g, int Gint, int GintOrdinal, GRAPH *G, unsigned
     if(SetIn(seen,Gint)) return;
     SetAdd(seen,Gint);
 
-    char perm[maxK];
-    memset(perm, 0, _k);
     if(_outputMode == indexMotifOrbits)
-		PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, _k);
+		PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, _k);
     else {
 		assert(_outputMode == indexMotifs);
-		PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, _k);
+		PrintIndexEntry(Gint, GintOrdinal, Varray, g, _k);
     }
 
     // Now go about deleting edges recursively.
@@ -172,17 +172,18 @@ void PrintAllMotifs(TINY_GRAPH *g, int Gint, int GintOrdinal, GRAPH *G, unsigned
     }
 }
 
-Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char perm[], TINY_GRAPH *g)
+Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g)
 {
     Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
-    int Gint = TinyGraph2Int(g,k), j, GintOrdinal=_K[Gint];
+    int Gint = TinyGraph2Int(g,k), GintOrdinal=_K[Gint], j;
 
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
     switch(_outputMode)
     {
+	char perm[MAX_K];
     case graphletFrequency:
 	++_graphletCount[GintOrdinal];
 	break;
@@ -191,7 +192,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 	VarraySort(Varray, k);
 #endif
 	if(NodeSetSeenRecently(G, Varray,k) || _sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) processed=false;
-	else PrintIndexEntry(Gint, GintOrdinal, Varray, perm, g, k);
+	else PrintIndexEntry(Gint, GintOrdinal, Varray, g, k);
 	break;
     case indexMotifs: case indexMotifOrbits:
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
@@ -206,13 +207,13 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, char p
 	VarraySort(Varray, k);
 #endif
 	if(NodeSetSeenRecently(G,Varray,k) || _sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) processed=false;
-	else PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, perm, g, k);
+	else PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k);
 	break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
 	break;
     case outputODV:
-	memset(perm, 0, k);
+	memset(perm, 0, _k);
 	ExtractPerm(perm, Gint);
 #if PERMS_CAN2NON            
 	for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ]);

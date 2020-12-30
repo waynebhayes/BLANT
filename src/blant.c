@@ -39,8 +39,9 @@ int _numConnectedCanon;
 unsigned int _numConnectedComponents;
 unsigned int *_componentSize;
 
-int _numOrbits, _orbitList[MAX_CANONICALS][maxK]; // map from [ordinal][canonicalNode] to orbit ID.
+int _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
 int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
+int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 unsigned int *_whichComponent;
 
 // char* _BLANT_DIR;
@@ -92,7 +93,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 {
     if(startingNode == 0) TSetEmpty(_visited);
     TSetAdd(_visited,startingNode);
-    unsigned int j, Varray[maxK], numVisited = 0;
+    unsigned int j, Varray[MAX_K], numVisited = 0;
     int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
     assert(numNeighbors == g->degree[startingNode]);
     for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
@@ -319,13 +320,13 @@ void convertFrequencies(int numSamples)
 int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
     int i,j, windowRepInt, D;
-    char perm[maxK+1];
+    char perm[MAX_K+1];
     assert(k <= G->n);
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k);
-    int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
+    TINY_GRAPH *g = TinyGraphAlloc(k); // allocate it here once, so functions below here don't need to do it repeatedly
+    int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
     if (_sampleMethod == SAMPLE_MCMC)
@@ -379,7 +380,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
                 ProcessWindowDistribution(G, V, Varray, k, g, prev_node_set, intersect_node);
             else {
                 SampleGraphlet(G, V, Varray, k);
-                if(!ProcessGraphlet(G, V, Varray, k, perm, g)) --i; // negate the sample count of duplicate graphlets
+                if(!ProcessGraphlet(G, V, Varray, k, g)) --i; // negate the sample count of duplicate graphlets
             }
         }
     }
@@ -429,6 +430,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		puts("");
 	    }
 	}
+#else
+	for(i=0;i<k;i++)for(j=0;j<k;j++) TinyGraphConnect(g,i,j);
 #endif
 	break;
     case outputGDV:

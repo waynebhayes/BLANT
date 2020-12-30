@@ -28,9 +28,9 @@ double RandomUniform(void) {
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
-#define maxK 8
+#define MAX_K 8
 
-#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
+#define maxBk (1 << (MAX_K*(MAX_K-1)/2)) // maximum number of entries in the canon_map
 
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
@@ -72,7 +72,7 @@ extern double *_doubleOrbitDegreeVector[MAX_ORBITS];
 #define SHAWN_AND_ZICAN 0
 extern unsigned int _Bk;
 
-extern int _numOrbits, _orbitList[MAX_CANONICALS][maxK];
+extern int _numOrbits, _orbitList[MAX_CANONICALS][MAX_K];
 extern int _alphaList[MAX_CANONICALS];
 
 extern char **_nodeNames, _supportNodeNames;
@@ -94,6 +94,7 @@ extern double _graphletConcentration[MAX_CANONICALS];
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
 extern enum CanonicalDisplayMode _displayMode;
 extern int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
+extern int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
 
 enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration};
 extern enum FrequencyDisplayMode _freqDisplayMode;
@@ -119,7 +120,8 @@ void BuildGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 short int* mapCanonMap(char* BUF, short int *K, int k);
 SET *canonListPopulate(char *BUF, int *canon_list, int k); // returns a SET containing list of connected ordinals
-int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k);
+int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K],  int orbit_canon_mapping[MAX_ORBITS],
+    int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
 

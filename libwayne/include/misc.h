@@ -59,6 +59,7 @@ typedef union _voidInt {
     void *v;
     char *s;
     char c[sizeof(long)];
+    short sh[2];
     int i;
     unsigned int ui;
     float f;

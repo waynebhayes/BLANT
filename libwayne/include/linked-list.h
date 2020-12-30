@@ -56,10 +56,20 @@ foint LinkedListPeek( LINKED_LIST *ll );
 
 
 /*
-** LinkedListNext:  delete the top entry and returns its value.  If the list is
+** LinkedListPop:  delete the top entry and returns its value.  If the list is
 ** empty it will fail with an assertion.
 */
-foint LinkedListNext( LINKED_LIST *ll );
+foint LinkedListPop( LINKED_LIST *ll );
+
+/*
+** LinkedListTraverse: Traverse a linked list. NOT RE-ENTRANT.
+** Pass a NULL pointer as the pNextElement to nuke current traversal and initialize a new one.
+** No new element is returned upon initialization, but initialization returns false iff the list is empty.
+** Otherwise, once initialized, pass a pointer to foint, and it will be populated with the next element.
+** Returns true if success, or false if the traversal has finished.
+*/
+Boolean LinkedListTraverse( LINKED_LIST *ll, foint *pNextElement );
+
 
 
 /*

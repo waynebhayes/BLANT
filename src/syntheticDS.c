@@ -425,24 +425,24 @@ void print_khop_sample(Dictionary* khop){
 }
 
 // returns -1 if medians are equal, 0 if khop[0] has bigger median, 1 if khop[1] has bigger median
-int compareKHopByMedian(Dictionary* khop[2], int medians[2], int maxKeys[2]){
+int compareKHopByMedian(Dictionary* khop[2], int medians[2], int MAX_Keys[2]){
     KeyValue* iter;
     int count, k, v, i, l, mi;
 
-    maxKeys[0] = maxKeys[1] = -1;
+    MAX_Keys[0] = MAX_Keys[1] = -1;
 
     for(i=0; i<2; i++){
         count = 0;
 
         iter = getIterator(&(khop[i]));
         while((getNext(&iter, &k, &v)) == 0){
-            maxKeys[i] = MAX(maxKeys[i], k);
+            MAX_Keys[i] = MAX(MAX_Keys[i], k);
             count += v;
         }
 
         mi = (int) count/2;
         count = 0;
-        for(l=0; l<=maxKeys[i]; l++){
+        for(l=0; l<=MAX_Keys[i]; l++){
             count += dictionary_get(&(khop[i]), l, 0);
             if (count >= mi){
                 medians[i] = l;
