@@ -5,5 +5,4 @@ mt19937: MTGenerator.hpp c_code.c mt19937.cpp mt19937.h
 	$(CXX) -o mt19937 c_code.o mt19937.o
 
 clean:
-	/bin/rm -f *.o mt19937
-	
+	@/bin/rm -f *.o mt19937

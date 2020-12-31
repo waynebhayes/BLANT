@@ -6,28 +6,28 @@
 
 #include "blant.h"
 
-static int k;
-static unsigned long long q;
+static int k, numBits; // number of bits required to store ints up to 2^(k choose 2)
+static unsigned long long numBitValues; // the actual value 2^(k choose 2)
 
 static TINY_GRAPH *G;
 #if LOWER_TRIANGLE
 
-unsigned long long bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
+unsigned long long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long long num=0;
     int lf=0;
     for(int i = 1; i < k; i++)
 	for(int j=0; j < i; j++){
-	    num+=(((unsigned long long)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
+	    num+=(((unsigned long long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
 	    lf++;
 	}
     return num;
 }
 
-void decimalToBitArray(int bitarray[k][k], unsigned long long D){
+void decimalToBitArray(int bitMatrix[k][k], unsigned long long D){
     for(int i=k-1; i>=1; i--)
 	for(int j=i-1; j>=0; j--){
-	    bitarray[i][j] = D%2;
-	    bitarray[j][i]=bitarray[i][j];
+	    bitMatrix[i][j] = D%2;
+	    bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
 	}
 }
@@ -35,22 +35,22 @@ void decimalToBitArray(int bitarray[k][k], unsigned long long D){
 
 #else
 
-unsigned long long bitArrayToDecimal(int bitarray[k][k], char Permutations[], int bitVectorSize){
+unsigned long long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long long num=0;
     int lf=0;
     for(int i = 0; i < k-1; i++)
 	for(int j=i+1; j < k; j++){
-	    num+=(((unsigned long long)bitarray[(int)Permutations[i]][(int)Permutations[j]]) << (bitVectorSize-1-lf));
+	    num+=(((unsigned long long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
 	    lf++;
 	}
     return num;
 }
 
-void decimalToBitArray(int bitarray[k][k], unsigned long long D){
+void decimalToBitArray(int bitMatrix[k][k], unsigned long long D){
     for(int i=k-2; i>=0; i--)
 	for(int j=k-1; j>i; j--){
-	    bitarray[i][j] = D%2;
-	    bitarray[j][i]=bitarray[i][j];
+	    bitMatrix[i][j] = D%2;
+	    bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
 	}
 }
@@ -62,7 +62,7 @@ void decimalToBitArray(int bitarray[k][k], unsigned long long D){
 typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal and permutation
 
 static xChar* data;
-static bool* check;
+static bool* done;
 static unsigned long long canonicalDecimal[274668];//274668 canonical graphettes for k=9
 
 unsigned long long power(int x, int y){
@@ -131,15 +131,14 @@ bool nextPermutation(int permutation[]) {
 void canon_map(void){
     FILE *fcanon = stdout;
 
-    int bitVectorSize = (k*(k-1))/2;
+    numBits = (k*(k-1))/2;
     unsigned long long D;
-    int bitarray[k][k];
+    int bitMatrix[k][k];
 
-    for(unsigned long long i=0; i<q; i++)check[i]=0;
+    for(unsigned long long i=0; i<numBitValues; i++)done[i]=0;
     canonicalDecimal[0]=0;
     long f=factorial(k);
     char Permutations[f][k];
-    //char Permutations2[f][k];
     int tmpPerm[k];
     for(int i=0;i<k;i++)tmpPerm[i]=i;
 
@@ -149,32 +148,35 @@ void canon_map(void){
 	    Permutations[i][j]=tmpPerm[j];
 	nextPermutation(tmpPerm);
     }
-    check[0]=1;
+    done[0]=1;
     encodeChar(data[0],0,0);
     long num_canon=0;
 
     //finding canonical forms of all graphettes
-    for(unsigned long long t=1; t<q; t++){
-	if(check[t]) continue;
-	check[t]=1;
+    for(unsigned long long t=1; t<numBitValues; t++){
+	if(done[t]) continue;
+	done[t]=1; // this is a new canonical, and it the lowest by construction
 	encodeChar(data[t],++num_canon,0);
 	canonicalDecimal[num_canon]=t;
 
 	unsigned long long num = 0;
-	decimalToBitArray(bitarray, t);
-	for(long nP=1; nP<f; nP++)
+	decimalToBitArray(bitMatrix, t);
+	for(long nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
 	{
-	    num=bitArrayToDecimal(bitarray, Permutations[nP], bitVectorSize);
-	    if(!check[num]){
-		check[num]=true;
+	    num=bitArrayToDecimal(bitMatrix, Permutations[nP], numBits);
+	    if(!done[num]){
+		done[num]=true;
 		encodeChar(data[num],num_canon,nP);
 	    }
 	}
 
     }
 
-    //saving canonical decimal and permutation in the file
-    long canonDec, canonPerm;
+    // It's easiest to generate the permumations from the non-canonical to the canonical,
+    // but the inverse is far more useful. Here we invert all the permutations so that
+    // they map from canonical nodes to the non-canonical. That way, we can spend most of
+    // our time thinking in "canonical space", and if we want to know where to find canonical
+    // node j in a particular non-canonical, we use perm[j].
     if(PERMS_CAN2NON){
 	int tmp[k];
 	for(int i=0; i<f; i++){
@@ -185,7 +187,9 @@ void canon_map(void){
 	}
     }
 
-    for(unsigned long long i=0; i<q; i++){
+    //saving canonical decimal and permutation in the file
+    long canonDec, canonPerm;
+    for(unsigned long long i=0; i<numBitValues; i++){
 	canonDec=0;canonPerm=0;
 	decodeChar(data[i],&canonDec,&canonPerm);
 	assert(canonDec >= 0);
@@ -213,10 +217,10 @@ static char USAGE[] = "USAGE: $0 k";
 int main(int argc, char* argv[]){
     if(argc != 2){fprintf(stderr, "expecting exactly one argument, which is k\n%s\n",USAGE); exit(1);}
     k = atoi(argv[1]);
-    if(k<=8) q = 1 << k*(k-1)/2;
-    else q = 1LL << k*(k-1LL)/2;
-    data = malloc(sizeof(xChar)*q);
-    check = malloc(sizeof(bool)*q);
+    if(k<=8) numBitValues = 1 << k*(k-1)/2;
+    else numBitValues = 1LL << k*(k-1LL)/2;
+    data = malloc(sizeof(xChar)*numBitValues);
+    done = malloc(sizeof(bool)*numBitValues);
     canon_map();
     return 0;
 }

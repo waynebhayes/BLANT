@@ -37,22 +37,22 @@ libwayne:
 	[ `arch` = Darwin ] || ar r $(LIBOUT)
 
 debug_clean:
-	$(MAKE) 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' raw_clean
+	@$(MAKE) 'DEBUG=-ggdb' 'LIBOUT=libwayne-g.a' raw_clean
 
 opt_clean:
-	$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' raw_clean
+	@$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' raw_clean
 
 raw_clean:
-	/bin/rm -f src/*.[oa] $(LIBOUT) made
-	cd MT19937; $(MAKE) clean
+	@/bin/rm -f src/*.[oa] $(LIBOUT) made
+	@cd MT19937; $(MAKE) clean
 
 clean:
-	# The following is meant to remove the non-Windows binary, ie stats but not stats.exe.
-	/bin/rm -f bin/stats bin/hashtest
-	/bin/rm -f *.a
-	$(MAKE) debug_clean
-	$(MAKE) opt_clean
-	/bin/rm -f made
+	@# The following is meant to remove the non-Windows binary, ie stats but not stats.exe.
+	@/bin/rm -f bin/stats bin/hashtest
+	@/bin/rm -f *.a
+	@$(MAKE) debug_clean
+	@$(MAKE) opt_clean
+	@/bin/rm -f made
 
 $(LIBOUT): src/$(LIBOUT)
 	ranlib src/$(LIBOUT)
