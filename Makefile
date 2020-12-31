@@ -59,7 +59,7 @@ all: most $(ehd_txts) test_all
 
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
-.PHONY: all most test_maps pristine clean_canon_maps
+.PHONY: all most test_blant test_maps pristine clean_canon_maps
 
 ### Executables ###
 

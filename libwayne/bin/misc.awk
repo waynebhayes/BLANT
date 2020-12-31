@@ -181,7 +181,7 @@ function logb(b,x){return log(x)/log(b)}
 function dtob(n,   s,sgn) {n=1*n;if(!n)return "0";s=sgn="";if(n<0){sgn="-";n=-n};while(n){s=sprintf("%d%s",(n%2),s); n=int(n/2)}; return sgn s}
 function btod(n) {}
 
-function ASSERT(cond,str){if(!cond){s=sprintf("assertion failure: %s", str); print s >"/dev/stderr"; exit 1}}
+function ASSERT(cond,str){if(!cond){s=sprintf("ASSERTION failure, line %d of input file %s: %s.\nInput line was:\n<%s>\n", FNR,FILENAME,str,$0); print s >"/dev/stderr"; exit 1}}
 function WARN(cond,str){if(!cond){s=sprintf("WARNING: %s", str); print s >"/dev/stderr"}}
 function ABS(x){return x<0?-x:x}
 function SIGN(x){return x==0?0:x/ABS(x)}

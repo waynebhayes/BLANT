@@ -30,6 +30,7 @@ echo "`cat "$DIR/misc.awk"`$PROG" > $TMP
 if gawk -F "$TAB_CHAR" -f "$TMP" "$@"; then : # do nothing, just exit
 else
     STATUS=$?
+    [ $STATUS -le 3 ] && exit $STATUS
     # egrep-like regular expression of exit status/signal names to ignore
     IGNORE="PIPE"
     # Automatically convert the names above to integers
