@@ -441,6 +441,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	break;
     case predict:
+#if !PREDICT_USE_AWK
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
 	    if(_PredictGraph[i][j]) {  // only output node pairs with non-zero counts
 		PrintNodePairSorted(i,':',j);
@@ -453,6 +454,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		puts("");
 	    }
 	}
+#endif
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
@@ -563,7 +565,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 #if PREDICT_USE_HASH
 	_PredictGraph = Calloc(G->n-1, sizeof(hashmap_t**));
 	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(hashmap_t*));
-#else
+#elif PREDICT_USE_BINTREE
 	_PredictGraph = Calloc(G->n-1, sizeof(BINTREE**));
 	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(BINTREE*));
 #endif
