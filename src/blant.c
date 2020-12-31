@@ -324,9 +324,13 @@ void convertFrequencies(int numSamples)
 
 
 Boolean TraverseOrbitCounts(foint key, foint data) {
-    ORBIT_PAIR *op = key.v;
+    MOTIF_NODE_PAIR *op = key.v;
     int *pcount = data.v;
-    printf("\t%d:%d:%d %d",_k,op->p,op->o,*pcount);
+#if PARANOID_ASSERTS
+    AssertMotifPairDisconnected(op);
+#endif
+    assert(op->i >= op->j);
+    printf("\t%d:%d:%d:%d %d",_k,op->g,op->j,op->i,*pcount);
     return true;
 }
 
