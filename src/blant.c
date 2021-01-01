@@ -548,6 +548,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     }
     if(_outputMode == predict) {
 #if PREDICT_USE_BINTREE
+	// This just allocates the NULL pointers, no actual binary trees are created yet.
 	_PredictGraph = Calloc(G->n, sizeof(BINTREE**)); // we won't use element 0 but still need n of them
 	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(BINTREE*));
 #endif
@@ -672,9 +673,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		// Now start reading through the participation counts. Note that the child processes will be
 		// using the internal INTEGER node numbering since that was created before the ForkBlant().
 		while(*s == '\t') {
+		    int kk,g,i,j, count;
 		    char ID[BUFSIZ];
-		    int count;
-		    assert(2==sscanf(++s, "%s %d", ID, &count));
+		    assert(5==sscanf(++s, "%d:%d:%d:%d %d", &kk,&g,&i,&j,&count));
+		    assert(kk==_k && 0 <= g && g < _numCanon && 0<=i&&i<_k && 0<=j&&j<_k);
+		    // Yes it looks stupid to printf the exact same integers we just scanf'd, but it allows error checking,
+		    // and plus scanf gets confused with spaces and stuff if we just scan the string.
+		    sprintf(ID, "%d:%d:%d:%d", kk,g,i,j);
 		    IncrementNodePairCount(G_u, G_v, ID, count);
 		    until(*s++ == ' ') ;
 		    while(isdigit(*s++)) ;
