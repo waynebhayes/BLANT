@@ -447,7 +447,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case predict:
 #if !PREDICT_USE_AWK
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
-	    if(_PredictGraph[i][j]) {  // only output node pairs with non-zero counts
+	    if(_PredictGraph[i][j] && _PredictGraph[i][j]->root) {  // only output node pairs with non-zero counts
 		PrintNodePairSorted(i,':',j);
 		printf(" %d", GraphAreConnected(G,i,j));
 #if PREDICT_USE_HASH
