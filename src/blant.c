@@ -54,16 +54,28 @@ double _graphletConcentration[MAX_CANONICALS];
 #if PREDICT_USE_HASH
 #include "hashmap.h"
 extern hashmap_t **_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
+#define PREDICT_GRAPH_NON_EMPTY(i,j) _PredictGraph[i][j]
 int HashPrintOrbitCount(int key, any_t data)
 {
-    int o = key/MAX_ORBITS, p = key % MAX_ORBITS;
+    int g = key/MAX_K, ij = key % MAX_K, i=ij/MAX_K, j=ij%MAX_K;
     int *pCount = data;
-    printf("\t%d:%d %d", o, p, *pCount);
+    printf("\t%d:%d:%d:%d %d",_k,g,j,i, *pCount);
     return MAP_OK;
 }
-#else
+#elif PREDICT_USE_BINTREE
 #include "bintree.h"
 extern BINTREE ***_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
+#define PREDICT_GRAPH_NON_EMPTY(i,j) (_PredictGraph[i][j] && _PredictGraph[i][j]->root)
+Boolean TraverseOrbitCounts(foint key, foint data) {
+    MOTIF_NODE_PAIR *op = key.v;
+    int *pCount = data.v;
+#if PARANOID_ASSERTS
+    AssertMotifPairDisconnected(op);
+#endif
+    assert(op->i >= op->j);
+    printf("\t%d:%d:%d:%d %d",_k,op->g,op->j,op->i,*pCount);
+    return true;
+}
 #endif
 
 enum CanonicalDisplayMode _displayMode = undefined;
@@ -323,18 +335,6 @@ void convertFrequencies(int numSamples)
 }
 
 
-Boolean TraverseOrbitCounts(foint key, foint data) {
-    MOTIF_NODE_PAIR *op = key.v;
-    int *pcount = data.v;
-#if PARANOID_ASSERTS
-    AssertMotifPairDisconnected(op);
-#endif
-    assert(op->i >= op->j);
-    printf("\t%d:%d:%d:%d %d",_k,op->g,op->j,op->i,*pcount);
-    return true;
-}
-
-
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
 // Call RunBlantInThreads instead, it's the top-level entry point to call once the
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
@@ -447,12 +447,13 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case predict:
 #if !PREDICT_USE_AWK
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
-	    if(_PredictGraph[i][j] && _PredictGraph[i][j]->root) {  // only output node pairs with non-zero counts
+	    if(PREDICT_GRAPH_NON_EMPTY(i,j))  // only output node pairs with non-zero counts
+	    {
 		PrintNodePairSorted(i,':',j);
 		printf(" %d", GraphAreConnected(G,i,j));
 #if PREDICT_USE_HASH
 		hashmap_iterate(_PredictGraph[i][j], HashPrintOrbitCount);
-#else
+#elif PREDICT_USE_BINTREE
 		BinTreeTraverse(_PredictGraph[i][j], TraverseOrbitCounts);
 #endif
 		puts("");
