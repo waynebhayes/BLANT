@@ -67,6 +67,11 @@ void GraphFree(GRAPH *G)
     }
     if(!G->sparse||G->sparse==both)
 	Free(G->A);
+    if(G->name) {
+	for(i=0;i<G->n;i++) Free(G->name[i]);
+	Free(G->name);
+    }
+    if(G->nameDict) BinTreeFree(G->nameDict);
     Free(G);
 }
 

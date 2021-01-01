@@ -570,7 +570,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_PredictGraph = Calloc(G->n-1, sizeof(hashmap_t**));
 	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(hashmap_t*));
 #elif PREDICT_USE_BINTREE
-	_PredictGraph = Calloc(G->n-1, sizeof(BINTREE**));
+	_PredictGraph = Calloc(G->n, sizeof(BINTREE**)); // we won't use element 0 but still need n of them
 	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(BINTREE*));
 #endif
     }
@@ -1103,7 +1103,6 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
-
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
     {
         FILE *fp;
@@ -1144,6 +1143,6 @@ int main(int argc, char *argv[])
 #endif
     exitStatus = RunBlantInThreads(_k, numSamples, G);
 #endif
-    //GraphFree(G); // causes corruption FIXME
+    GraphFree(G); // causes corruption FIXME
     return exitStatus;
 }
