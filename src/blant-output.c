@@ -4,26 +4,31 @@
 #include "blant-utils.h"
 #include "blant-sampling.h"
 
-void PrintNode(char c, int v) {
-    if(c) putchar(c);
+char *PrintNode(char c, int v) {
+    static char buf[BUFSIZ];
+    char *s=buf;
+    if(c) *s++ = c;
 #if SHAWN_AND_ZICAN
-    printf("%s", _nodeNames[v]);
+    sprintf(s, "%s", _nodeNames[v]);
 #else
     if(_supportNodeNames)
-	printf("%s", _nodeNames[v]);
+	sprintf(s,"%s", _nodeNames[v]);
     else
-	printf("%d", v);
+	sprintf(s, "%d", v);
 #endif
+    return buf;
 }
 
-void PrintNodePairSorted(int u, char c, int v) {
+char *PrintNodePairSorted(int u, char c, int v) {
+    static char buf[BUFSIZ];
     if(_supportNodeNames) {
 	char *s1=_nodeNames[u], *s2=_nodeNames[v];
 	if(strcmp(s1,s2)>0) { char *tmp=s1;s1=s2;s2=tmp; }
-	printf("%s%c%s", s1,c,s2);
+	sprintf(buf, "%s%c%s", s1,c,s2);
     }
     else
-	printf("%d%c%d", MIN(u,v),c,MAX(u,v));
+	sprintf(buf, "%d%c%d", MIN(u,v),c,MAX(u,v));
+    return buf;
 }
 
 static int IntCmp(const void *a, const void *b)
@@ -42,29 +47,31 @@ void VarraySort(int *Varray, int k)
 #endif
 }
 
-void PrintCanonical(int GintOrdinal)
+char *PrintCanonical(int GintOrdinal)
 {
+    static char buf[BUFSIZ];
     int j, GintNumBits = _k*(_k-1)/2;
     char GintBinary[GintNumBits+1]; // Only used in -db output mode for indexing
     switch (_displayMode) {
     case undefined:
     case ordinal:
-	printf("%d", GintOrdinal);
+	sprintf(buf, "%d", GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
-	printf("%d", _canonList[GintOrdinal]);
+	sprintf(buf, "%d", _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
 	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';
-	printf("%s", GintBinary);
+	strcpy(buf, GintBinary);
 	break;
     case orca: // Prints the ORCA ID of the canonical. Jesse uses same number.
     case jesse:
-	printf("%d", _outputMapping[GintOrdinal]);
+	sprintf(buf, "%d", _outputMapping[GintOrdinal]);
 	break;
     }
+    return buf;
 }
 
 // Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
@@ -91,21 +98,23 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-void PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k)
+char *PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k)
 {
     int j;
     char perm[MAX_K];
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
-    PrintCanonical(GintOrdinal);
     assert(PERMS_CAN2NON);
+    static char buf[2][BUFSIZ];
+    int which=0;
+    strcpy(buf[which], PrintCanonical(GintOrdinal));
     for(j=0;j<k;j++) {
-	PrintNode(' ', Varray[(int)perm[j]]);
+	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
     }
-    puts("");
+    return buf[which];
 }
 
-void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+char *PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
     assert(TinyGraphDFSConnected(g,0));
     int j;
     static SET* printed;
@@ -114,38 +123,41 @@ void PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GR
     char perm[MAX_K+1];
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
-    PrintCanonical(GintOrdinal);
+    static char buf[2][BUFSIZ];
+    int which=0;
+    strcpy(buf[which], PrintCanonical(GintOrdinal));
     assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
     for(j=0;j<k;j++) if(!SetIn(printed,j))
     {
-	PrintNode(' ', Varray[(int)perm[j]]);
+	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
 	SetAdd(printed, j);
 	int j1;
 	for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
 	{
 	    assert(!SetIn(printed, j1));
-	    PrintNode(':', Varray[(int)perm[j1]]);
+	    which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(':', Varray[(int)perm[j1]]));
 	    SetAdd(printed, j1);
 	}
     }
-    putchar('\n');
+    return buf[which];
 }
 
-// Recursively print all the motifs under this graphlet
+// Recursively print all the motifs under this graphlet. Note that this one actually outputs directly, it does
+// ** not ** print into a buffer and return a char*.
 void PrintAllMotifs(TINY_GRAPH *g, int Gint, int GintOrdinal, GRAPH *G, unsigned Varray[])
 {
     static int depth;
     static Boolean initDone;
     static SET *seen; // size 2^B(k), *not* canonical but a specific set of nodes and edges in the *top* graphlet
     if(!initDone) {
-		assert(_Bk>0);
-		seen = SetAlloc(_Bk);
-		assert(_k>= 3 && _k <= 8);
-		initDone = true;
+	assert(_Bk>0);
+	seen = SetAlloc(_Bk);
+	assert(_k>= 3 && _k <= 8);
+	initDone = true;
     }
 
     if(depth==0) {
-		SetReset(seen);
+	SetReset(seen);
     }
 
 #if PARANOID_ASSERTS
@@ -157,28 +169,28 @@ void PrintAllMotifs(TINY_GRAPH *g, int Gint, int GintOrdinal, GRAPH *G, unsigned
     SetAdd(seen,Gint);
 
     if(_outputMode == indexMotifOrbits)
-		PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, _k);
+	puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, _k));
     else {
-		assert(_outputMode == indexMotifs);
-		PrintIndexEntry(Gint, GintOrdinal, Varray, g, _k);
+	assert(_outputMode == indexMotifs);
+	puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, _k));
     }
 
     // Now go about deleting edges recursively.
     int i,j;
     for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
     {
-		if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it.
-		{
-			TinyGraphDisconnect(g,i,j);
-			Gint = TinyGraph2Int(g,_k);
-			GintOrdinal = _K[Gint];
-			if(SetIn(_connectedCanonicals, GintOrdinal)) {
-				++depth;
-				PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
-				--depth;
-			}
-			TinyGraphConnect(g,i,j);
-		}
+	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it.
+	{
+	    TinyGraphDisconnect(g,i,j);
+	    Gint = TinyGraph2Int(g,_k);
+	    GintOrdinal = _K[Gint];
+	    if(SetIn(_connectedCanonicals, GintOrdinal)) {
+		++depth;
+		PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
+		--depth;
+	    }
+	    TinyGraphConnect(g,i,j);
+	}
     }
 }
 
@@ -203,7 +215,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #endif
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
-	else PrintIndexEntry(Gint, GintOrdinal, Varray, g, k);
+	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k));
 	break;
     case indexMotifs: case indexMotifOrbits:
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
@@ -211,7 +223,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	break;
     case predict:
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else AccumulateGraphletOrbitPairCounts(G,Varray,g,Gint,GintOrdinal);
+	else AccumulateGraphletParticipationCounts(G,Varray,g,Gint,GintOrdinal);
 	break;
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
@@ -219,7 +231,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #endif
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
-	else PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k);
+	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k));
 	break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);

@@ -51,29 +51,14 @@ unsigned long int _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
 double _graphletConcentration[MAX_CANONICALS];
 
-#if PREDICT_USE_HASH
-#include "hashmap.h"
-extern hashmap_t **_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
-#define PREDICT_GRAPH_NON_EMPTY(i,j) _PredictGraph[i][j]
-int HashPrintOrbitCount(int key, any_t data)
-{
-    int g = key/MAX_K, ij = key % MAX_K, i=ij/MAX_K, j=ij%MAX_K;
-    int *pCount = data;
-    printf("\t%d:%d:%d:%d %d",_k,g,j,i, *pCount);
-    return MAP_OK;
-}
-#elif PREDICT_USE_BINTREE
+#if PREDICT_USE_BINTREE
 #include "bintree.h"
-extern BINTREE ***_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of hashmaps.
+extern BINTREE ***_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of dictionary entries
 #define PREDICT_GRAPH_NON_EMPTY(i,j) (_PredictGraph[i][j] && _PredictGraph[i][j]->root)
-Boolean TraverseOrbitCounts(foint key, foint data) {
-    MOTIF_NODE_PAIR *op = key.v;
+Boolean TraverseNodePairCounts(foint key, foint data) {
+    char *ID = key.v;
     int *pCount = data.v;
-#if PARANOID_ASSERTS
-    AssertMotifPairDisconnected(op);
-#endif
-    assert(op->i >= op->j);
-    printf("\t%d:%d:%d:%d %d",_k,op->g,op->j,op->i,*pCount);
+    printf("\t%s %d",ID, *pCount);
     return true;
 }
 #endif
@@ -431,15 +416,13 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	if (_freqDisplayMode == concentration) {
 	    if (SetIn(_connectedCanonicals, canon)) {
 		printf("%lf ", _graphletConcentration[canon]);
-		PrintCanonical(canon);
-		printf("\n");
+		puts(PrintCanonical(canon));
 	    }
 	}
 	else {
 	    if (SetIn(_connectedCanonicals, canon)) {
 		printf("%lu ", _graphletCount[canon]);
-		PrintCanonical(canon);
-		printf("\n");
+		puts(PrintCanonical(canon));
 	    }
 	}
 	}
@@ -449,12 +432,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
 	    if(PREDICT_GRAPH_NON_EMPTY(i,j))  // only output node pairs with non-zero counts
 	    {
-		PrintNodePairSorted(i,':',j);
-		printf(" %d", GraphAreConnected(G,i,j));
-#if PREDICT_USE_HASH
-		hashmap_iterate(_PredictGraph[i][j], HashPrintOrbitCount);
-#elif PREDICT_USE_BINTREE
-		BinTreeTraverse(_PredictGraph[i][j], TraverseOrbitCounts);
+		printf("%s %d", PrintNodePairSorted(i,':',j), GraphAreConnected(G,i,j));
+#if PREDICT_USE_BINTREE
+		BinTreeTraverse(_PredictGraph[i][j], TraverseNodePairCounts);
 #endif
 		puts("");
 	    }
@@ -464,7 +444,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     case outputGDV:
 	for(i=0; i < G->n; i++)
 	{
-	    PrintNode(0,i);
+	    printf("%s", PrintNode(0,i));
 	    for(canon=0; canon < _numCanon; canon++)
 		printf(" %lu", GDV(i,canon));
 	    puts("");
@@ -472,7 +452,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	break;
     case outputODV:
         for(i=0; i<G->n; i++) {
-	    PrintNode(0,i);
+	    printf("%s", PrintNode(0,i));
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
@@ -567,10 +547,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode == predict) {
-#if PREDICT_USE_HASH
-	_PredictGraph = Calloc(G->n-1, sizeof(hashmap_t**));
-	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(hashmap_t*));
-#elif PREDICT_USE_BINTREE
+#if PREDICT_USE_BINTREE
 	_PredictGraph = Calloc(G->n, sizeof(BINTREE**)); // we won't use element 0 but still need n of them
 	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(BINTREE*));
 #endif
@@ -601,7 +578,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     int lineNum = 0;
     do
     {
-	char line[_numOrbits * BUFSIZ];
+	char line[MAX_ORBITS * BUFSIZ];
 	int thread;
 	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
@@ -682,7 +659,27 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			fputs(line, stdout);
 		break;
 	    case predict:
-		Fatal("multi-threading not yet supported in mode -mp (predict)\n");
+		if(line[strlen(line)-1] != '\n')
+		    Fatal("char line[%s] buffer not long enough while reading child line in -mp mode",sizeof(line));
+		int G_u, G_v;
+		assert(2==sscanf(line, "%d:%d",&G_u,&G_v));
+		assert(0 <= G_u && G_u < G->n);
+		assert(0 <= G_v && G_v < G->n);
+		char *s=line;
+		while(*s !=' ') s++; // look for the space between node pair and edge truth
+		++s; // get to the Boolean edge value
+		assert(*s=='0' || *s=='1'); putchar(*s++); 
+		// Now start reading through the participation counts. Note that the child processes will be
+		// using the internal INTEGER node numbering since that was created before the ForkBlant().
+		while(*s == '\t') {
+		    char ID[BUFSIZ];
+		    int count;
+		    assert(2==sscanf(++s, "%s %d", ID, &count));
+		    IncrementNodePairCount(G_u, G_v, ID, count);
+		    until(*s++ == ' ') ;
+		    while(isdigit(*s++)) ;
+		}
+		assert(*s == '\n');
 		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
@@ -1036,10 +1033,14 @@ int main(int argc, char *argv[])
     SET *orbit_temp = SetAlloc(_numOrbits);
     for(i=0; i<_numCanon; i++) {
         if (SetIn(_connectedCanonicals, i)) {
-            // calculate number of permutations for the given canonical graphlet (loop through all unique orbits and count how many times they appear)
-            // the formula is for every unique orbit, multiply the number of permutations by the factorial of how many appearances that unique orbit has
-            // if there is one orbit with three nodes and a second orbit with 2 nodes, the number of permutations would be (3!)(2!)
-            // NOTE: this is not the most efficient algorithm since it doesn't use hash tables. I didn't want to overcomplicate it because it only happens once per run.
+            // calculate number of permutations for the given canonical graphlet
+	    // (loop through all unique orbits and count how many times they appear)
+            // the formula is for every unique orbit, multiply the number of permutations by
+	    // the factorial of how many appearances that unique orbit has
+            // if there is one orbit with three nodes and a second orbit with 2 nodes,
+	    // the number of permutations would be (3!)(2!)
+            // NOTE: this is not the most efficient algorithm since it doesn't use hash tables.
+	    // I didn't want to overcomplicate it because it only happens once per run.
             // however, if speed is important (this currently takes about 5 seconds on k=8) this can be sped up
             for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
             unsigned uniq_orbits[_k];
