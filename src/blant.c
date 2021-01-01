@@ -669,7 +669,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		char *s=line;
 		while(*s !=' ') s++; // look for the space between node pair and edge truth
 		++s; // get to the Boolean edge value
-		assert(*s=='0' || *s=='1'); putchar(*s++); 
+		assert(*s=='0' || *s=='1');
+		++s; //get us to the tab.
 		// Now start reading through the participation counts. Note that the child processes will be
 		// using the internal INTEGER node numbering since that was created before the ForkBlant().
 		while(*s == '\t') {
@@ -681,8 +682,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		    // and plus scanf gets confused with spaces and stuff if we just scan the string.
 		    sprintf(ID, "%d:%d:%d:%d", kk,g,i,j);
 		    IncrementNodePairCount(G_u, G_v, ID, count);
-		    until(*s++ == ' ') ;
-		    while(isdigit(*s++)) ;
+		    until(*s++ == ' ') ; // get s past the ID to the space
+		    while(isdigit(*s)) s++ ; // and past the count.
 		}
 		assert(*s == '\n');
 		break;
