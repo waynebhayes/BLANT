@@ -1142,9 +1142,8 @@ int main(int argc, char *argv[])
         exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
-
-	exitStatus = RunBlantInThreads(_k, numSamples, G);
+    exitStatus = RunBlantInThreads(_k, numSamples, G);
 #endif
-    GraphFree(G);
+    //GraphFree(G); // causes corruption FIXME
     return exitStatus;
 }

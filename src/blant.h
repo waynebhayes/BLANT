@@ -111,7 +111,7 @@ extern SET **_componentSet;
 extern double *_cumulativeProb;
 
 
-#define SPARSE true // do not try false at the moment, it's broken
+#define SPARSE both // do not try false at the moment, it's broken
 
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);

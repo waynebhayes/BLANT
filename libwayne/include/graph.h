@@ -17,7 +17,7 @@ typedef struct _Graph {
     /* vertices numbered 0..n-1 inclusive */
     int n;
     SET **A;   /* Adjacency Matrix, as a dynamically allocated array[G->n] of SETs */
-    Boolean sparse; // true=only neighbors and degree, no matrix; false=only matrix + degree, no neighbors
+    Boolean sparse; // true=only neighbors and degree, no matrix; false=only matrix + degree, no neighbors, both=both
     int *degree;   /* degree of each v[i] == cardinality of A[i] == length of neighbor array */
     int **neighbor; /* adjacency list: possibly sorted list of neighbors, sorted if SORTED below is true. */
 #if SORT_NEIGHBORS

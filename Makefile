@@ -17,8 +17,14 @@ endif
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
-SPEED=-O3 #-O0 -ggdb -pg
-LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne -lm $(STACKSIZE) -Wno-unused-command-line-argument $(SPEED)
+PROFILE=#-pg # comment out to turn off
+DEBUG=#-g # comment out to turn off
+ifdef DEBUG
+    SPEED=-O0 -ggdb $(PROFILE)
+else
+    SPEED=-O3 $(PROFILE)
+endif
+LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(DEBUG)$(PROFILE) -lm $(STACKSIZE) -Wno-unused-command-line-argument $(SPEED)
 
 # Name of BLANT source directory
 SRCDIR = src
@@ -64,7 +70,7 @@ base: .firsttime $(LIBWAYNE_HOME)/made blant $(canon_map_files) $(alpha_nbe_txts
 	@echo "    ./regression-test-all.sh -make"
 	@echo "This may take an hour or more but performs a full battery of tests."
 	@echo "On the other hand, the fastest way to get started (assuming you use bash) is to type:"
-	@echo "    PAUSE=1 NO7=1 make base"
+	@echo "    PAUSE=0 NO7=1 make base"
 	@echo "which will make everything needed to get started sampling up to k=6 graphlets".
 	@echo "You will only see this message once on a 'pristine' repo. Pausing $(PAUSE) seconds..."
 	@echo "Set PAUSE to some other integer to pause less time, eg PAUSE=1"
@@ -143,6 +149,9 @@ $(OBJDIR)/libblant.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/libblant.c
 $(OBJDIR)/makeEHD.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
 	@mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE) -o $@
+
+libwayne: $(LIBWAYNE_HOME)/made
+	cd $(LIBWAYNE_HOME) && $(MAKE) all
 
 $(LIBWAYNE_HOME)/made:
 	cd $(LIBWAYNE_HOME) && $(MAKE) all
