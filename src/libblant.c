@@ -100,10 +100,13 @@ int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K], int orbi
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numOrbit, i, j;
     assert(1==fscanf(fp_ord, "%d",&numOrbit));
-    for(i=0; i<numCanon; i++) for(j=k-1; j>=0; j--) { // go backwards in j so that non-singleton orbits get the lowest node#
+    for(i=0;i<numOrbit;i++)
+	orbit_canon_node_mapping[i] = -1;
+    for(i=0; i<numCanon; i++) for(j=0; j<k; j++) {
 	assert(1==fscanf(fp_ord, "%d", &orbit_list[i][j]));
 	orbit_canon_mapping[orbit_list[i][j]] = i;
-	orbit_canon_node_mapping[orbit_list[i][j]] = j; // here--we want the lowest numbered node with this orbit value
+	if(orbit_canon_node_mapping[orbit_list[i][j]] < 0)
+	    orbit_canon_node_mapping[orbit_list[i][j]] = j;
     }
     fclose(fp_ord);
     return numOrbit;
