@@ -11,8 +11,8 @@
 /* Binary tree algorithms from Lewis & Denenberg
 */
 #include <string.h>
-
 #include "bintree.h"
+#include <math.h> // for logarithm
 
 static foint CopyInt(foint i)
 {
@@ -29,22 +29,26 @@ BINTREE *BinTreeAlloc(enum _treeType type, pCmpFcn cmpKey,
     pFointCopyFcn copyInfo, pFointFreeFcn freeInfo)
 {
     BINTREE *tree = Malloc(sizeof(BINTREE));
+    tree->root = NULL;
     tree->type = type;
     tree->cmpKey = cmpKey ? cmpKey : CmpInt;
-    tree->root = NULL;
     tree->copyKey = copyKey ? copyKey : CopyInt;
     tree->freeKey = freeKey ? freeKey : FreeInt;
     tree->copyInfo = copyInfo ? copyInfo : CopyInt;
     tree->freeInfo = freeInfo ? freeInfo : FreeInt;
+    tree->n = tree->depth = 0;
     return tree;
 }
 
+
+static void BinTreeRebalance(BINTREE *tree);
 void BinTreeInsert(BINTREE *tree, foint key, foint info)
 {
+    int depth = 0;
     BINTREENODE *p = tree->root, **locative = &(tree->root);
-
     while(p)
     {
+	if(++depth > tree->depth) tree->depth = depth;
 	int cmp = tree->cmpKey(key, p->key);
 	if(cmp == 0)
 	{
@@ -67,16 +71,21 @@ void BinTreeInsert(BINTREE *tree, foint key, foint info)
     p = (BINTREENODE*) Calloc(1,sizeof(BINTREENODE));
     p->key = tree->copyKey(key);
     p->info = tree->copyInfo(info);
-    p->parent = p->left = p->right = NULL;
+    p->left = p->right = NULL;
     *locative = p;
+    tree->n++;
+
+    if(tree->n > 4 && tree->depth > 4*log(tree->n)) BinTreeRebalance(tree);
 }
 
 
 Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
 {
+    int depth = 0;
     BINTREENODE *p = tree->root;
     while(p)
     {
+	if(++depth > tree->depth) tree->depth = depth;
 	int cmp = tree->cmpKey(key, p->key);
 	if(cmp == 0)
 	{
@@ -149,4 +158,57 @@ void BinTreeFree(BINTREE *tree)
 {
     BinTreeNodeFree(tree, tree->root);
     free(tree);
+}
+
+
+//////////////////// REBALANCING CODE
+static foint *keyArray, *dataArray;
+static int arraySize, currentItem;
+static Boolean inRebalance;
+
+// Squirrel away all the item *in sorted order*
+static Boolean TraverseTreeToArray(foint key, foint data) {
+    assert(currentItem < arraySize);
+    keyArray[currentItem] = key;
+    dataArray[currentItem] = data;
+    ++currentItem;
+    return true;
+}
+
+static void BinTreeInsertMiddleElementOfArray(BINTREE *tree, int low, int high) // low to high inclusive
+{
+    if(low <= high) { // we're using low though high *inclusive* so = is a valid case.
+	int mid = (low+high)/2;
+	BinTreeInsert(tree, keyArray[mid], dataArray[mid]);
+	BinTreeInsertMiddleElementOfArray(tree, low, mid-1);
+	BinTreeInsertMiddleElementOfArray(tree, mid+1,high);
+    }
+}
+
+static void BinTreeRebalance(BINTREE *tree)
+{
+    assert(!inRebalance);
+    inRebalance = true;
+    //fprintf(stderr,"BinTreeRebalance: old n %d depth %d\n", tree->n, tree->depth);
+    if(tree->n > arraySize){
+	arraySize = tree->n;
+	keyArray = Realloc(keyArray, arraySize*sizeof(foint));
+	dataArray = Realloc(dataArray, arraySize*sizeof(foint));
+    }
+    currentItem = 0;
+    BinTreeTraverse (tree, TraverseTreeToArray);
+    assert(currentItem == tree->n);
+    
+    BINTREE *newTree = BinTreeAlloc(tree->type, tree->cmpKey , tree->copyKey , tree->freeKey , tree->copyInfo , tree->freeInfo);
+    // Now re-insert the items in *perfectly balanced* order.
+    BinTreeInsertMiddleElementOfArray(newTree, 0, tree->n - 1);
+    assert(tree->n == newTree->n);
+    assert(newTree->depth < tree->depth);
+    assert(newTree->depth <= 1+log(newTree->n)/log(2));
+    // Swap the roots, record new depth.
+    BINTREENODE *tmp = tree->root; tree->root = newTree->root; newTree->root = tmp;
+    int itmp = tree->depth; tree->depth = newTree->depth; newTree->depth = itmp;
+    BinTreeFree(newTree);
+    //fprintf(stderr,"BinTreeRebalance: new n %d depth %d\n", tree->n, tree->depth);
+    inRebalance = false;
 }

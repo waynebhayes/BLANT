@@ -58,6 +58,7 @@ extern BINTREE ***_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) 
 Boolean TraverseNodePairCounts(foint key, foint data) {
     char *ID = key.v;
     int *pCount = data.v;
+    ID++; // to move past our hash character
     printf("\t%s %d",ID, *pCount);
     return true;
 }
@@ -83,8 +84,8 @@ double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
 double *_cumulativeProb;
 
-// number of parallel threads to run.  This must be global because we may get called from C++.
-static int _THREADS, _THREAD_NUM;
+// number of parallel threads required, and the maximum allowed at one time.
+static int _JOBS, _MAX_THREADS;
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
@@ -502,6 +503,8 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
     if(pid > 0) // we are the parent
     {
 	close(fds[1]); // we will not be writing to the pipe, so close it.
+	//if (fcntl(fds[0], F_SETFL, O_NONBLOCK) < 0)
+	    //Fatal("failed to set read end of pipe to non-blocking");
 	return fdopen(fds[0],"r");
     }
     else if(pid == 0) // we are the child
@@ -559,39 +562,52 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
-    if(_THREADS == 1)
+    if(_JOBS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
     if (_sampleMethod == SAMPLE_INDEX)
         Fatal("The sampling method '-s INDEX' does not yet support multithreading (feel free to add it!)");
 
-    // At this point, _THREADS must be greater than 1.
-    int samplesPerThread = numSamples/_THREADS;  // will handle leftovers later if numSamples is not divisible by _THREADS
+    // At this point, _JOBS must be greater than 1.
+    int samplesPerJob = numSamples/_JOBS;  // will handle leftovers later if numSamples is not divisible by _JOBS
 
-    FILE *fpThreads[_THREADS]; // these will be the pipes reading output of the parallel blants
-    for(i=0;i<_THREADS;i++) {
-        _THREAD_NUM = i;
-        fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
-    }
-
-
-    int threadsDone = 0; // count of how many threads signaled EOF
+    static FILE *fpThreads[MAX_POSSIBLE_THREADS]; // these will be the pipes reading output of the parallel blants
+    int threadsRunning = 0, jobsDone = 0;
     int lineNum = 0;
+    Warning("Parent process %d Starting %d jobs on %d threads", getpid(), _JOBS, _MAX_THREADS);
+    for(i=0;i<MIN(_JOBS, _MAX_THREADS);i++) {
+	fpThreads[i] = ForkBlant(_k, samplesPerJob, G);
+	++threadsRunning;
+	Warning("Started job %d, fp=%x, threadsRunning %d", i, fpThreads[i],threadsRunning);
+    }
     do
     {
 	char line[MAX_ORBITS * BUFSIZ];
 	int thread;
-	for(thread=0;thread<_THREADS;thread++)	// read and then echo one line from each of the parallel instances
+	for(thread=0;thread<_MAX_THREADS;thread++)	// read and then echo one line from each of the parallel instances
 	{
-	    if(!fpThreads[thread]) continue; // threads that have finished output have this pointer set to NULL below
+	    if(!fpThreads[thread]) continue;
 	    char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
 	    assert(tmp>=0);
 	    if(feof(fpThreads[thread]))
 	    {
+		// process done, reap the zombie?
+		// wait(NULL);
+		clearerr(fpThreads[thread]);
 		fclose(fpThreads[thread]);
-		fpThreads[thread] = NULL; // signify this pointer is finished.
-		threadsDone++;
-		continue;
+		fpThreads[thread] = NULL;
+		++jobsDone; --threadsRunning;
+		Warning("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
+		assert(jobsDone + threadsRunning <= _JOBS);
+		if(jobsDone + threadsRunning == _JOBS) {
+		    fpThreads[thread] = NULL; // signify this pointer is finished.
+		}
+		else {
+		    fpThreads[thread] = ForkBlant(_k, samplesPerJob, G);
+		    assert(fpThreads[thread]);
+		    ++threadsRunning;
+		}
+		continue; // we'll ask for output next time around.
 	    }
 	    char *nextChar = line, *pch;
 	    unsigned long int count;
@@ -662,30 +678,33 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    case predict:
 		if(line[strlen(line)-1] != '\n')
 		    Fatal("char line[%s] buffer not long enough while reading child line in -mp mode",sizeof(line));
+		char *s0=line, *s1=s0;
 		int G_u, G_v;
-		assert(2==sscanf(line, "%d:%d",&G_u,&G_v));
+		while(isdigit(*s1)) s1++; assert(*s1==':'); *s1++='\0'; G_u=atoi(s0); s0=s1;
+		while(isdigit(*s1)) s1++; assert(*s1==' '); *s1++='\0'; G_v=atoi(s0); s0=s1;
 		assert(0 <= G_u && G_u < G->n);
 		assert(0 <= G_v && G_v < G->n);
-		char *s=line;
-		while(*s !=' ') s++; // look for the space between node pair and edge truth
-		++s; // get to the Boolean edge value
-		assert(*s=='0' || *s=='1');
-		++s; //get us to the tab.
+		assert(*s0=='0' || *s0=='1');  // verify the edge value is 0 or 1
 		// Now start reading through the participation counts. Note that the child processes will be
 		// using the internal INTEGER node numbering since that was created before the ForkBlant().
-		while(*s == '\t') {
+		s1=++s0; // get us to the tab
+		while(*s0 == '\t') {
 		    int kk,g,i,j, count;
-		    char ID[BUFSIZ];
-		    assert(5==sscanf(++s, "%d:%d:%d:%d %d", &kk,&g,&i,&j,&count));
+		    char *ID=++s0; // point at the k value
+		    assert(isdigit(*s0)); kk=(*s0-'0'); assert(3 <= kk && kk <= 8); s0++; assert(*s0==':');
+		    s0++; s1=s0; while(isdigit(*s1)) s1++; assert(*s1==':'); *s1='\0'; g=atoi(s0); *s1=':'; s0=s1;
+		    s0++; assert(isdigit(*s0)); i=(*s0-'0'); assert(0 <= i && i < kk); s0++; assert(*s0==':');
+		    s0++; assert(isdigit(*s0)); j=(*s0-'0'); assert(0 <= j && j < kk); s0++; assert(*s0==' '); *s0='\0';
+		    s0++; s1=s0; while(isdigit(*s1)) s1++; assert(*s1=='\t' || *s1 == '\n');
+		    // temporarily nuke the tab or newline, and restore it after
+		    char tmp = *s1;
+		    *s1='\0'; count=atoi(s0);
 		    assert(kk==_k && 0 <= g && g < _numCanon && 0<=i&&i<_k && 0<=j&&j<_k);
-		    // Yes it looks stupid to printf the exact same integers we just scanf'd, but it allows error checking,
-		    // and plus scanf gets confused with spaces and stuff if we just scan the string.
-		    sprintf(ID, "%d:%d:%d:%d", kk,g,i,j);
-		    IncrementNodePairCount(G_u, G_v, ID, count);
-		    until(*s++ == ' ') ; // get s past the ID to the space
-		    while(isdigit(*s)) s++ ; // and past the count.
+		    IncrementNodePairCount(false, G_u, G_v, ID, count);
+		    *s1 = tmp;
+		    assert(*(s0=s1)=='\n' || *s0 == '\t');
 		}
-		assert(*s == '\n');
+		assert(*s0 == '\n');
 		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
@@ -693,10 +712,10 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	    }
 	}
 	lineNum++;
-    } while(threadsDone < _THREADS);
+    } while(jobsDone < _JOBS);
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
-    int leftovers = numSamples % _THREADS;
+    int leftovers = numSamples % _JOBS;
     return RunBlantFromGraph(_k, leftovers, G);
 }
 
@@ -793,7 +812,9 @@ const char * const USAGE =
 "	d = decimal (base-10) integer representation of the above binary\n"\
 "	i = integer ordinal = sorting the above integers and numbering them 0, 1, 2, 3, etc.\n"\
 "Less Common OPTIONS:\n"\
-"    -t threads: (default=1): parallellism to speed up sampling (not implemented for all methods yet)\n"\
+"    -t N[:M]: use threading (parallelism); break the task up into N jobs (default 1) allowing at most M to run at one time.\n"\
+"       M can be anything from 1 to a compile-time-specified maximum possible value (MAX_POSSIBLE_THREADS in blant.h),\n"\
+"       but defaults to 4 to be conservative.\n"\
 "    -r seed: pick your own random seed\n"\
 "    -w windowSize: DEPRECATED. (use '-h' option for more)",
 * const USAGE2 = \
@@ -822,7 +843,9 @@ int main(int argc, char *argv[])
 	exit(1);
     }
 
-    _THREADS = 1;
+    _JOBS = 1;
+    _MAX_THREADS = 4;
+
     _k = 0; _k_small = 0;
 
     while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:A")) != -1)
@@ -871,7 +894,11 @@ int main(int argc, char *argv[])
 	    break;
 	    }
 	    break;
-	case 't': _THREADS = atoi(optarg); assert(_THREADS>0); break;
+	case 't': assert(2==sscanf(optarg, "%d:%d", &_JOBS, &_MAX_THREADS) || 
+			 1==sscanf(optarg, "%d", &_JOBS));
+	    assert(1 <= _JOBS && _MAX_THREADS <= MAX_POSSIBLE_THREADS);
+	    //Warning("-t option found %d jobs and %d threads", _JOBS, _MAX_THREADS);
+	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
 	    break;
 	case 's':

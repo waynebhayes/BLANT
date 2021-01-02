@@ -8,7 +8,6 @@
 
 #define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
-#define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
 
 #ifndef RESERVOIR_MULTIPLIER
 // this*k is the number of steps in the Reservoir walk. 8 seems to work best, empirically.

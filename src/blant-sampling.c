@@ -135,14 +135,14 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	static int numTries = 0;
 	static int depth = 0;
 	while (MultisetSupport(XLS) < k) {
-		if (numTries++ > MAX_TRIES) { // If we crawl 100 steps without k distinct vertices restart
-			assert(depth++ < MAX_TRIES); // If we restart 100 times in a row without success give up
-			WalkLSteps(XLS,XLQ,X,G,k,cc,edge); // try again
-			depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
-			numTries = 0; // And our number of attempts to crawl one step
-			return;
-		}
-		crawlOneStep(XLS, XLQ, X, G);
+	    if (numTries++ > MAX_TRIES) { // If we crawl 100 steps without k distinct vertices restart
+		assert(depth++ < MAX_TRIES); // If we restart 100 times in a row without success give up
+		WalkLSteps(XLS,XLQ,X,G,k,cc,edge); // try again
+		depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
+		numTries = 0; // And our number of attempts to crawl one step
+		return;
+	    }
+	    crawlOneStep(XLS, XLQ, X, G);
 	}
 	numTries = 0;
 }
@@ -188,7 +188,9 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	int nv1 =  G->neighbor[v1][i];
 	if(nv1 != v2)
 	{
+#if PARANOID_ASSERTS
 	    assert(!SetIn(V, nv1)); // assertion to ensure we're in line with faye
+#endif
 	    SetAdd(outSet, (outbound[nOut++] = nv1));
 	}
     }
@@ -197,7 +199,9 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	int nv2 =  G->neighbor[v2][i];
 	if(nv2 != v1 && !SetIn(outSet, nv2))
 	{
+#if PARANOID_ASSERTS
 	    assert(!SetIn(V, nv2)); // assertion to ensure we're in line with faye
+#endif
 	    SetAdd(outSet, (outbound[nOut++] = nv2));
 	}
     }
@@ -206,11 +210,12 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	int j;
 	if(nOut == 0) // the graphlet has saturated it's connected component
 	{
+#if PARANOID_ASSERTS
 	    assert(SetCardinality(outSet) == 0);
 	    assert(SetCardinality(V) < k);
+#endif
 #if ALLOW_DISCONNECTED_GRAPHLETS
-	    while(SetIn(V, (j = G->n*RandomUniform())))
-		; // must terminate since k <= G->n
+	    while(SetIn(V, (j = G->n*RandomUniform()))) ; // must terminate since k <= G->n
 	    outbound[nOut++] = j;
 	    j = 0;
 #else
@@ -223,7 +228,9 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    // Ensure the damn thing really *is* connected.
 	    TINY_GRAPH *T = TinyGraphAlloc(k);
 	    TinyGraphInducedFromGraph(T, G, Varray);
+#if PARANOID_ASSERTS
 	    assert(NumReachableNodes(T,0) == k);
+#endif
 	    TinyGraphFree(T);
 	    return V;
 #endif
@@ -290,7 +297,9 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int nv1 =  G->neighbor[v1][i];
 	if(nv1 != v2)
 	{
+#if PARANOID_ASSERTS
 	    assert(!SetIn(V, nv1)); // assertion to ensure we're in line with faye
+#endif
 	    if (!visited[nv1]) { /* Faye: Check if it's visited */
             SetAdd(outSet, (outbound[nOut++] = nv1));
             visited[nv1] = 1;
@@ -302,7 +311,9 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int nv2 =  G->neighbor[v2][i];
 	if(nv2 != v1 && !SetIn(outSet, nv2))
 	{
+#if PARANOID_ASSERTS
 	    assert(!SetIn(V, nv2)); // assertion to ensure we're in line with faye
+#endif
 	    if (!visited[nv2]) { /* Faye: Check if it's visited */
             SetAdd(outSet, (outbound[nOut++] = nv2));
             visited[nv2] = 1;
@@ -314,8 +325,10 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int j;
 	if(nOut == 0) // the graphlet has saturated it's connected component
 	{
+#if PARANOID_ASSERTS
 	    assert(SetCardinality(outSet) == 0);
 	    assert(SetCardinality(V) < k);
+#endif
 #if ALLOW_DISCONNECTED_GRAPHLETS
 	    /* Faye: check if the random node is visited instead
         *while(SetIn(V, (j = G->n*RandomUniform()))
@@ -334,7 +347,9 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    // Ensure the damn thing really *is* connected.
 	    TINY_GRAPH *T = TinyGraphAlloc(k);
 	    TinyGraphInducedFromGraph(T, G, Varray);
+#if PARANOID_ASSERTS
 	    assert(NumReachableNodes(T,0) == k);
+#endif
 	    TinyGraphFree(T);
 	    return V;
 #endif
@@ -660,7 +675,9 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 		Varray[memberToDelete] = v1; // v1 is the outbound candidate.
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
+#if PARANOID_ASSERTS
 		assert(NumReachableNodes(T,0) == TinyGraphBFS(T, 0, k, graphetteArray, distArray));
+#endif
 		if(NumReachableNodes(T, 0) < k)
 		    Varray[memberToDelete] = v2; // revert the change because the graph is not connected
 		else // add the new guy and delete the old
@@ -777,9 +794,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int Gint = TinyGraph2Int(g, k);
 	int GintOrdinal = _K[Gint];
 
-#if PARANOID_ASSERTS
 	assert(numNodes == k); // Ensure we are returning k nodes
-#endif
 	double count = 0.0;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 	    // The over counting ratio is the alpha value only.
@@ -944,8 +959,10 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     deg_count = SetCardinality(deg_set);
     int next_step_arr[tie_count];
     int deg_arr[deg_count];
+#if PARANOID_ASSERTS
     assert(SetToArray(next_step_arr, next_step) == tie_count);
     assert(SetToArray(deg_arr, deg_set) == deg_count);
+#endif
     SetFree(next_step);
     SetFree(deg_set);
     qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order

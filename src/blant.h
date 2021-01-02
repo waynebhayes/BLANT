@@ -26,6 +26,8 @@ double RandomUniform(void) {
 
 #define GEN_SYN_GRAPH 0
 
+#define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
+
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
 #define MAX_K 8

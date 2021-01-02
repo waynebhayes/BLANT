@@ -11,7 +11,7 @@
 typedef struct _binTreeNode
 {
     foint key, info;
-    struct _binTreeNode *left, *right, *parent;
+    struct _binTreeNode *left, *right;
 } BINTREENODE;
 
 enum _treeType { unbalanced = 0 };   /* AVL next? */
@@ -19,6 +19,7 @@ enum _treeType { unbalanced = 0 };   /* AVL next? */
 typedef struct _binTree
 {
     enum _treeType type;
+    int n, depth; // number of entries, and tree depth
     BINTREENODE *root;
     pCmpFcn cmpKey;
     pFointCopyFcn copyKey, copyInfo;
