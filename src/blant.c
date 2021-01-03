@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,18 +54,6 @@ unsigned long int _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
 double _graphletConcentration[MAX_CANONICALS];
 
-#if PREDICT_USE_BINTREE
-#include "bintree.h"
-extern BINTREE ***_PredictGraph; // lower-triangular matrix (ie., j<i, not i<j) of dictionary entries
-#define PREDICT_GRAPH_NON_EMPTY(i,j) (_PredictGraph[i][j] && _PredictGraph[i][j]->root)
-Boolean TraverseNodePairCounts(foint key, foint data) {
-    char *ID = key.v;
-    int *pCount = data.v;
-    printf("\t%s %d",ID, *pCount);
-    return true;
-}
-#endif
-
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
 
@@ -86,7 +75,7 @@ double *_doubleOrbitDegreeVector[MAX_ORBITS];
 double *_cumulativeProb;
 
 // number of parallel threads required, and the maximum allowed at one time.
-static int _JOBS, _MAX_THREADS;
+int _JOBS, _MAX_THREADS;
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
@@ -429,19 +418,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	}
 	break;
-    case predict:
-#if !PREDICT_USE_AWK
-	for(i=1; i < G->n; i++) for(j=0; j<i; j++) {
-	    if(PREDICT_GRAPH_NON_EMPTY(i,j))  // only output node pairs with non-zero counts
-	    {
-		printf("%s %d", PrintNodePairSorted(i,':',j), GraphAreConnected(G,i,j));
-#if PREDICT_USE_BINTREE
-		BinTreeTraverse(_PredictGraph[i][j], TraverseNodePairCounts);
-#endif
-		puts("");
-	    }
-	}
-#endif
+    case predict: case predict_merge:
+	PredictFlushAllCounts(G);
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)
@@ -552,11 +530,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode == predict) {
-#if PREDICT_USE_BINTREE
-	// This just allocates the NULL pointers, no actual binary trees are created yet.
-	_PredictGraph = Calloc(G->n, sizeof(BINTREE**)); // we won't use element 0 but still need n of them
-	for(i=1; i<G->n; i++) _PredictGraph[i] = Calloc(i, sizeof(BINTREE*));
-#endif
+	Predict_Init(G);
     }
     if (_outputMode == graphletDistribution) {
         _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
@@ -589,16 +563,14 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     do
     {
 	char line[MAX_ORBITS * BUFSIZ];
-	static char line2[MAX_ORBITS * BUFSIZ];
 	for(thread=0;thread<_MAX_THREADS;thread++)	// process one line from each thread
 	{
 	    if(!fpThreads[thread]) continue;
 	    char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
 	    assert(tmp>=0);
-	    strcpy(line2,line);
 	    if(feof(fpThreads[thread]))
 	    {
-		wait(); // reap the child
+		wait(NULL); // reap the child
 		clearerr(fpThreads[thread]);
 		fclose(fpThreads[thread]);
 		fpThreads[thread] = NULL;
@@ -685,38 +657,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 			fputs(line, stdout);
 		break;
 	    case predict:
-		assert(!_child);
-		if(line[strlen(line)-1] != '\n')
-		    Fatal("char line[%s] buffer not long enough while reading child line in -mp mode",sizeof(line));
-		char *s0=line, *s1=s0;
-		int G_u, G_v;
-		while(isdigit(*s1)) s1++; assert(*s1==':'); *s1++='\0'; G_u=atoi(s0); s0=s1;
-		while(isdigit(*s1)) s1++; assert(*s1==' '); *s1++='\0'; G_v=atoi(s0); s0=s1;
-		assert(0 <= G_u && G_u < G->n);
-		assert(0 <= G_v && G_v < G->n);
-		assert(*s0=='0' || *s0=='1');  // verify the edge value is 0 or 1
-		// Now start reading through the participation counts. Note that the child processes will be
-		// using the internal INTEGER node numbering since that was created before the ForkBlant().
-		s1=++s0; // get us to the tab
-		while(*s0 == '\t') {
-		    int kk,g,i,j, count;
-		    char *ID=++s0; // point at the k value
-		    assert(isdigit(*s0)); kk=(*s0-'0'); assert(3 <= kk && kk <= 8); s0++; assert(*s0==':');
-		    s0++; s1=s0; while(isdigit(*s1)) s1++; assert(*s1==':'); *s1='\0'; g=atoi(s0); *s1=':'; s0=s1;
-		    s0++; assert(isdigit(*s0)); i=(*s0-'0'); assert(0 <= i && i < kk); s0++; assert(*s0==':');
-		    s0++; assert(isdigit(*s0)); j=(*s0-'0'); assert(0 <= j && j < kk); s0++; assert(*s0==' '); *s0='\0';
-		    s0++; s1=s0; while(isdigit(*s1)) s1++;
-		    if(!(*s1=='\t' || *s1 == '\n'))
-			Fatal("(*s1=='\\t' || *s1 == '\\n'), line is \n%s", line2);
-		    // temporarily nuke the tab or newline, and restore it after
-		    char tmp = *s1;
-		    *s1='\0'; count=atoi(s0);
-		    assert(kk==_k && 0 <= g && g < _numCanon && 0<=i&&i<_k && 0<=j&&j<_k);
-		    IncrementNodePairCount(G_u, G_v, ID, count);
-		    *s1 = tmp;
-		    assert(*(s0=s1)=='\n' || *s0 == '\t');
-		}
-		assert(*s0 == '\n');
+		Predict_ProcessLine(G, line);
 		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
@@ -888,6 +829,7 @@ int main(int argc, char *argv[])
 	    case 'o': _outputMode = outputODV; break;
 	    case 'd': _outputMode = graphletDistribution; break;
 	    case 'p': _outputMode = predict; break;
+	    case 'q': _outputMode = predict_merge; break;
 	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
 	    break;
 	    }
@@ -906,8 +848,8 @@ int main(int argc, char *argv[])
 	    break;
 	    }
 	    break;
-	case 't': assert(2==sscanf(optarg, "%d:%d", &_JOBS, &_MAX_THREADS) || 
-			 1==sscanf(optarg, "%d", &_JOBS));
+	case 't': assert(1==sscanf(optarg, "%d", &_JOBS));
+	    _MAX_THREADS = _JOBS;
 	    assert(1 <= _JOBS && _MAX_THREADS <= MAX_POSSIBLE_THREADS);
 	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");

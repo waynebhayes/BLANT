@@ -27,6 +27,7 @@ double RandomUniform(void) {
 #define GEN_SYN_GRAPH 0
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
+extern int _JOBS, _MAX_THREADS;
 
 // This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
 // Currently only used to determine the amount of static memory to allocate.
@@ -83,7 +84,7 @@ extern short int *_K;
 extern SET *_connectedCanonicals;
 
 enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
-    predict, graphletFrequency, outputODV, outputGDV,
+    predict, predict_merge, graphletFrequency, outputODV, outputGDV,
     graphletDistribution // used in Windowing
 };
 extern Boolean TraverseNodePairCounts(foint key, foint data);
@@ -113,7 +114,6 @@ extern SET **_componentSet;
 
 extern double *_cumulativeProb;
 extern Boolean _child;
-#define PREDICT_GRAPH_NON_EMPTY(i,j) (_PredictGraph[i][j] && _PredictGraph[i][j]->root)
 
 #define SPARSE both // do not try false at the moment, it's broken
 
