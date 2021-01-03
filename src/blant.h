@@ -86,6 +86,7 @@ enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbi
     predict, graphletFrequency, outputODV, outputGDV,
     graphletDistribution // used in Windowing
 };
+extern Boolean TraverseNodePairCounts(foint key, foint data);
 extern enum OutputMode _outputMode;
 extern int _outputMapping[MAX_CANONICALS];
 
@@ -111,7 +112,8 @@ extern int *_whichComponent; // will be an array of size G->n specifying which C
 extern SET **_componentSet;
 
 extern double *_cumulativeProb;
-
+extern Boolean _child;
+#define PREDICT_GRAPH_NON_EMPTY(i,j) (_PredictGraph[i][j] && _PredictGraph[i][j]->root)
 
 #define SPARSE both // do not try false at the moment, it's broken
 

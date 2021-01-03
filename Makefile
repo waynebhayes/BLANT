@@ -17,14 +17,22 @@ endif
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
-PROFILE=#-pg # comment out to turn off
-DEBUG=#-g # comment out to turn off
+PROFILE=-pg # comment out to turn off
+DEBUG=-g # comment out to turn off
 ifdef DEBUG
     SPEED=-O0 -ggdb $(PROFILE)
+    ifdef PROFILE
+	LIB_OPT=-g-pg
+    else
+	LIB_OPT=-g
+    endif
 else
     SPEED=-O3 $(PROFILE)
+    ifdef PROFILE
+	LIB_OPT=-pg
+    endif
 endif
-LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(DEBUG)$(PROFILE) -lm $(STACKSIZE) -Wno-unused-command-line-argument $(SPEED)
+LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) -Wno-unused-command-line-argument $(SPEED)
 
 # Name of BLANT source directory
 SRCDIR = src

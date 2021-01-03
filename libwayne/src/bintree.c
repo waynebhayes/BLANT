@@ -104,9 +104,9 @@ static Boolean BinTreeTraverseHelper ( BINTREENODE *p, pFointTraverseFcn f)
 {
     Boolean cont = true;
     if(p) {
-	if(p->left) cont &= BinTreeTraverseHelper(p->left, f);
-	if(cont) cont &= f(p->key, p->info);
-	if(cont && p->right) cont &= BinTreeTraverseHelper(p->right, f);
+	if(p->left) cont = cont && BinTreeTraverseHelper(p->left, f);
+	if(cont) cont = cont && f(p->key, p->info);
+	if(cont && p->right) cont = cont && BinTreeTraverseHelper(p->right, f);
     }
     return cont;
 }
