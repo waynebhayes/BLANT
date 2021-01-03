@@ -8,14 +8,10 @@ char *PrintNode(char c, int v) {
     static char buf[BUFSIZ];
     char *s=buf;
     if(c) *s++ = c;
-#if SHAWN_AND_ZICAN
-    sprintf(s, "%s", _nodeNames[v]);
-#else
     if(_supportNodeNames)
 	sprintf(s,"%s", _nodeNames[v]);
     else
 	sprintf(s, "%d", v);
-#endif
     return buf;
 }
 

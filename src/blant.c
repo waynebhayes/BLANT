@@ -418,7 +418,10 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	}
 	break;
-    case predict: case predict_merge:
+    case predict_merge:
+	assert(false); // shouldn't get here
+	break;
+    case predict: predict_merge:
 	PredictFlushAllCounts(G);
 	break;
     case outputGDV:
@@ -529,9 +532,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
-    if(_outputMode == predict) {
-	Predict_Init(G);
-    }
+    if(_outputMode == predict) Predict_Init(G);
     if (_outputMode == graphletDistribution) {
         _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
         for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
@@ -656,6 +657,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		    while(fgets(line, sizeof(line), fpThreads[thread]))
 			fputs(line, stdout);
 		break;
+	    case predict_merge: assert(false); break; // should not be here
 	    case predict:
 		Predict_ProcessLine(G, line);
 		break;
@@ -1015,6 +1017,10 @@ int main(int argc, char *argv[])
 		if (_windowRep_min_num_edge < 0) Fatal("WindowRep minimum number of edges must be larger than 0. Check edge density\n");
     }
 
+    // This section of code computes the info necessary to implement "multiplicity" mode ('M' above), which controls
+    // whether to output a sampled graphlet at all during INDEXING based on how much "ambiguity" there is in its
+    // local alignment. The more permutations of the graphlet there are, the less useful it is for seeding local
+    // alignments and therefore the less useful as a database index entry.
     _windowRep_allowed_ambig_set = SetAlloc(_numCanon);
     SET *orbit_temp = SetAlloc(_numOrbits);
     for(i=0; i<_numCanon; i++) {
@@ -1046,7 +1052,8 @@ int main(int argc, char *argv[])
                 }
             }
 
-            // I know it's inefficient to put multiplicity here instead of around the whole orbit perm calculation code but it increases readability, at least until orbit perm calculation is put into a function
+            // I know it's inefficient to put multiplicity here instead of around the whole orbit perm calculation code but
+	    // it increases readability, at least until orbit perm calculation is put into a function
             if(multiplicity == 0 || total_orbit_perms <= multiplicity) { // multiplicity = 0 means any ambiguity is allowed
                 SetAdd(_windowRep_allowed_ambig_set, i);
             }
@@ -1055,33 +1062,6 @@ int main(int argc, char *argv[])
     }
     SetFree(orbit_temp);
 
-#if SHAWN_AND_ZICAN
-  #if CPP_CALLS_C  // false by default
-    while(!feof(fpGraph))
-    {
-	static int line;
-	int v1, v2;
-	++line;
-	if(fscanf(fpGraph, "%d%d ", &v1, &v2) != 2)
-	    Fatal("can't find 2 ints on line %d\n", line);
-	BlantAddEdge(v1, v2);
-    }
-    if(fpGraph!=stdin) closeFile(fpGraph, &piped);
-  #else // Shawn + Zican see here:
-    if(fpGraph!=stdin) closeFile(fpGraph, &piped);
-    _nodeNames = convertToEL(graphFileName);
-    assert(_numNodes > 0);
-    assert(_nodeNames && _nodeNames[0]);
-    //assert(!_nodeNames[_numNodes]);
-    #if 0
-    for(i=0; i < _numNodes; i++)
-	printf("nodeName[%d]=%s\n", i, _nodeNames[i]);
-    exit(0);
-    #endif
-    // call clean maybe?
-  #endif
-    exitStatus = RunBlantEdgesFinished(_k, numSamples, _numNodes, _nodeNames);
-#else
     // Read it in using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames);
     if(_supportNodeNames)
@@ -1129,8 +1109,11 @@ int main(int argc, char *argv[])
         exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
-    exitStatus = RunBlantInThreads(_k, numSamples, G);
-#endif
+
+    if(_outputMode == predict_merge)
+	exitStatus = PredictMerge(G);
+    else
+	exitStatus = RunBlantInThreads(_k, numSamples, G);
     GraphFree(G); // causes corruption FIXME
     return exitStatus;
 }
