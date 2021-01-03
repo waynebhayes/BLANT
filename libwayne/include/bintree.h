@@ -19,7 +19,7 @@ enum _treeType { unbalanced = 0 };   /* AVL next? */
 typedef struct _binTree
 {
     enum _treeType type;
-    int n, depth; // number of entries, and tree depth
+    int n, depthSum, depthSamples; // number of entries, and tree depth
     BINTREENODE *root;
     pCmpFcn cmpKey;
     pFointCopyFcn copyKey, copyInfo;

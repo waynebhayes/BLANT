@@ -572,15 +572,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 
     // At this point, _JOBS must be greater than 1.
     int totalSamples = numSamples;
-    int minSamplesPerThread = 1;
-    double meanSamplesPerJob = MAX(minSamplesPerThread, totalSamples/(double)_JOBS);
-    int estimatedJobs = totalSamples / meanSamplesPerJob;
-    Warning("Parent %d starting about %d jobs of about %d samples each", getpid(), estimatedJobs, (int)meanSamplesPerJob);
+    double meanSamplesPerJob = totalSamples/(double)_JOBS;
+    Warning("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
 
     int threadsRunning = 0, jobsDone = 0;
-    int lineNum = 0, job=0;
+    int thread, lineNum = 0, job=0;
     for(i=0; numSamples > 0 && i<_MAX_THREADS;i++) {
-	int samples = (i+1)*meanSamplesPerJob/_MAX_THREADS;
+	int samples = meanSamplesPerJob;
 	assert(samples>0);
 	if(samples > numSamples) samples = numSamples;
 	numSamples -= samples;
@@ -588,16 +586,12 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	Warning("Started job %d requesting %d samples; %d threads running, %d samples remaining to take",
 	    job++, samples, ++threadsRunning, numSamples);
     }
-    int slot, thread, nextToFinish = 0;
-    Boolean firstHalf = true;
     do
     {
 	char line[MAX_ORBITS * BUFSIZ];
 	static char line2[MAX_ORBITS * BUFSIZ];
-	for(slot=nextToFinish;slot<_MAX_THREADS;slot++)	// process one line from each thread
+	for(thread=0;thread<_MAX_THREADS;thread++)	// process one line from each thread
 	{
-	    if(firstHalf) thread = slot;
-	    else thread = _MAX_THREADS-1-slot;
 	    if(!fpThreads[thread]) continue;
 	    char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
 	    assert(tmp>=0);
@@ -612,11 +606,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		Warning("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
 		if(numSamples == 0) fpThreads[thread] = NULL; // signify this pointer is finished.
 		else {
-		    if(firstHalf) ++nextToFinish;
-		    if(nextToFinish == _MAX_THREADS-1) firstHalf=false;
-		    int samples;
-		    if(firstHalf) samples = (_MAX_THREADS-thread)*meanSamplesPerJob/_MAX_THREADS;
-		    else samples = (thread+1)*meanSamplesPerJob/_MAX_THREADS;
+		    int samples = meanSamplesPerJob;
 		    if(samples > numSamples) samples = numSamples;
 		    numSamples -= samples;
 		    fpThreads[thread] = ForkBlant(_k, samples, G);
