@@ -15,7 +15,7 @@ TAB='	'
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMP=`mktemp /tmp/hawk.XXXXXX`
-trap "/bin/rm -rf $TMP; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+ trap "/bin/rm -rf $TMP; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 
 DIR="`dirname $0`"
 TAB_CHAR=" " # space
