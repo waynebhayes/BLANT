@@ -15,7 +15,7 @@ ifdef NO7
 endif
 
 # Uncomment both lines to turn on prediction (only available in private repo)
-#BLANT_PREDICT = predict/blant-predict.c
+#BLANT_PREDICT = EdgePredict/blant-predict.c
 #PREDICT_OPT=-DPREDICT=1
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
@@ -227,7 +227,7 @@ test_maps: blant blant-sanity $(canon_map_files) $(alphas) $(subcanon_txts)
 
 clean:
 	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
-	@/bin/rm -f $(OBJDIR)/*
+	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
 	echo "'realclean' is now called 'pristine'; try again"
