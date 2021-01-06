@@ -58,7 +58,8 @@ while [ $# -gt -0 ]; do
 done
 [ -x "$EXE" -o "$MAKE" = true ] || die "Executable '$EXE' must exist or you must specify -make"
 
-CORES=${CORES:=`cpus 2>/dev/null | awk '{c2=int($1/2); if(c2>0)print c2; else print 1}'`}
+CORES=${CORES:=1} # cores =1 for now since I broke threading. :-(
+#CORES=${CORES:=`cpus 2>/dev/null | awk '{c2=int($1/2); if(c2>0)print c2; else print 1}'`}
 [ "$CORES" -gt 0 ] || die "can't figure out how many cores this machine has"
 MAKE_CORES=1 # for BLANT, we don't want or need paralellism during make
 

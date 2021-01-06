@@ -1,7 +1,7 @@
 # Number of cores to use when invoking parallelism
-ifndef CORES
-    CORES := 2
-endif
+#ifndef CORES
+    CORES := 1 # temporarily set to 1 since I broke threading. :-(
+#endif
 ifndef PAUSE
     PAUSE := 100
 endif
