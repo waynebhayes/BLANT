@@ -4,11 +4,6 @@
 #include "multisets.h"
 #include "heap.h"
 
-// Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
-// Empirically I've found that neither of these need to be very big since most repetition happens with high locality
-#define MCMC_KOVACS_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
-#define MCMC_KOVACS_MAX_HASH 2147483647 // this value should be prime; at 2^31/8 it's 256MB of RAM.
-
 #define LOAD_CONCENTRATION 0
 #define LOAD_INDEX 1
 #define LOAD_DISTRIBUTION 2

@@ -1,6 +1,8 @@
 #include "blant.h"
 #include "blant-output.h"
-#include "blant-predict.h"
+#if PREDICT
+#include "predict/blant-predict.h"
+#endif
 #include "blant-utils.h"
 #include "blant-sampling.h"
 
@@ -217,10 +219,12 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
 	break;
+#if PREDICT
     case predict:
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else AccumulateGraphletParticipationCounts(G,Varray,g,Gint,GintOrdinal);
 	break;
+#endif
     case indexOrbits:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);

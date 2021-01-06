@@ -17,8 +17,8 @@ endif
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
-PROFILE=-pg # comment out to turn off
-DEBUG=-g # comment out to turn off
+PROFILE=#-pg # comment out to turn off
+DEBUG=#-g # comment out to turn off
 ifdef DEBUG
     SPEED=-O0 -ggdb $(PROFILE)
     ifdef PROFILE
@@ -37,10 +37,11 @@ LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $
 # Name of BLANT source directory
 SRCDIR = src
 # Put all c files in SRCDIR below.
+#BLANT_PREDICT = predict/blant-predict.c
 BLANT_SRCS = blant.c \
+			 $(BLANT_PREDICT) \
 			 blant-window.c \
 			 blant-output.c \
-			 blant-predict.c \
 			 blant-utils.c \
 			 blant-sampling.c \
 			 blant-synth-graph.c
