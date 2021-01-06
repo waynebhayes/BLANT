@@ -1,7 +1,7 @@
 #include "blant.h"
 #include "blant-output.h"
 #if PREDICT
-#include "predict/blant-predict.h"
+#include "EdgePredict/blant-predict.h"
 #endif
 #include "blant-utils.h"
 #include "blant-sampling.h"

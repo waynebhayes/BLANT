@@ -17,7 +17,7 @@
 #include "sorts.h"
 #include "blant-window.h"
 #if PREDICT
-#include "predict/blant-predict.h"
+#include "EdgePredict/blant-predict.h"
 #endif
 #include "blant-output.h"
 #include "blant-utils.h"
