@@ -241,6 +241,13 @@ int PrimeFactors(int N, int count[])
     return total;
 }
 
+
+FILE *Fopen(char *name, char *mode) {
+    FILE *fp = fopen(name, mode);
+    if(!fp) Fatal("cannot open file '%s'", name);
+    return fp;
+}
+
 FILE* readFile(char* fileName, int* piped) {
     FILE* fp;
     const char* decompressionProg = getDecompressionProgram(fileName);
