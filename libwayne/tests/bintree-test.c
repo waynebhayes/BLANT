@@ -12,17 +12,17 @@ int main(int argc, char *argv[])
 {
     FILE *fp = fopen(argv[1], "r");
     BINTREE *tree = BinTreeAlloc(strcmp, strdup, free, NULL, NULL);
-    char key[100];
-    int data;
+    char buf[100];
+    foint key, data;
 
-    while(fscanf(fp, "%s %d", key,&data) == 2)
-	BinTreeInsert(tree, (foint)key, (foint)data);
+    while(fscanf(fp, "%s %d", buf, &data.i) == 2)
+	BinTreeInsert(tree, (foint)(key.s=buf), data);
     fclose(fp);
 
-    while(scanf("%s", key) == 1)
+    while(scanf("%s", buf) == 1)
     {
-	if(BinTreeLookup(tree, (foint) key, (foint*)&data))
-	    printf("%d\n", data);
+	if(BinTreeLookup(tree, (foint)(key.s=buf), &data))
+	    printf("%d\n", data.i);
 	else
 	    puts("nope");
     }
