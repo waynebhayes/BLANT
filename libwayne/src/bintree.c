@@ -24,13 +24,12 @@ static void FreeInt(foint i) {}
 static int CmpInt(foint i, foint j) { return i.i - j.i; }
 
 
-BINTREE *BinTreeAlloc(enum _treeType type, pCmpFcn cmpKey,
+BINTREE *BinTreeAlloc(pCmpFcn cmpKey,
     pFointCopyFcn copyKey, pFointFreeFcn freeKey,
     pFointCopyFcn copyInfo, pFointFreeFcn freeInfo)
 {
     BINTREE *tree = Malloc(sizeof(BINTREE));
     tree->root = NULL;
-    tree->type = type;
     tree->cmpKey = cmpKey ? cmpKey : CmpInt;
     tree->copyKey = copyKey ? copyKey : CopyInt;
     tree->freeKey = freeKey ? freeKey : FreeInt;
@@ -204,7 +203,7 @@ static void BinTreeRebalance(BINTREE *tree)
     BinTreeTraverse (tree, TraverseTreeToArray);
     assert(currentItem == tree->n);
     
-    BINTREE *newTree = BinTreeAlloc(tree->type, tree->cmpKey , tree->copyKey , tree->freeKey , tree->copyInfo , tree->freeInfo);
+    BINTREE *newTree = BinTreeAlloc(tree->cmpKey , tree->copyKey , tree->freeKey , tree->copyInfo , tree->freeInfo);
     // Now re-insert the items in *perfectly balanced* order.
     BinTreeInsertMiddleElementOfArray(newTree, 0, tree->n - 1);
     assert(tree->n == newTree->n);

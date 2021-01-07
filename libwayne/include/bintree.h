@@ -14,11 +14,8 @@ typedef struct _binTreeNode
     struct _binTreeNode *left, *right;
 } BINTREENODE;
 
-enum _treeType { unbalanced = 0 };   /* AVL next? */
-
 typedef struct _binTree
 {
-    enum _treeType type;
     int n, depthSum, depthSamples; // number of entries, and tree depth
     BINTREENODE *root;
     pCmpFcn cmpKey;
@@ -28,9 +25,8 @@ typedef struct _binTree
 
 /*-----------   Function Prototypes  -----------*/
 
-BINTREE *BinTreeAlloc(enum _treeType type, pCmpFcn cmpKey,
-    pFointCopyFcn copyKey, pFointFreeFcn freeKey,
-    pFointCopyFcn copyInfo, pFointFreeFcn freeInfo);
+BINTREE *BinTreeAlloc(pCmpFcn cmpKey, pFointCopyFcn copyKey, pFointFreeFcn freeKey,
+	    pFointCopyFcn copyInfo, pFointFreeFcn freeInfo);
 
 void BinTreeInsert(BINTREE *, foint key, foint info);
 

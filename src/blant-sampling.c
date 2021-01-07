@@ -911,9 +911,9 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 }
 
 /**
- * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes, it calls the processGraphlet
- * function to print the graphlet directly. It is called inside RunBlantFromGraph function to take the given amount of
- * samples (the amount is given with -n option) for each node in the graph as the start node
+ * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes,
+ * it calls the ProcessGraphlet function to print the graphlet directly. It is called inside RunBlantFromGraph function to take
+ * the given amount of samples (the amount is given with -n option) for each node in the graph as the start node
  *
  * @param G the graph
  * @param prev_nodes  the temporary set of nodes in the graphlet to build
