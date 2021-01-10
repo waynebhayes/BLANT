@@ -81,7 +81,7 @@ static void HTreeFreeHelper(HTREE *h, int currentDepth, BINTREE *tree)
 	BinTreeFree(tree);
     else {
 	_TraverseH = h; _TraverseDepth = currentDepth;
-	BinTreeTraverse(tree, TraverseFree);
+	BinTreeTraverse(tree, (pFointTraverseFcn) TraverseFree);
     }
 }
 

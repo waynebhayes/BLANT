@@ -61,7 +61,7 @@ extern int _numConnectedCanon;
 #define DEFAULT_BLANT_DIR "."
 extern char* _BLANT_DIR;
 
-#define PARANOID_ASSERTS 0	// turn on copious assert checking --- slows down execution by a factor of 2-3
+#define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
 
 extern unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
 extern unsigned long int    *_orbitDegreeVector[MAX_ORBITS];

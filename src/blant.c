@@ -542,7 +542,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
     }
-    if (_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++){
+    if (_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }

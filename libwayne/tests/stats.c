@@ -27,20 +27,24 @@ char USAGE[] = "USAGE: %s [-g|-gain] [-[h|p][c] numBins min max]\n"
 int main(int argc, char *argv[])
 {
     STAT *st;
+    FILE *fp = NULL;
     double sample, histMin=0, histMax=0;
-    int numBins = 0, ss;
+    int numBins = 0, ss, nextArg=1;
     Boolean histCumulative = false, histNormalize = false, geom=false, gain=false;
 
     if(argc > 1)
     {
-	if(argc == 2 && strcmp(argv[1], "-g") == 0)
+	if(argc >= 2 && strcmp(argv[1], "-g") == 0) {
 	    geom = true;
-	else if(argc == 2 && strcmp(argv[1], "-gain") == 0)
+	    ++nextArg;
+	}
+	else if(argc >= 2 && strcmp(argv[1], "-gain") == 0)
 	{
 	    geom = true;
 	    gain = true;
+	    ++nextArg;
 	}
-	else if(argc == 5 &&
+	else if(argc >= 5 &&
 	    (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "-hc") == 0 ||
 	     strcmp(argv[1], "-p") == 0 || strcmp(argv[1], "-pc") == 0) &&
 	    (numBins = atoi(argv[2])) > 0 &&
@@ -53,6 +57,7 @@ int main(int argc, char *argv[])
 		histNormalize = true;
 	    if(strcmp(argv[1], "-pc") == 0)
 		histCumulative = histNormalize = true;
+	    nextArg += 4;
 	}
 	else
 	{
@@ -65,7 +70,11 @@ int main(int argc, char *argv[])
     else
 	st = StatAlloc(0, 0, 0, geom);
 
-    while(scanf("%lf", &sample) == 1)
+    assert(nextArg <= argc);
+    if(nextArg == argc) fp = stdin;
+    else fp = Fopen(argv[nextArg], "r");
+
+    while(fscanf(fp, "%lf", &sample) == 1)
 	StatAddSample(st, sample);
 
     if(gain)
