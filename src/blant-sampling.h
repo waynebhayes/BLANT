@@ -40,13 +40,13 @@ static SET *SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k);
 static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC);
 static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k, int whichCC);
 static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k);
-static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC);
+static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC, double *foundGraphletCount);
 static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k);
 static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k);
 void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, int *degreeOrder);
 static int NumReachableNodes(TINY_GRAPH *g, int startingNode);
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge);
-void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);
+void *SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k); // returns a void* for flexibility, so any SampleGraphletXXXX() function can return something
 void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int windowSize, int edge);
 void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G);
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G);

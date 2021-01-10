@@ -379,7 +379,17 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             else if (_outputMode == graphletDistribution)
                 ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
             else {
-                SampleGraphlet(G, V, Varray, k);
+                void *returnVal = SampleGraphlet(G, V, Varray, k);
+
+                if (returnVal != NULL) {
+                    if (_sampleMethod == SAMPLE_MCMC) { // even if _sampleMethod is SAMPLE_MCMC, returnVal could be null is _window is true, so we put this inside if (returnVal != NULL)
+                        double weight = *((double*)returnVal);
+                        fprintf(stderr, "weight: %f\n", weight);
+                    }
+
+                    free(returnVal);
+                }
+
                 if(!ProcessGraphlet(G, V, Varray, k, empty_g)) --i; // negate the sample count of duplicate graphlets
             }
         }

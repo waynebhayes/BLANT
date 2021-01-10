@@ -717,7 +717,8 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
    After the algorithm is run the frequencies are normalized into concentrations.
 */
 
-static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
+// foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]), which needs to be returned (but must be a parameter since there's already a return value on the function)
+static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC, double *foundGraphletCount) {
 	static Boolean setup = false;
 	static int currSamples = 0; // Counts how many samples weve done at the current starting point
 	static int currEdge = 0; // Current edge we are starting at for uniform sampling
@@ -795,14 +796,16 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int GintOrdinal = _K[Gint];
 
 	assert(numNodes == k); // Ensure we are returning k nodes
-	double count = 0.0;
+	double count;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 	    // The over counting ratio is the alpha value only.
-	    count += 1.0/(_alphaList[GintOrdinal]);
+	    count = 1.0/(_alphaList[GintOrdinal]);
 	} else {
 	    // The over counting ratio is the alpha value divided by the multiplier
-	    count += (double)multiplier/((double)_alphaList[GintOrdinal]);
+	    count = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	}
+    *foundGraphletCount = count;
+    fprintf(stderr, "count: %f\n", count);
 	if (_outputMode == outputODV) {
 	    char perm[k];
 	    memset(perm, 0, k);
@@ -812,7 +815,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    }
 	} else {
 	    if(count < 0) {
-		Warning("count is %g\n", count);
+		Warning("count (%g) is less than 0\n", count);
 	    }
 	    _graphletConcentration[GintOrdinal] += count;
 	}
@@ -982,9 +985,10 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 }
 
 
-void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
+void *SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     int cc;
     double randomComponent = RandomUniform();
+    void *returnVal = NULL;
     for(cc=0; cc<_numConnectedComponents;cc++)
 	if(_cumulativeProb[cc] > randomComponent)
 	    break;
@@ -1006,10 +1010,13 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // Faster than NBE but less well tested and understood.
 	break;
     case SAMPLE_MCMC:
-	if(!_window)
-		SampleGraphletMCMC(V, Varray, G, k, cc);
-	else
-		SampleWindowMCMC(V, Varray, G, k, cc);
+        if(!_window) {
+            double *foundGraphletCount = malloc(sizeof(double));
+            SampleGraphletMCMC(V, Varray, G, k, cc, foundGraphletCount);
+            returnVal = (void*)foundGraphletCount;
+        } else {
+            SampleWindowMCMC(V, Varray, G, k, cc);
+        }
 	break;
     case SAMPLE_FROM_FILE:
 	SampleGraphletFromFile(V, Varray, G, k);
@@ -1021,4 +1028,6 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	Fatal("unknown sampling method");
 	break;
     }
+
+    return returnVal;
 }
