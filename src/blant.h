@@ -118,7 +118,6 @@ extern Boolean _child;
 #define SPARSE both // do not try false at the moment, it's broken
 
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
-void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k);
 
 void Int2TinyGraph(TINY_GRAPH* G, int Gint);
 int TinyGraph2Int(TINY_GRAPH *g, int numNodes);

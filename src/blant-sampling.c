@@ -158,7 +158,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 // So the "outset" is the set of edges going to nodes exactly distance
 // one from the set V, as V is being built.
 
-static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
+double SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
     static SET *outSet;
     static int numIsolatedNodes;
@@ -223,7 +223,7 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    depth++;
 	    // must terminate eventually as long as there's at least one connected component with >=k nodes.
 	    assert(depth < MAX_TRIES); // graph is too disconnected
-	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
+	    SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
 	    // Ensure the damn thing really *is* connected.
 	    TINY_GRAPH *T = TinyGraphAlloc(k);
@@ -232,7 +232,7 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    assert(NumReachableNodes(T,0) == k);
 #endif
 	    TinyGraphFree(T);
-	    return V;
+	    return 1.0;
 #endif
 	}
 	else
@@ -253,11 +253,11 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     assert(SetCardinality(V) == k);
     assert(nOut == SetCardinality(outSet));
 #endif
-    return V;
+    return 1.0;
 }
 
 // modelled after faye by Tuong Do
-static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
+double SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
     /* Faye: Add a visited array to keep track of nodes. Initialize to 0 */
     int visited[G->n];
@@ -342,7 +342,7 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    depth++;
 	    // must terminate eventually as long as there's at least one connected component with >=k nodes.
 	    assert(depth < MAX_TRIES); // graph is too disconnected
-	    V = SampleGraphletFaye(V, Varray, G, k, whichCC);
+	    SampleGraphletFaye(V, Varray, G, k, whichCC);
 	    depth--;
 	    // Ensure the damn thing really *is* connected.
 	    TINY_GRAPH *T = TinyGraphAlloc(k);
@@ -351,7 +351,7 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    assert(NumReachableNodes(T,0) == k);
 #endif
 	    TinyGraphFree(T);
-	    return V;
+	    return 1.0;
 #endif
 	}
 	else
@@ -376,11 +376,11 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
     assert(SetCardinality(V) == k);
     assert(nOut == SetCardinality(outSet));
 #endif
-    return V;
+    return 1.0;
 }
 
 // Returns NULL if there are no more samples
-static SET *SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
+double SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
 {
     SetEmpty(V);
 	int i, numRead;
@@ -388,7 +388,7 @@ static SET *SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
 	char *s = fgets(line, sizeof(line), _sampleFile);
 	if(!s){
 		_sampleFileEOF = 1; // forces exit below
-		return NULL;
+		return 1.0;
 	}
 	switch(k)
 	{
@@ -405,7 +405,7 @@ static SET *SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
 		assert(Varray[i] >= 0 && Varray[i] < G->n);
 		SetAdd(V, Varray[i]);
 	}
-    return V;
+    return 1.0;
 }
 
 
@@ -444,7 +444,7 @@ static SET *SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
 ** is blinding speed at graphlet sampling, eg for building a graphlet database
 ** index, then this is the preferred method.
 */
-static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
+double SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
     int edge, v1, v2;
     assert(V && V->n >= G->n);
@@ -494,9 +494,9 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    static int depth;
 	    depth++;
 	    assert(depth < MAX_TRIES);
-	    V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
+	    SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
-	    return V;
+	    return 1.0;
 #endif
 	}
 	for(i=0; cumulative[i] <= whichNeigh; i++)
@@ -536,9 +536,9 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 		static int depth;
 		depth++;
 		assert(depth < MAX_TRIES);
-		V = SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
+		SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
 		depth--;
-		return V;
+		return 1.0;
 #endif
 	    }
 	}
@@ -555,7 +555,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
     assert(SetCardinality(V) == k);
     assert(vCount == k);
 #endif
-    return V;
+    return 1.0;
 }
 
 // From the paper: ``Sampling Connected Induced Subgraphs Uniformly at Random''
@@ -565,7 +565,7 @@ static SET *SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 // Note that they suggest *edge* based expansion to select the first k nodes, and then
 // use reservoir sampling for the rest. But we know edge-based expansion sucks, so we'll
 // start with a better starting guess, which is node-based expansion.
-static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
+double SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
     // Start by getting the first k nodes using a previous method. Once you figure out which is
     // better, it's probably best to share variables so you don't have to recompute the outset here.
@@ -626,9 +626,9 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    static int depth;
 	    depth++;
 	    assert(depth < MAX_TRIES); // graph is too disconnected
-	    V = SampleGraphletLuBressanReservoir(V, Varray, G, k, whichCC);
+	    SampleGraphletLuBressanReservoir(V, Varray, G, k, whichCC);
 	    depth--;
-	    return V;
+	    return 1.0;
 #endif
 	}
 	else
@@ -705,7 +705,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 #else
     SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
 #endif
-    return V;
+    return 1.0;
 }
 
 /* SampleGraphletMCMC first starts with an edge in Walk L steps.
@@ -717,7 +717,8 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
    After the algorithm is run the frequencies are normalized into concentrations.
 */
 
-static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
+// foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]), which needs to be returned (but must be a parameter since there's already a return value on the function)
+double SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
 	static Boolean setup = false;
 	static int currSamples = 0; // Counts how many samples weve done at the current starting point
 	static int currEdge = 0; // Current edge we are starting at for uniform sampling
@@ -795,13 +796,13 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	int GintOrdinal = _K[Gint];
 
 	assert(numNodes == k); // Ensure we are returning k nodes
-	double count = 0.0;
+	double count = 1.0;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 	    // The over counting ratio is the alpha value only.
-	    count += 1.0/(_alphaList[GintOrdinal]);
+	    count = 1.0/(_alphaList[GintOrdinal]);
 	} else {
 	    // The over counting ratio is the alpha value divided by the multiplier
-	    count += (double)multiplier/((double)_alphaList[GintOrdinal]);
+	    count = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	}
 	if (_outputMode == outputODV) {
 	    char perm[k];
@@ -812,21 +813,21 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    }
 	} else {
 	    if(count < 0) {
-		Warning("count is %g\n", count);
+		Warning("count (%g) is less than 0\n", count);
 	    }
 	    _graphletConcentration[GintOrdinal] += count;
 	}
 
-	return V; // return the sampled graphlet
+	return count; // return count as a weight
 }
 
-static SET *SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { return V; } // slower
-static SET *SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { return V; } // faster!
+double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { return 1.0; } // slower
+double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(SET *V, int *Varray, GRAPH *G, int k) { return 1.0; } // faster!
 
 /*
 * Very slow: sample k nodes uniformly at random and throw away ones that are disconnected.
 */
-static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k)
+double SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k)
 {
     int arrayV[k], i;
     int nodeArray[G->n], distArray[G->n];
@@ -854,7 +855,7 @@ static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k)
 	++tries;
     } while(NumReachableNodes(g, 0) < k);
     _acceptRejectTotalTries += tries;
-    return V;
+    return 1.0;
 }
 
 // return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
@@ -871,7 +872,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 }
 
 // Fit SampleGraphletMCMC for windowRep implementation (alphalist and overcounting is not used here)
-static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
+double SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 {
 	//Original SampleGraphletMCMC initial step.
 	// Not using tinyGraph to compute overcounting since W_size exceeeds the max tinygrpah size
@@ -907,7 +908,7 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 			}
 		}
 	}
-	return V;
+	return 1.0;
 }
 
 /**
@@ -982,9 +983,10 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 }
 
 
-void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
+double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     int cc;
     double randomComponent = RandomUniform();
+    double weight = 1.0; // this will be returned
     for(cc=0; cc<_numConnectedComponents;cc++)
 	if(_cumulativeProb[cc] > randomComponent)
 	    break;
@@ -1006,10 +1008,11 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	SampleGraphletEdgeBasedExpansion(V, Varray, G, k, cc); // Faster than NBE but less well tested and understood.
 	break;
     case SAMPLE_MCMC:
-	if(!_window)
-		SampleGraphletMCMC(V, Varray, G, k, cc);
-	else
-		SampleWindowMCMC(V, Varray, G, k, cc);
+        if(!_window) {
+            weight = SampleGraphletMCMC(V, Varray, G, k, cc);
+        } else {
+            SampleWindowMCMC(V, Varray, G, k, cc);
+        }
 	break;
     case SAMPLE_FROM_FILE:
 	SampleGraphletFromFile(V, Varray, G, k);
@@ -1021,4 +1024,6 @@ void SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	Fatal("unknown sampling method");
 	break;
     }
+
+    return weight;
 }
