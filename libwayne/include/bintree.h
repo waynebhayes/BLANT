@@ -16,7 +16,7 @@ typedef struct _binTreeNode
 
 typedef struct _binTree
 {
-    int n, depthSum, depthSamples; // number of entries, and tree depth
+    int n, depthSum, depthSamples; // number of entries, and tree depth statistics which can be averaged anytime.
     BINTREENODE *root;
     pCmpFcn cmpKey;
     pFointCopyFcn copyKey, copyInfo;

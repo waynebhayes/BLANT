@@ -29,6 +29,9 @@ int main(int argc, char *argv[])
 
     while(scanf("%s %s %s", keys[0].s, keys[1].s, keys[2].s) == 3)
     {
+	int sizes[DEPTH]={-1,-1,-1};
+	int depth = HTreeSizes(h, keys, sizes);
+	printf("filled %d sizes [%d %d %d]\n",depth, sizes[0],sizes[1],sizes[2]);
 	if(HTreeLookup(h, keys, &data))
 	    printf("%d\n", data.i);
 	else

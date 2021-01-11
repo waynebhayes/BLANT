@@ -62,6 +62,29 @@ Boolean HTreeLookup(HTREE *h, foint keys[], foint *pData)
     return HTreeLookupHelper(h, 0, h->tree, keys, pData);
 }
 
+static int HTreeSizesHelper(HTREE *h, int currentDepth, BINTREE *tree, foint keys[], int sizes[])
+{
+    assert(tree && 0 <= currentDepth && currentDepth < h->depth);
+    sizes[currentDepth] = tree->n;
+    if(currentDepth == h->depth-1) // we're hit the lowest level tree; its data elements are the final elements.
+	return 1;
+    else {
+	foint nextLevel;
+	BINTREE *nextTree;
+	if(!BinTreeLookup(tree, keys[currentDepth], &nextLevel))
+	    return 1;
+	else
+	    nextTree = nextLevel.v;
+	assert(nextTree);
+	return 1 + HTreeSizesHelper(h, currentDepth+1, nextTree, keys, sizes);
+    }
+}
+
+int HTreeSizes(HTREE *h, foint keys[], int sizes[])
+{
+    return HTreeSizesHelper(h, 0, h->tree, keys, sizes);
+}
+
 
 static void HTreeFreeHelper(HTREE *h, int currentDepth, BINTREE *tree);
 static HTREE *_TraverseH;

@@ -29,6 +29,9 @@ void HTreeInsert(HTREE *, foint keys[], foint info);
 
 Boolean HTreeLookup(HTREE *, foint keys[], foint *pInfo); // as above, and the lowest level info is returned if it exists.
 
+// number of elements in trees down the hierarchy along key path; returns number of sizes[] we managed to fill.
+int HTreeSizes(HTREE *, foint keys[], int sizes[]);
+
 void HTreeFree(HTREE *);
 
 #endif  /* _HTREE_H */
