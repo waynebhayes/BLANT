@@ -35,9 +35,10 @@ static void HTreeInsertHelper(HTREE *h, int currentDepth, BINTREE *tree, foint k
 }
 
 // key is an array with exactly "depth" elements, data is what you want to put at the lowest level.
-void HTreeInsert(HTREE *h, foint keys[], foint data)
+void HTreeInsert(HTREE *h, char *keys[], foint data)
 {
-    HTreeInsertHelper(h, 0, h->tree, keys, data);
+    foint fkeys[h->depth]; int i; for(i=0; i < h->depth; i++) fkeys[i].s = keys[i];
+    HTreeInsertHelper(h, 0, h->tree, fkeys, data);
 }
 
 static Boolean HTreeLookupHelper(HTREE *h, int currentDepth, BINTREE *tree, foint keys[], foint *pData)
@@ -57,9 +58,10 @@ static Boolean HTreeLookupHelper(HTREE *h, int currentDepth, BINTREE *tree, foin
     }
 }
 
-Boolean HTreeLookup(HTREE *h, foint keys[], foint *pData)
+Boolean HTreeLookup(HTREE *h, char *keys[], foint *pData)
 {
-    return HTreeLookupHelper(h, 0, h->tree, keys, pData);
+    foint fkeys[h->depth]; int i; for(i=0; i < h->depth; i++) fkeys[i].s = keys[i];
+    return HTreeLookupHelper(h, 0, h->tree, fkeys, pData);
 }
 
 static int HTreeSizesHelper(HTREE *h, int currentDepth, BINTREE *tree, foint keys[], int sizes[])
@@ -80,9 +82,10 @@ static int HTreeSizesHelper(HTREE *h, int currentDepth, BINTREE *tree, foint key
     }
 }
 
-int HTreeSizes(HTREE *h, foint keys[], int sizes[])
+int HTreeSizes(HTREE *h, char *keys[], int sizes[])
 {
-    return HTreeSizesHelper(h, 0, h->tree, keys, sizes);
+    foint fkeys[h->depth]; int i; for(i=0; i < h->depth; i++) fkeys[i].s = keys[i];
+    return HTreeSizesHelper(h, 0, h->tree, fkeys, sizes);
 }
 
 

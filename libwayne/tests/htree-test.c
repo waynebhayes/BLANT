@@ -13,13 +13,13 @@ int main(int argc, char *argv[])
     FILE *fp = fopen(argv[1], "r");
     HTREE *h = HTreeAlloc(DEPTH);
     char buf[DEPTH][BUFSIZ];
-    foint keys[DEPTH];
+    char *keys[DEPTH];
     foint data;
     int i;
-    for(i=0;i<DEPTH;i++) keys[i].s = buf[i];
+    for(i=0;i<DEPTH;i++) keys[i] = buf[i];
 
-    while(fscanf(fp, "%s%s%s%d", keys[0].s, keys[1].s, keys[2].s, &data.i) == 4) {
-	printf("Inserting %s %s %s = %d\n", keys[0].s, keys[1].s, keys[2].s, data.i);
+    while(fscanf(fp, "%s%s%s%d", keys[0], keys[1], keys[2], &data.i) == 4) {
+	printf("Inserting %s %s %s = %d\n", keys[0], keys[1], keys[2], data.i);
 	HTreeInsert(h, keys, (foint)data);
 	foint found;
 	assert(HTreeLookup(h, keys, &found));
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     }
     fclose(fp);
 
-    while(scanf("%s %s %s", keys[0].s, keys[1].s, keys[2].s) == 3)
+    while(scanf("%s %s %s", keys[0], keys[1], keys[2]) == 3)
     {
 	int sizes[DEPTH]={-1,-1,-1};
 	int depth = HTreeSizes(h, keys, sizes);
