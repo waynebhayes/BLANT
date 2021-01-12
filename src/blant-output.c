@@ -21,11 +21,11 @@ char *PrintNodePairSorted(int u, char c, int v) {
     static char buf[BUFSIZ];
     if(_supportNodeNames) {
 	char *s1=_nodeNames[u], *s2=_nodeNames[v];
-	if(strcmp(s1,s2)>0) { char *tmp=s1;s1=s2;s2=tmp; }
+	if(strcmp(s1,s2)<0) { char *tmp=s1;s1=s2;s2=tmp; }
 	sprintf(buf, "%s%c%s", s1,c,s2);
     }
     else
-	sprintf(buf, "%d%c%d", MIN(u,v),c,MAX(u,v));
+	sprintf(buf, "%d%c%d", MAX(u,v),c,MIN(u,v));
     return buf;
 }
 
