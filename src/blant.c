@@ -16,9 +16,7 @@
 #include "multisets.h"
 #include "sorts.h"
 #include "blant-window.h"
-#if PREDICT
-#include "EdgePredict/blant-predict.h"
-#endif
+Boolean _memUsageAlarm; // becomes true when we're using > 30GB
 #include "blant-output.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
@@ -360,7 +358,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     }
     else // sample numSamples graphlets for the entire graph
     {
-        for(i=0; i<numSamples || (_sampleFile && !_sampleFileEOF); i++)
+        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF)) && !_memUsageAlarm; i++)
         {
             if(_window) {
                 SampleGraphlet(G, V, Varray, _windowSize);
@@ -383,6 +381,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
                 if(!ProcessGraphlet(G, V, Varray, k, empty_g)) --i; // negate the sample count of duplicate graphlets
             }
         }
+	if(i<numSamples) Warning("only took %d samples out of %d", i, numSamples);
     }
 
     // Sampling done. Now generate output for output modes that require it.
@@ -1126,6 +1125,6 @@ int main(int argc, char *argv[])
     else
 #endif
 	exitStatus = RunBlantInThreads(_k, numSamples, G);
-    GraphFree(G); // causes corruption FIXME
+    GraphFree(G);
     return exitStatus;
 }

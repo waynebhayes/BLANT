@@ -81,8 +81,8 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_PREDICT_CIRC_BUF], bufPos;
     static SET *seen;
     static unsigned Vcopy[MAX_K];
-    unsigned hash=0, i;
     if(!seen) seen=SetAlloc(MCMC_PREDICT_MAX_HASH);
+    unsigned hash=0, i;
     for(i=0;i<k;i++) Vcopy[i]=Varray[i];
     VarraySort(Vcopy, k);
     for(i=0;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will overflow. Shouldn't matter.
