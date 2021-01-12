@@ -11,6 +11,10 @@ default:
 
 all:
 	/bin/rm -f *.a
+	$(MAKE) tests
+	touch made
+
+libwayne.a:
 	# Make the pg versions (for profiling)
 	$(MAKE) debug_clean
 	$(MAKE) -j$(CORES) 'PG=-pg' debug
@@ -22,8 +26,9 @@ all:
 	$(MAKE) -j$(CORES) debug
 	$(MAKE) opt_clean
 	$(MAKE) -j$(CORES) opt
-	for x in stats hashtest htree-test; do if [ ! -x bin/$$x ]; then (cd tests; $(MAKE) $$x; mv $$x ../bin; [ -f $$x.in ] && cat $$x.in | ../bin/$$x); fi; done
-	touch made
+
+tests: libwayne.a
+	for x in stats hashtest htree-test; do (cd tests; $(MAKE) $$x; mv $$x ../bin; [ -f $$x.in ] && cat $$x.in | ../bin/$$x $$x.in | wc); done
 
 opt:
 	$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' libwayne

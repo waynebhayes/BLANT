@@ -116,7 +116,7 @@ double uTime(void);
 
 char *Int2BitString(char word[33], unsigned i);
 
-FILE *Fopen(char *filename, char*mode);
+FILE *Fopen(char *filename, const char *mode);
 FILE* readFile(char* fileName, int* piped);
 const char* getDecompressionProgram(char* fileName);
 FILE* decompressFile(const char* decompProg, char* fileName);

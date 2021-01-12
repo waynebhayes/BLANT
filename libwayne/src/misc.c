@@ -242,7 +242,7 @@ int PrimeFactors(int N, int count[])
 }
 
 
-FILE *Fopen(char *name, char *mode) {
+FILE *Fopen(char *name, const char *mode) {
     FILE *fp = fopen(name, mode);
     if(!fp) Fatal("cannot open file '%s'", name);
     return fp;
