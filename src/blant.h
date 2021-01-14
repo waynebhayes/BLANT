@@ -98,7 +98,7 @@ extern double _graphletConcentration[MAX_CANONICALS];
 
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
 extern enum CanonicalDisplayMode _displayMode;
-extern int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
+extern int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
 extern int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
 
 enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration};

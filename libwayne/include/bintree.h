@@ -30,7 +30,7 @@ BINTREE *BinTreeAlloc(pCmpFcn cmpKey, pFointCopyFcn copyKey, pFointFreeFcn freeK
 
 void BinTreeInsert(BINTREE *, foint key, foint info);
 
-/* O(log n); returns false if failure, and true if found and then sets returnInfo to the pointer to foint; */
+/* O(log n); returns false if failure, and true if found and then assigns to *pInfo if *pInfo is non-NULL */
 Boolean BinTreeLookup(BINTREE *, foint key, foint *pInfo);
 
 /*

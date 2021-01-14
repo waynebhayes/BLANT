@@ -22,6 +22,9 @@ Boolean _memUsageAlarm; // becomes true when we're using > 30GB
 #include "blant-sampling.h"
 #include "blant-synth-graph.h"
 #include "rand48.h"
+#if PREDICT
+#include "EdgePredict/blant-predict.h"
+#endif
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;

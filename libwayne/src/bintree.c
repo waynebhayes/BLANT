@@ -91,7 +91,7 @@ Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
 	int cmp = tree->cmpKey(key, p->key);
 	if(cmp == 0)
 	{
-	    *pInfo = p->info;
+	    if(pInfo) *pInfo = p->info;
 	    return true;
 	}
 	if(cmp < 0)

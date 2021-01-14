@@ -60,10 +60,15 @@ typedef union _voidInt {
     void *v;
     char *s;
     char c[sizeof(long)];
+    unsigned char uc[sizeof(long)];
     short sh[2];
+    unsigned short ush[2];
     int i;
     unsigned int ui;
     float f;
+    // double and (long long) are twice as long as everything else, so leave them out unless necessary.
+    // double d;
+    // long long ll;
 } foint;
 
 /* The comparison function type: used by heaps, binary trees and sorts.
