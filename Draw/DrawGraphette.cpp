@@ -418,7 +418,7 @@ void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edge
 				i = 0;
 				j = 1;
 				break;
-			case TriangularRepresentation::none: assert(false); break;
+			case TriangularRepresentation::none: exit(EXIT_FAILURE); break;
 		}
 		for (size_t k = 0; k < graphettes[c].bitstring.size(); k++) {
 			if (graphettes[c].bitstring[k] == '1')
@@ -440,7 +440,7 @@ void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edge
 						j = i + 1;
 					}
 					break;
-				case TriangularRepresentation::none: assert(false); break;
+				case TriangularRepresentation::none: exit(EXIT_FAILURE); break;
 			}
 		}
 	}
