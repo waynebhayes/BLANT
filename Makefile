@@ -15,8 +15,8 @@ ifdef NO7
 endif
 
 # Uncomment both lines to turn on prediction (only available in private repo)
-BLANT_PREDICT = EdgePredict/blant-predict.c
-PREDICT_OPT=-DPREDICT=1
+#BLANT_PREDICT = EdgePredict/blant-predict.c
+#PREDICT_OPT=-DPREDICT=1
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
