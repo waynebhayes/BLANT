@@ -1,3 +1,4 @@
+from ctypes import *
 from graph import Graph
 #from graph import BitVector
 try:
@@ -8,6 +9,8 @@ except:
     #print("using regular pickle")
 import numpy as np
 import lzma
+
+libCalc = CDLL("./Dijkstra/libcalci.so")
 """
 Don't try to replace the pickle function with the numpy save/load.
 It's 1) a waste of time and 2) less space efficient
@@ -40,7 +43,7 @@ def convert_graph_int(file):
     int_graph.close()
     dict_file.close()
 
-def build_graph(file):
+def build_graph(file, graph_id):
     count = 0
     g = Graph()
     for line in open(file):
@@ -56,10 +59,11 @@ def build_graph(file):
         g.add_edge(g.indexes[n1], g.indexes[n2])
 
     g.adj_mat = np.zeros((count, count), dtype=np.int16)
-
+    libCalc.init_graph(graph_id, count)
     for line in open(file):
         n1, n2 = line.split()
         g.build_adjmat(g.indexes[n1], g.indexes[n2])
+        libCalc.add_edge(graph_id, g.indexes[n1], g.indexes[n2], 1)
 
     return g
 
