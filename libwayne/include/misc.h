@@ -100,6 +100,7 @@ extern const foint ABSTRACT_ERROR;
 ** so if neither stdout nor stderr are a terminal, then we open /dev/tty
 ** and put it there anyway.  None of these touch stdout.
 */
+extern void Note(const char *fmt, ...); // just print some info to stderr
 extern void Warning(const char *fmt, ...);
 extern void Apology(const char *fmt, ...);
 extern void Abort(const char *fmt, ...);  /* generates an assertion failure */

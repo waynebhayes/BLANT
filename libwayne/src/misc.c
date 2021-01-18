@@ -49,6 +49,7 @@ static FILE *tty;
 	} \
 	fflush(stdout); \
 	fflush(stderr)
+void Note(const char *fmt, ...) { ERROR_TEXT("Note: "); }
 void Warning(const char *fmt, ...) { ERROR_TEXT("Warning: "); }
 void Apology(const char *fmt, ...) { ERROR_TEXT("Sorry, can't do that: "); exit(1); }
 void Fatal(const char *fmt, ...) { ERROR_TEXT("Fatal error: "); exit(1); }
