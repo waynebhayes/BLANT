@@ -5,7 +5,8 @@
 int main(int argc, char *argv[])
 {
     int BFSsize, i, j;
-    GRAPH *G = GraphReadConnections(stdin, false);
+    Boolean sparse=false, supportNames = true;
+    GRAPH *G = GraphReadEdgeList(stdin, sparse, supportNames);
     GRAPH *Gbar = GraphComplement(NULL, G);
     GRAPH *GG = GraphComplement(NULL, Gbar);
     printf("Checking sanity of Complement(Complement(G))...");
