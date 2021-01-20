@@ -16,12 +16,12 @@
 #include "multisets.h"
 #include "sorts.h"
 #include "blant-window.h"
-Boolean _memUsageAlarm; // becomes true when we're using > 30GB
 #include "blant-output.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
 #include "blant-synth-graph.h"
 #include "rand48.h"
+Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 #if PREDICT
 #include "EdgePredict/blant-predict.h"
 #endif
@@ -361,7 +361,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     }
     else // sample numSamples graphlets for the entire graph
     {
-        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF)) && !_memUsageAlarm; i++)
+        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF)) && !_earlyAbort; i++)
         {
             if(_window) {
                 SampleGraphlet(G, V, Varray, _windowSize);
@@ -380,8 +380,17 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             else if (_outputMode == graphletDistribution)
                 ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
             else {
+		static int stuck;
                 double weight = SampleGraphlet(G, V, Varray, k); // weight will be 1.0 in most cases but if sample method is MCMC and it's not windowed it will be the count of the graphlet
-                if(!ProcessGraphlet(G, V, Varray, k, empty_g)) --i; // negate the sample count of duplicate graphlets
+                if(ProcessGraphlet(G, V, Varray, k, empty_g)) stuck = 0;
+		else {
+		    --i; // negate the sample count of duplicate graphlets
+		    ++stuck;
+		    if(stuck > numSamples) {
+			Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
+			_earlyAbort = true;
+		    }
+		}
             }
         }
 	if(i<numSamples) Warning("only took %d samples out of %d", i, numSamples);
