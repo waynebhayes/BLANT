@@ -1,4 +1,10 @@
 # BLANT: Basic Local Alignment for Networks Tool
+## Quick Start guide
+To make and then test *everything* just type
+  ./regression-test-all.sh -make
+Be warned it may take up to an hour, especially creating the k=8 lookup tables.
+Note that doing the above performs a "make pristine", which is even cleaner than "make clean". In particular, "clean" cleans all executables but doesn't touch the lookup tables; use "make pristine" to remove even the lookup tables (which shouldn't be necessary since they never change, though they take up disk space).
+
 ## Analogy with **BLAST**
 If you are in the bioinformatics field, you have probably heard of the tool named *BLAST*, the *Basic Local Alignment Search Tool*. BLAST is an algorithm for quickly finding local alignments in genomic (or proteomic) sequences. BLAST works by first creating a comprehensive database of all *k*-letter sequences (called "*k*-mers") that appear in the corpus of the sequence to be searched and/or aligned. Such *k*-mers can be used to "seed" a local alignment between two distant regions of sequence. Below we show a hypothetical alignment between two distant regions of sequence, both of which contain the **boldfaced** *k*-mer "**GAGACCGT**":
 
