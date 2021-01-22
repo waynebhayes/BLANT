@@ -317,6 +317,48 @@ Boolean GraphAreConnected(GRAPH *G, int i, int j)
 #endif
 
 
+int GraphNumCommonNeighbors(GRAPH *G, int i, int j)
+{
+    assert(0 <= i && i < G->n && 0 <= j && j < G->n);
+    int numCommon1 = 0, numCommon2 = 0;
+    if(G->sparse>=true) // loop version is MUCH faster, so use it if possible
+    {
+	int k, n, *neighbors, me, other;
+	// Check through the shorter list
+	if(G->degree[i] < G->degree[j])
+	{
+	    me = i; other = j;
+	}
+	else
+	{
+	    me = j; other = i;
+	}
+	n = G->degree[me];
+	neighbors = G->neighbor[me];
+	for(k=0; k<n; k++)
+	    if(neighbors[k] != other && GraphAreConnected(G, neighbors[k], other))
+		++numCommon1;
+    }
+    else
+    {
+	assert(!G->sparse||G->sparse==both);
+	static SET *intersect;
+	if(!intersect) intersect = SetAlloc(G->n);
+	SetReset(intersect);
+	SetIntersect(intersect, G->A[i], G->A[j]);
+#if PARANOID_ASSERTS
+	assert(!SetIn(intersect,i) && !SetIn(intersect,j));
+#endif
+	numCommon2 = SetCardinality(intersect); // no self-loops, so this works even if edge (i,j) exists (assertion above)
+	if(numCommon1) {
+	    assert(numCommon1 == numCommon2);
+	    numCommon1=0;
+	}
+    }
+    assert(numCommon1 == 0 || numCommon2 == 0);
+    return numCommon1 + numCommon2;
+}
+
 int GraphNumEdges(GRAPH *G)
 {
     int total=0, i;

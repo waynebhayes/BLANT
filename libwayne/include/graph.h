@@ -35,6 +35,7 @@ void GraphFree(GRAPH *G);
 GRAPH *GraphEdgesAllDelete(GRAPH *G);
 GRAPH *GraphConnect(GRAPH *G, int i, int j);
 GRAPH *GraphDisconnect(GRAPH *G, int i, int j);
+int GraphNumCommonNeighbors(GRAPH *G, int i, int j);
 GRAPH *GraphComplement(GRAPH *Gbar, GRAPH *G);
 GRAPH *GraphUnion(GRAPH *destination, GRAPH *G1, GRAPH *G2);
 #define GraphDegree(G,v) ((G)->degree[v])
