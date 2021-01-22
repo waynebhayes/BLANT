@@ -3,6 +3,7 @@
 If you are in the bioinformatics field, you have probably heard of the tool named *BLAST*, the *Basic Local Alignment Search Tool*. BLAST is an algorithm for quickly finding local alignments in genomic (or proteomic) sequences. BLAST works by first creating a comprehensive database of all *k*-letter sequences (called "*k*-mers") that appear in the corpus of the sequence to be searched and/or aligned. Such *k*-mers can be used to "seed" a local alignment between two distant regions of sequence. Below we show a hypothetical alignment between two distant regions of sequence, both of which contain the **boldfaced** *k*-mer "**GAGACCGT**":
 
   ACTAGAT*C*CAC*C*TCTAGGCAGGTA **GAGACCGT** GTTCTTCA*G*AGGTGA*A*GGAGACGCACAAACGGGCCC
+ 
   ACTAGAT*A*CAC*G*TCTAGGCAGGTA **GAGACCGT** GTTCTTCA*T*AGGTGA*C*GGAGACGCACAAACGGGCCC
 
 By storing every *k*-mer and its location, BLAST can "line up" the regions around two identical *k*-mers, and then check to see if this local alignment "extends" further beyond the *k*-mers. In the case above, even though the sequences contain minor differences (highlighted with *italics*), the fact that they contain the depicted *k*-mer seed means we can still find the near-perfect match. BLAST is extremely fast at performing the above operations, which is the reason BLAST has become the near-ubiquitous tool for comparing and aligning sequences that contain billions of letters. BLAST automatically chooses the appropriate value of *k* to create *k*-mer seeds in a particular search and alignment task, and uses a sophisticated extend algorithm to create full seed-and-extend local alignments.
@@ -10,6 +11,16 @@ By storing every *k*-mer and its location, BLAST can "line up" the regions aroun
 Our new tool, called BLANT (*Basic local Aligment Network Tool*), is intended to form the basis of a seed-and-extend local alignment algorithm, but for networks: given an undirected network *G*, and a value of *k*, it samples connected *k*-node subgraphs called *k-graphlets*. Since the number of *k*-graphlets in a graph of *n* nodes is exponential in both *k* and *n*, BLANT does not exhaustively enumerate all *k*-graphlets, but instead randomly samples as many as the user specifies. Furthermore, since uniform random sampling of *k*-graphlets is difficult, there are several choices among sampling methods, each with different trade-offs. Finally, BLANT allows for several different methods of output: it can produce *orbit-degree vectors* (ODVs) like [ORCA](https://academic.oup.com/bioinformatics/article/30/4/559/205331), or graphlet frequencies, or an explicit list of *k*-graphlets that can be used as seeds for later extension. At present, BLANT does not provide an "extend" functionality; there are *many* seed-and-extend local alignment algorithms in the literature, each with its own method of seeding and extending. Although BLANT currently is by far the fastest method of producing a large number of *seeds*, we have not yet tested how the various extend algorithms perform using our seeds; this is a clear area of future work, and suggestions are welcome. Despite the lack of an "extend" feature, BLANT is still capable of useful bioinformatics, as described in our first tool paper in the journal *Bioinformatics* (citation to be filled later).
 
 ## USAGE
+### Quick Start guide
+To make and then test *everything* just type
+
+    ./regression-test-all.sh -make
+  
+Be warned it may take up to an hour, especially creating the k=8 lookup tables.
+Note that doing the above performs a "make pristine", which is even cleaner than "make clean". In particular, "clean" cleans all executables but doesn't touch the lookup tables; use "make pristine" to remove even the lookup tables (which shouldn't be necessary since they never change, though they take up disk space).
+
+Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
+
 ### Required Command-line arguments
 SYNOPSIS (things inside {} are mandatory; those inside [] are optional; if no source network is given, it is read from the standard input):
 
