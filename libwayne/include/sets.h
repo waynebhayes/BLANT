@@ -23,31 +23,31 @@
 #include <assert.h>
 #include "misc.h"
 
-typedef unsigned int SETTYPE;
+typedef unsigned SETTYPE;
 extern unsigned setBits, setBits_1;
 //static unsigned SET_BIT(unsigned e) {assert((e%setBits) == (e&setBits_1)); return (1U<<((e)%setBits));}
 //#define SET_BIT(e) (1U<<((e)%setBits))
 #define SET_BIT(e) (1U<<((e)&setBits_1))
 
 typedef struct _setType {
-    unsigned int n; /* in bits */
-    unsigned int smallestElement;
+    unsigned n; /* in bits */
+    unsigned smallestElement;
     SETTYPE* array;
 } SET;
 
 #define LOOKUP_NBITS 16
 #define LOOKUP_SIZE (1 << LOOKUP_NBITS)
 #define LOOKUP_MASK (LOOKUP_SIZE - 1)
-extern unsigned int lookupBitCount[LOOKUP_SIZE];
+extern unsigned lookupBitCount[LOOKUP_SIZE];
 #define SetCountBits(i) \
     (lookupBitCount[((SETTYPE)(i)) & LOOKUP_MASK] + \
 	lookupBitCount[(((SETTYPE)(i)) >> LOOKUP_NBITS) & LOOKUP_MASK])
 
-int SetStartup(void);
+Boolean SetStartup(void); // always succeeds, but returns whether it did anything or not.
 
 /* allocate & return empty set capable of storing integers 0..n-1 inclusive */
-SET *SetAlloc(unsigned int n);
-SET *SetResize(SET *s, unsigned int new_n);
+SET *SetAlloc(unsigned n);
+SET *SetResize(SET *s, unsigned new_n);
 void SetFree(SET *set); /* free all memory used by a set */
 SET *SetEmpty(SET *set);    /* make the set empty (set must be allocated )*/
 #define SetReset SetEmpty

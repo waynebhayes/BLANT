@@ -55,7 +55,7 @@ int *_whichComponent;
 enum OutputMode _outputMode = undef;
 unsigned long int _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
-double _graphletConcentration[MAX_CANONICALS];
+double _g_overcount, _graphletConcentration[MAX_CANONICALS];
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -381,7 +381,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
                 ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
             else {
 		static int stuck;
-                double weight = SampleGraphlet(G, V, Varray, k); // weight will be 1.0 in most cases but if sample method is MCMC and it's not windowed it will be the count of the graphlet
+		// HACK: make the graphlet overcount global; it should really be PASSED into ProcessGraphlet
+                _g_overcount = SampleGraphlet(G, V, Varray, k); // weight will be 1.0 in most cases but if sample method is MCMC and it's not windowed it will be the count of the graphlet
                 if(ProcessGraphlet(G, V, Varray, k, empty_g)) stuck = 0;
 		else {
 		    --i; // negate the sample count of duplicate graphlets

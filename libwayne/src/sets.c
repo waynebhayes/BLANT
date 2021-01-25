@@ -40,13 +40,13 @@ static unsigned DumbCountBits(unsigned long i)
 ** (and costs little) to call it again if you're not sure.  It returns
 ** 1 if it did the initialization, else 0.
 */
-int SetStartup(void)
+Boolean SetStartup(void)
 {
-    assert(sizeof(SETTYPE) == 4);	// we assume 32-bit ints
     if(setBits_1)
 	return 0;
     else
     {
+	assert(sizeof(SETTYPE) == 4);	// we assume 32-bit ints
 	setBits_1 = setBits-1;
 	unsigned long i;
 	for(i=0; i<LOOKUP_SIZE; i++)
@@ -102,13 +102,7 @@ SET *SetEmpty(SET *set)
 {
     int arrayElem=SIZE(set->n);
     set->smallestElement = set->n;
-#if 1
     memset(set->array, 0, arrayElem * sizeof(set->array[0]));
-#else
-    int i;
-    for(i=0; i<arrayElem; i++)
-	set->array[i] = 0;
-#endif
     return set;
 }
 
@@ -282,7 +276,8 @@ SPARSE_SET *SparseSetDelete(SPARSE_SET *set, unsigned long element)
 Boolean SetInSafe(SET *set, unsigned element)
 {
     assert(element < set->n);
-    return (set->array[element/setBits] & SET_BIT_SAFE(element));
+    unsigned array_loc = element/setBits, e_bit = SET_BIT_SAFE(element);
+    return (set->array[array_loc] & e_bit);
 }
 
 Boolean SparseSetIn(SPARSE_SET *set, unsigned long element)

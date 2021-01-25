@@ -818,7 +818,7 @@ double SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
 	    _graphletConcentration[GintOrdinal] += count;
 	}
 
-	return count; // return count as a weight
+	return count; // return the expected overcount
 }
 
 double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(SET *V, int *Varray, GRAPH *G, int k) { return 1.0; } // slower
@@ -986,7 +986,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
     int cc;
     double randomComponent = RandomUniform();
-    double weight = 1.0; // this will be returned
+    double overcount = 1.0; // this will be returned
     for(cc=0; cc<_numConnectedComponents;cc++)
 	if(_cumulativeProb[cc] > randomComponent)
 	    break;
@@ -1009,7 +1009,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	break;
     case SAMPLE_MCMC:
         if(!_window) {
-            weight = SampleGraphletMCMC(V, Varray, G, k, cc);
+	    overcount = SampleGraphletMCMC(V, Varray, G, k, cc);
         } else {
             SampleWindowMCMC(V, Varray, G, k, cc);
         }
@@ -1025,5 +1025,5 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k) {
 	break;
     }
 
-    return weight;
+    return overcount;
 }

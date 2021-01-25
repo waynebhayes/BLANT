@@ -74,25 +74,39 @@ char *PrintCanonical(int GintOrdinal)
 
 // Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
 // Empirically I've found that neither of these need to be very big since most repetition happens with high locality
-#define MCMC_PREDICT_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
-#define MCMC_PREDICT_MAX_HASH 2147483647 // this value should be prime; at 2^31/8 it's 256MB of RAM.
+//#define MCMC_PREDICT_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
+#define MCMC_PREDICT_CIRC_BUF 134217689 // 2^27-39, prime according to https://www.dcode.fr/closest-prime-number (512MB)
+
+// But apparently the above are too big, not sure why, but they cause seg faults.
+//#define MCMC_PREDICT_MAX_HASH 1610612741U // about 1.6 billion, taken from https://planetmath.org/goodhashtableprimes
+//#define MCMC_PREDICT_MAX_HASH  402653189U // halfway from 2^28 to 2^29 (works)
+//#define MCMC_PREDICT_MAX_HASH  805306457U // halfway from 2^29 to 2^30 (works)
+//#define MCMC_PREDICT_MAX_HASH 1610612741U // halfway from 2^30 to 2^31 (works)
+
+// Below is simply the largest number in the list at:
+// https://github.com/leventov/Koloboke/lib/impl/src/main/java/net/openhft/koloboke/collect/impl/hash/DHashCapacities.java
+#define MCMC_PREDICT_MAX_HASH 2136745621U // about 1% smaller than 2^31.
+
+// The following is > 2^32, and would requires a SET implementation allowing members with value > 32 bits.
+//#define MCMC_PREDICT_MAX_HASH 8589934591UL // 2^33-9, according to https://www.dcode.fr/closest-prime-number; about 1GB
+                              
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_PREDICT_CIRC_BUF], bufPos;
     static SET *seen;
     static unsigned Vcopy[MAX_K];
     if(!seen) seen=SetAlloc(MCMC_PREDICT_MAX_HASH);
-    unsigned hash=0, i;
-    for(i=0;i<k;i++) Vcopy[i]=Varray[i];
+    memcpy(Vcopy, Varray, k*sizeof(*Varray));
     VarraySort(Vcopy, k);
-    for(i=0;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will overflow. Shouldn't matter.
+    unsigned hash=Vcopy[0], i;
+    for(i=1;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will likely overflow. Shouldn't matter.
     hash = hash % MCMC_PREDICT_MAX_HASH;
-    if(SetIn(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
+    if(SetInSafe(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
     //for(i=0;i<k;i++) printf("%d ", Vcopy[i]); printf("\thash %d\n",hash); // checking for rareness.
-    SetDelete(seen, circBuf[bufPos]);
+    SetDelete(seen, circBuf[bufPos]); // this set hasn't been seen in at least the last MCMC_PREDICT_CIRC_BUF samples
+    circBuf[bufPos] = hash;
     SetAdd(seen, hash);
-    circBuf[bufPos++] = hash;
-    if(bufPos >= MCMC_PREDICT_CIRC_BUF) bufPos=0;
+    if(++bufPos >= MCMC_PREDICT_CIRC_BUF) bufPos=0;
     return false;
 }
 
