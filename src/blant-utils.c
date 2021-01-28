@@ -74,6 +74,13 @@ void ExtractPerm(char perm[_k], int i)
 	perm[j] = (i32 >> 3*j) & 7;
 }
 
+void InvertPerm(char inv[_k], const char perm[_k])
+{
+    int j;
+    for(j=0; j<_k; j++)
+	inv[(int)perm[j]]=j;
+}
+
 Boolean arrayIn(int* arr, int size, int item) {
     int i;
     for(i=0; i<size; i++) {

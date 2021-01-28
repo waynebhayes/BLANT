@@ -10,6 +10,7 @@ typedef struct nwd { // this struct is needed for enumerateDegreeOrder
 
 Boolean arrayIn(int* arr, int size, int item);
 void ExtractPerm(char perm[_k], int i);
+void InvertPerm(char inverse[_k], const char perm[_k]);
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray);
 int getMaximumIntNumber(int K);
 int asccompFunc(const foint i, const foint j);
