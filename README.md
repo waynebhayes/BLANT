@@ -12,6 +12,10 @@ Our new tool, called BLANT (*Basic local Aligment Network Tool*), is intended to
 
 ## USAGE
 ### Quick Start guide
+#### Stack Size
+Before starting *anything* below, you need to ensure your OS allows your programs enough stack space. Some machines today still ship with a default limit of 8MB---a *ridiculously* small limit on any machine built after about 1999.  You do not require sudo privileges to change this. If you're running Linux or MacOS, type "ulimit -s unlimited" to your Bash shell; if you're running any other system, you're on your own.
+
+### Building BLANT for the first time
 To make and then test *everything* just type
 
     ./regression-test-all.sh -make
