@@ -88,7 +88,6 @@ enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbi
     predict, predict_merge, graphletFrequency, outputODV, outputGDV,
     graphletDistribution // used in Windowing
 };
-extern Boolean TraverseNodePairCounts(foint key, foint data);
 extern enum OutputMode _outputMode;
 extern int _outputMapping[MAX_CANONICALS];
 
