@@ -22,9 +22,7 @@
 #include "blant-synth-graph.h"
 #include "rand48.h"
 Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
-#if PREDICT
-#include "EdgePredict/blant-predict.h"
-#endif
+#include "blant-predict.h"
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;
@@ -432,14 +430,12 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	}
 	break;
-#if PREDICT
     case predict_merge:
 	assert(false); // shouldn't get here
 	break;
     case predict: predict_merge:
-	PredictFlushAllCounts(G);
+	Predict_FlushMotifs(G);
 	break;
-#endif
     case outputGDV:
 	for(i=0; i < G->n; i++)
 	{
@@ -548,9 +544,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
-#if PREDICT
     if(_outputMode == predict) Predict_Init(G);
-#endif
     if (_outputMode == graphletDistribution) {
         _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
         for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
@@ -675,12 +669,10 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		    while(fgets(line, sizeof(line), fpThreads[thread]))
 			fputs(line, stdout);
 		break;
-#if PREDICT
 	    case predict_merge: assert(false); break; // should not be here
 	    case predict:
 		Predict_ProcessLine(G, line);
 		break;
-#endif
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
 		break;
@@ -850,10 +842,8 @@ int main(int argc, char *argv[])
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
 	    case 'd': _outputMode = graphletDistribution; break;
-#if PREDICT
 	    case 'p': _outputMode = predict; break;
 	    case 'q': _outputMode = predict_merge; break;
-#endif
 	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
 	    break;
 	    }
@@ -1132,11 +1122,9 @@ int main(int argc, char *argv[])
     }
 #endif
 
-#if PREDICT
     if(_outputMode == predict_merge)
-	exitStatus = PredictMerge(G);
+	exitStatus = Predict_Merge(G);
     else
-#endif
 	exitStatus = RunBlantInThreads(_k, numSamples, G);
     GraphFree(G);
     return exitStatus;

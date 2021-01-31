@@ -14,10 +14,6 @@ ifdef NO7
     EIGHT := # can't have 8 without 7
 endif
 
-# Uncomment both lines to turn on prediction (only available in private repo)
-#BLANT_PREDICT = EdgePredict/blant-predict.c
-#PREDICT_OPT=-DPREDICT=1
-
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
@@ -42,17 +38,17 @@ LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $
 SRCDIR = src
 # Put all c files in SRCDIR below.
 BLANT_SRCS = blant.c \
-			 $(BLANT_PREDICT) \
 			 blant-window.c \
 			 blant-output.c \
 			 blant-utils.c \
 			 blant-sampling.c \
+			 blant-predict.o \
 			 blant-synth-graph.c
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc  -Wno-pointer-sign $(SPEED) $(PREDICT_OPT) #-ggdb
-CXX=g++ -Wno-pointer-sign $(SPEED) $(PREDICT_OPT) #-ggdb
+CC=gcc  -Wno-pointer-sign $(SPEED) #-ggdb
+CXX=g++ -Wno-pointer-sign $(SPEED) #-ggdb
 
 ### Generated File Lists ###
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
@@ -144,6 +140,9 @@ make-subcanon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-subcanon-maps.c | $(OBJ
 
 make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
 	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE)
+
+$(OBJDIR)/blant-predict.o: $(SRCDIR)/blant-predict.o.gz
+	gunzip < $(SRCDIR)/blant-predict.o.gz > $@
 
 ### Object Files/Prereqs ###
 
