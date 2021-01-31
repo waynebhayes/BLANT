@@ -95,7 +95,7 @@ test_all: test_sanity test_maps test_freq test_GDV
 all: most $(ehd_txts) test_all
 
 gcc-version:
-	@if $(CC) -v 2>&1 | grep -q '[5]\.[0-5]'; then :; else echo "BLANT currently only compiles with gcc versions 5.x" >&2; exit 1; fi
+	@if gcc -v 2>&1 | grep -q '[45]\.[0-5]'; then exit 0; else echo "BLANT currently only compiles with gcc versions 5.x (4.x for MacOS)" >&2; exit 1; fi
 
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
