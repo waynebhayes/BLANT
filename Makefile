@@ -17,6 +17,7 @@ endif
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 ARCH=$(shell arch | awk '/CYGWIN/{print "CYGWIN"}/Darwin/{print "Darwin"}/Linux/||/x86_64/{print "x86_64"}')
+GCC=$(shell gcc -v 2>&1 | awk '/5\.[2345]\./{print "gcc5"}/9\.[1]\./{print "gcc9"}/7\.3\./||/x86_64/{print "gcc7"}')
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 PROFILE=#-pg # comment out to turn off
 DEBUG=#-g # comment out to turn off
@@ -93,6 +94,9 @@ test_all: test_sanity test_maps test_freq test_GDV
 
 all: most $(ehd_txts) test_all
 
+gcc-version:
+	@if $(CC) -v 2>&1 | grep -q '[5]\.[0-5]'; then :; else echo "BLANT currently only compiles with gcc versions 5.x" >&2; exit 1; fi
+
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
 .PHONY: all most test_blant test_maps pristine clean_canon_maps
@@ -108,7 +112,7 @@ slow-canon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/b
 make-orbit-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE)
 
-blant: $(LIBWAYNE_HOME)/made $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
+blant: gcc-version $(LIBWAYNE_HOME)/made $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE) $(LIBWAYNE_HOME)/MT19937/mt19937.o
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
