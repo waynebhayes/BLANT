@@ -16,8 +16,8 @@ endif
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
-ARCH=$(shell arch | awk '/CYGWIN/{print "CYGWIN"}/Darwin/{print "Darwin"}/Linux/||/x86_64/{print "x86_64"}')
-GCC=$(shell gcc -v 2>&1 | awk '/5\.[2345]\./{print "gcc5"}/9\.[1]\./{print "gcc9"}/7\.3\./||/x86_64/{print "gcc7"}')
+ARCH=$(shell arch | awk '/CYGWIN/{V="CYGWIN"}/Darwin/{V="Darwin"}/Linux/||/x86_64/{V="x86_64"}V{print V;exit}')
+GCC= $(shell gcc -v 2>&1 | awk '/5\.2\./{V="gcc5.2"}/5\.4\./{V="gcc5.4"}/5\.5\./{V="gcc5.5"}/7\.3\./{V="gcc7.3"}V{print V; exit}')
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 PROFILE=#-pg # comment out to turn off
 DEBUG=#-g # comment out to turn off
@@ -146,8 +146,8 @@ make-subcanon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-subcanon-maps.c | $(OBJ
 make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
 	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE)
 
-$(OBJDIR)/blant-predict.o: $(SRCDIR)/blant-predict.$(ARCH).o.gz
-	gunzip < $(SRCDIR)/blant-predict.$(ARCH).o.gz > $@
+$(OBJDIR)/blant-predict.o: $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz
+	gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz > $@
 
 ### Object Files/Prereqs ###
 
@@ -159,6 +159,7 @@ $(LIBWAYNE_HOME)/MT19937/mt19937.o: $(LIBWAYNE_HOME)/made
 	cd $(LIBWAYNE_HOME)/MT19937 && $(MAKE)
 
 $(OBJDIR)/libblant.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/libblant.c
+	echo ARCH is $(ARCH) and GCC is $(GCC)
 	@mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE) -o $@
 
