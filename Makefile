@@ -146,8 +146,8 @@ make-subcanon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-subcanon-maps.c | $(OBJ
 make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
 	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE)
 
-$(OBJDIR)/blant-predict.o: $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz
-	gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz > $@
+$(OBJDIR)/blant-predict.o:
+	@if [ "$(ARCH)" == Linux ]; then gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz; else gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).gz; fi > $@
 
 ### Object Files/Prereqs ###
 
