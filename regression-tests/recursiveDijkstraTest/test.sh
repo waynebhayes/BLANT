@@ -4,8 +4,16 @@ echo "Testing recursive Dijkstra"
 
 exitCode=0
 
-rm -rf /tmp/seed7/
-mkdir -p /tmp/seed7; ln -sf /tmp/seed7 .
+die(){ (echo "USAGE: $USAGE"; echo "`basename $0`: FATAL ERROR: $@")>&2; exit 1; }
+
+BASENAME=`basename "$0" .sh`
+[ $BASENAME == "$BASENAME" ] || die "something weird with filename in '$BASENAME'"
+
+# Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
+TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
+trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+
+(rm -rf $TMPDIR/seed7/ ./seed7 && mkdir -p $TMPDIR/seed7 && ln -sf $TMPDIR/seed7 .) || die "Problems creating $TMPDIR/seed7 and/or ./seed7"
 
 echo "=====Generating 10 alignments====="
 if module avail 2>/dev/null; then
