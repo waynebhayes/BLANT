@@ -16,7 +16,7 @@ endif
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
-ARCH=$(shell arch | awk '/CYGWIN/{V="CYGWIN"}/Darwin/{V="Darwin"}/Linux/||/x86_64/{V="x86_64"}V{print V;exit}')
+ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
 GCC= $(shell gcc -v 2>&1 | awk '/5\.2\./{V="gcc5.2"}/5\.4\./{V="gcc5.4"}/5\.5\./{V="gcc5.5"}/7\.3\./{V="gcc7.3"}V{print V; exit}')
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 PROFILE=#-pg # comment out to turn off
@@ -147,7 +147,7 @@ make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(
 	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE)
 
 $(OBJDIR)/blant-predict.o:
-	@if [ "$(ARCH)" == Linux ]; then gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz; else gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).gz; fi > $@
+	if [ "$(ARCH)" == Linux ]; then gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz; else gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).gz; fi > $@
 
 ### Object Files/Prereqs ###
 
@@ -159,7 +159,6 @@ $(LIBWAYNE_HOME)/MT19937/mt19937.o: $(LIBWAYNE_HOME)/made
 	cd $(LIBWAYNE_HOME)/MT19937 && $(MAKE)
 
 $(OBJDIR)/libblant.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/libblant.c
-	echo ARCH is $(ARCH) and GCC is $(GCC)
 	@mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE) -o $@
 
