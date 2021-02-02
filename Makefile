@@ -147,7 +147,7 @@ make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(
 	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE)
 
 $(OBJDIR)/blant-predict.o:
-	if [ "$(ARCH)" == Linux ]; then gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz; else gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).gz; fi > $@
+	if [ "$(ARCH)" = Linux ]; then gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz; else gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).gz; fi > $@
 
 ### Object Files/Prereqs ###
 
