@@ -8,7 +8,7 @@ libList=
 everythingElse=
 doLink=true    # boolean
 DEBUG=false
-PROFLE=false
+PROFILE=false
 while [ $# -gt 0 ]; do
     case $1 in
     -l*) libList="$libList $1" ;;
