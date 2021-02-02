@@ -22,7 +22,7 @@ done
 
 LIB_OPT=
 if $DEBUG; then
-    SPEED=-O0 -ggdb
+    SPEED="-O0 -ggdb"
     if $PROFILE; then
         LIB_OPT=-g-pg
     else
@@ -35,7 +35,7 @@ else
     fi
 fi
 
-LIBWAYNE_HOME=`echo "$0" | sed 's,/[^/]*/[^/]*$,,'`
+LIBWAYNE_HOME="`echo "$0" | sed 's,/[^/]*/[^/]*$,,'`"
 LIBWAYNE="-L '$LIBWAYNE_HOME' -I '$LIBWAYNE_HOME/include' '-lwayne$LIB_OPT' -lm '$STACKSIZE' -Wno-unused-command-line-argument $'SPEED'"
 
 if $doLink; then
