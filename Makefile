@@ -49,7 +49,7 @@ BLANT_SRCS = blant.c \
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc -static -Wno-pointer-sign $(SPEED) #-ggdb
+CC=gcc -Wno-pointer-sign $(SPEED) #-ggdb
 CXX=g++ -Wno-pointer-sign $(SPEED) #-ggdb
 
 ### Generated File Lists ###

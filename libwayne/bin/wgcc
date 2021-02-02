@@ -1,6 +1,6 @@
 #!/bin/sh
 # The options below turn on lots and lots of gcc warnings.
-export CC="gcc -static -Wno-pointer-sign"
+export CC="gcc -Wno-pointer-sign"
 
 # --- you shouldn't need to touch anything below here
 
