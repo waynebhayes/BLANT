@@ -1,28 +1,45 @@
-#!/bin/sh -x
+#!/bin/sh
 # The options below turn on lots and lots of gcc warnings.
-CC='gcc -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow' #-Wconversion 
-
-LIBWAYNE_HOME=${LIBWAYNE_HOME:=`dirname $0`/..}
-OtherLibs=""	#-L$PVM_ROOT/lib/$PVM_ARCH -lpvm3 -lsocket -lnsl"
-OtherIncs=""	#-I$PVM_ROOT/include"
+export CC="gcc -static -Wno-pointer-sign"
 
 # --- you shouldn't need to touch anything below here
 
 libList=
 everythingElse=
-doLink=y    # boolean
-LIBWAYNE=wayne    # will change if -g occurs
+doLink=true    # boolean
+DEBUG=false
+PROFLE=false
 while [ $# -gt 0 ]; do
     case $1 in
     -l*) libList="$libList $1" ;;
-    -c) doLink=n ;;
-    -g*) LIBWAYNE=wayne-g; everythingElse="$everythingElse $1" ;;
+    -c) doLink=false ;;
+    -g*) DEBUG=true; everythingElse="$everythingElse $1" ;;
+    -p*) PROFILE=true; everythingElse="$everythingElse $1" ;;
     *) everythingElse="$everythingElse $1" ;;
     esac
     shift
 done
 
-case $doLink in
-    y) exec $CC -I $LIBWAYNE_HOME/include $OtherIncs $everythingElse -L $LIBWAYNE_HOME $OtherLibs -l$LIBWAYNE -lm $libList `/bin/ls $LIBWAYNE_HOME/*.o 2>/dev/null`;;
-    n) exec $CC -c -I$LIBWAYNE_HOME/include $OtherIncs $everythingElse ;;
-esac
+LIB_OPT=
+if $DEBUG; then
+    SPEED=-O0 -ggdb
+    if $PROFILE; then
+        LIB_OPT=-g-pg
+    else
+        LIB_OPT=-g
+    fi
+else
+    SPEED=-O3
+    if $PROFILE; then
+        LIB_OPT=-pg
+    fi
+fi
+
+LIBWAYNE_HOME=`echo "$0" | sed 's,/[^/]*/[^/]*$,,'`
+LIBWAYNE="-L '$LIBWAYNE_HOME' -I '$LIBWAYNE_HOME/include' '-lwayne$LIB_OPT' -lm '$STACKSIZE' -Wno-unused-command-line-argument $'SPEED'"
+
+if $doLink; then
+    exec $CC -I $LIBWAYNE_HOME/include $OtherIncs $everythingElse -L $LIBWAYNE_HOME $OtherLibs -lwayne$LIB_OPT -lm $libList `/bin/ls $LIBWAYNE_HOME/*.o 2>/dev/null`
+else
+    exec $CC -c -I$LIBWAYNE_HOME/include $OtherIncs $everythingElse
+fi
