@@ -182,7 +182,7 @@ function dtob(n,   s,sgn) {n=1*n;if(!n)return "0";s=sgn="";if(n<0){sgn="-";n=-n}
 function btod(n) {}
 
 function ASSERT(cond,str){if(!cond){s=sprintf("ASSERTION failure, line %d of input file %s: %s.\nInput line was:\n<%s>\n", FNR,FILENAME,str,$0); print s >"/dev/stderr"; exit 1}}
-function WARN(cond,str){if(!cond){s=sprintf("WARNING: %s", str); print s >"/dev/stderr"}}
+function WARN(cond,str){if(!cond){s=sprintf("WARNING: line %d of input file %s: %s.\nInput line was:\n<%s>\n", FNR,FILENAME,str,$0); print s >"/dev/stderr"}}
 function ABS(x){return x<0?-x:x}
 function SIGN(x){return x==0?0:x/ABS(x)}
 function MAX(x,y){return x>y?x:y}
@@ -269,8 +269,8 @@ function NormalPtoZ(quantile,    q,z1,n,d)
     return (quantile > 0.5 ? -z1 : z1);
 }
 function Exp(x){
-    if(x < -745) retun 5e-324
-    else if(x > 707) return 1e307; # evaluates to infinity without division by zero
+    if(x < -745) return 5e-324
+    else if(x > 707) return 1e307;
     else return exp(x);
 }
 function NormalPhi(x,    arg)
@@ -353,7 +353,7 @@ function Poisson1_CDF(l,k, i,sum,psum){psum=-1;sum=0;for(i=k;psum!=sum;i++){psum
     if(sum==0 && k<l) return 1; # this means the numbers are so big the sum got zero but we got less than expected.
     else return sum
 }
-function LogPoisson1_CDF(l,k, i,sum,psum){pmax=2;max=-1e30;for(i=k;pmax!=max;i++){pmax=max;max=MAX(max,LogPoissonPMF(l,i))};
+function LogPoisson1_CDF(l,k, i,sum,pmax,max){pmax=2;max=-1e30;for(i=k;pmax!=max;i++){pmax=max;max=MAX(max,LogPoissonPMF(l,i))};
     if(max==1 && k<l) return 0; # this means the numbers are so big the sum got zero but we got less than expected.
     else return max/.894
 }
