@@ -20,8 +20,8 @@ CXX=g++ -Wno-pointer-sign $(SPEED) #-ggdb
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
-GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "gcc"V; else exit 1}')
-STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
+GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
+STACKSIZE=$(shell uname -a | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 PROFILE=#-pg # comment out to turn off
 DEBUG=#-g # comment out to turn off
 ifdef DEBUG
@@ -96,7 +96,7 @@ test_all: test_sanity test_maps test_freq test_GDV
 all: most $(ehd_txts) test_all
 
 gcc-version:
-	@if ls $(SRCDIR)/*.gz | grep -q "$(GCC)"; then exit 0; else echo "gcc version not supported" >&2; exit 1; fi
+	@if ls $(SRCDIR)/*.gz | fgrep -q "$(GCC)"; then exit 0; else echo "gcc version not supported" >&2; exit 1; fi
 
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
@@ -148,7 +148,7 @@ make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(
 	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE) -std=c++11 
 
 $(OBJDIR)/blant-predict.o:
-	if [ "$(ARCH)" = Linux ]; then gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz; else gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).gz; fi > $@
+	if [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.o.Darwin.gz; else gunzip < $(SRCDIR)/blant-predict.o.$(GCC).gz; fi > $@
 
 ### Object Files/Prereqs ###
 
