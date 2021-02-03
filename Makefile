@@ -14,10 +14,13 @@ ifdef NO7
     EIGHT := # can't have 8 without 7
 endif
 
+CC=gcc $(SPEED) # -ggdb-Wno-pointer-sign
+CXX=g++ -Wno-pointer-sign $(SPEED) #-ggdb
+
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
-GCC= $(shell gcc -v 2>&1 | awk '/5\.2\./{V="gcc5.2"}/5\.4\./{V="gcc5.4"}/5\.5\./{V="gcc5.5"}/7\.3\./{V="gcc7.3"}V{print V; exit}')
+GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "gcc"V; else exit 1}')
 STACKSIZE=$(shell arch | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 PROFILE=#-pg # comment out to turn off
 DEBUG=#-g # comment out to turn off
@@ -34,7 +37,7 @@ else
 	LIB_OPT=-pg
     endif
 endif
-LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) -Wno-unused-command-line-argument $(SPEED)
+LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
 
 # Name of BLANT source directory
 SRCDIR = src
@@ -49,8 +52,6 @@ BLANT_SRCS = blant.c \
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
-CC=gcc -Wno-pointer-sign $(SPEED) #-ggdb
-CXX=g++ -Wno-pointer-sign $(SPEED) #-ggdb
 
 ### Generated File Lists ###
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
@@ -95,7 +96,7 @@ test_all: test_sanity test_maps test_freq test_GDV
 all: most $(ehd_txts) test_all
 
 gcc-version:
-	@if gcc -v 2>&1 | grep -q '[45]\.[0-5]'; then exit 0; else echo "BLANT currently only compiles with gcc versions 5.x (4.x for MacOS)" >&2; exit 1; fi
+	@if ls $(SRCDIR)/*.gz | grep -q "$(GCC)"; then exit 0; else echo "gcc version not supported" >&2; exit 1; fi
 
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
@@ -138,13 +139,13 @@ compute-alphas-MCMC: $(LIBWAYNE_HOME)/made $(SRCDIR)/compute-alphas-MCMC.c | $(O
 Draw: Draw/graphette2dot
 
 Draw/graphette2dot: $(LIBWAYNE_HOME)/made Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) -std=c++11 Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ $(LIBWAYNE)
+	$(CXX) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ $(LIBWAYNE) -std=c++11
 
 make-subcanon-maps: $(LIBWAYNE_HOME)/made $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE)
 
 make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
-	$(CXX) -std=c++11 -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE)
+	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE) -std=c++11 
 
 $(OBJDIR)/blant-predict.o:
 	if [ "$(ARCH)" = Linux ]; then gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).$(GCC).gz; else gunzip < $(SRCDIR)/blant-predict.o.$(ARCH).gz; fi > $@
@@ -153,7 +154,7 @@ $(OBJDIR)/blant-predict.o:
 
 $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) -std=c++11 -c $(SRCDIR)/convert.cpp -o $@
+	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=c++11 
 
 $(LIBWAYNE_HOME)/MT19937/mt19937.o: $(LIBWAYNE_HOME)/made
 	cd $(LIBWAYNE_HOME)/MT19937 && $(MAKE)
