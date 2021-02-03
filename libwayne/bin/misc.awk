@@ -527,23 +527,40 @@ function PearsonAddSample(name,X,Y) {
     _Pearson_sumY2[name]+=Y*Y
     _Pearson_N[name]++;
 }
-function PearsonCompute(name,     numer,D1,D2,denom){
+
+function PearsonCompute(name,     numer,DX,DY,denom,z,zse,F){
     if(!_Pearson_N[name])return;
     if(_PearsonComputeValid[name]) return;
     numer=_Pearson_sumXY[name]-_Pearson_sumX[name]*_Pearson_sumY[name]/_Pearson_N[name]
-    D1=_Pearson_sumX2[name]-_Pearson_sumX[name]*_Pearson_sumX[name]/_Pearson_N[name]
-    D2=_Pearson_sumY2[name]-_Pearson_sumY[name]*_Pearson_sumY[name]/_Pearson_N[name]
-    denom=sqrt(D1*D2); _Pearson_rho[name]=0; if(denom)_Pearson_rho[name]=numer/denom;
+    DX=_Pearson_sumX2[name]-_Pearson_sumX[name]*_Pearson_sumX[name]/_Pearson_N[name]
+    DY=_Pearson_sumY2[name]-_Pearson_sumY[name]*_Pearson_sumY[name]/_Pearson_N[name]
+    #print DX,DY >"/dev/stderr"
+    denom=sqrt(DX*DY); _Pearson_rho[name]=0; if(denom)_Pearson_rho[name]=numer/denom;
     _Pearson_t[name]=Pearson2T(_Pearson_N[name],_Pearson_rho[name]);
     if(_Pearson_t[name]<0)_Pearson_t[name]=-_Pearson_t[name];
-    _Pearson_p[name]=StatTDistZtoP(_Pearson_t[name],_Pearson_N[name]-2)/1.23
+    # Fisher R-to-z
+    z=0.5*log((1+_Pearson_rho[name])/(1-_Pearson_rho[name]))
+    zse=1/sqrt(_Pearson_N[name]-3)
+    _Pearson_p[name]=F=2*MIN(NormalDist(0,zse,z),NormalDist(0,zse,-z))
+    # We seem to be at least 100x too small according to Fisher
+    if(_Pearson_p[name]>1)_Pearson_p[name]=1-1/_Pearson_p[name]
     _PearsonComputeValid[name]=1;
 }
-function PearsonPrint(name){
+
+function PearsonPrint(name, logp){
     #if(!_Pearson_N[name])return;
     PearsonCompute(name);
+    if(_Pearson_p[name]>1e-300)return sprintf("%d\t%.4g\t%.4g\t%.4g",
+	_Pearson_N[name], _Pearson_rho[name], _Pearson_p[name], _Pearson_t[name])
+    else { # p-value is getting too small to represent so use logarithm
+	logp = -logPhi(-_Pearson_t[name])/log(10)
+	logp = logp - 3.6 - (logp/150) # Empirical correction to get in line with Fisher for small p-values
+	return sprintf("%d\t%.4g\t%s\t%.4g (using log)", _Pearson_N[name], _Pearson_rho[name], logPrint(logp,4), _Pearson_t[name]);
+	#p=10^-logp; print "log-over-Fisher", p/F # Sanity check
+    }
+
     # NR = number of samples, rho=Pearson correlation, p=p-value, t = number of standard deviations from random.
-    return sprintf("%d %.3g %.3g %.3g", _Pearson_N[name], _Pearson_rho[name], _Pearson_p[name], _Pearson_t[name])
+    #return sprintf("%d %.3g %.3g %.3g", _Pearson_N[name], _Pearson_rho[name], _Pearson_p[name], _Pearson_t[name])
 }
 
 # Functions for computing the AUPR
