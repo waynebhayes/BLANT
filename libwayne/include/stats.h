@@ -35,6 +35,20 @@ double StatGeomSkew(STAT*);
 int *StatHistogram(STAT*);	/* non-cumulative histogram */
 int *StatCumulativeHistogram(STAT*);
 
+typedef struct _pearson {
+    Boolean computeValid; // are the current outputs valid?
+    int n; // number of samples so far
+    double sumX, sumY, sumX2, sumY2, sumXY; // inputs
+    double rho, t, p; // outputs: correllation, t-statistic, p-value.
+} PEARSON;
+
+PEARSON *PearsonAlloc(void);
+void PearsonReset(PEARSON*);
+int PearsonAddSample(PEARSON *, double x, double y); // Return number of samples (including the current one)
+Boolean PearsonCompute(PEARSON *); // returns whether a new computation was required
+char *PearsonPrint(PEARSON *p); // WARNING: returns pointed to STATIC internal buffer; calls Compute if necessary
+void PearsonFree(PEARSON*); // WARNING: returns pointed to STATIC internal buffer; calls Compute if necessary
+
 /*
 ** Random number distributions.
 */
