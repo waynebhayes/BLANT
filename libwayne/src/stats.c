@@ -36,6 +36,76 @@ STAT *StatAlloc(int numHistogramBins, double histMin, double histMax,
     return s;
 }
 
+PEARSON *PearsonAlloc(void)
+{
+    PEARSON *p = Calloc(1, sizeof(PEARSON));
+    return p;
+}
+
+void PearsonReset(PEARSON *p){
+    p->sumX=p->sumY=p->sumX2=p->sumY2=p->sumXY=p->n=0;
+}
+
+int PearsonAddSample(PEARSON *p, double x, double y)
+{
+    p->computeValid=false;
+    p->sumX+=x;
+    p->sumY+=y;
+    p->sumX2+=x*x;
+    p->sumY2+=y*y;
+    p->sumXY+=x*y;
+    return ++(p->n);
+}
+
+static double Pearson2T(int n, double r){if(r==1)return 1e30; else return r*sqrt((n-2)/(1-r*r));}
+
+static double Exp(double x){
+    if(x < -745) return 5e-324;
+    else if(x > 707) return 1e307;
+    else return exp(x);
+}
+
+static double NormalPhi(double x)
+{
+    double arg=-x*x/2;
+    if(arg<-723) return 1e-314;
+    return 0.39894228040143267794*Exp(arg);
+}
+
+static double NormalDist(double mu, double sigma, double x){
+    double E=SQR(mu-x)/(2*sigma*sigma);
+    return Exp(-E)/(sigma*2.506628274631000502415765284811);
+}
+
+Boolean PearsonCompute(PEARSON *p)
+{
+    if(!p->n)return false;
+    if(p->computeValid) return false;
+    double numer=p->sumXY-p->sumX*p->sumY/p->n;
+    double D1=p->sumX2-p->sumX*p->sumX/p->n;
+    double D2=p->sumY2-p->sumY*p->sumY/p->n;
+    //fprintf(stderr, "%g %g\n",D1,D2);
+    double denom=sqrt(D1*D2); p->rho=0; if(denom)p->rho=numer/denom;
+    p->t=Pearson2T(p->n,p->rho);
+    if(p->t<0)p->t=-p->t;
+    // Fisher R-to-z
+    double z=0.5*log((1+p->rho)/(1-p->rho));
+    double zse=1/sqrt(p->n-3), F;
+    p->p = F = 2*MIN(NormalDist(0,zse,z),NormalDist(0,zse,-z));
+    // We seem to be at least 100x too small according to Fisher
+    if(p->p > 1) p->p = 1-1/(p->p);
+    return (p->computeValid=true);
+}
+
+char *PearsonPrint(PEARSON *p) {
+    static char buf[BUFSIZ];
+    if(!p->computeValid) PearsonCompute(p);
+    sprintf(buf, "%d\t%.3g\t%.3g\t%.3g", p->n, p->rho, p->p, p->t);
+    return buf;
+}
+
+void PearsonFree(PEARSON *p){ Free(p);}
+
 STAT *StatReset(STAT *s)
 {
     s->n = 0;
