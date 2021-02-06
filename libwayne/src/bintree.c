@@ -81,6 +81,45 @@ void BinTreeInsert(BINTREE *tree, foint key, foint info)
 }
 
 
+Boolean BinTreeDelete(BINTREE *tree, foint key)
+{
+    int depth = 0;
+    BINTREENODE *p = tree->root, **locative = &(tree->root), *child;
+    while(p)
+    {
+	++depth;
+	int cmp = tree->cmpKey(key, p->key);
+	if(cmp == 0)
+	    break;
+	else if(cmp < 0)
+	{
+	    locative = &(p->left);
+	    p = p->left;
+	}
+	else
+	{
+	    locative = &(p->right);
+	    p = p->right;
+	}
+    }
+    if(!p) return false;
+
+    // At this point, p points to the node we want to delete. If either child is NULL, then the other child moves up.
+
+    child = NULL;
+    if(p->left) child = p->left;
+    else if(p->right) child = p->right;
+    *locative = child;
+
+    tree->freeInfo(p->info);
+    tree->freeKey(p->key);
+    Free(p);
+
+    tree->n--;
+    return true;
+}
+
+
 Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
 {
     int depth=0;

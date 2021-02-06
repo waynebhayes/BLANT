@@ -28,10 +28,13 @@ typedef struct _binTree
 BINTREE *BinTreeAlloc(pCmpFcn cmpKey, pFointCopyFcn copyKey, pFointFreeFcn freeKey,
 	    pFointCopyFcn copyInfo, pFointFreeFcn freeInfo);
 
-void BinTreeInsert(BINTREE *, foint key, foint info);
+void BinTreeInsert(BINTREE *, foint key, foint info); // replaces info if the key already exists
 
 /* O(log n); returns false if failure, and true if found and then assigns to *pInfo if *pInfo is non-NULL */
 Boolean BinTreeLookup(BINTREE *, foint key, foint *pInfo);
+
+// O(log n), returns true if deleted successfully, false if item not found.
+Boolean BinTreeDelete(BINTREE *, foint key);
 
 /*
 ** BinTreeTraverse: Traverse a binary tree, calling your function pointer (pFointTraversalFcn) on each
