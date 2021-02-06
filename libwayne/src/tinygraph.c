@@ -408,9 +408,9 @@ Boolean TinyGraphsIsomorphic(int *perm, TINY_GRAPH *G1, TINY_GRAPH *G2)
 		return false;
 
 	    /* Now ask if the remainder of the graphs are isomorphic */
-	    TSET all = ((unsigned char)-1) >> (8-G1->n);
+	    TSET all = ((TSET)-1) >> (8-G1->n);
 	    TinyGraphInduced(&restG1i, G1, TSetDelete(all, i));
-	    all = ((unsigned char)-1) >> (8-G1->n);
+	    all = ((TSET)-1) >> (8-G1->n);
 	    TinyGraphInduced(&restG2j, G2, TSetDelete(all, j));
 	    if(!TinyGraphsIsomorphic(perm, &restG1i, &restG2j))
 		return false;

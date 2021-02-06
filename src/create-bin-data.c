@@ -36,7 +36,7 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 #define Bk (1 <<(kk*(kk-1)/2))
 short int K[Bk]; // does not NEED to be unsigned, so leave it signed, since for kk<=8 max_Bk is 12346 < 32657
 kperm Permutations[Bk];
-static int canon_list[MAX_CANONICALS];
+static Gint_type canon_list[MAX_CANONICALS];
 
 void ExtractPerm(char perm[kk], int i) // you provide a permutation array, we fill it with permutation i
 {
@@ -60,9 +60,9 @@ static int siCmp(const void *A, const void *B)
     return *a-*b;
 }
 
-short int canon2ordinal(int numCanon, int canon_list[numCanon], int canonical)
+short int canon2ordinal(int numCanon, Gint_type canon_list[numCanon], int canonical)
 {
-    int *found = bsearch(&canonical, canon_list, numCanon, sizeof(canon_list[0]), siCmp);
+    Gint_type *found = bsearch(&canonical, canon_list, numCanon, sizeof(canon_list[0]), siCmp);
     return found-canon_list;
 }
 

@@ -19,6 +19,8 @@ kperm *Permutations = NULL; // Allocating memory dynamically
 
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
 
+unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented");}
+
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
 void SetGlobalCanonMaps(void)
@@ -31,7 +33,7 @@ void SetGlobalCanonMaps(void)
     _numCanon = _connectedCanonicals->n;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
-    _K = (short int*) mapCanonMap(BUF, _K, _k);
+    _K = (short*) mapCanonMap(BUF, _K, _k);
 
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);

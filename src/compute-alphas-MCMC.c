@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 int _alphaList[MAX_CANONICALS];
-int _canonList[MAX_CANONICALS];
+Gint_type _canonList[MAX_CANONICALS];
 
 static int L;
 static COMBIN *_Lcombin;

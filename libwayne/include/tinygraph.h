@@ -10,7 +10,7 @@
 */
 
 typedef struct _tinyGraph {
-    /* vertices numbered 0..n-1 inclusive; n must be <= MAX_TSET (8 for now)*/
+    /* vertices numbered 0..n-1 inclusive; n must be <= MAX_TSET */
     char n, degree[MAX_TSET];   /* degree of each v[i] == cardinality of A[i] */
     TSET A[MAX_TSET];   /* Adjacency Matrix */
 } TINY_GRAPH;
