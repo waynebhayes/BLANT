@@ -14,8 +14,8 @@ ifdef NO7
     EIGHT := # can't have 8 without 7
 endif
 
-CC=gcc $(SPEED) # -ggdb-Wno-pointer-sign
-CXX=g++ -Wno-pointer-sign $(SPEED) #-ggdb
+CC=gcc $(SPEED) # -ggdb
+CXX=g++ $(SPEED) #-ggdb
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne

@@ -6,9 +6,10 @@
 char* _BLANT_DIR = DEFAULT_BLANT_DIR;
 
 // Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
-int TinyGraph2Int(TINY_GRAPH *g, int k)
+Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 {
-    int i, j, bitPos=0, Gint = 0, bit;
+    int i, j, bitPos=0, bit;
+    Gint_type Gint = 0;
 
 #if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
     for(i=k-1;i>0;i--)
@@ -35,10 +36,10 @@ int TinyGraph2Int(TINY_GRAPH *g, int k)
 ** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
 ** Handles either upper or lower triangle representation depending upon compile-time option below.
 */
-void Int2TinyGraph(TINY_GRAPH* G, int Gint)
+void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 {
     int i, j, bitPos=0, k = G->n;
-    int Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
+    Gint_type Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
     TinyGraphEdgesAllDelete(G);
 #if LOWER_TRIANGLE
     for(i=k-1;i>0;i--)
@@ -76,7 +77,7 @@ short int* mapCanonMap(char* BUF, short int *K, int k) {
     return Kf;
 }
 
-SET *canonListPopulate(char *BUF, int *canon_list, int k) {
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k) {
     sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
@@ -86,7 +87,7 @@ SET *canonListPopulate(char *BUF, int *canon_list, int k) {
     for(i=0; i<numCanon; i++) {
 	char *tmp, buf[BUFSIZ], edge[BUFSIZ];
 	tmp = fgets(buf, sizeof(buf), fp_ord); // shut the compiler up
-	assert(3==sscanf(buf, "%d\t%d %d", &canon_list[i], &connected, &numEdges));
+	assert(3==sscanf(buf, "%lu\t%d %d", &canon_list[i], &connected, &numEdges));
 	if(connected) SetAdd(connectedCanonicals, i);
     }
     fclose(fp_ord);

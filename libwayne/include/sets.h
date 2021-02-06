@@ -119,7 +119,13 @@ Boolean SparseSetSubsetProper(SPARSE_SET *sub, SPARSE_SET *super);	/* proper sub
 #define SparseSetSupersetProper(spr,sub) SetSubsetProper((sub),(spr))
 
 
-typedef unsigned long long SSET;    /* Small set */
+#define SMALL_SET_SIZE 64
+
+#if SMALL_SET_SIZE == 128
+    typedef __int128 SSET;
+#elif SMALL_SET_SIZE == 64
+    typedef unsigned long long SSET;    /* Small set */
+#endif
 #define SSET1 1ULL
 #define SSET_NULLSET 0ULL
 #define MAX_SSET (8*sizeof(SSET))
@@ -142,35 +148,72 @@ SSET SSetFromArray(int n, unsigned *array);
 unsigned SSetToArray(unsigned *array, SSET set);
 char *SSetToString(int len, char s[], SSET set);
 
-
-typedef unsigned char TSET; // Tiny SET
-#define TSET1 ((unsigned char)1)
-#define TSET_NULLSET ((unsigned char)0)
-#define MAX_TSET (8*sizeof(TSET))
-
-#define TSetEmpty(s) s = 0
-#define TSetReset TSetEmpty
-#define TSetAdd(s,e) (s |= (TSET1 << (e)))
-#define TSetDelete(s,e) (s &= ~(TSET1 <<(e)))
-#define TSetIn(s,e) ((s) & (TSET1 << (e)))
-#define TSetEq(s1,s2) ((s1)==(s2))
-#define TSetSubsetEq(sub,super) (((super)&(sub))==(sub))
-#define TSetSupersetEq(a,b) TSetSubsetEq((b),(a))
-#define TSetSubsetProper(sb,spr) (TSetSubsetEq((sb),(spr))&&!TSetEq((sb),(spr)))
-#define TSetSupersetProper(spr,sb) TSetSubsetProper(sb,spr)
-#define TSetUnion(a,b) ((a) | (b))
-#define TSetIntersect(a,b) ((a) & (b))
-#define TSetCountBits(i) lookupBitCount[i]
-#define TSetCardinality TSetCountBits
-TSET TSetFromArray(int n, unsigned int *array);
-unsigned TSetToArray(unsigned int *array, TSET set);
-char *TSetToString(int len, char s[], TSET set);
-
 /* SSET dictionary - a set of sets */
 typedef struct _ssetDict SSETDICT;
 SSETDICT *SSetDictAlloc(int init_size);
 SSETDICT *SSetDictAdd(SSETDICT*, SSET);
 Boolean SSetDictIn(SSETDICT*, SSET);
 void SSetDictFree(SSETDICT*);
+
+#define TINY_SET_SIZE 16
+
+#if TINY_SET_SIZE >= 64
+    typedef SSET TSET;
+    #define TSET1 SSET1
+    #define TSET_NULLSET SSET_NULLSET
+    #define MAX_TSET MAX_SSET
+
+    #define TSetEmpty(s) SSetEmpty(s)
+    #define TSetReset SSetEmpty
+    #define TSetAdd(s,e) SSetAdd(s,e)
+    #define TSetDelete(s,e) SSetDelete(s,e)
+    #define TSetIn(s,e) SSetIn(s,e)
+    #define TSetEq(s1,s2) SSetEq(s1,s2)
+    #define TSetSubsetEq(sub,super) SSetSubsetEq(sub,super)
+    #define TSetSupersetEq(a,b) SSetSupersetEq(a,b)
+    #define TSetSubsetProper(sb,spr) SSetSubsetProper(sb,spr)
+    #define TSetSupersetProper(spr,sb) SSetSupersetProper(spr,sb) 
+    #define TSetUnion(a,b) SSetUnion(a,b)
+    #define TSetIntersect(a,b) SSetIntersect(a,b)
+    #define TSetCountBits(i) SSetCountBits(i) 
+    #define TSetCardinality SSetCardinality 
+    #define TSetFromArray SSetFromArray
+    #define TSetToArray SSetToArray
+    #define TSetToString SSetToString
+
+#else
+    #if TINY_SET_SIZE == 32
+	typedef unsigned int TSET;
+    #elif TINY_SET_SIZE == 16
+	typedef unsigned short TSET;
+    #elif TINY_SET_SIZE == 8
+	typedef unsigned char TSET;
+    #else
+	#error unknown TINY_SET_SIZE
+    #endif
+
+    #define TSET1 ((TSET)1)
+    #define TSET_NULLSET ((TSET)0)
+    #define MAX_TSET (8*sizeof(TSET))
+
+    #define TSetEmpty(s) s = 0
+    #define TSetReset TSetEmpty
+    #define TSetAdd(s,e) (s |= (TSET1 << (e)))
+    #define TSetDelete(s,e) (s &= ~(TSET1 <<(e)))
+    #define TSetIn(s,e) ((s) & (TSET1 << (e)))
+    #define TSetEq(s1,s2) ((s1)==(s2))
+    #define TSetSubsetEq(sub,super) (((super)&(sub))==(sub))
+    #define TSetSupersetEq(a,b) TSetSubsetEq((b),(a))
+    #define TSetSubsetProper(sb,spr) (TSetSubsetEq((sb),(spr))&&!TSetEq((sb),(spr)))
+    #define TSetSupersetProper(spr,sb) TSetSubsetProper(sb,spr)
+    #define TSetUnion(a,b) ((a) | (b))
+    #define TSetIntersect(a,b) ((a) & (b))
+    #define TSetCountBits(i) lookupBitCount[i]
+    #define TSetCardinality TSetCountBits
+    TSET TSetFromArray(int n, unsigned int *array);
+    unsigned TSetToArray(unsigned int *array, TSET set);
+    char *TSetToString(int len, char s[], TSET set);
+
+#endif
 
 #endif /* _SETS_H */

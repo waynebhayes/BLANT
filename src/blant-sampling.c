@@ -792,8 +792,8 @@ double SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
 		assert(multiplier > 0.0);
 	}
 	TinyGraphInducedFromGraph(g, G, Varray);
-	int Gint = TinyGraph2Int(g, k);
-	int GintOrdinal = _K[Gint];
+	Gint_type Gint = TinyGraph2Int(g, k);
+	int GintOrdinal = L_K(Gint);
 
 	assert(numNodes == k); // Ensure we are returning k nodes
 	double count = 1.0;
@@ -924,7 +924,8 @@ double SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
  *                      being processed in RunBlantFromGraph function
  */
 void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, int *degreeOrder) {
-    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0, Gint;
+    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0;
+    Gint_type Gint;
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
     // Set a maximum number N of returned windowReps (-n N) in case there is a bunch

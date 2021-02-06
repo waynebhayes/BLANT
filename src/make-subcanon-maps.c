@@ -11,7 +11,7 @@
 // of a k-graphlet, across all k-graphlet canonicals.
 
 static short int *K; // The (k-1)-graphlet canonmap.
-static int canon_list[MAX_CANONICALS];
+static Gint_type canon_list[MAX_CANONICALS];
 
 int main(int argc, char* argv[]) {
     int i, j, k;
@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
     */
     TINY_GRAPH *g = NULL;
     TSET induceTSET = TSET_NULLSET;
-    int Gint = 0;
+    Gint_type Gint = 0;
     int tsetBit;
     for (i = 0; i < numCanon; i++) {
         int canonical = canon_list[i];

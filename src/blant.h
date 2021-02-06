@@ -30,7 +30,7 @@ double RandomUniform(void) {
 extern int _JOBS, _MAX_THREADS;
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
-// This is the maximum graphlet size that BLANT supports.  Cannot be bigger than 8.
+// This is the maximum graphlet size that BLANT supports when using a fixed lookup table. (Cannot be bigger than 8.)
 // Currently only used to determine the amount of static memory to allocate.
 #define MAX_K 8
 
@@ -39,10 +39,34 @@ extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
-extern int _numCanon, _canonList[MAX_CANONICALS];
-extern int _numConnectedCanon;
+
+// This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
+#if TINY_SET_SIZE == 16
+#if __GLIBCXX_TYPE_INT_N_0 == 128
+    typedef __uint128 Gint_type;
+    #define MAX_BINTREE_K 16
+#else
+    typedef unsigned long long Gint_type;
+    #define MAX_BINTREE_K 11
+#endif
+#elif TINY_SET_SIZE == 8
+typedef unsigned Gint_type;
+    #define MAX_BINTREE_K 8
+#endif
+
+extern int _numCanon, _numConnectedCanon;
+extern Gint_type _canonList[MAX_CANONICALS];
 
 #define MAX_ORBITS	79264	// This is the number of orbits for k=8
+
+void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
+Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
+short int* mapCanonMap(char* BUF, short int *K, int k);
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k); // returns a SET containing list of connected ordinals
+int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K],  int orbit_canon_mapping[MAX_ORBITS],
+    int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k);
+void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
+char** convertToEL(char* file); // from convert.cpp
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
@@ -82,6 +106,8 @@ extern int _alphaList[MAX_CANONICALS];
 extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k;
 extern short int *_K;
+extern unsigned int L_K_Func(Gint_type Gint);
+#define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
 extern SET *_connectedCanonicals;
 
 enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
@@ -118,14 +144,5 @@ extern Boolean _child;
 #define SPARSE both // do not try false at the moment, it's broken
 
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
-
-void Int2TinyGraph(TINY_GRAPH* G, int Gint);
-int TinyGraph2Int(TINY_GRAPH *g, int numNodes);
-short int* mapCanonMap(char* BUF, short int *K, int k);
-SET *canonListPopulate(char *BUF, int *canon_list, int k); // returns a SET containing list of connected ordinals
-int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K],  int orbit_canon_mapping[MAX_ORBITS],
-    int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k);
-void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
-char** convertToEL(char* file); // from convert.cpp
 
 #endif

@@ -22,7 +22,7 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 #define Bk (1 <<(k*(k-1)/2))
 kperm Permutations[Bk] __attribute__ ((aligned (32768)));
 short int K[Bk] __attribute__ ((aligned (32768)));
-static int canon_list[MAX_CANONICALS];
+static Gint_type canon_list[MAX_CANONICALS];
 
 void ExtractPerm(char perm[k], int i) // you provide a permutation array, we fill it with permutation i
 {
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	int g = Bk*drand48(); // find a graphette
 	for(int i=0;i<k;i++)perm[i]=0;
 	ExtractPerm(perm, g);
-	printf("K[%d]=%d [%d];", g, K[g], canon_list[K[g]]);
+	printf("K[%d]=%d [%ul];", g, K[g], canon_list[K[g]]);
 	for(int i=0;i<k;i++)printf(" %c", perm[i]+'0');
 	printf("\n");
     }

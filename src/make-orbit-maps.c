@@ -9,7 +9,7 @@
 #include "blant.h"
 
 static int k;
-static int canon_list[MAX_CANONICALS];
+static Gint_type canon_list[MAX_CANONICALS];
 
 Boolean suitablePerm(int permutation[], int adj[k][k+1]);
 void permuteNodes(int permutation[], int adj[k][k+1], long *D);

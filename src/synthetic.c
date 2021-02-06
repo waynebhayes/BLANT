@@ -30,7 +30,7 @@ static int _maxNumCanon = -1;  // max number of canonicals
 static int _numSamples = -1;  // same number of samples in each blant index file
 static int _numNodes = -1;  // number of nodes in the target/synthetic network
 static int maxdegree = -1;  // equals _numNodes (a node can be connected to every other node)
-static int _canonList[MAX_K][MAX_CANONICALS];
+static Gint_type _canonList[MAX_K][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 #define PRINT_INTERVAL 100000

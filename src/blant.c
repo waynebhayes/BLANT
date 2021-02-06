@@ -37,7 +37,8 @@ unsigned int _k;
 unsigned int _Bk, _k_small;
 
 int _alphaList[MAX_CANONICALS];
-int _numCanon, _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
+int _numCanon;
+Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 int _numConnectedCanon;
 int _numConnectedComponents;
@@ -82,7 +83,7 @@ int _JOBS, _MAX_THREADS;
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
 //static short int _K[maxBk] __attribute__ ((aligned (8192)));
-short int *_K = NULL; // Allocating memory dynamically
+short *_K = NULL; // Allocating memory dynamically
 
 /* AND NOW THE CODE */
 
@@ -806,7 +807,7 @@ int main(int argc, char *argv[])
 
     if(argc == 1)
     {
-	printf("%s\n", USAGE);
+	printf("%s\nNote: current TSET size is %d bits\n", USAGE, 8*sizeof(TSET));
 	exit(1);
     }
 

@@ -475,19 +475,6 @@ unsigned SSetToArray(unsigned int *array, SSET set)
 }
 
 
-unsigned TSetToArray(unsigned int *array, TSET set)
-{
-    int pos = 0;
-    int i;
-    for(i=0; i < MAX_TSET; i++)
-	if(TSetIn(set,i))
-	    array[pos++] = i;
-
-    assert(pos == TSetCountBits(set));
-    return pos;
-}
-
-
 /* Add the elements listed in the array to the set.
 */
 SET *SetFromArray(SET *set, int n, unsigned int *array)
@@ -513,24 +500,6 @@ char *SSetToString(int len, char s[], SSET set)
     int i;
     for(i=0; i<len-1; i++)
 	s[i] = '0' + !!SSetIn(set, i);
-    s[len-1] = '\0';
-    return s;
-}
-
-TSET TSetFromArray(int n, unsigned int *array)
-{
-    TSET set;
-    TSetEmpty(set);
-    while(n > 0)
-	TSetAdd(set, array[--n]);
-    return set;
-}
-
-char *TSetToString(int len, char s[], TSET set)
-{
-    int i;
-    for(i=0; i<len-1; i++)
-	s[i] = '0' + !!TSetIn(set, i);
     s[len-1] = '\0';
     return s;
 }
@@ -716,3 +685,35 @@ void SSetDictFree(SSETDICT *ssd)
     Free(ssd);
 }
 
+#if TINY_SET_SIZE < 64
+unsigned TSetToArray(unsigned int *array, TSET set)
+{
+    int pos = 0;
+    int i;
+    for(i=0; i < MAX_TSET; i++)
+	if(TSetIn(set,i))
+	    array[pos++] = i;
+
+    assert(pos == TSetCountBits(set));
+    return pos;
+}
+
+
+TSET TSetFromArray(int n, unsigned int *array)
+{
+    TSET set;
+    TSetEmpty(set);
+    while(n > 0)
+	TSetAdd(set, array[--n]);
+    return set;
+}
+
+char *TSetToString(int len, char s[], TSET set)
+{
+    int i;
+    for(i=0; i<len-1; i++)
+	s[i] = '0' + !!TSetIn(set, i);
+    s[len-1] = '\0';
+    return s;
+}
+#endif

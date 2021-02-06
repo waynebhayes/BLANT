@@ -54,11 +54,11 @@ char *PrintCanonical(int GintOrdinal)
 	sprintf(buf, "%d", GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
-	sprintf(buf, "%d", _canonList[GintOrdinal]);
+	sprintf(buf, "%ul", _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
-	    {GintBinary[GintNumBits-j-1]=(((unsigned)_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
+	    {GintBinary[GintNumBits-j-1]=((_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';
 	strcpy(buf, GintBinary);
 	break;
@@ -108,7 +108,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-char *PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k)
+char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k)
 {
     int j;
     char perm[MAX_K];
@@ -124,7 +124,7 @@ char *PrintIndexEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *
     return buf[which];
 }
 
-char *PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
     assert(TinyGraphDFSConnected(g,0));
     int j;
     static SET* printed;
@@ -152,63 +152,11 @@ char *PrintIndexOrbitsEntry(int Gint, int GintOrdinal, unsigned Varray[], TINY_G
     return buf[which];
 }
 
-// Recursively print all the motifs under this graphlet. Note that this one actually outputs directly, it does
-// ** not ** print into a buffer and return a char*.
-void PrintAllMotifs(TINY_GRAPH *g, int Gint, int GintOrdinal, GRAPH *G, unsigned Varray[])
-{
-    static int depth;
-    static Boolean initDone;
-    static SET *seen; // size 2^B(k), *not* canonical but a specific set of nodes and edges in the *top* graphlet
-    if(!initDone) {
-	assert(_Bk>0);
-	seen = SetAlloc(_Bk);
-	assert(_k>= 3 && _k <= 8);
-	initDone = true;
-    }
-
-    if(depth==0) {
-	SetReset(seen);
-    }
-
-#if PARANOID_ASSERTS
-    assert(g->n == _k);
-    assert(TinyGraphDFSConnected(g, 0));
-#endif
-
-    if(SetIn(seen,Gint)) return;
-    SetAdd(seen,Gint);
-
-    if(_outputMode == indexMotifOrbits)
-	puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, _k));
-    else {
-	assert(_outputMode == indexMotifs);
-	puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, _k));
-    }
-
-    // Now go about deleting edges recursively.
-    int i,j;
-    for(i=0; i<_k-1; i++)for(j=i+1;j<_k;j++)
-    {
-	if(TinyGraphAreConnected(g,i,j)) // if it's an edge, delete it.
-	{
-	    TinyGraphDisconnect(g,i,j);
-	    Gint = TinyGraph2Int(g,_k);
-	    GintOrdinal = _K[Gint];
-	    if(SetIn(_connectedCanonicals, GintOrdinal)) {
-		++depth;
-		PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
-		--depth;
-	    }
-	    TinyGraphConnect(g,i,j);
-	}
-    }
-}
-
 Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g)
 {
     Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
-    int Gint = TinyGraph2Int(g,k), GintOrdinal=_K[Gint], j;
+    Gint_type Gint = TinyGraph2Int(g,k), GintOrdinal=L_K(Gint), j;
 
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
@@ -226,10 +174,6 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k));
-	break;
-    case indexMotifs: case indexMotifOrbits:
-	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else PrintAllMotifs(g,Gint,GintOrdinal, G,Varray);
 	break;
     case predict:
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;

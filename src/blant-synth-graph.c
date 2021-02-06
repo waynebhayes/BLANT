@@ -151,11 +151,12 @@ double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k, double the
 
 // Generate a random Gint from concentration distribution
 // Return Gint in a binary adjacency matrix format
-int PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
+Gint_type PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
 {
     int canonArray[_numConnectedCanon];
     SetToArray(canonArray, _connectedCanonicals);
-    int i, mid, l, h, GintOrdinal, Gint, step = 0;
+    Gint_type Gint;
+    int i, mid, l, h, GintOrdinal, step = 0;
     do
     {
         double r = RandomUniform();
@@ -171,7 +172,8 @@ int PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k)
     if(GintOrdinal < 0) Fatal("Unable to sample valid graphlet (GintOrdinal > 0) within MAX_TRIES");
     GintOrdinal = canonArray[GintOrdinal];
     Gint = _canonList[GintOrdinal];
-    int numBits = k * (k-1) / 2, n = Gint;
+    int numBits = k * (k-1) / 2;
+    Gint_type n = Gint;
     for(i=0; i<numBits; i++)
     {
         if(n>0) {binaryNum[i] = n % 2; n /= 2;}
@@ -199,7 +201,8 @@ void stampFunction(GRAPH *G, int binaryNum[], int Varray[], int k)
 void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k_small, double theoreticalPDF[], double theoreticalCDF[])
 {
     double KS_stats, P_val;
-    int i, j, z, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample, Gint, canonList_small[MAX_CANONICALS];
+    int i, j, z, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample;
+    Gint_type canonList_small[MAX_CANONICALS], Gint;
     char BUF[BUFSIZ];
     SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small);
     SET *V = SetAlloc(G_Syn->n);
@@ -214,7 +217,7 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k
             Gint = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
             stampFunction(G_Syn, binaryNum, Varray, k);
             TinyGraphInducedFromGraph(g, G_Syn, Varray);
-            assert(_K[Gint] == _K[TinyGraph2Int(g, k)]);
+            assert(L_K(Gint) == L_K(TinyGraph2Int(g, k)));
         }
         else {
             printf("Steps made to remove Edges:  %i\n", numRemoveSample);
