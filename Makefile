@@ -14,14 +14,6 @@ ifdef NO7
     EIGHT := # can't have 8 without 7
 endif
 
-CC=gcc $(SPEED) # -ggdb
-CXX=g++ $(SPEED) #-ggdb
-
-# Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
-export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
-ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
-GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
-STACKSIZE=$(shell uname -a | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 PROFILE=#-pg # comment out to turn off
 DEBUG=#-g # comment out to turn off
 ifdef DEBUG
@@ -37,6 +29,15 @@ else
 	LIB_OPT=-pg
     endif
 endif
+
+CC=gcc $(SPEED) # -ggdb
+CXX=g++ $(SPEED) #-ggdb
+
+# Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
+export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
+ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
+GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
+STACKSIZE=$(shell uname -a | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
 
 # Name of BLANT source directory
