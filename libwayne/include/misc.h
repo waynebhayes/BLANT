@@ -61,10 +61,10 @@ typedef union _voidInt {
     char *s;
     char c[sizeof(long)];
     unsigned char uc[sizeof(long)];
-    short sh[2];
-    unsigned short ush[2];
-    int i;
-    unsigned int ui;
+    short sh[sizeof(long)/sizeof(short)];
+    unsigned short ush[sizeof(long)/sizeof(unsigned short)];
+    int i, i_array[sizeof(long)/sizeof(int)];
+    unsigned int ui, ui_array[sizeof(long)/sizeof(unsigned int)];
     float f;
     // double and (long long) are twice as long as everything else, so leave them out unless necessary.
     // double d;
