@@ -15,7 +15,7 @@ ifdef NO7
 endif
 
 PROFILE=#-pg # comment out to turn off
-DEBUG=#-g # comment out to turn off
+DEBUG=#-ggdb # comment out to turn off
 ifdef DEBUG
     SPEED=-O0 -ggdb $(PROFILE)
     ifdef PROFILE
@@ -149,7 +149,7 @@ make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(
 	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE) -std=c++11 
 
 $(OBJDIR)/blant-predict.o:
-	if [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.o.Darwin.gz; else gunzip < $(SRCDIR)/blant-predict.o.$(GCC).gz; fi > $@
+	if [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.o.Darwin.gz; else gunzip < $(SRCDIR)/blant-predict.o.$(GCC).gz; fi > $@
 
 ### Object Files/Prereqs ###
 

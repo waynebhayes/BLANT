@@ -12,7 +12,6 @@ FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
 char _sampleFileEOF;
 Boolean _MCMC_EVERY_EDGE = false; // Should MCMC restart at each edge
 int _samplesPerEdge = 0;
-int _numSamples = 0;
 unsigned _MCMC_L;
 unsigned long int _acceptRejectTotalTries;
 

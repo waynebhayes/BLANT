@@ -37,7 +37,7 @@ unsigned int _k;
 unsigned int _Bk, _k_small;
 
 int _alphaList[MAX_CANONICALS];
-int _numCanon;
+int _numCanon, _numSamples;
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 int _numConnectedCanon;
@@ -432,9 +432,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	}
 	break;
     case predict_merge:
-	assert(false); // shouldn't get here
-	break;
-    case predict: predict_merge:
+	assert(false); break; // shouldn't get here
+    case predict:
 	Predict_FlushMotifs(G);
 	break;
     case outputGDV:
@@ -1075,7 +1074,7 @@ int main(int argc, char *argv[])
     }
     SetFree(orbit_temp);
 
-    // Read it in using native Graph routine.
+    // Read network using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames);
     if(_supportNodeNames)
     {
