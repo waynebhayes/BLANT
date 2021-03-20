@@ -160,6 +160,85 @@ The old (deprected) algorithm described in [Hasan, Chung, Hayes](https://journal
 ### test-bin-data.c
 Testing code for files created by create-bin-data.c above.
 
+## Understanding canonical vs. non-canonical graphlets
+Here's the basics you need to know. Let's take k=3 as an example, even though we don't care about k=3 in our edge prediction code. (Actually we could but that's another story.)  We use 8 unsigned chars of 8 bits each to represent the (k x k) bit adjacency matrix (which is the primary reason we're restricted to a maximum of k=8). We always ensure this matrix is symmetric, and the data type in BLANT is called TINY_GRAPH.  Now given any particular k-node graph(let), we read the bits in the lower triangle (below the diagonal) and turn that into an integer of exactly (k choose 2) bits, eg 3 bits for k=8, 28 bits for k=8. The result, for all possible k x k matrices, is in the file canon_maps/canon_mapK.txt. For example canon_map3.txt looks like this:
+
+      0       012 0 0
+      1       012 0 1
+      1       102
+      3       012 1 2
+      1       201
+      3       021
+      3       120
+      7       012 1 3
+
+(Note: the most recent version of BLANT also lists the actual edges after the number of edges, but I've removed them for simplicity.) Now, there is an implicit, missing column, which I'll call the "zeroth" column, and it's just the line number, starting from zero. If I add that implicit column (using the command "nl -v 0 canon_maps/canon_map3.txt), we get
+
+     0  0       012 0 0
+     1  1       012 0 1
+     2  1       102
+     3  3       012 1 2
+     4  1       201
+     5  3       021
+     6  3       120
+     7  7       012 1 3
+
+That zeroth column is the integer we get from reading the bits of the lower triangle of the adjacency matrix, and in the BLANT code it's usually called "Gint".  Since the same graph can be drawn in many different ways (all isomorphic), we need to choose one of them as the "canonical representative" of all the identical drawings of that particular graphlet. For that we simply choose the one with the lowest integer representation; and for all the non-canonical versions of the same graph, we store the permutation of nodes that gets us from the canonical to the non-canonical one. In the canon_mapK.txt file, there are 2 columns if the graphlet is non-canonical and they simply store the integer (decimal) value of the canonical representative, and the permutation. If the graphlet is the canonical one, then the permutation is the identity (012 in the k=3 case), and the 2nd last column is a Boolean telling us if the graphlet is connected, and the last column is the number of edges in the graphlet.
+
+The reason you have such a huge memory footprint is because, for example, for k=8, there are 256 million (2^28) graphlets before converting to canonicals. So for example the tail end of the canon_map8.txt file looks like this:
+
+      67108863        73601245
+      134217727       37012456
+      50331647        74560123
+      67108863        74501236
+      67108863        74601235
+      134217727       47012356
+      67108863        75601234
+      134217727       57012346
+      134217727       67012345
+      268435455       01234567        1 28
+
+So for example the very last line is the k-clique, meaning all possible edges exist, and so its integer value is (2^28 - 1); the two graphlets before it happen to be the same garphlet (clique missing one edge) but drawn in different ways. You can tell because the first column is the same (134217727) meaning they have the same canonical representative.
+
+You probably don't need to understand all the above but it's helpful in understanding what follows, which you do need to understand to work with canonicals.
+
+Now the problem with using the integer value of the canonical as an actual identifier is that the integer is too big: in the above case we need all 28 bits to store the integer value of the canonical. However, even for k=8, there are only 12,346 actual canonical graphlets, and 12,346 can be stored as a 16-bit (short) integer, which is a much smaller memory footprint. So, the last step in figuring the ID that we actually use is to extract only the lines of the canon_mapK.txt file that are canonical representatives; this is what the file "canon_listK.txt" contains.  For example canon_list3.txt is:
+
+      4
+      0       0 0
+      1       0 1     
+      3       1 2     
+      7       1 3     
+
+The first line simply tells us the number of canonical graphlets (4); the following lines are identical to the lines extracted from the canon_mapK.txt file (and again I've removed the list of edges that are in the actual file for simplicity).
+
+Finally, we use the line number (starting from zero, and not including the top line that is '4' above) as the actual identifier. In the code this is usually called GintOrdinal (ordinal simply meaning "the number you get by ordering the canonicals smallest to largest"). If we run "nl -v -1 canon_maps/canon_list3.txt" we get:
+
+    -1  4
+     0  0       0 0
+     1  1       0 1     
+     2  3       1 2     
+     3  7       1 3     
+
+so there are 4 canonicals for k=3, called 0, 1, 2, and 3 (ie., the value of GintOrdinal). (If you actually want the integer value you can use the _canonList[] array inside blant, eg _canonList[GintOrdinal] gives the integer value of the canonical whose ID is GintOrdinal).
+
+So, hopefully, with all that, you'll now understand the following lines I've taken from blant-output.c, which is at the top of the function ProcessGraphlet:
+
+Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g)
+{
+    TinyGraphInducedFromGraph(g, G, Varray); // create the TINY_GRAPH g, induced from the big one G
+    Gint_type Gint = TinyGraph2Int(g,k); // extract integer from lower triangle of TINY_GRAPH g, into Gint.
+    Gint_type GintOrdinal=L_K(Gint); // Use the lookup table L_K to find the GintOrdinal of Gint.
+
+Voila. That's it really. You only need lookup tables for the canonicals. Immediately above and below these lines in blant-output.c are examples of how to move around between the canonical graphlet, the non-canonical graphlet we came from, and the list of nodes in the bigger graph (stored in Varray[]). So for example above, in the function PrintIndexOrbitsEntry, you see the line
+
+PrintNode(':', Varray[(int)perm[ j1 ]]));
+
+To decode what's happening: the integer j1 is iterating through the nodes in the canonical graphlet from 0 through k-1 inclusive; perm[ j1 ] tells us which node (0 through k-1) is the corresponding graphlet node of the non-canonical graphlet we came from; and Varray[(int)perm[j1]]) is the ID of the corresponding node in the bigger graph (an integer from 0 to about 9,000 for HI-union.)
+
+Hopefully that'll help you figure out how to use only canonicals to store your matrices. Lemme know if you have any questions.
+
+
 # References
 #### Our first paper on how BLANT performs so quickly on up to k=8 node graphlets: Hasan, Adib, Po-Chien Chung, and Wayne Hayes. ["Graphettes: Constant-time determination of graphlet and orbit identity including (possibly disconnected) graphlets up to size 8." PloS one 12, no. 8 (2017): e0181570.](https://doi.org/10.1371/journal.pone.0181570)
 
