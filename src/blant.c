@@ -558,6 +558,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
         Fatal("The sampling method '-s INDEX' does not yet support multithreading (feel free to add it!)");
 
     // At this point, _JOBS must be greater than 1.
+    assert(_JOBS>1);
     int totalSamples = numSamples;
     double meanSamplesPerJob = totalSamples/(double)_JOBS;
     Warning("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
