@@ -40,7 +40,6 @@ BINTREE *BinTreeAlloc(pCmpFcn cmpKey,
 }
 
 
-static Boolean inRebalance;
 void BinTreeRebalance(BINTREE *tree);
 void BinTreeInsert(BINTREE *tree, foint key, foint info)
 {
@@ -78,7 +77,7 @@ void BinTreeInsert(BINTREE *tree, foint key, foint info)
 
     tree->depthSum += depth; ++tree->depthSamples;
     double meanDepth = tree->depthSum/(double)tree->depthSamples;
-    if(tree->n > 5 && tree->depthSamples > 20 && meanDepth > 3*log(tree->n) && !inRebalance) BinTreeRebalance(tree);
+    if(tree->n > 5 && tree->depthSamples > 20 && meanDepth > 3*log(tree->n)) BinTreeRebalance(tree);
 }
 
 
@@ -146,7 +145,7 @@ Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
     }
     tree->depthSum += depth; ++tree->depthSamples;
     double meanDepth = tree->depthSum/(double)tree->depthSamples;
-    if(tree->n > 5 && tree->depthSamples > 20 && meanDepth > 3*log(tree->n) && !inRebalance) BinTreeRebalance(tree);
+    if(tree->n > 5 && tree->depthSamples > 20 && meanDepth > 3*log(tree->n)) BinTreeRebalance(tree);
     return false;
 }
 
@@ -262,8 +261,9 @@ static void BinTreeInsertMiddleElementOfArray(BINTREE *tree, int low, int high) 
 
 void BinTreeRebalance(BINTREE *tree)
 {
+    static Boolean inRebalance; // only allow one tree to be rebalanced concurrently
+    if(inRebalance) return; // even without threading, the BinTreeTraverse below may trigger the rebalance of another tree
     //Warning("inRebalance tree %x size %d mean depth %g", tree, tree->n, tree->depthSum/(double)tree->depthSamples);
-    assert(!inRebalance);
     inRebalance = true;
     if(tree->n > arraySize){
 	arraySize = tree->n;
