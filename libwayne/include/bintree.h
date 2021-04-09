@@ -12,11 +12,12 @@ typedef struct _binTreeNode
 {
     foint key, info;
     struct _binTreeNode *left, *right;
+    Boolean deleted;
 } BINTREENODE;
 
 typedef struct _binTree
 {
-    int n, depthSum, depthSamples; // number of entries, and tree depth statistics which can be averaged anytime.
+    int n, physical_n, depthSum, depthSamples; // number of entries, and tree depth statistics which can be averaged anytime.
     BINTREENODE *root;
     pCmpFcn cmpKey;
     pFointCopyFcn copyKey, copyInfo;
@@ -41,6 +42,9 @@ Boolean BinTreeDelete(BINTREE *, foint key);
 ** element, in order.
 */
 Boolean BinTreeTraverse ( BINTREE *bt, pFointTraverseFcn);
+Boolean BinTreeSanityCheck ( BINTREE *bt ); // returns true if success, otherwise generates an assertion failure
+void BinTreeRebalance(BINTREE *tree);
+
 
 void BinTreeFree(BINTREE *);
 
