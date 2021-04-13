@@ -97,7 +97,7 @@ test_all: test_sanity test_maps test_freq test_GDV
 all: most $(ehd_txts) test_all
 
 gcc-version:
-	@if ls $(SRCDIR)/*.gz | fgrep -q "$(GCC)"; then exit 0; else echo "gcc version not supported" >&2; exit 1; fi
+	@if ls $(SRCDIR)/*.gz | fgrep -q "$(GCC)"; then :; else echo "WARNING: gcc version not supported; prediction disabled" >&2; fi
 
 canon_maps: $(LIBWAYNE_HOME)/made $(canon_map_files) subcanon_maps
 
@@ -149,7 +149,7 @@ make-orca-jesse-blant-table: $(LIBWAYNE_HOME)/made $(SRCDIR)/magictable.cpp | $(
 	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE) -std=c++11 
 
 $(OBJDIR)/blant-predict.o:
-	if [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.o.Darwin.gz; else gunzip < $(SRCDIR)/blant-predict.o.$(GCC).gz; fi > $@
+	if [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.o.Darwin.gz; elif [ -f $(SRCDIR)/blant-predict.o.$(GCC).gz ]; then gunzip < $(SRCDIR)/blant-predict.o.$(GCC).gz; else $(CC) -c -o $(SRCDIR)/blant-predict.o $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE); cat $(SRCDIR)/blant-predict.o; fi > $@
 
 ### Object Files/Prereqs ###
 
