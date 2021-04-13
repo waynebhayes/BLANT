@@ -77,7 +77,7 @@ void BinTreeInsert(BINTREE *tree, foint key, foint info)
 
     tree->depthSum += depth; ++tree->depthSamples;
     double meanDepth = tree->depthSum/(double)tree->depthSamples;
-    if(tree->n > 5 && tree->depthSamples > 20 && meanDepth > 3*log(tree->n)) BinTreeRebalance(tree);
+    if(tree->physical_n > 30 && tree->depthSamples > 100 && meanDepth > 3*log(tree->physical_n)) BinTreeRebalance(tree);
 }
 
 
@@ -145,7 +145,7 @@ Boolean BinTreeLookup(BINTREE *tree, foint key, foint *pInfo)
     }
     tree->depthSum += depth; ++tree->depthSamples;
     double meanDepth = tree->depthSum/(double)tree->depthSamples;
-    if(tree->n > 5 && tree->depthSamples > 20 && meanDepth > 3*log(tree->n)) BinTreeRebalance(tree);
+    if(tree->physical_n > 30 && tree->depthSamples > 100 && meanDepth > 3*log(tree->physical_n)) BinTreeRebalance(tree);
     return false;
 }
 
