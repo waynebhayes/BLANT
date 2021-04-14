@@ -1,0 +1,25 @@
+#!/bin/sh
+# Wayne's zcat: cat an arbitrary file, uncompressing it if necessary.
+
+error() { echo "$@" >&2; return 1;}
+
+# If there are no arguments, get raw stuff from stdin
+case "$#" in
+0) cat; exit ;;
+esac
+
+VERBOSE=false
+
+for i
+do
+    if eval $VERBOSE; then echo --- $i --- >&2; fi
+    case "$i" in
+    -v) VERBOSE=true;;
+    -) cat ;; #stdin
+    *.xz|*.txz) xzcat "$i" ;;
+    *.Z|*.z|*.gz|*.tgz) gzcat "$i" ;;
+    *.bz|*.bz2|*.tbz) bzcat "$i" ;;
+    *) (cat "$i" || gzcat "$i".gz || bzcat "$i".bz2 || gzcat "$i".Z || bzcat "$i".bz || gzcat "$i".z) 2>/dev/null || error "wzcat: cannot open any raw or compressed version of '$i'"
+    esac
+done
+

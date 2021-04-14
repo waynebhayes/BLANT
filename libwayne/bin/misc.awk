@@ -279,7 +279,7 @@ function NormalPhi(x,    arg)
     if(arg<-723) return 1e-314;
     return 0.39894228040143267794*Exp(arg)
 }
-function NormalDist(mu,sigma,x){E=(mu-x)^2/(2*sigma*sigma);return Exp(-E)/(sigma*2.506628274631000502415765284811)}
+function NormalDist(mu,sigma,x,  E){E=(mu-x)^2/(2*sigma*sigma);return Exp(-E)/(sigma*2.506628274631000502415765284811)}
 function NormalZ2P(x,    b0,b1,b2,b3,b4,b5,t,paren)
 {
     if(x<0) return 1-NormalZ2P(-x);
