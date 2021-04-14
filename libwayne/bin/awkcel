@@ -1,0 +1,119 @@
+#!/bin/sh
+USAGE="USAGE: $0 [OPTIONS] {awkcel scipt} [ file1.tsv file2.tsv ...]
+PURPOSE: given input file[s] with a constant number of tab-separated columns (called 'TSV' files), the first line
+    contains the names of the columns, and each successive line contains the same number of tab-separated columns
+    containing values. The names of the columns on the first line must be 'awk' l-values (syntactically valid, assignable
+    variable names--ie., matching the regular expression [_A-Za-z][_A-Za-z0-9]*).
+    'awkcel script' is any normal awk script (including given in a file via -f) except it can use the names that are
+    in the header line as if they were normal variables; these variables are re-assigned with each line of the TSV file.
+    Comments are allowed in TSV files only ABOVE the header line, and # must be the FIRST character of the line.
+    All variables are remembered between files given on the same awkcel command-line (though if the same column name
+    appears in a later file it will over-write the variable assigned in a previous TSV file
+OPTIONS:
+    -f PROG_filename: put the awk script in a file--can contain only functions, for example
+	(multiple -f arguments are allowed and are processed in the order given)
+    -F FUNCTIONS_STRING: primarily for defining functions
+    -q: QUIET mode (suppress warnings)
+    -v: VERBOSE
+    -h: print header line"
+
+# Functions
+die(){ (echo "$USAGE"; echo "FATAL ERROR: $@")>&2; exit 1; }
+warn(){ (echo "WARNING: $@")>&2; }
+not(){ if eval "$@"; then return 1; else return 0; fi; }
+newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
+parse(){ awk "BEGIN{print $@}" </dev/null; }
+
+[ $# -eq 0 ] && die "Expecting arguments"
+
+# generally useful Variables
+NL='
+'
+TAB='	'
+BASENAME=`basename "$0" .sh`
+[ "$BASENAME" = skel ] && die "$0 is a skeleton Bourne Shell script; your scripts should source it, not run it"
+USAGE=${USAGE:?"$0 should have a USAGE message before sourcing skel.sh"}
+echo "$BASENAME" | grep "[ $TAB]" && die "Shell script names really REALLY shouldn't contain spaces or tabs"
+[ $BASENAME = "$BASENAME" ] || die "something weird with filename in '$BASENAME'"
+
+# Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
+TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
+ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+
+case `uname` in
+Darwin) GSED=gsed;; # we need a sed that takes the "nu" option
+Linux)GSED=sed;;
+*)GSED=sed;; # fingers crossed...
+esac
+
+EXEDIR="`dirname $0`"
+FIELD_SEP='	'
+QUIET=0
+touch $TMPDIR/prePROG
+VERBOSE=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+    -F) echo "$2" | sed 's/ and / \&\& /g' >> $TMPDIR/prePROG; shift 2;;
+    -f) cat "$2"  | sed 's/ and / \&\& /g' >> $TMPDIR/prePROG; shift 2;;
+    -q) QUIET=1; shift ;;
+    -v) VERBOSE=1; shift ;;
+    -?*) die "unknown option '$1'" ;;
+    *) [ ".$1" = ".-" -o -e "$1" ] && break; # assume first filename (or named pipe or whatever) ends all programs
+	echo "$1" | sed 's/ and / \&\& /g' >> $TMPDIR/prePROG; shift ;;
+    esac
+done
+
+
+# At this point all that's left is input TSV files.
+argi=0
+touch $TMPDIR/ASSIGN $TMPDIR/VARCOLS
+for i
+do
+    argi=`expr $argi + 1`
+    # Automatically create awk code to assign the appropriate variables from the header.  This is tricky if the input is a pipe:
+    # we need to avoid eating *anything* other than the header; thus the weird "sed -nu" command, which removes leading
+    # comment lines, prints the header line for the later pipe, and leaves the rest of the input untouched.
+    (echo 'if(ARGIND=='$argi'){if(FNR==0)next'; $GSED -nu '/^[^#]/{p;q}' "$i" | sed "s/$FIELD_SEP/ /g" | newlines | tr '$%' 'DP' | sed -e 's/[^_A-Za-z0-9]/_/g' | tee $TMPDIR/varNames.$argi | awk '{printf "%s=$%d\n", $1,NR}' | sed 's/^\([0-9]\)/_\1/'; echo '}') >> $TMPDIR/ASSIGN
+    # In the following, the FNR and FILENAME check is because when the TSV is on stdin, the header line is *gone* and the
+    # first line is actual data; otherwise the input is a real file and we *see* the header line--so we should skip it by
+    # initializing FNR=-1 so the header becomes line 0.
+    (echo 'if(ARGIND=='$argi'){if(FILENAME!="-"){--NR;FNR=-1}'; cat $TMPDIR/varNames.$argi | awk '{printf "colName[%d]=\"%s\";varCol[\"%s\"]=%d;%s=\"%s\"\n",NR,$1,$1,NR,$1,$1}END{printf "NumCols[ARGIND]=%d\n",NR}'; echo '}') >> $TMPDIR/VARCOLS
+done
+if [ "$VERBOSE" -eq 1 ]; then
+    cat "$TMPDIR/ASSIGN" >&2
+    cat "$TMPDIR/VARCOLS" >&2
+fi
+
+(cat $EXEDIR/misc.awk; echo '
+    BEGINFILE{'"`cat $TMPDIR/VARCOLS`"'}
+    # I am not sure why the next line was signaled as an error; comments before header are easy to ignore.
+    /^#/{next}
+    /^[^#]/{_awkcelStarted[ARGIND]=1}
+    # never mind, do not remove comments because sometimes a hash is on the line and it is too hard to figure out
+    # {gsub("#.*","")} # do not remove comments (see above)
+    /^$/{next}
+    NF!=NumCols[ARGIND]&&'$QUIET'==0{
+	Warn(sprintf("awkcel: expected %d columns at %s:%d but found %d", NumCols[ARGIND], FILENAME, FNR, NF));
+    }
+    /#/&&'$QUIET'==0{Warn(sprintf("awkcel: comment (#) character not honored on line %d of %s", FNR, FILENAME))}
+    !_awkcelStarted[ARGIND]{next}
+    {'"`cat $TMPDIR/ASSIGN`"'}'
+    cat $TMPDIR/prePROG
+) > $TMPDIR/fullPROG
+
+
+if gawk -F "$FIELD_SEP" -f $TMPDIR/fullPROG "$@"; then : # do nothing, just exit
+else
+    STATUS=$?
+    # egrep-like regular expression of exit status/signal names to ignore
+    IGNORE="PIPE"
+    # Automatically convert the names above to integers
+    if kill -l | fgrep -q "$TAB"; then # kill -l has the format "13) SIGPIPE", each separated by tabs
+	kill -l | tr "$TAB" "$NL"
+    else # kill -l has the format of space-separated "HUP INT QUIT", etc...
+	kill -l | newlines | grep -v IOT | nl   # but note IOT is a duplicate of TRAP--both are signal 6
+    fi | head -20 | egrep -i "$IGNORE" | awk '128+$1=='"$STATUS{good=1}END{exit !good}" && exit 0
+    echo "$BASENAME: gawk failed with status $STATUS; program and data are in directory $TMPDIR" >&2
+    trap "" 0 1 2 3 15 # do not remove file
+    exit $STATUS
+fi
