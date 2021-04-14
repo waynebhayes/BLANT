@@ -15,6 +15,13 @@ Our new tool, called BLANT (*Basic local Aligment Network Tool*), is intended to
 #### Stack Size
 Before starting *anything* below, you need to ensure your OS allows your programs enough stack space. Some machines today still ship with a default limit of 8MB---a *ridiculously* small limit on any machine built after about 1999.  You do not require sudo privileges to change this. If you're running Linux or MacOS, type "ulimit -s unlimited" to your Bash shell; if you're running any other system, you're on your own.
 
+Also, some useful utilities are in the directory libwayne/bin; you may want to add that directory to your PATH because some scripts in BLANT depend on them. Some of the programs there are
+
+- hawk: Hayes AWK, a script that adds a huge number of useful functions to AWK via the file misc.awk
+- awkcel: allow AWK to process tab-separated files with a header line where each header is a valid AWK variable name and then you can use those names in awk expressions. (The name "awkcel" rhymes with a particularly populer spreadsheet name you're probably familiar with).
+- wzcat: Wayne's "zcat", which is basically "cat" augmented to automatically decompress any files with recognized file extensions (eg filenames with the extension ".gz" will be automaticaly passed though "gunzip", ".xz" through "unxz", etc.)
+- wgcc: Wayne's gcc, which is just a front-end to gcc that automatically includes "libwayne" include and library directories.
+
 ### Building BLANT for the first time
 To make and then test *everything* just type
 
