@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     foint key, data;
     int lines=0;
 
-    while(fscanf(fp, "%s %d", &bufs[lines], &data.i) == 2) {
+    while(fscanf(fp, "%s %d", bufs[lines], &data.i) == 2) {
 	BinTreeInsert(tree, (foint)(key.s=bufs[lines++]), data);
 	BinTreeSanityCheck(tree);
     }
