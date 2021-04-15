@@ -4,6 +4,7 @@
 #include "queue.h"
 #include "rand48.h"
 #include "Oalloc.h"
+#include <ctype.h>
 #include <assert.h>
 #include <string.h>
 
