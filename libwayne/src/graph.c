@@ -499,6 +499,9 @@ GRAPH *GraphReadEdgeList(FILE *fp, Boolean sparse, Boolean supportNodeNames)
     char line[BUFSIZ];
     while(fgets(line, sizeof(line), fp))
     {
+	// nuke all whitespace, including DOS carriage returns, from the end of the line
+	int len = strlen(line);
+	while(isspace(line[len-1])) line[--len]='\0';
 	int v1, v2;
 	assert(numEdges <= maxEdges);
 	if(numEdges >= maxEdges)
