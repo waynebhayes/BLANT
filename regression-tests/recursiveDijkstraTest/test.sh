@@ -31,4 +31,6 @@ if ./Dijkstracmd; then
     exit $?
 else
     [ $? = 99 ] && exit 0 # ignoring failed Dijkstra
+    echo "Python failed... wrong Python version?" >&2
+    exit 0
 fi
