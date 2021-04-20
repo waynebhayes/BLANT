@@ -6,7 +6,8 @@ exitCode=0
 
 die(){ (echo "USAGE: $USAGE"; echo "`basename $0`: FATAL ERROR: $@")>&2; exit 1; }
 
-[ -f Dijkstra/dijkstra_helper.c ] && libwayne/bin/wgcc -o Dijkstra/libcalci.so -fPIC -shared libwayne/src/graph.c libwayne/src/sets.c libwayne/src/tinygraph.c libwayne/src/misc.c libwayne/src/bintree.c libwayne/src/combin.c libwayne/src/queue.c Dijkstra/dijkstra_helper.c
+../../libwayne/bin/wgcc -o ../../Dijkstra/libcalci.so -fPIC -shared ../../libwayne/src/graph.c ../../libwayne/src/sets.c ../../libwayne/src/tinygraph.c ../../libwayne/src/misc.c ../../libwayne/src/bintree.c ../../libwayne/src/combin.c ../../libwayne/src/queue.c ../../Dijkstra/dijkstra_helper.c
+echo "finished compile"
 
 BASENAME=`basename "$0" .sh`
 [ $BASENAME == "$BASENAME" ] || die "something weird with filename in '$BASENAME'"
