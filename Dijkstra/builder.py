@@ -17,7 +17,17 @@ build_graph() takes a file in the following format:
 Node 1 Node 2
 and returns a graph with every edge Node 1 <-> Node 2
 """
+from ctypes import *
+import os
+def find(name, path):
+    for root, dirs, files in os.walk(path):
+        if os.path.isfile(os.path.join(root, name)):
+            return os.path.join(root, name)
 
+lib_path = find("Dijkstra/libcalci.so", "../../");
+print(lib_path)
+libCalc = CDLL(lib_path)
+#libCalc = CDLL("../../Dijkstra/libcalci.so")
 
 def convert_graph_int(file):
     nodes = {}
@@ -60,8 +70,11 @@ def build_graph(file):
     for line in open(file):
         n1, n2 = line.split()
         g.build_adjmat(g.indexes[n1], g.indexes[n2])
-
-    return g
+    c_graph_pointer = libCalc.GraphAlloc(count, True, True)
+    for line in open(file):
+        n1, n2 = line.split()
+        c_graph_pointer = libCalc.GraphConnect(c_graph_pointer, g.indexes[n1], g.indexes[n2])
+    return g, c_graph_pointer
 
 """
 

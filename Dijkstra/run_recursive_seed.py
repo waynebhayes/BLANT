@@ -34,6 +34,7 @@ def initParser():
     parser.add_argument("-at", "--alignstop", required=False, default = -1, help = "Stop program after speciefied number of alignments generated")
     parser.add_argument("-sn", "--seednum", required=False, default = "", help = "seed num")
     parser.add_argument("-od", "--outputdir", required=False, default = "", help = "outputdir")
+    parser.add_argument('-copt', "--coptimize",required=False,  default = 1, help="using C code to speed up the Dijkstra process")
     parser.add_argument('-debug', "--debugval",action='store_true', help="adding debug will set to True, no entry is False")
 
     return parser
@@ -43,14 +44,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     delta = float(args.delta)
-
-    graph1 = builder.build_graph(args.graph1)
+    timestamp = time.perf_counter()
+    graph1, c_graph_a = builder.build_graph(args.graph1)
     graph1.name = os.path.basename(args.graph1)
-    print(graph1.name)
     graph1.name = os.path.splitext(graph1.name)[0]
-    graph2 = builder.build_graph(args.graph2)
+    graph2, c_graph_b = builder.build_graph(args.graph2)
     graph2.name = os.path.basename(args.graph2)
     graph2.name = os.path.splitext(graph2.name)[0] 
+
+    print(graph1.name + ": (edge count) " + str(graph1.num_edges()))
+    print(graph2.name + ": (edge count) " + str(graph2.num_edges()))
 
     g1_seedstr = args.g1seed
     g2_seedstr = args.g2seed
@@ -83,7 +86,7 @@ if __name__ == '__main__':
         sims = builder.get_sim(args.sim, graph1, graph2, args.pickle)
         print("sim built")
 
-        recalignment.rec_align(graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, alignstop=args.alignstop, timestop=timestop_arg, debug=args.debugval)
+        recalignment.rec_align(c_graph_a, c_graph_b, graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, alignstop=args.alignstop, timestop=timestop_arg, copt=args.coptimize, debug=args.debugval)
         # p = multiprocessing.Process(target=recalignment.rec_align, name = "alignfunc", args=((graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, args.alignstop,timestop_arg, args.debugval)))
         # p.start()
         # p.join(timestop_arg)
@@ -100,5 +103,4 @@ if __name__ == '__main__':
             p.terminate()
             
         #recalignment_nosim.rec_align(graph1, graph2, seed, ec_mode, ed, e1, delta, alpha, seednum, args.outputdir, timestop=timestop_arg, debug=args.debugval)    
-
 
