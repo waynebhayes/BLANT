@@ -4,15 +4,15 @@ To predict edges, we basically sample small subgraphs called "graphlets". If we 
 
 There are several version of the data, depending on how big the graphlets are that we sample; the variable "k" is used to denote the size of sampled subgraphs, so that k=4 means 4-node subgraph samples, k=8 is 8-node, etc. For example the k45 dataset contains graphlets of size 4 and 5; k456 contains graphlets up to size 6, etc. I have found that larger graphlets seem to produce better predictions, but the catch is that it takes exponentially longer to sample larger graphlets, and also the number of features grows exponentially with k. In the largest dataset there are about 200,000 possible features (ie., 200,000 possible columns where one column is one feature).
 
-Each row of the data contains one *pair of nodes*, say (u,v). Since the original network has about 9,000 nodes, there are (9000 choose 2) possible pairs--about 40 million pairs. Most of the folds have only 10-20 million lines, since the rest of pairs have counts of zero in all columns. Also, to avoid requiring 200,000 columns on every line, the "columns" are separated by tabs, and within one tab-delimited column are two space-separated strings: a feature ID of the form k:o:p where k is as above, and o and p are "orbit" identifiers (again details probably not relevant); and a value which is the feature value. Some lines (ie., node pairs (u,v)) have have only one nonzero feature; other node pairs have dozens of nonzero features.
+Each row of the data contains one *pair of nodes*, say (u,v). Since the original network has about 9,000 nodes, there are (9000 choose 2) possible pairs--about 40 million pairs. Most of the folds have only 10-20 million lines, since the rest of pairs have counts of zero in all columns. Also, to avoid requiring 200,000 columns on every line, the "columns" are separated by tabs, and within one tab-delimited column are two space-separated strings: a feature ID of the form k : o : p (without spaces) where k is as above, and o and p are "orbit" identifiers (again details probably not relevant); and a value which is the feature value. Some lines (ie., node pairs (u,v)) have have only one nonzero feature; other node pairs have dozens of nonzero features.
 
 The very first column contains the node pair as u:v, followed by a space, followed by a boolean (0 or 1) defining whether that pair of nodes has a known edge. So for example one line looks like this:
 
-ENSG00000150783:ENSG00000068976 0       4:11:11 0.173909
+    ENSG00000150783:ENSG00000068976 0   4:11:11 0.173909
 
 so ENSG00000150783 is one node, ENSG00000068976 is the other, there is no edge (0); then there's a tab; there is one nonzero feature named 4:11:11, with value 0.173909.  A longer line might look like this:
 
-ENSG00000182173:ENSG00000154743 1       5:40:40 0.192355        4:11:11 0.511344        5:60:59 0.021941
+    ENSG00000182173:ENSG00000154743 1   5:40:40 0.192355    4:11:11 0.511344    5:60:59 0.021941
 
 so this pair has an edge, and three non-zero features. Note that the feature IDs are *not* sorted, so feature ID 4:11:11 appears in the middle of these three nonzero features.
 
