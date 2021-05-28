@@ -807,7 +807,7 @@ int main(int argc, char *argv[])
 
     if(argc == 1)
     {
-	printf("%s\nNote: current TSET size is %d bits\n", USAGE, 8*sizeof(TSET));
+	printf("%s\nNote: current TSET size is %ld bits\n", USAGE, 8*sizeof(TSET));
 	exit(1);
     }
 
