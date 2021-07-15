@@ -28,7 +28,7 @@ libwayne.a:
 	$(MAKE) -j$(CORES) opt
 
 tests: libwayne.a
-	for x in stats hashtest htree-test bintree-test; do (cd tests; $(MAKE) $$x; mv $$x ../bin; [ -f $$x.in ] && cat $$x.in | ../bin/$$x $$x.in | wc); done
+	for x in covar stats hashtest htree-test bintree-test; do (cd tests; $(MAKE) $$x; mv $$x ../bin; [ -f $$x.in ] && cat $$x.in | ../bin/$$x $$x.in | wc); done
 
 opt:
 	$(MAKE) 'OPT=-O3' 'LIBOUT=libwayne.a' libwayne

@@ -1,4 +1,4 @@
-BEGIN{PI=M_PI=3.14159265358979324}
+BEGIN{PI=M_PI=3.14159265358979324;BIGNUM=1*1e30}
 
 function nul(s){} # do nothing; useful for holding temp strings in code on the command line.
 # The default srand() uses time-of-day, which only changes once per second. Not good enough for paraell runs.
@@ -143,7 +143,7 @@ function logIncGamma(s,x){
 
 # Since gawk can't pass arrays as parameters, we usurp the global array _Chi2_bins[*][*]. The first index of this array
 # is NAME; for a fixed name, the second index is the bins, which are assumed to be equally probable.
-function Chi2_stat(name,   n, bin, X2, avg) { ASSERT(name in _Chi2_bins && isarray(_Chi2_bins[name]), "Chi2_Stat: _Chi2_bins["name"] must be an array of your bin counts");
+function Chi2_stat(name,   bin,X2,avg) { ASSERT(name in _Chi2_bins && isarray(_Chi2_bins[name]), "Chi2_Stat: _Chi2_bins["name"] must be an array of your bin counts");
     _Chi2_n[name]=0; for(bin in _Chi2_bins[name])_Chi2_n[name]+=_Chi2_bins[name][bin];
     avg=_Chi2_n[name]/length(_Chi2_bins[name]);
     X2=0; for(bin in _Chi2_bins[name]) X2+=(_Chi2_bins[name][bin]-avg)^2/avg;
@@ -153,7 +153,8 @@ function    Chi2_pair2(df,X2){ASSERT(df%2==0,"Chi2_pair2 df "df" must be even");
 function logChi2_pair2(df,X2){ASSERT(df%2==0,"Chi2_pair2 df "df" must be even"); return logIncGamma(df/2,X2/2)-logGamma(df/2)}
 function    Chi2_pair (df,X2){return df%2==0 ? Chi2_pair2(df,X2) : sqrt(Chi2_pair2(df-1, X2)*Chi2_pair2(df+1,X2))}
 function logChi2_pair (df,X2){return df%2==0 ? logChi2_pair2(df,X2) : (logChi2_pair2(df-1, X2)+logChi2_pair2(df+1,X2))/2}
-function    Chi2_tail(name){return    Chi2_pair(length(_Chi2_bins[name]),Chi2_stat(name))}
+function Chi2_tail_raw(df, x){return  Chi2_pair(df, x)}
+function    Chi2_tail(name)  {return  Chi2_pair(length(_Chi2_bins[name]),Chi2_stat(name))}
 function logChi2_tail(name){return logChi2_pair(length(_Chi2_bins[name]),Chi2_stat(name))}
 
 function NumBits(n,    b) {b=0;while(n>0){if(n%2==1)b++;n=int(n/2)}; return b}
@@ -199,16 +200,58 @@ function LSPredict(n, x, y, xIn,      SUMx,SUMy,SUMxy,SUMxx,i,slope,y_intercept,
     if(n>0 && (SUMx*SUMx - n*SUMxx) != 0) {
 	slope = ( SUMx*SUMy - n*SUMxy ) / ( SUMx*SUMx - n*SUMxx );
 	y_intercept = ( SUMy - slope*SUMx ) / n;
-	x_intercept = 1e30;
+	x_intercept = BIGNUM;
 	if(slope != 0) x_intercept = -y_intercept / slope;
 	return slope*xIn + y_intercept;
     }
 }
 function StatReset(name) {
     _statN[name] = _statSum[name] = _statSum2[name] = 0;
-    _statMin[name]=1e30;_statMax[name]=-1e30;
-    _statmin[name]=1e30
+    _statMin[name]=BIGNUM;_statMax[name]=-BIGNUM;
+    _statmin[name]=BIGNUM
 }
+
+function StatHistAddSample(name, x) {
+    if(!(name in _statHistMin)) _statHistMin[name]=-1*BIGNUM;
+    x=1*x;
+    if(x < _statHistMin[name]) _statHistMin[name]=x;
+    ++_statHist[name][x];
+    ++_statHistN[name];
+}
+function StatHistMakeCDF(name,    x,prevX,PMF) {
+    delete _statHistCDF[name];
+    prevX=(-BIGNUM); # very very negative number
+    PROCINFO["sorted_in"]="@ind_num_asc"; # traverse the array in numerical ascending order by index (ie., x)
+    for(x in _statHist[name]) {
+	x=1*x; # ensure it is a number
+	ASSERT(x > prevX, "oops, StatHistMakeCDF found non-incrementing x: "prevX" to "x);
+	PMF = _statHist[name][x]/(_statHistN[name]);
+	_statHistCDF[name][x] = _statHistCDF[name][prevX] + PMF;
+	#printf "_statHistCDF[%s][%g]=%g\n", name, x, _statHistCDF[name][x] >"/dev/stderr";
+	prevX = x;
+    }
+    # _statHistCDF[name][prevX] may be above 1 due to numerical error; give it some leeway here.
+    ASSERT(_statHistCDF[name][prevX]<1+1e-6/_statHistN[name], "_statHistCDF["name"]["prevX"]-1="_statHistCDF[name][prevX]-1" which is too far above 1");
+    delete _statHistCDF[name][-BIGNUM]; # remove the array element that was created in the first loop above.
+    _statHistCDF[name][prevX]=1;
+}
+function StatHistECDF(name,z,  x,prevX,frac,h1,h2) {
+    z=1*z;
+    ASSERT(name in _statHist, "StatHistECDF: no such histogram "name);
+    if(z<=_statHistMin[name]) return 0;
+    #if(z==_statHistMin[name]) return 0 * _statHistCDF[name][_statHistMin[name]];
+    PROCINFO["sorted_in"]="@ind_num_asc";
+    prevX=_statHistMin[name];
+    for(x in _statHistCDF[name]){
+	if(1*x>z) {
+	    frac=(z-prevX)/(x-prevX); h2=_statHistCDF[name][x];h1=_statHistCDF[name][prevX];
+	    return h1 + frac*(h2-h1);
+	}
+	prevX=x;
+    }
+    return 1;
+}
+
 function StatAddSample(name, x) {
     if(1*_statN[name]==0)StatReset(name);
     _statN[name]++;
@@ -270,7 +313,7 @@ function NormalPtoZ(quantile,    q,z1,n,d)
 }
 function Exp(x){
     if(x < -745) return 5e-324
-    else if(x > 707) return 1e307;
+    else if(x > 707) return BIGNUM7;
     else return exp(x);
 }
 function NormalPhi(x,    arg)
@@ -344,7 +387,7 @@ function logBinomialCDF(p,n,k, i,logSum) {
     else      {logSum=logBinomialPMF(1-p,n,n);for(i=1;i<=k;i++) logSum=LogSumLogs(logSum, logBinomialPMF(1-p,n,n-i))}
     return logSum
 }
-function Pearson2T(n,r){if(r==1)return 1e30; else return r*sqrt((n-2)/(1-r^2))}
+function Pearson2T(n,r){if(r==1)return BIGNUM; else return r*sqrt((n-2)/(1-r^2))}
 # The Poisson1_CDF is 1-CDF, and sums terms smallest to largest; near CDF=1 (ie., 1-CDF=0) it is accurate well below eps_mach.
 function PoissonCDF(l,k, sum, term, i){sum=term=1;for(i=1;i<=k;i++){term*=l/i;sum+=term}; return sum*Exp(-l)}
 function PoissonPMF(l,k, r,i){if(l>723)return NormalDist(l,sqrt(l),k);r=Exp(-l);for(i=k;i>0;i--)r*=l/i;return r} 
@@ -353,7 +396,7 @@ function Poisson1_CDF(l,k, i,sum,psum){psum=-1;sum=0;for(i=k;psum!=sum;i++){psum
     if(sum==0 && k<l) return 1; # this means the numbers are so big the sum got zero but we got less than expected.
     else return sum
 }
-function LogPoisson1_CDF(l,k, i,sum,pmax,max){pmax=2;max=-1e30;for(i=k;pmax!=max;i++){pmax=max;max=MAX(max,LogPoissonPMF(l,i))};
+function LogPoisson1_CDF(l,k, i,sum,pmax,max){pmax=2;max=-BIGNUM;for(i=k;pmax!=max;i++){pmax=max;max=MAX(max,LogPoissonPMF(l,i))};
     if(max==1 && k<l) return 0; # this means the numbers are so big the sum got zero but we got less than expected.
     else return max/.894
 }
@@ -507,6 +550,24 @@ function SpearmanCompute(name, i) {
 }
 function SpearmanPrint(name) { return SpearmanCompute(name) }
 
+function CovarReset(name) {
+    delete _Covar_sumX[name]
+    delete _Covar_sumY[name]
+    delete _Covar_sumXY[name]
+    delete _Covar_N[name]
+}
+function CovarAddSample(name,X,Y) {
+    _Covar_sumX[name]+=X
+    _Covar_sumY[name]+=Y
+    _Covar_sumXY[name]+=X*Y
+    _Covar_N[name]++;
+}
+
+function CovarCompute(name){
+    ASSERT(1*_Covar_N[name], "CovarCompute requires N>=1 but it is "_Covar_N[name]);
+    return (_Covar_sumXY[name]-_Covar_sumX[name]*_Covar_sumY[name]/_Covar_N[name])/(_Covar_N[name]-1);
+}
+
 function PearsonReset(name) {
     delete _Pearson_sumX[name]
     delete _Pearson_sumY[name]
@@ -529,8 +590,8 @@ function PearsonAddSample(name,X,Y) {
 }
 
 function PearsonCompute(name,     numer,DX,DY,denom,z,zse,F){
-    if(!_Pearson_N[name])return;
-    if(_PearsonComputeValid[name]) return;
+    if(!_Pearson_N[name])return 0;
+    if(_PearsonComputeValid[name]) return 1;
     numer=_Pearson_sumXY[name]-_Pearson_sumX[name]*_Pearson_sumY[name]/_Pearson_N[name]
     DX=_Pearson_sumX2[name]-_Pearson_sumX[name]*_Pearson_sumX[name]/_Pearson_N[name]
     DY=_Pearson_sumY2[name]-_Pearson_sumY[name]*_Pearson_sumY[name]/_Pearson_N[name]
@@ -545,6 +606,7 @@ function PearsonCompute(name,     numer,DX,DY,denom,z,zse,F){
     # We seem to be at least 100x too small according to Fisher
     if(_Pearson_p[name]>1)_Pearson_p[name]=1-1/_Pearson_p[name]
     _PearsonComputeValid[name]=1;
+    return 1
 }
 
 function PearsonPrint(name, logp){
