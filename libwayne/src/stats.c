@@ -68,12 +68,17 @@ static double Exp(double x){
 static double NormalPhi(double x)
 {
     double arg=-x*x/2;
-    if(arg<-723) return 1e-314;
+    if(arg < -744) return 1e-323; // smallest representable, non-normalized FP number
     return 0.39894228040143267794*Exp(arg);
 }
 
 static double NormalDist(double mu, double sigma, double x){
     double E=SQR(mu-x)/(2*sigma*sigma);
+    if(-E < -744) {
+	static int numWarn;
+	if(numWarn++ < 10) Warning("NormalDist: Exp(%g) too small to represent (warning #%d)", -E, numWarn);
+	else if(numWarn++ == 10) Warning("NormalDist: Exp(%g) too small to represent (further warnings supressed)", -E);
+    }
     return Exp(-E)/(sigma*2.506628274631000502415765284811);
 }
 
