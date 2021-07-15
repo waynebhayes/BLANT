@@ -49,6 +49,17 @@ Boolean PearsonCompute(PEARSON *); // returns whether a new computation was requ
 char *PearsonPrint(PEARSON *p); // WARNING: returns pointed to STATIC internal buffer; calls Compute if necessary
 void PearsonFree(PEARSON*); // WARNING: returns pointed to STATIC internal buffer; calls Compute if necessary
 
+typedef struct _covar {
+    int n;
+    double sumX, sumY, sumXY;
+} COVAR;
+COVAR *CovarAlloc(void);
+COVAR *CovarReset(COVAR*);
+int CovarAddSample(COVAR*, double x, double y); // returns number of samples so far, including this one.
+double Covariance(COVAR*); // returns actual covariance
+void CovarFree(COVAR*);
+
+
 /*
 ** Random number distributions.
 */

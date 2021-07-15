@@ -36,6 +36,34 @@ STAT *StatAlloc(int numHistogramBins, double histMin, double histMax,
     return s;
 }
 
+COVAR *CovarAlloc(void)
+{
+    COVAR *c = Calloc(1, sizeof(COVAR));
+    c->n = 0;
+    c->sumX = c->sumY = c->sumXY = 0.;
+    return c;
+}
+COVAR *CovarReset(COVAR *c)
+{
+    c->n = 0;
+    c->sumX = c->sumY = c->sumXY = 0.;
+    return c;
+}
+int CovarAddSample(COVAR *c, double x, double y)
+{
+    c->n++;
+    c->sumX += x;
+    c->sumY += y;
+    c->sumXY += x*y;
+    return c->n;
+}
+double Covariance(COVAR *c)
+{
+    assert(c->n > 1);
+    return (c->sumXY - (c->sumX * c->sumY)/c->n)/(c->n-1);
+}
+void CovarFree(COVAR*c){Free(c);}
+
 PEARSON *PearsonAlloc(void)
 {
     PEARSON *p = Calloc(1, sizeof(PEARSON));
@@ -68,18 +96,20 @@ static double Exp(double x){
 static double NormalPhi(double x)
 {
     double arg=-x*x/2;
-    if(arg < -744) return 1e-323; // smallest representable, non-normalized FP number
-    return 0.39894228040143267794*Exp(arg);
+    if(arg < -744) {
+	static int numWarn;
+	if(numWarn++ < 10) Warning("NormalPhi: Exp(%g) too small to represent (warning #%d)", arg, numWarn);
+	else if(numWarn == 10) Warning("NormalDist: Exp(%g) too small to represent (further warnings supressed)", arg);
+#if 0 // set to 1 if you want to return something smallest representable rather than zero.
+	return 1e-323; // smallest representable, non-normalized FP number
+#endif
+    }
+    return Exp(arg)/2.506628274631000502415765284811;
 }
 
 static double NormalDist(double mu, double sigma, double x){
-    double E=SQR(mu-x)/(2*sigma*sigma);
-    if(-E < -744) {
-	static int numWarn;
-	if(numWarn++ < 10) Warning("NormalDist: Exp(%g) too small to represent (warning #%d)", -E, numWarn);
-	else if(numWarn++ == 10) Warning("NormalDist: Exp(%g) too small to represent (further warnings supressed)", -E);
-    }
-    return Exp(-E)/(sigma*2.506628274631000502415765284811);
+    double X = (x-mu)/sigma;
+    return NormalPhi(X);
 }
 
 Boolean PearsonCompute(PEARSON *p)
