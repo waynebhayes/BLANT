@@ -1,8 +1,5 @@
 #!/bin/bash
 cd `dirname $0`
-echo "Testing recursive Dijkstra"
-
-exitCode=0
 
 die(){ (echo "USAGE: $USAGE"; echo "`basename $0`: FATAL ERROR: $@")>&2; exit 1; }
 
@@ -30,7 +27,8 @@ if ./Dijkstracmd; then
 	awk 'BEGIN{FAIL=1}{print NR, $0; md5[NR]=$1}END{exit( md5[1]!=md5[2] ? FAIL : !FAIL)}'
     exit $?
 else
-    [ $? = 99 ] && exit 0 # ignoring failed Dijkstra
+    D=$?
+    [ $D = 99 ] && exit 0 # ignoring missing SIM file
     echo "Python failed... wrong Python version?" >&2
-    exit 0
+    exit $D
 fi
