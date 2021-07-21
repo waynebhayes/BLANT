@@ -95,7 +95,7 @@ double StatECDF(STAT *s, double z)
     assert(*x == s->allData[i]);
     if(*x == z) return i*1.0/s->n; // exactly at one of the points
     else if(*x < z) {x1=x; assert(i+1<s->n); x2=x+1; assert(x2-(s->allData) < s->n);}
-    else if(*x > z) {x2=x; assert(i>0);      x1=x-1; assert(x1-(s->allData) >= 0  );}
+    else {assert(*x > z); x2=x; assert(i>0);      x1=x-1; assert(x1-(s->allData) >= 0  );}
     assert(*x1<=z && z<=*x2);
     double frac=(z-*x1)/(*x2-*x1), h1=(double)(x1-s->allData)/s->n, h2=(double)(x2-s->allData)/s->n;
     return h1 + frac*(h2-h1);
