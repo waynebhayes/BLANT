@@ -16,7 +16,7 @@
 #include <string.h>
 
 STAT *StatAlloc(int numHistogramBins, double histMin, double histMax,
-    Boolean geom)
+    Boolean geom, Boolean allData)
 {
     STAT *s = Calloc(1, sizeof(STAT));
     s->n = 0;
@@ -32,6 +32,10 @@ STAT *StatAlloc(int numHistogramBins, double histMin, double histMax,
 	s->histMin = histMin;
 	s->histWidth = histMax-histMin;
 	s->histCumulative = false;
+    }
+    if(allData) {
+	s->allData = Calloc(DATA_SIZE_INIT, sizeof(double));
+	s->dataSize = DATA_SIZE_INIT;
     }
     return s;
 }
@@ -63,6 +67,40 @@ double Covariance(COVAR *c)
     return (c->sumXY - (c->sumX * c->sumY)/c->n)/(c->n-1);
 }
 void CovarFree(COVAR*c){Free(c);}
+
+static int CmpDouble(const void *a, const void *b)
+{
+    const double *x = (const double*)a, *y = (const double*)b;
+    return (*x)-(*y);
+}
+
+static STAT *DataSort(STAT *s)
+{
+    assert(s->allData);
+    if(s->dataSorted) return s;
+    qsort(s->allData, s->n, sizeof(s->allData[0]), CmpDouble);
+    s->dataSorted = true;
+    return s;
+}
+
+double StatECDF(STAT *s, double z)
+{
+    DataSort(s);
+    if(z < s->allData[0]) return 0; // CDF is zero to the left of smallest element
+    if(z > s->allData[s->n-1]) return 1; // CDF is one to the right of largest element
+    void *v = bsearch((void*)&z, (void*)s->allData, s->n, sizeof(s->allData[0]), CmpDouble);
+    double *x = (double *)v, *x1, *x2;
+    int i = x - s->allData; // index of element found
+    assert(0 <= i && i < s->n);
+    assert(*x == s->allData[i]);
+    if(*x == z) return i*1.0/s->n; // exactly at one of the points
+    else if(*x < z) {x1=x; assert(i+1<s->n); x2=x+1; assert(x2-(s->allData) < s->n);}
+    else if(*x > z) {x2=x; assert(i>0);      x1=x-1; assert(x1-(s->allData) >= 0  );}
+    assert(*x1<=z && z<=*x2);
+    double frac=(z-*x1)/(*x2-*x1), h1=(double)(x1-s->allData)/s->n, h2=(double)(x2-s->allData)/s->n;
+    return h1 + frac*(h2-h1);
+}
+
 
 PEARSON *PearsonAlloc(void)
 {
@@ -181,7 +219,6 @@ static void ToggleHistType(STAT *s)
 
 void StatAddSample(STAT *s, double sample)
 {
-    s->n++;
     s->sum += sample;
     s->sum2 += sample * sample;
     s->sum3 += sample * sample * sample;
@@ -214,11 +251,20 @@ void StatAddSample(STAT *s, double sample)
 	else
 	    ++s->histogram[histBin];
     }
+    if(s->allData) {
+	assert(s->n <= s->dataSize);
+	if(s->n == s->dataSize){
+	    s->dataSize *= 2;
+	    s->allData = Realloc(s->allData, s->dataSize * sizeof(double));
+	}
+	s->allData[s->n] = sample;
+	s->dataSorted = false;
+    }
+    s->n++;
 }
 
 void StatDelSample(STAT *s, double sample)
 {
-    s->n--;
     s->sum -= sample;
     s->sum2 -= sample*sample;
     s->sum3 -= sample * sample * sample;
@@ -261,6 +307,9 @@ void StatDelSample(STAT *s, double sample)
 	else
 	    --s->histogram[histBin];
     }
+    if(s->allData) Apology("StatDeleteSample: cannot delete samples when allData is true--it's too expensive");
+    s->dataSorted = false;
+    s->n--;
 }
 
 int *StatHistogram(STAT*s)
