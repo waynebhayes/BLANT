@@ -65,10 +65,10 @@ int main(int argc, char *argv[])
 	    exit(1);
 	}
 
-	st = StatAlloc(numBins, histMin, histMax, geom);
+	st = StatAlloc(numBins, histMin, histMax, geom, false);
     }
     else
-	st = StatAlloc(0, 0, 0, geom);
+	st = StatAlloc(0, 0, 0, geom, false);
 
     assert(nextArg <= argc);
     if(nextArg == argc) fp = stdin;
