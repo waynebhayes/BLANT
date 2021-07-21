@@ -4,19 +4,19 @@
 /* Cheap statistics taker and computer */
 
 typedef struct _statistic {
-    int n, numHistBins;
-    Boolean geom, histCumulative;
+    int n, numHistBins, *histogram, dataSize;
+    Boolean geom, histCumulative, dataSorted;
     double sum, sum2, sum3, geomSum, geomSum2, geomSum3;
-    double histMin, histWidth, min, max;
-    int *histogram;
+    double histMin, histWidth, min, max, *allData;
 } STAT;
+#define DATA_SIZE_INIT 1024 // initial size of allData array, if allData=true.
 
 /* set numHistogramBins to zero if you don't want a histogram.
 ** Set geometricStuff to true if you want to keep track of the geometric
 ** mean.
 */
 STAT *StatAlloc(int numHistogramBins, double histMin, double histMax,
-    Boolean geometricStuff);
+    Boolean geometricStuff, Boolean allData);
 STAT *StatReset(STAT *s);   /* reset the stats of this variable */
 void StatFree(STAT *s);     /* de-allocate the variable */
 void StatAddSample(STAT *s, double sample);
@@ -34,6 +34,8 @@ double StatGeomSkew(STAT*);
 #define StatSampleSize(s) ((s)->n)
 int *StatHistogram(STAT*);	/* non-cumulative histogram */
 int *StatCumulativeHistogram(STAT*);
+
+double StatECDF(STAT *s, double x); // requires allData, returns empirical CDF at x.
 
 typedef struct _pearson {
     Boolean computeValid; // are the current outputs valid?
