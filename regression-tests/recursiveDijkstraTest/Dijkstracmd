@@ -1,7 +1,9 @@
 #!/bin/sh
 SIM=IIDmouse-IIDhuman.sim.xz
+PICKLE=IIDmouseIIDhuman.sim.pickle
 if [ -r "$SIM" ]; then
-    exec python3 ../../Dijkstra/run_recursive_seed.py  -g1 IIDmouse.el  -g2 IIDhuman.el  -g1s IIDmouse_perfect_Deg32.txt -g2s IIDhuman_perfect_Deg32.txt -s "$SIM" -d 0.0 -ed 0.3 -t 1 -at 10 -pk IIDmouseIIDhuman.sim.pickle  -ec1 0.6 -ec2 0.6  -sb 0.064  -g1sline 7 -g2sline 7 -sn 7
+    rm -f $PICKLE
+    exec python3 ../../Dijkstra/run_recursive_seed.py  -g1 IIDmouse.el  -g2 IIDhuman.el  -g1s IIDmouse_perfect_Deg32.txt -g2s IIDhuman_perfect_Deg32.txt -s "$SIM" -d 0.0 -ed 0.3 -t 1 -at 10 -pk $PICKLE -ec1 0.6 -ec2 0.6  -sb 0.064  -g1sline 7 -g2sline 7 -sn 7
 else
     echo "Warning: skipping recursiveDijkstra test due to missing SIM file '$SIM'" >&2
     exit 99
