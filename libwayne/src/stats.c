@@ -92,8 +92,9 @@ double StatECDF(STAT *s, double z)
     double *x = (double *)v, *x1, *x2;
     int i = x - s->allData; // index of element found
     assert(0<=i && i<s->n);
-    until(i==0 || s->allData[i]<=z) {assert(i>0); --i;}
+    // following two loops find the *lowest* value that works
     until(i==s->n-1 || s->allData[i+1]>=z) {assert(i < s->n-1); ++i;}
+    until(i==0 || s->allData[i]<=z) {assert(i>0); --i;}
     assert(0 <= i && i < s->n);
     x = s->allData + i;
     assert(*x == s->allData[i]);

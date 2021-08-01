@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 	    }
 	    //fprintf(stderr, "\n");
 	}
-	printf("cov_sum %g\n",cov_sum);
+	//printf("cov_sum %g\n",cov_sum);
 	Var = 4.0*m+2*cov_sum;
 	c = Var/(2.0*Expected);
 	df_brown = 2.0*SQR(Expected)/Var;
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 	    df_brown = df_fisher;
 	    c = 1.0;
 	}
-	printf("c = %g\n", c);
+	//printf("c = %g\n", c);
 	pProd=1; log_pProd=0;
 	x=0; // twice the sum of logs of p-values
 	for(i=1;i<=m;i++)
@@ -111,11 +111,11 @@ int main(int argc, char *argv[])
 	    }
 	    else fprintf(stderr, "skipping pVal[%d]=%g\n",i, pVal[i]);
 	x *= 2;
-	printf("x = %g\n", x);
+	//printf("x = %g\n", x);
 	log_p_brown = logChi2_pair((int)(df_brown+0.5), 1.0*x/c);
 	p_brown = Exp(log_p_brown);
 
 	if(p_brown < pProd)
 	    Fatal("Oops, something wrong: p_brown should be < product(pVals), but p_brown = %g while product = %g", p_brown, pProd);
-	printf("%g %g bits %g %g bits\n", p_brown, -log_p_brown/log(2.0), pProd, -log_pProd/log(2));
+	printf("%g = %g bits; %g = %g bits\n", p_brown, -log_p_brown/log(2.0), pProd, -log_pProd/log(2));
     }
