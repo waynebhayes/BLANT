@@ -147,6 +147,9 @@ void PrintArray(FILE *fp, int n, int *array);
 long long IIntPow(int, int);
 double IntPow(double, int);
 int Log2(int);	/* integer part of log to the base 2 */
+double Exp(double x); // exp(x) with some error checking for x in bounds
+double AccurateLog1(double x); // return log(1+x) as accurately as possible, even for x<<1.
+double LogSumLogs(double log_a, double log_b); // given log(a) and log(b), return log(a+b)
 
 /* Greatest Common Divisor */
 int gcd(int a, int b);

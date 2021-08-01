@@ -91,7 +91,11 @@ double StatECDF(STAT *s, double z)
     void *v = bsearch((void*)&z, (void*)s->allData, s->n, sizeof(s->allData[0]), CmpDouble);
     double *x = (double *)v, *x1, *x2;
     int i = x - s->allData; // index of element found
+    assert(0<=i && i<s->n);
+    until(i==0 || s->allData[i]<=z) {assert(i>0); --i;}
+    until(i==s->n-1 || s->allData[i+1]>=z) {assert(i < s->n-1); ++i;}
     assert(0 <= i && i < s->n);
+    x = s->allData + i;
     assert(*x == s->allData[i]);
     if(*x == z) return i*1.0/s->n; // exactly at one of the points
     else if(*x < z) {x1=x; assert(i+1<s->n); x2=x+1; assert(x2-(s->allData) < s->n);}
@@ -99,6 +103,39 @@ double StatECDF(STAT *s, double z)
     assert(*x1<=z && z<=*x2);
     double frac=(z-*x1)/(*x2-*x1), h1=(double)(x1-s->allData)/s->n, h2=(double)(x2-s->allData)/s->n;
     return h1 + frac*(h2-h1);
+}
+
+static double fact(int k)    {if(k<=0)return 1; else return k*fact(k-1);}
+static double logFact(int k) { if(k<=0)return 0; else return (log(k)+logFact(k-1));}
+static double fact2(int k)    {if(k<=1)return 1; else return k*fact2(k-2);}
+static double logFact2(int k) {if(k<=1)return 0; else return log(k)+logFact2(k-2);}
+
+double HalfGamma(int k) {return sqrt(M_PI) *   fact2(k-2)/IntPow(sqrt(2.0),(k-1));}
+double logHalfGamma(int k){return log(sqrt(M_PI))+logFact2(k-2)-(k-1)*log(sqrt(2));}
+double Gamma(double x)    {if(x==(double)(int)(x)) return    fact((int)(x-1));if(2*x==(double)(int)(2*x))return    HalfGamma(2*(int)x); else Fatal("Gamma only implemented for integers and half-integers, but given %g", x);return 0;}
+double logGamma(double x) {if(x==(double)(int)(x)) return logFact((int)(x-1));if(2*x==(double)(int)(2*x))return logHalfGamma(2*(int)x);else Fatal("Gamma only for integers and half-integers"); return 0;}
+
+double    Chi2_pair2(int df, double X2){assert(df%2==0); return    IncGamma(df/2,X2/2) /  Gamma(df/2);}
+double logChi2_pair2(int df, double X2){assert(df%2==0); return logIncGamma(df/2,X2/2)-logGamma(df/2);}
+double    Chi2_pair (int df, double X2){return df%2==0 ? Chi2_pair2(df,X2) : sqrt(Chi2_pair2(df-1, X2)*Chi2_pair2(df+1,X2));}
+double logChi2_pair (int df, double X2){return df%2==0 ? logChi2_pair2(df,X2) : (logChi2_pair2(df-1, X2)+logChi2_pair2(df+1,X2))/2;}
+
+double IncGamma(int s, double x)
+{
+    assert(s>=1);
+    if(s==1)return Exp(-x);
+    else return (s-1)*IncGamma(s-1,x) + IntPow(x,(s-1))*Exp(-x);
+}
+
+double logIncGamma(int s, double x)
+{
+    assert(s>=1);
+    if(s==1)return -x;
+    else {
+        assert(x>0);
+        double log_a = log(s-1.0) + logIncGamma(s-1,x), log_c = (s-1)*log(x)-x;
+        return LogSumLogs(log_a,log_c);
+    }
 }
 
 
@@ -124,12 +161,6 @@ int PearsonAddSample(PEARSON *p, double x, double y)
 }
 
 static double Pearson2T(int n, double r){if(r==1)return 1e30; else return r*sqrt((n-2)/(1-r*r));}
-
-static double Exp(double x){
-    if(x < -745) return 5e-324;
-    else if(x > 707) return 1e307;
-    else return exp(x);
-}
 
 static double NormalPhi(double x)
 {
@@ -188,6 +219,11 @@ STAT *StatReset(STAT *s)
 	memset(s->histogram - 1, 0, (s->numHistBins+2) * sizeof(int));
 	s->histCumulative = false;
     }
+    if(s->allData) {
+	Free(s->allData);
+	s->allData = Calloc(DATA_SIZE_INIT, sizeof(double));
+	s->dataSize = DATA_SIZE_INIT;
+    }
     return s;
 }
 
@@ -195,6 +231,7 @@ void StatFree(STAT *s)
 {
     if(s->numHistBins)
 	Free(s->histogram-1);   /* since we bumped it up before */
+    if(s->allData) Free(s->allData);
     Free(s);
 }
 

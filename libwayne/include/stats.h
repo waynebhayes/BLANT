@@ -37,6 +37,13 @@ int *StatCumulativeHistogram(STAT*);
 
 double StatECDF(STAT *s, double x); // requires allData, returns empirical CDF at x.
 
+double HalfGamma(int k), logHalfGamma(int k), Gamma(double x), logGamma(double x);
+
+double IncGamma(int s, double x), logIncGamma(int s, double x);
+double    Chi2_pair2(int df, double X2), logChi2_pair2(int df, double X2);
+double    Chi2_pair (int df, double X2), logChi2_pair (int df, double X2);
+
+
 typedef struct _pearson {
     Boolean computeValid; // are the current outputs valid?
     int n; // number of samples so far

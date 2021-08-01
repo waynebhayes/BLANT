@@ -182,6 +182,45 @@ double IntPow(double a, int n)
 	return result * result;
 }
 
+double Exp(double x){
+    if(x < -745) return 5e-324;
+    else if(x > 707) return 1e307;
+    else return exp(x);
+}
+
+double AccurateLog1(double x)
+{
+    double absX=fabs(x);
+    if(absX<1e-16) return x; // close to machine eps? it's just x
+    if(absX>4e-6) return log(1+x); // built-in one is very good in this range
+    assert(x>=-0.5 && x<=1); // otherwise AccurateLog1(x) will not converge
+#define MAX_LOG_TERMS 1000
+    double sum=0, sumNeg=0, sumPos=0, term=x, _log1Terms[MAX_LOG_TERMS]; // note _log1Terms[0] will remain unused
+    // This first loop is just to get the terms, not actually computing the true sum
+    int i, n=1;
+    while(n==1 || fabs(term/sum)>1e-20){sum+=fabs(term); assert(n<MAX_LOG_TERMS); _log1Terms[n++]=term; term*=x/n;}
+    // Now sum the terms smallest-to-largest, keeping the two signs separate
+    for(i=n;i>0;i--)if(_log1Terms[i]<0)sumNeg+=_log1Terms[i]; else sumPos+=_log1Terms[i];
+    sum = sumNeg + sumPos;
+    sum -= sum*sum; // I'm not sure why, but this gives a MUCH better approximation???
+    return sum;
+}
+
+double LogSumLogs(double log_a, double log_b)
+{
+    double m=MIN(log_a,log_b), M=MAX(log_a,log_b);
+    assert(M>=m);
+    if(M-m > 37) return M; // m < M*machine_eps, so m won't change M.
+    double approx = M+AccurateLog1(Exp(m-M));
+    if(fabs(log_a)<700 && fabs(log_b) < 700){
+        double truth=log(exp(log_a)+exp(log_b));
+        if(fabs((approx-truth)/truth)>1e-10)
+            fprintf(stderr, "LogSumLogs badApprox: log_a %g log_b %g M %g m %g approx %g truth %g\n",log_a,log_b,M,m,approx,truth);
+    }
+    return approx;
+}
+
+
 
 int Log2(int n)
 {
