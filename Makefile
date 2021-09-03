@@ -242,6 +242,7 @@ realclean:
 pristine: clean # also clean all canonical data and libwayne
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 	@/bin/rm -f canon_maps/* .firsttime
+	@find . -name __pycache__ -o -name '*.pyc' | xargs /bin/rm -rf
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create
