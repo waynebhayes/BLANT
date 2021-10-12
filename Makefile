@@ -172,8 +172,8 @@ $(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
 
 $(LIBWAYNE_HOME)/Makefile:
 	echo "Hmm, submodule libwayne doesn't seem to exist; getting it now"
-	git submodule init
-	git submodule update
+	git submodule init libwayne
+	git submodule update libwayne
 	(cd libwayne && git checkout master && git pull)
 
 libwayne: $(LIBWAYNE_HOME)/Makefile $(LIBWAYNE_HOME)/made

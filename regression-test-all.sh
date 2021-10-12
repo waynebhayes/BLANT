@@ -48,7 +48,7 @@ export PATH
 
 if [ ! -f libwayne/Makefile ]; then
     echo "you need the submodule libwayne; trying to get it now" >&2
-    (git submodule init && git submodule update && cd libwayne && git checkout master && git pull) || die "failed to get libwayne"
+    (git submodule init libwayne && git submodule update libwayne && cd libwayne && git checkout master && git pull) || die "failed to get libwayne"
     [ -f libwayne/Makefile ] || die "Still can't find libwayne"
 fi
 
