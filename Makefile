@@ -90,7 +90,7 @@ base: .firsttime $(LIBWAYNE_HOME)/made blant $(canon_map_files) $(alpha_nbe_txts
 	@sleep $(PAUSE)
 	@touch .firsttime
 
-most: base Draw subcanon_maps
+most: libwayne base Draw subcanon_maps
 
 test_all: test_sanity test_maps test_freq test_GDV
 
@@ -168,7 +168,13 @@ $(OBJDIR)/makeEHD.o: $(LIBWAYNE_HOME)/made $(SRCDIR)/makeEHD.c | $(OBJDIR)/libbl
 	@mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE) -o $@
 
-libwayne: $(LIBWAYNE_HOME)/made
+libwayne/Makefile:
+	echo "Hmm, submodule libwayne doesn't seem to exist; getting it now"
+	git submodule init
+	git submodule update
+	(cd libwayne && git checkout master && git pull)
+
+libwayne: libwayne/Makefile $(LIBWAYNE_HOME)/made
 	cd $(LIBWAYNE_HOME) && $(MAKE) all
 
 $(LIBWAYNE_HOME)/made:
