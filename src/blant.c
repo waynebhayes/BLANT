@@ -23,6 +23,7 @@
 #include "rand48.h"
 Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 #include "blant-predict.h"
+#include "importance.h"
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;
@@ -343,19 +344,31 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
         int i, count = 0;
         int prev_nodes_array[_k];
-        int *degreeOrder;
+        double importance_heur_arr[G->n];
+        getImportances(importance_heur_arr, G);
+        double double_degree_arr[G->n];
+        getDoubleDegreeArr(double_degree_arr, G);
 
-        if (_useAntidup) degreeOrder = enumerateDegreeOrder(G);
-        else degreeOrder = NULL;
+        int *node_order;
+
+        if (_useAntidup) node_order = enumerateNodeOrder(G);
+        else node_order = NULL;
+
+        int percentToPrint = 1;
 
         for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = i;
-            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, degreeOrder);
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, node_order, double_degree_arr);
             count = 0;
+
+            if (i * 100 / G->n >= percentToPrint) {
+                fprintf(stderr, "%d%% done\n", percentToPrint);
+                ++percentToPrint;
+            }
         }
 
-        if (degreeOrder != NULL) {
-            free(degreeOrder);
+        if (node_order != NULL) {
+            free(node_order);
         }
     }
     else // sample numSamples graphlets for the entire graph

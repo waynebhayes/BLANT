@@ -922,8 +922,8 @@ double SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
  *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
  *                      being processed in RunBlantFromGraph function
  */
-void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, int *degreeOrder) {
-    int i, j, neigh, max_deg=-1, tie_count=0, deg_count=0;
+void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, int *node_order, double *heur_arr) {
+    int i, j, neigh, next_step_count=0;
     Gint_type Gint;
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
@@ -941,45 +941,64 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     SET *deg_set;
 
     if (_useAntidup) {
-        antidupFillNextStepSet(&next_step, &deg_set, G, prev_nodes_array, prev_nodes_count, degreeOrder);
+        antidupFillNextStepSet(&next_step, &deg_set, G, prev_nodes_array, prev_nodes_count, node_order);
     } else {
         next_step = SetAlloc(G->n);
-        deg_set = SetAlloc(G->n);
         for(i=0; i<prev_nodes_count; i++) {
             for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
                 neigh = G->neighbor[prev_nodes_array[i]][j];
                 if(!arrayIn(prev_nodes_array, prev_nodes_count, neigh)) {
                     SetAdd(next_step, neigh);
-                    SetAdd(deg_set, G->degree[neigh]);
                 }
             }
         }
     }
 
-    tie_count = SetCardinality(next_step);
-    deg_count = SetCardinality(deg_set);
-    int next_step_arr[tie_count];
-    int deg_arr[deg_count];
+    // create and sort next step heur arr
+    next_step_count = SetCardinality(next_step);
+    int next_step_arr[next_step_count];
 #if PARANOID_ASSERTS
-    assert(SetToArray(next_step_arr, next_step) == tie_count);
-    assert(SetToArray(deg_arr, deg_set) == deg_count);
+    assert(SetToArray(next_step_arr, next_step) == next_step_count);
 #endif
     SetFree(next_step);
-    SetFree(deg_set);
-    qsort((void*)deg_arr, deg_count, sizeof(deg_arr[0]), descompFunc); //sort degree in descending order
-    int effectiveNumWindowRepLimit = _numWindowRepLimit > 0 ? MIN(_numWindowRepLimit, deg_count) : deg_count;
-    // Loop through neighbor nodes with Top N (-lDEGN) degrees
+    node_wheur next_step_nwh_arr[next_step_count];
+    for (i = 0; i < next_step_count; ++i) {
+        int curr_node = next_step_arr[i];
+        next_step_nwh_arr[i].node = curr_node;
+        next_step_nwh_arr[i].heur = heur_arr[curr_node];
+    }
+    qsort((void*)next_step_nwh_arr, next_step_count, sizeof(node_wheur), nwh_descompFunc); //sort degree in descending order
+    // Loop through neighbor nodes with Top N (-lDEGN) heur values
     // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
-    for (i=0; i<effectiveNumWindowRepLimit; i++) {
+    int num_distinct_values = 0;
+    double old_heur = -1;
+    i = 0;
+    while (i < next_step_count) {
+        node_wheur next_step_nwh = next_step_nwh_arr[i];
+        double curr_heur = next_step_nwh.heur;
+        if (curr_heur != old_heur) {
+            ++num_distinct_values;
+        }
+        old_heur = curr_heur;
+
+        if (_numWindowRepLimit != 0 && num_distinct_values > _numWindowRepLimit) {
+            break;
+        }
+
+        prev_nodes_array[prev_nodes_count] = next_step_nwh.node;
+        SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, node_order, heur_arr);
+        ++i;
+    }
+    /*    for (i=0; i<effectiveNumWindowRepLimit; i++) {
         max_deg = deg_arr[i];
         for(j=0; j<tie_count; j++) {
             if (G->degree[next_step_arr[j]] == max_deg) {
                 prev_nodes_array[prev_nodes_count] = next_step_arr[j];
-                SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, degreeOrder);
+                SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, node_order, heur_arr);
                 // we don't need to unset prev_nodes_array[prev_nodes_count] because it'll get overwritten anyways
             }
         }
-    }
+        }*/
 }
 
 
