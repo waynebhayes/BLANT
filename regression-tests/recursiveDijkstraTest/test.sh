@@ -1,13 +1,9 @@
 #!/bin/bash
 cd `dirname $0`
-echo "Testing recursive Dijkstra"
-
-exitCode=0
 
 die(){ (echo "USAGE: $USAGE"; echo "`basename $0`: FATAL ERROR: $@")>&2; exit 1; }
 
-../../libwayne/bin/wgcc -o ../../Dijkstra/libcalci.so -fPIC -shared ../../libwayne/src/graph.c ../../libwayne/src/sets.c ../../libwayne/src/tinygraph.c ../../libwayne/src/misc.c ../../libwayne/src/bintree.c ../../libwayne/src/combin.c ../../libwayne/src/queue.c ../../Dijkstra/dijkstra_helper.c
-echo "finished compile"
+../../libwayne/bin/wgcc -o ../../Dijkstra/libcalci.so -fPIC -shared ../../libwayne/src/graph.c ../../libwayne/src/sets.c ../../libwayne/src/tinygraph.c ../../libwayne/src/misc.c ../../libwayne/src/bintree.c ../../libwayne/src/combin.c ../../libwayne/src/queue.c ../../Dijkstra/dijkstra_helper.c || die "compile failed"
 
 BASENAME=`basename "$0" .sh`
 [ $BASENAME == "$BASENAME" ] || die "something weird with filename in '$BASENAME'"
@@ -23,15 +19,15 @@ if module avail 2>/dev/null; then
     module unload python
     module load python/3.6.8
 fi
-if ./Dijkstracmd; then
-    rm -f *.pickle
 
+if ./Dijkstracmd; then
     echo "=====Comparing .log with past log file====="
     for i in oldlog.log seed7/*.log; do echo `sed 's/time:[0-9.:]*//' $i | sort | md5sum` $i; done | 
 	awk 'BEGIN{FAIL=1}{print NR, $0; md5[NR]=$1}END{exit( md5[1]!=md5[2] ? FAIL : !FAIL)}'
     exit $?
 else
-    [ $? = 99 ] && exit 0 # ignoring failed Dijkstra
+    D=$?
+    [ $D = 99 ] && exit 0 # ignoring missing SIM file
     echo "Python failed... wrong Python version?" >&2
-    exit 0
+    exit $D
 fi
