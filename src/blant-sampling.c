@@ -921,11 +921,12 @@ double SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
  * @param tempCountPtr  the pointer to the temporary count of the number of samples taken so far; when the temporary
  *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
  *                      being processed in RunBlantFromGraph function
+ * @param heur_arr  the array containing the heuristic values for all nodes which is used to determine which nodes in next_step to expand to
  */
 void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, double *heur_arr) {
     // i, j, and neigh are just used in for loops in this function
     int i, j, neigh;
-    // the tiny_graph is not used in this function. we just need to allocate it here to pass it to ProcessGraphlet
+    // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
     // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
@@ -942,37 +943,43 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     }
 
     // Populate next_step with the following algorithm
-    int next_step_count=0; // size of next_step set
     SET *next_step; // will contain the set of neighbors of all nodes in prev_nodes_array, excluding nodes actually in prev_nodes_array
-
     next_step = SetAlloc(G->n);
+
+    // for all nodes in prev_nodes_array...
     for(i=0; i<prev_nodes_count; i++) {
+        // loop through all of their neighbors and...
         for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
             neigh = G->neighbor[prev_nodes_array[i]][j];
+            // if the neighbor is not in prev_nodes_array, add it to the set
             if(!arrayIn(prev_nodes_array, prev_nodes_count, neigh)) {
-                SetAdd(next_step, neigh);
+                SetAdd(next_step, neigh); // the SET takes care of deduplication
             }
         }
     }
 
     // create and sort next step heur arr
-    next_step_count = SetCardinality(next_step);
+    int next_step_count = SetCardinality(next_step);
     int next_step_arr[next_step_count];
 #if PARANOID_ASSERTS
     assert(SetToArray(next_step_arr, next_step) == next_step_count);
 #endif
-    SetFree(next_step);
-    node_wheur next_step_nwh_arr[next_step_count];
+    SetFree(next_step); // now that we have the next_step_arr, we no longer need the SET next_step
+
+    // populate next_step_nwh_arr with all nodes in next_step_arr along with their heuristic values provided in heur_arr
+    node_wheur next_step_nwh_arr[next_step_count]; // we only need this so that we're able to sort the array
     for (i = 0; i < next_step_count; ++i) {
         int curr_node = next_step_arr[i];
         next_step_nwh_arr[i].node = curr_node;
         next_step_nwh_arr[i].heur = heur_arr[curr_node];
     }
-    qsort((void*)next_step_nwh_arr, next_step_count, sizeof(node_wheur), nwh_descompFunc); //sort degree in descending order
-    // Loop through neighbor nodes with Top N (-lDEGN) heur values
+    qsort((void*)next_step_nwh_arr, next_step_count, sizeof(node_wheur), nwh_descompFunc); // sort by heuristic, in either ascending or descending order (nwh_asccompFunc or nwh_descompFunc)
+
+    // Loop through neighbor nodes with Top N (-lDEGN) distinct heur values
+    // If there are multiple nodes with the same heur value (which might happen with degree), we need to expand to all of them because randomly picking one to expand to would break determinism
     // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
     int num_distinct_values = 0;
-    double old_heur = -1;
+    double old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics
     i = 0;
     while (i < next_step_count) {
         node_wheur next_step_nwh = next_step_nwh_arr[i];
@@ -982,12 +989,16 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         }
         old_heur = curr_heur;
 
+        // break once we've gotten enough distinct heur values
         if (_numWindowRepLimit != 0 && num_distinct_values > _numWindowRepLimit) {
             break;
         }
 
+        // perform the standard DFS step of set next, recurse with size + 1, and then unset next
+        // the "unset" step is commented out for efficiency since it's not actually necessary, but the comment improves readability
         prev_nodes_array[prev_nodes_count] = next_step_nwh.node;
         SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, heur_arr);
+        // prev_nodes_array[prev_nodes_count] = 0;
         ++i;
     }
 }
