@@ -232,7 +232,6 @@ void enumerateNodeOrderHelper(GRAPH *G, node_wheur* orderArray, int start, int e
 // this function is not currently being used anywhere, but I kept it here in case it becomes useful later
 // for info on the antidup algorithm, see Patrick Wang's Fall 2020 Writeup, titled "Multiplicity-and-Antiduplication-Algorithm" and linked here: https://docs.google.com/document/d/18wtIBu8VQ0rVzHTPTfLbYoBmxjw56H77XYoHzqK63Q8/edit?usp=sharing
 void antidupFillNextStepSet(SET **next_step_pointer, SET **deg_set_pointer, GRAPH *G, int *prev_nodes_array, int prev_nodes_count, int *node_order) {
-    assert(_useAntidup); // make sure this setting is set
     assert(node_order != NULL); // assert this because node_order is NULL when useAntidup is true
     int i, j, neigh, rolling_max[prev_nodes_count];
 

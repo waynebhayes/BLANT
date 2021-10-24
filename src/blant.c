@@ -363,10 +363,6 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
                 ++percentToPrint;
             }
         }
-
-        if (node_order != NULL) {
-            free(node_order);
-        }
     }
     else // sample numSamples graphlets for the entire graph
     {
