@@ -24,6 +24,7 @@
 Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 #include "blant-predict.h"
 #include "importance.h"
+#include "odv.h"
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;
@@ -344,10 +345,13 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
         int i, count = 0;
         int prev_nodes_array[_k];
-        double importance_heur_arr[G->n];
-        getImportances(importance_heur_arr, G);
+
+        // double importance_heur_arr[G->n];
+        // getImportances(importance_heur_arr, G);
         double double_degree_arr[G->n];
         getDoubleDegreeArr(double_degree_arr, G);
+
+        // get heuristics based on orbit number & orbit file path
 
         int *node_order;
 
@@ -828,8 +832,9 @@ int main(int argc, char *argv[])
     _MAX_THREADS = 4;
 
     _k = 0; _k_small = 0;
+    int gotOdvFile = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:A")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:A")) != -1)
     {
 	switch(opt)
 	{
@@ -993,8 +998,19 @@ int main(int argc, char *argv[])
 	    break;
 	case 'A': _useAntidup = true;
 	    break;
-	    default: Fatal("unknown option %c\n%s", opt, USAGE);
-	}
+	case 'o':
+        _orbitNumber = atoi(optarg);
+        break;
+    case 'f':
+        gotOdvFile = 1;
+        parseOdvFromFile(optarg);
+        break;
+	default: Fatal("unknown option %c\n%s", opt, USAGE);
+    }
+    }
+
+    if (_orbitNumber != -1 && !gotOdvFile) {
+        Fatal("an ODV orbit number was provided, but no ODV file path was supplied");
     }
 
     if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be between larger than 5 for INDEX sampling method since there are no unambiguous graphlets for k<=5",_k);

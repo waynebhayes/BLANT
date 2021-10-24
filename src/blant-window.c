@@ -17,6 +17,7 @@ int _numWindowRep = 0;
 int _numWindowRepLimit = 0;
 int _numWindowRepArrSize = 100;
 Boolean _useAntidup = false;
+int _orbitNumber = -1; // -1 means not initialized
 
 int _windowSize = 0;
 Boolean _window = false;

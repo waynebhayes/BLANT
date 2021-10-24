@@ -22,7 +22,8 @@ static int nOdvRows;
 void parseOdvRow(odvrow_t* row, char* line) {
     row->nodeName = strtok(line, __ODV_COL_DELIMSTR);
     
-    for (int orbitNumber = 0; orbitNumber < __ODV_N_ORBITS; orbitNumber++) {
+    int orbitNumber;
+    for (orbitNumber = 0; orbitNumber < __ODV_N_ORBITS; orbitNumber++) {
         char* columnStr = strtok(NULL, __ODV_COL_DELIMSTR);
         double odvVal = atoi(columnStr);
 
@@ -106,7 +107,8 @@ void parseOdvFromFile(char* fname) {
 }
 
 void freeOdvData() {
-    for (int i = 0; i < nOdvRows; i++) {
+    int i;
+    for (i = 0; i < nOdvRows; i++) {
         freeOdvRow(odvdata + i);
     }
 
@@ -114,7 +116,8 @@ void freeOdvData() {
 }
 
 odvrow_t* getRowForNodeNamed(char* nodeName) {
-    for (int i = 0; i < nOdvRows; i++) {
+    int i;
+    for (i = 0; i < nOdvRows; i++) {
         odvrow_t* row = odvdata + i;
 
         if (strcmp(nodeName, row->nodeName) == 0) {
@@ -126,31 +129,10 @@ odvrow_t* getRowForNodeNamed(char* nodeName) {
 }
 
 void getOdvValues(double* heuristicVals, int orbitNumber, char** nodeNames, int nodes) {
-    for (int i = 0; i < nodes; i++) {
+    int i;
+    for (i = 0; i < nodes; i++) {
         char* nodeName = nodeNames[i];
         odvrow_t* row = getRowForNodeNamed(nodeName);
         heuristicVals[i] = row != NULL ? row->odvValues[orbitNumber] : 0;
     }
-}
-
-// TODO: remove this, just a simple function to prove that it works
-int main(int argc, char** argv) {
-    char* odvfile = argv[1];
-    parseOdvFromFile(odvfile);
-
-    for (int i = 0; i < nOdvRows; i++) {
-        odvrow_t* row = odvdata + i;
-        printf("%i: %s ", i, row->nodeName);
-
-        for (int j = 0; j < __ODV_N_ORBITS; j++) {
-            printf("%d ", (int)(row->odvValues[j]));
-        }
-
-        printf("\n");
-    }
-
-    printf("%d\n", nOdvRows);
-    freeOdvData();
-
-    return 0;
 }
