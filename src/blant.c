@@ -344,21 +344,18 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
         int i, count = 0;
         int prev_nodes_array[_k];
+
+        // example of getting different heur arrays
         double importance_heur_arr[G->n];
         getImportances(importance_heur_arr, G);
         double double_degree_arr[G->n];
         getDoubleDegreeArr(double_degree_arr, G);
 
-        int *node_order;
-
-        if (_useAntidup) node_order = enumerateNodeOrder(G);
-        else node_order = NULL;
-
         int percentToPrint = 1;
 
         for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = i;
-            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, node_order, double_degree_arr);
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, double_degree_arr);
             count = 0;
 
             if (i * 100 / G->n >= percentToPrint) {
@@ -805,8 +802,7 @@ const char * const USAGE =
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
 "	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
-"   -M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n"\
-"   -A = use the antidup algorithm in sINDEX, which eliminates duplicates using a descending degree order\n";
+    "   -M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -991,9 +987,7 @@ int main(int argc, char *argv[])
 	case 'M': multiplicity = atoi(optarg);
 	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
 	    break;
-	case 'A': _useAntidup = true;
-	    break;
-	    default: Fatal("unknown option %c\n%s", opt, USAGE);
+    default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
     }
 

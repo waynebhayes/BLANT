@@ -922,34 +922,35 @@ double SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
  *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
  *                      being processed in RunBlantFromGraph function
  */
-void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, int *node_order, double *heur_arr) {
-    int i, j, neigh, next_step_count=0;
-    Gint_type Gint;
+void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, double *heur_arr) {
+    // i, j, and neigh are just used in for loops in this function
+    int i, j, neigh;
+    // the tiny_graph is not used in this function. we just need to allocate it here to pass it to ProcessGraphlet
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
     // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
     // If (-n N) flag is not given, then will return all satisfied windowReps.
+    // NOTE: using -n is not recommended because with the current implementation, the output will change greatly depending on which nodes you start expanding from first in blant.c
     if (numSamplesPerNode != 0 && *tempCountPtr >= numSamplesPerNode) return;  // already enough samples found, no need to search further
     if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
+        // ProcessGraphlet will create the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of a low enough multiplicity (<= multiplicity)
+        // ProcessGraphlet will also check that the k nodes you passed it haven't already been printed (although, this system does not work 100% perfectly)
+        // ProcessGraphlet will also print the nodes as output if the graphlet passes all checks
         if (ProcessGraphlet(G, NULL, prev_nodes_array, _k, g))
-            *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies the multiplicity constraint
-        return;
+            *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies all of ProcessGraphlet's checks
+        return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 
     // Populate next_step with the following algorithm
-    SET *next_step;
-    SET *deg_set;
+    int next_step_count=0; // size of next_step set
+    SET *next_step; // will contain the set of neighbors of all nodes in prev_nodes_array, excluding nodes actually in prev_nodes_array
 
-    if (_useAntidup) {
-        antidupFillNextStepSet(&next_step, &deg_set, G, prev_nodes_array, prev_nodes_count, node_order);
-    } else {
-        next_step = SetAlloc(G->n);
-        for(i=0; i<prev_nodes_count; i++) {
-            for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
-                neigh = G->neighbor[prev_nodes_array[i]][j];
-                if(!arrayIn(prev_nodes_array, prev_nodes_count, neigh)) {
-                    SetAdd(next_step, neigh);
-                }
+    next_step = SetAlloc(G->n);
+    for(i=0; i<prev_nodes_count; i++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+            neigh = G->neighbor[prev_nodes_array[i]][j];
+            if(!arrayIn(prev_nodes_array, prev_nodes_count, neigh)) {
+                SetAdd(next_step, neigh);
             }
         }
     }
@@ -986,19 +987,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         }
 
         prev_nodes_array[prev_nodes_count] = next_step_nwh.node;
-        SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, node_order, heur_arr);
+        SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, heur_arr);
         ++i;
     }
-    /*    for (i=0; i<effectiveNumWindowRepLimit; i++) {
-        max_deg = deg_arr[i];
-        for(j=0; j<tie_count; j++) {
-            if (G->degree[next_step_arr[j]] == max_deg) {
-                prev_nodes_array[prev_nodes_count] = next_step_arr[j];
-                SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, node_order, heur_arr);
-                // we don't need to unset prev_nodes_array[prev_nodes_count] because it'll get overwritten anyways
-            }
-        }
-        }*/
 }
 
 
