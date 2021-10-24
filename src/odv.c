@@ -7,6 +7,13 @@
 #define __ODV_COL_DELIMSTR " "
 #define __ODV_COL_DELIM ' '
 #define __ODV_LINE_DELIM '\n'
+#define __ODV_N_ORBITS 15
+
+typedef struct {
+    char* nodeName;
+    double odvValues[__ODV_N_ORBITS];
+} odvrow_t;
+
 
 static odvrow_t* odvdata;
 static int odvdataCapacity;
@@ -51,12 +58,12 @@ void parseOdvFromFile(char* fname) {
 
         int nodeNameCapacity = 16;
         int nodeNameSize = 0;
-        char* nodeName = calloc(sizeof(char), nodeNameSize);
+        char* nodeName = calloc(sizeof(char), nodeNameCapacity);
         // TODO: calloc error checking
 
         char c = fgetc(odvFile);
 
-        while (c != __ODV_COL_DELIM && c != EOF) {
+        while (c != __ODV_COL_DELIM && c != __ODV_LINE_DELIM && c != EOF) {
             if (nodeNameSize == nodeNameCapacity) {
                 nodeNameCapacity *= 2;
                 nodeName = realloc(nodeName, sizeof(char) * nodeNameCapacity);
@@ -90,9 +97,11 @@ void parseOdvFromFile(char* fname) {
             c = fgetc(odvFile);
         }
 
-        row->odvValues[i++] = currentOdvVal;
-        row->nodeName = nodeName;
-        nOdvRows++;
+        if (!feof(odvFile)) {
+            row->odvValues[i++] = currentOdvVal;
+            row->nodeName = nodeName;
+            nOdvRows++;
+        }
     }
 }
 
@@ -104,8 +113,24 @@ void freeOdvData() {
     free(odvdata);
 }
 
-void getOdvValues(double* heuristicVals, int orbitNumber, char** nodeNames) {
+odvrow_t* getRowForNodeNamed(char* nodeName) {
+    for (int i = 0; i < nOdvRows; i++) {
+        odvrow_t* row = odvdata + i;
 
+        if (strcmp(nodeName, row->nodeName) == 0) {
+            return row;
+        }
+    }
+
+    return NULL;
+}
+
+void getOdvValues(double* heuristicVals, int orbitNumber, char** nodeNames, int nodes) {
+    for (int i = 0; i < nodes; i++) {
+        char* nodeName = nodeNames[i];
+        odvrow_t* row = getRowForNodeNamed(nodeName);
+        heuristicVals[i] = row != NULL ? row->odvValues[orbitNumber] : 0;
+    }
 }
 
 // TODO: remove this, just a simple function to prove that it works
@@ -124,6 +149,7 @@ int main(int argc, char** argv) {
         printf("\n");
     }
 
+    printf("%d\n", nOdvRows);
     freeOdvData();
 
     return 0;
