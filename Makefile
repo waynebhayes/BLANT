@@ -49,7 +49,8 @@ BLANT_SRCS = blant.c \
 			 blant-utils.c \
 			 blant-sampling.c \
 			 blant-predict.o \
-			 blant-synth-graph.c
+			 blant-synth-graph.c \
+			 importance.c
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
