@@ -348,8 +348,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
         // double importance_heur_arr[G->n];
         // getImportances(importance_heur_arr, G);
-        double double_degree_arr[G->n];
-        getDoubleDegreeArr(double_degree_arr, G);
+        
+        double heuristicValues[G->n];
+
+        if (_orbitNumber != -1) {
+            getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
+        } else {
+            getDoubleDegreeArr(heuristicValues, G);
+        }
 
         // get heuristics based on orbit number & orbit file path
 
@@ -362,7 +368,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
         for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = i;
-            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, node_order, double_degree_arr);
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, node_order, heuristicValues);
             count = 0;
 
             if (i * 100 / G->n >= percentToPrint) {
@@ -832,7 +838,8 @@ int main(int argc, char *argv[])
     _MAX_THREADS = 4;
 
     _k = 0; _k_small = 0;
-    int gotOdvFile = 0;
+
+    int odv_fname_len = 0;
 
     while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:A")) != -1)
     {
@@ -1002,17 +1009,23 @@ int main(int argc, char *argv[])
         _orbitNumber = atoi(optarg);
         break;
     case 'f':
-        gotOdvFile = 1;
-        parseOdvFromFile(optarg);
+        odv_fname_len = strlen(optarg);
+        _odvFile = malloc(sizeof(char) * odv_fname_len);
+        strncpy(_odvFile, optarg, odv_fname_len);
+
         break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
     }
     }
 
-    if (_orbitNumber != -1 && !gotOdvFile) {
-        Fatal("an ODV orbit number was provided, but no ODV file path was supplied");
-    }
-
+    if (_orbitNumber != -1) {
+        if (_odvFile != NULL) {
+            parseOdvFromFile(_odvFile);
+        } else {
+            Fatal("an ODV orbit number was provided, but no ODV file path was supplied");
+        }
+    } 
+    
     if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be between larger than 5 for INDEX sampling method since there are no unambiguous graphlets for k<=5",_k);
 
     if(_seed == -1) _seed = GetFancySeed(false);
