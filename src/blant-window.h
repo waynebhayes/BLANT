@@ -30,7 +30,6 @@ extern int _MAXnumWindowRep;
 extern int _numWindowRep;
 extern int _numWindowRepLimit;
 extern int _numWindowRepArrSize;
-extern Boolean _useAntidup;
 
 extern int _orbitNumber;
 extern char* _odvFile;

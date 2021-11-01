@@ -54,7 +54,7 @@ char *PrintCanonical(int GintOrdinal)
 	sprintf(buf, "%d", GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
-	sprintf(buf, "%ul", _canonList[GintOrdinal]);
+	sprintf(buf, "%llu", _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
