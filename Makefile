@@ -6,7 +6,7 @@ ifndef PAUSE
     PAUSE := 100
 endif
 ifndef EIGHT
-    EIGHT := #8 #uncomment the 8 to generate the k=8 lookup table, which can take up to an hour.
+    EIGHT := 8 #uncomment the 8 to generate the k=8 lookup table, which can take up to an hour.
 endif
 SEVEN := 7
 ifdef NO7
@@ -15,7 +15,7 @@ ifdef NO7
 endif
 
 PROFILE=#-pg # comment out to turn off
-DEBUG=#-ggdb # comment out to turn off
+DEBUG=-ggdb # comment out to turn off
 ifdef DEBUG
     SPEED=-O0 -ggdb $(PROFILE)
     ifdef PROFILE
@@ -50,7 +50,8 @@ BLANT_SRCS = blant.c \
 			 blant-sampling.c \
 			 blant-predict.o \
 			 blant-synth-graph.c \
-			 importance.c
+			 importance.c \
+			 odv.c
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
@@ -221,7 +222,7 @@ blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
 	
 test_sanity: blant blant-sanity $(canon_map_bins)
 	# First run blant-sanity for various values of k
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
+#	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
 test_freq: blant $(canon_map_bins) 
 	# Test to see that the most frequent 10 graphlets in syeast appear in the expected order in
