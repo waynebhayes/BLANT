@@ -798,7 +798,8 @@ const char * const USAGE =
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
 "	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
-    "   -M = multiplicity = max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n";
+"   -M = multiplicity, meaning max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n" \
+"   -T = top percent to expand to in -sINDEX sampling method (default 0)";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -821,7 +822,7 @@ int main(int argc, char *argv[])
 
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:A")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:T:")) != -1)
     {
 	switch(opt)
 	{
@@ -982,6 +983,7 @@ int main(int argc, char *argv[])
 	    break;
 	case 'M': multiplicity = atoi(optarg);
 	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
+    case 'T': _topThousandth = atoi(optarg);
 	    break;
     default: Fatal("unknown option %c\n%s", opt, USAGE);
 	}
