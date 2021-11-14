@@ -32,6 +32,8 @@ extern int _numWindowRepLimit;
 extern int _numWindowRepArrSize;
 
 extern int _topThousandth;
+extern int _orbitNumber;
+extern char* _odvFile;
 
 extern int _windowSize;
 extern Boolean _window;

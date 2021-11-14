@@ -24,6 +24,7 @@
 Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 #include "blant-predict.h"
 #include "importance.h"
+#include "odv.h"
 
 static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 char **_nodeNames, _supportNodeNames = true;
@@ -342,20 +343,26 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	if (_outputMode != indexGraphlets && _outputMode != indexOrbits)
 	    Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 
-        int i, count = 0;
-        int prev_nodes_array[_k];
+    int i, count = 0;
+    int prev_nodes_array[_k];
 
-        // example of getting different heur arrays
-        double importance_heur_arr[G->n];
-        getImportances(importance_heur_arr, G);
-        double double_degree_arr[G->n];
-        getDoubleDegreeArr(double_degree_arr, G);
+    // double importance_heur_arr[G->n];
+    // getImportances(importance_heur_arr, G);
+        
+    // Get heuristic values based on orbit number, if ODV file provided
+    double heuristicValues[G->n];
 
-        int percentToPrint = 1;
+    if (_orbitNumber != -1) {
+        getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
+    } else {
+        getDoubleDegreeArr(heuristicValues, G);
+    }
 
-        for(i=0; i<G->n; i++) {
+    int percentToPrint = 1;
+
+    for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = i;
-            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, double_degree_arr);
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, heuristicValues);
             count = 0;
 
             if (i * 100 / G->n >= percentToPrint) {
@@ -822,7 +829,9 @@ int main(int argc, char *argv[])
 
     _k = 0; _k_small = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:e:g:w:p:P:l:n:M:T:")) != -1)
+    int odv_fname_len = 0;
+
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:")) != -1)
     {
 	switch(opt)
 	{
@@ -985,10 +994,27 @@ int main(int argc, char *argv[])
 	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
     case 'T': _topThousandth = atoi(optarg);
 	    break;
-    default: Fatal("unknown option %c\n%s", opt, USAGE);
-	}
+	case 'o':
+        _orbitNumber = atoi(optarg);
+        break;
+    case 'f':
+        odv_fname_len = strlen(optarg);
+        _odvFile = malloc(sizeof(char) * odv_fname_len);
+        strncpy(_odvFile, optarg, odv_fname_len);
+
+        break;
+	default: Fatal("unknown option %c\n%s", opt, USAGE);
+    }
     }
 
+    if (_orbitNumber != -1) {
+        if (_odvFile != NULL) {
+            parseOdvFromFile(_odvFile);
+        } else {
+            Fatal("an ODV orbit number was provided, but no ODV file path was supplied");
+        }
+    } 
+    
     if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be between larger than 5 for INDEX sampling method since there are no unambiguous graphlets for k<=5",_k);
 
     if(_seed == -1) _seed = GetFancySeed(false);

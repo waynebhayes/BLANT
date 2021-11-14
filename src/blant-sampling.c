@@ -991,7 +991,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     }
     int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000;
     int num_distinct_values = 0;
-    old_heur = -1;
+    old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics
     i = 0;
     while (i < next_step_count) {
         node_wheur next_step_nwh = next_step_nwh_arr[i];
