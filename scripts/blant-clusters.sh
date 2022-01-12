@@ -3,8 +3,10 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME blant.exe k n network.el
-PURPOSE: use n samples of k-graphlets from BLANT in attempt to find large cliques in network.el"
+EDGE_DENSITY_THRESHOLD=0.8
+USAGE="USAGE: $BASENAME blant.exe k n network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
+PURPOSE: use n samples of k-graphlets from BLANT in attempt to find large cliques (or more generally clusters) in network.el
+    The last argument, EDGE_DENSITY_THRESHOLD, is optional; we stop adding nodes once the edge density under that."
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -26,12 +28,15 @@ TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
 [ $# -lt 4 ] && die "not enough arguments"
-[ $# -gt 4 ] && die "too many arguments"
+[ $# -gt 5 ] && die "too many arguments"
 
 BLANT=$1
 k=$2
 n=$3
 net=$4
+if [ $# -eq 5 ]; then
+    EDGE_DENSITY_THRESHOLD=$5
+fi
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
 [ "$k" -ge 3 -a "$k" -le 8 ] || die "k is '$k' but must be between 3 and 8"
@@ -63,11 +68,11 @@ $BLANT -k$k -n$n -sMCMC "$net" -mi | # produce BLANT index
 	    if(FNR<k) printf " %s",$2
 	    else if(FNR==k) printf " %s\n",$2
 	    else {
-		printf "adding node %s gives %d nodes with", $2, length(S)
 		edgeHits=0;
 		for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
 		maxEdges=choose(FNR,2);
+		if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') exit;
+		printf "adding node %s gives %d nodes with", $2, length(S)
 		printf " %d out of a possible %d edges (edge density %.2f%%)\n", edgeHits, maxEdges, 100*edgeHits/maxEdges
-		if(edgeHits/maxEdges < 0.8) exit # stop when less than 50% edge hits
 	    }
 	}' "$net" - # dash is the output of the above pipe (sorted near-clique-counts)
