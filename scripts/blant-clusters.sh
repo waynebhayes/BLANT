@@ -46,7 +46,7 @@ case "$net" in
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
 
-$BLANT -k$k -n$n -sMCMC "$net" -mi | # produce BLANT index
+$BLANT -k$k -n$n -sMCMC -mi "$net" | # produce BLANT index
     hawk 'BEGIN{k='$k'; want=0.75*choose(k,2)} # want = desired minimum number of edges in the k-graphlet
 	ARGIND==1{m[$1]=$4} # actual edges in graphlets, from canon_list$k.txt
 	ARGIND==2 && m[$1]>=want{
