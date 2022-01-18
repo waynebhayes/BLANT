@@ -47,7 +47,7 @@ case "$net" in
 esac
 
 $BLANT -k$k -n$n -sMCMC -mi "$net" | # produce BLANT index
-    hawk 'BEGIN{k='$k'; want=0.75*choose(k,2)} # want = desired minimum number of edges in the k-graphlet
+    hawk 'BEGIN{k='$k'; want='$EDGE_DENSITY_THRESHOLD'*choose(k,2)} # want = desired minimum number of edges in the k-graphlet
 	ARGIND==1{m[$1]=$4} # actual edges in graphlets, from canon_list$k.txt
 	ARGIND==2 && m[$1]>=want{
 	    for(i=2;i<=NF;i++){
