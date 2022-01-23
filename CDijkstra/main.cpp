@@ -8,6 +8,16 @@ using std::cout;
 using std::endl;
 using std::string;
 
+#define ERROR_INVALID_OPTION 1
+#define ERROR_UNKNOWN -1
+
+static struct option long_opts[] = {
+    {"g1file", required_argument, NULL, '1'},
+    {"g2file", required_argument, NULL, '2'},
+    {"delta", required_argument, NULL, 'd'},
+    {0, 0, 0, 0},
+};
+
 int main(int argc, char** argv) {
     string graph1_fname;
     string graph2_fname;
@@ -15,14 +25,15 @@ int main(int argc, char** argv) {
 
     // TODO: switch to long options where appropriate
     char option;
+    int option_index = -1;
 
-    while ((option = getopt(argc, argv, "p:q:d:")) != -1) {
+    while ((option = getopt_long(argc, argv, "d:", long_opts, &option_index)) != -1) {
         switch (option) {
-        case 'p':
+        case '1':
             graph1_fname = optarg;
             break;
 
-        case 'q':
+        case '2':
             graph2_fname = optarg;
             break;
 
@@ -30,9 +41,11 @@ int main(int argc, char** argv) {
             delta = atof(optarg);
             break;
 
+        case '?':
+            exit(ERROR_INVALID_OPTION);
+
         default:
-            cout << "invalid option: " << (char)optopt << endl;
-            break;
+            exit(ERROR_UNKNOWN);
         }
     }
 

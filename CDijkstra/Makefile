@@ -5,9 +5,12 @@ SRCS=$(wildcard *.cpp)
 CC=g++
 CFLAGS=-g
 
-.PHONY: all
+.PHONY: all clean
 
 all: $(TARGET)
+
+clean:
+	-rm -rf $(BUILD_DIR)
 
 $(TARGET): $(BUILD_DIR) $(SRCS)
 	$(CC) $(CFLAGS) -o $@ $(SRCS)
