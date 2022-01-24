@@ -1,9 +1,11 @@
 BUILD_DIR=build
 TARGET=$(BUILD_DIR)/cdijkstra
-SRCS=$(wildcard *.cpp)
+HEADERS=$(wildcard include/**/*.h)
+SOURCES=$(wildcard src/*.cpp)
+LIBWAYNE_HOME=../libwayne
 
-CC=g++
-CFLAGS=-g -std=c++11
+CXX=g++
+CXXFLAGS=-g -std=c++11 -Iinclude
 
 .PHONY: all clean
 
@@ -12,8 +14,8 @@ all: $(TARGET)
 clean:
 	-rm -rf $(BUILD_DIR)
 
-$(TARGET): $(BUILD_DIR) $(SRCS)
-	$(CC) $(CFLAGS) -o $@ $(SRCS)
+$(TARGET): $(BUILD_DIR) $(HEADERS) $(SOURCES)
+	$(CXX) $(CXXFLAGS) -o $@ $(SOURCES)
 
 $(BUILD_DIR):
 	mkdir -p $@

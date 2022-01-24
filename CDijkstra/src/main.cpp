@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 
+#include "graph.h"
+
 using std::cout;
 using std::endl;
 using std::string;
@@ -90,11 +92,8 @@ int main(int argc, char** argv) {
 
     // TODO: enforce required options
 
-    cout << "graph 1 file: " << graph1_fname << endl;
-    cout << "graph 2 file: " << graph2_fname << endl;
-    cout << "delta: " << delta << endl;
-    cout << "sim file: " << sim_fname << endl;
-    cout << "runs: " << runs << endl;
+    Graph g1(graph1_fname);
+    cout << g1.size() << endl;
 
     return 0;
 }
