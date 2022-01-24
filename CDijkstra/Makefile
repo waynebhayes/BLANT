@@ -3,7 +3,7 @@ TARGET=$(BUILD_DIR)/cdijkstra
 SRCS=$(wildcard *.cpp)
 
 CC=g++
-CFLAGS=-g
+CFLAGS=-g -std=c++11
 
 .PHONY: all clean
 
