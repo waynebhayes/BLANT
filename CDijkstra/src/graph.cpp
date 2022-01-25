@@ -12,13 +12,13 @@ using std::string;
 
 namespace {
 
-int find_or_insert_node(map<string, int>& nodes, string node_name, int& next_node_index) {
+unsigned int find_or_insert_node(map<string, unsigned int>& nodes, string node_name, unsigned int& next_node_index) {
     auto elem = nodes.find(node_name);
 
     if (elem != nodes.end()) {
         return elem->second;
     } else {
-        int node = next_node_index++;
+        unsigned int node = next_node_index++;
         nodes[node_name] = node;
 
         return node;
@@ -46,50 +46,54 @@ Graph::Graph(string file)
         string node2_name = line.substr(sep + 1);
 
         // get node indices, inserting into registry if required
-        int node1 = find_or_insert_node(nodes, node1_name, n_nodes);
-        int node2 = find_or_insert_node(nodes, node2_name, n_nodes);
+        unsigned int node1 = find_or_insert_node(nodes, node1_name, n_nodes);
+        unsigned int node2 = find_or_insert_node(nodes, node2_name, n_nodes);
 
         // add edge to edges
         auto node1_elem = edges.find(node1);
         if (node1_elem == edges.end()) {
-            edges[node1] = set<int>();
+            edges[node1] = set<unsigned int>();
         }
 
         edges[node1].insert(node2);
         
         auto node2_elem = edges.find(node2);
         if (node2_elem == edges.end()) {
-            edges[node2] = set<int>();
+            edges[node2] = set<unsigned int>();
         }
 
         edges[node2].insert(node1);
     }
 
     // alloc & init adjacency matrix
-    adjacency_matrix = new int*[n_nodes];
+    adjacency_matrix = new bool*[n_nodes];
 
     for (int i = 0; i < n_nodes; ++i) {
-        adjacency_matrix[i] = new int[n_nodes];
+        adjacency_matrix[i] = new bool[n_nodes];
     }
 
     for (auto entry = edges.begin(); entry != edges.end(); ++entry) {
-        int n = entry->first;
+        unsigned int n = entry->first;
 
         for (auto m = entry->second.begin(); m != entry->second.end(); ++m) {
-            adjacency_matrix[n][*m] = 1;
-            adjacency_matrix[*m][n] = 1;
+            adjacency_matrix[n][*m] = true;
+            adjacency_matrix[*m][n] = true;
         }
     }
 }
 
 Graph::~Graph() {
-    for (int i = 0; i < n_nodes; ++i) {
+    for (unsigned int i = 0; i < n_nodes; ++i) {
         delete[] adjacency_matrix[i];
     }
 
     delete[] adjacency_matrix;
 }
 
-int Graph::size() const {
+unsigned int Graph::size() const {
     return n_nodes;
+}
+
+unsigned int Graph::index(const string& node) const {
+    return nodes.at(node);
 }

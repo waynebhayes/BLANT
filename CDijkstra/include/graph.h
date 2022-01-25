@@ -17,15 +17,16 @@ public:
     Graph(const Graph& g) = delete;
     Graph& operator =(Graph& g) = delete;
 
-    int size() const;
+    unsigned int size() const;
+    unsigned int index(const string& node) const;
     // bool has_edge(int n, int m) const;
     // vector<int> neighbors(int n) const;
 
 private:
-    int n_nodes;
-    int** adjacency_matrix; // an adjacency matrix of size n_nodes by n_nodes
-    map<int, set<int>> edges; // an adjacency list mapping each node to its edges
-    map<string, int> nodes; // a registry of node name to int index in g
+    unsigned int n_nodes;
+    bool** adjacency_matrix; // an adjacency matrix of size n_nodes by n_nodes
+    map<unsigned int, set<unsigned int>> edges; // an adjacency list mapping each node to its edges
+    map<string, unsigned int> nodes; // a registry of node name to int index in g
 };
 
 #endif
