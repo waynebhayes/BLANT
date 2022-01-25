@@ -1,6 +1,7 @@
 #include "sim.h"
 
 #include <fstream>
+#include <iostream>
 #include <string>
 
 using std::ifstream;
@@ -32,7 +33,7 @@ SimilarityMatrix::SimilarityMatrix(string sim_fname, const Graph& graph1, const 
         // second node: sep1 + 1 to sep2
         // sim value: sep2 + 1 to end
         string g1_node = line.substr(0, sep1);
-        string g2_node = line.substr(sep1 + 1, sep2);
+        string g2_node = line.substr(sep1 + 1, sep2 - sep1 - 1);
         double sim_val = stof(line.substr(sep2 + 1));
 
         int n = graph1.index(g1_node);

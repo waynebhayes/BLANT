@@ -5,6 +5,7 @@
 #include <string>
 
 #include "graph.h"
+#include "sim.h"
 
 using std::cout;
 using std::endl;
@@ -93,7 +94,14 @@ int main(int argc, char** argv) {
     // TODO: enforce required options
 
     Graph g1(graph1_fname);
-    cout << g1.size() << endl;
+    Graph g2(graph2_fname);
+    SimilarityMatrix sim(sim_fname, g1, g2);
+
+    for (unsigned int i = 0; i < g1.size(); ++i) {
+        for (unsigned int j = 0; j < g2.size(); ++j) {
+            cout << i << " " << j << " " << sim.similarity(i, j) << endl;
+        }
+    }
 
     return 0;
 }
