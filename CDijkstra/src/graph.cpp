@@ -6,10 +6,15 @@
 #include <set>
 #include <string>
 
+#include "matrix.h"
+
 using std::ifstream;
 using std::map;
 using std::set;
 using std::string;
+
+using cdijkstra::Graph;
+using cdijkstra::Matrix;
 
 namespace {
 
@@ -29,9 +34,10 @@ unsigned int find_or_insert_node(map<string, unsigned int>& nodes, string node_n
 }
 
 Graph::Graph(string file)
- : n_nodes{0}, adjacency_matrix{NULL} {
+ : adj_mat(0, 0, 0) {
     // open the file
     ifstream f(file);
+    unsigned int n_nodes = 0;
 
     for (string line; getline(f, line);) {
         // split line by space
@@ -67,32 +73,20 @@ Graph::Graph(string file)
     }
 
     // alloc & init adjacency matrix
-    adjacency_matrix = new bool*[n_nodes];
-
-    for (int i = 0; i < n_nodes; ++i) {
-        adjacency_matrix[i] = new bool[n_nodes];
-    }
+    adj_mat = Matrix<bool>(n_nodes, n_nodes, false);
 
     for (auto entry = edges.begin(); entry != edges.end(); ++entry) {
         unsigned int n = entry->first;
 
         for (auto m = entry->second.begin(); m != entry->second.end(); ++m) {
-            adjacency_matrix[n][*m] = true;
-            adjacency_matrix[*m][n] = true;
+            adj_mat.at(n, *m) = true;
+            adj_mat.at(*m, n) = true;
         }
     }
 }
 
-Graph::~Graph() {
-    for (unsigned int i = 0; i < n_nodes; ++i) {
-        delete[] adjacency_matrix[i];
-    }
-
-    delete[] adjacency_matrix;
-}
-
 unsigned int Graph::size() const {
-    return n_nodes;
+    return adj_mat.rows();
 }
 
 unsigned int Graph::index(const string& node) const {

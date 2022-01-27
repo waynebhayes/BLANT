@@ -3,15 +3,24 @@
 
 #include <iostream>
 #include <string>
+#include <utility>
 
 #include "graph.h"
+#include "matrix.h"
+#include "seeding.h"
 #include "sim.h"
 
+using std::cerr;
 using std::cout;
 using std::endl;
 using std::string;
 
-#define ERROR_INVALID_OPTION 1
+using cdijkstra::get_seed_line;
+using cdijkstra::get_sim;
+using cdijkstra::Graph;
+using cdijkstra::Matrix;
+
+#define ERROR_INVALID_OR_MISSING_OPTION 1
 #define ERROR_UNKNOWN -1
 
 static struct option long_opts[] = {
@@ -36,8 +45,8 @@ int main(int argc, char** argv) {
     string graph1_seed_fname;
     string graph2_seed_fname;
 
-    string graph1_seed_line;
-    string graph2_seed_line;
+    unsigned int graph1_seed_line = -1;
+    unsigned int graph2_seed_line = -1;
 
     double delta;
     int runs = 1;
@@ -76,15 +85,15 @@ int main(int argc, char** argv) {
             break;
 
         case 'L':
-            graph1_seed_line = optarg;
+            graph1_seed_line = atoi(optarg);
             break;
 
         case 'M':
-            graph2_seed_line = optarg;
+            graph2_seed_line = atoi(optarg);
             break;
 
         case '?':
-            exit(ERROR_INVALID_OPTION);
+            exit(ERROR_INVALID_OR_MISSING_OPTION);
 
         default:
             exit(ERROR_UNKNOWN);
@@ -92,16 +101,56 @@ int main(int argc, char** argv) {
     }
 
     // TODO: enforce required options
+    if (graph1_fname.empty()) {
+        cerr << "error: graph1 file is required" << endl;
+        exit(ERROR_INVALID_OR_MISSING_OPTION);
+    }
 
+    if (graph2_fname.empty()) {
+        cerr << "error: graph2 file is required" << endl;
+        exit(ERROR_INVALID_OR_MISSING_OPTION);
+    }
+
+    if (sim_fname.empty()) {
+        cerr << "error: similarity file is required" << endl;
+        exit(ERROR_INVALID_OR_MISSING_OPTION);
+    }
+
+/*
+    if (graph1_seed_fname.empty()) {
+        cerr << "error: graph1 seed file is required" << endl;
+        exit(ERROR_INVALID_OR_MISSING_OPTION);
+    }
+
+    if (graph2_seed_fname.empty()) {
+        cerr << "error: graph2 seed file is required" << endl;
+        exit(ERROR_INVALID_OR_MISSING_OPTION);
+    }
+
+    if (graph1_seed_line == -1) {
+        cerr << "error: graph1 seed line is required" << endl;
+        exit(ERROR_INVALID_OR_MISSING_OPTION);
+    }
+
+    if (graph2_seed_line == -1) {
+        cerr << "error: graph2 seed line is required" << endl;
+        exit(ERROR_INVALID_OR_MISSING_OPTION);
+    }
+*/
     Graph g1(graph1_fname);
     Graph g2(graph2_fname);
-    SimilarityMatrix sim(sim_fname, g1, g2);
 
-    for (unsigned int i = 0; i < g1.size(); ++i) {
-        for (unsigned int j = 0; j < g2.size(); ++j) {
-            cout << i << " " << j << " " << sim.similarity(i, j) << endl;
-        }
+    Matrix<double> sim = get_sim(sim_fname, g1, g2);
+
+    // pair<unsigned int, unsigned int> g1_seed_line = get_seed_line(graph1_seed_fname, graph1_seed_line, g1);
+    // pair<unsigned int, unsigned int> g2_seed_line = get_seed_line(graph2_seed_fname, graph2_seed_line, g2);
+    /*
+    // check kvals
+    if (g1_seed_line.first != g2_seed_line.first) {
+        cerr << "error: seed k-values don't match" << endl;
+        exit(ERROR_UNKNOWN);
     }
+    */
 
     return 0;
 }

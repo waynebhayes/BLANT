@@ -1,7 +1,7 @@
 BUILD_DIR=build
 TARGET=$(BUILD_DIR)/cdijkstra
-HEADERS=$(wildcard include/**/*.h)
-SOURCES=$(wildcard src/*.cpp)
+HEADERS=$(wildcard include/*.h)
+SOURCES=$(wildcard src/*.cpp) include/matrix.h
 LIBWAYNE_HOME=../libwayne
 
 CXX=g++

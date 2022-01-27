@@ -2,24 +2,18 @@
 #define CDIJKSTRA_SIM_HEADER
 
 #include <string>
+
 #include "graph.h"
+#include "matrix.h"
 
 using std::string;
 
-class SimilarityMatrix {
-public:
-    SimilarityMatrix(string sim_file, const Graph& graph1, const Graph& graph2);
-    ~SimilarityMatrix();
+using cdijkstra::Graph;
 
-    SimilarityMatrix(const SimilarityMatrix& m) = delete;
-    SimilarityMatrix& operator =(SimilarityMatrix& m) = delete;
+namespace cdijkstra {
 
-    double similarity(int n, int m) const;
+cdijkstra::Matrix<double> get_sim(const string& sim_file, const Graph& graph1, const Graph& graph2);
 
-private:
-    unsigned int rows;
-    unsigned int cols;
-    double** mat;
-};
+}
 
 #endif

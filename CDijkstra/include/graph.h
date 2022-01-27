@@ -5,17 +5,19 @@
 #include <set>
 #include <string>
 
+#include "matrix.h"
+
 using std::map;
 using std::set;
 using std::string;
 
+using cdijkstra::Matrix;
+
+namespace cdijkstra {
+
 class Graph {
 public:
     Graph(string file);
-    ~Graph();
-
-    Graph(const Graph& g) = delete;
-    Graph& operator =(Graph& g) = delete;
 
     unsigned int size() const;
     unsigned int index(const string& node) const;
@@ -23,10 +25,11 @@ public:
     // vector<int> neighbors(int n) const;
 
 private:
-    unsigned int n_nodes;
-    bool** adjacency_matrix; // an adjacency matrix of size n_nodes by n_nodes
+    Matrix<bool> adj_mat;
     map<unsigned int, set<unsigned int>> edges; // an adjacency list mapping each node to its edges
     map<string, unsigned int> nodes; // a registry of node name to int index in g
 };
+
+}
 
 #endif

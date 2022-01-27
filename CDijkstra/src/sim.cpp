@@ -4,18 +4,19 @@
 #include <iostream>
 #include <string>
 
+#include "graph.h"
+#include "matrix.h"
+
 using std::ifstream;
 using std::string;
 
-SimilarityMatrix::SimilarityMatrix(string sim_fname, const Graph& graph1, const Graph& graph2)
- : rows{graph1.size()}, cols{graph2.size()}, mat{new double*[rows]} {
-    for (unsigned int i = 0; i < rows; ++i) {
-        mat[i] = new double[cols];
+using cdijkstra::Graph;
+using cdijkstra::Matrix;
 
-        for (unsigned int j = 0; j < cols; ++j) {
-            mat[i][j] = 0.0;
-        }
-    }
+namespace cdijkstra {
+
+Matrix<double> get_sim(const string& sim_fname, const Graph& graph1, const Graph& graph2) {
+    Matrix<double> sim(graph1.size(), graph2.size(), 0.0);
 
     // open sim file
     ifstream sim_file(sim_fname);
@@ -38,18 +39,10 @@ SimilarityMatrix::SimilarityMatrix(string sim_fname, const Graph& graph1, const 
 
         int n = graph1.index(g1_node);
         int m = graph2.index(g2_node);
-        mat[n][m] = sim_val;
-    }
-}
-
-SimilarityMatrix::~SimilarityMatrix() {
-    for (unsigned int i = 0; i < rows; ++i) {
-        delete[] mat[i];
+        sim.at(n, m) = sim_val;
     }
 
-    delete[] mat;
+    return sim;
 }
 
-double SimilarityMatrix::similarity(int n, int m) const {
-    return mat[n][m];
 }
