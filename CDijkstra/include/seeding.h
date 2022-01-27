@@ -5,9 +5,13 @@
 #include <utility>
 
 #include "graph.h"
+#include "matrix.h"
 
 using std::pair;
 using std::string;
+
+using cdijkstra::Graph;
+using cdijkstra::Matrix;
 
 namespace cdijkstra {
 
