@@ -3,7 +3,7 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-EDGE_DENSITY_THRESHOLD=0.8
+EDGE_DENSITY_THRESHOLD=1.0
 USAGE="USAGE: $BASENAME blant.exe k n network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use n samples of k-graphlets from BLANT in attempt to find large cliques (or more generally clusters) in network.el
     The last argument, EDGE_DENSITY_THRESHOLD, is optional; we stop adding nodes once the edge density under that."
@@ -23,8 +23,7 @@ parse(){ awk "BEGIN{print $*}" </dev/null; }
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
-echo "TMPDIR is `l -d $TMPDIR`"
-
+echo "TMPDIR is $TMPDIR"
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
@@ -61,11 +60,12 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 		print Kc[u],u; # print the near-clique count
 	    }
 	}' <(nl -v -1 canon_maps/canon_list$k.txt) - | # the dash is the BLANT output from -mi run at the top
-	    sort -nr | tee $TMPDIR/cliqs.sorted | # now sort the near-clique-counts of all the nodes, largest-to-smallest
-    hawk 'BEGIN{k='$k';OFS="\t"; printf "Initial S:"}
+	    sort -nr | tee $TMPDIR/cliqs.sorted | # sorted near-clique-counts of all the nodes, largest-to-smallest
+    hawk '
+	BEGIN{k='$k';OFS="\t"; printf "Initial S:"}
 	ARGIND==1{edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2 {
-	    S[$2]=1; # take the top nodes according to near-clique count... yes it is that easy.
+	    S[$2]=1; # take the top nodes according to near-clique count
 	    if(FNR<k) printf " %s",$2
 	    else if(FNR==k) printf " %s\n",$2
 	    else {
