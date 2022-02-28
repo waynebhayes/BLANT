@@ -23,6 +23,7 @@ parse(){ awk "BEGIN{print $*}" </dev/null; }
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+l -d $TMPDIR
 
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
@@ -46,7 +47,7 @@ case "$net" in
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
 
-$BLANT -k$k -n$n -sMCMC -mi "$net" | # produce BLANT index
+$BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT index
     hawk 'BEGIN{k='$k'; want='$EDGE_DENSITY_THRESHOLD'*choose(k,2)} # want = desired minimum number of edges in the k-graphlet
 	ARGIND==1{m[$1]=$4} # actual edges in graphlets, from canon_list$k.txt
 	ARGIND==2 && m[$1]>=want{
@@ -60,7 +61,7 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | # produce BLANT index
 		print Kc[u],u; # print the near-clique count
 	    }
 	}' <(nl -v -1 canon_maps/canon_list$k.txt) - | # the dash is the BLANT output from -mi run at the top
-	    sort -nr | # now sort the near-clique-counts of all the nodes, largest-to-smallest
+	    sort -nr | tee $TMPDIR/cliqs.sorted | # now sort the near-clique-counts of all the nodes, largest-to-smallest
     hawk 'BEGIN{k='$k';OFS="\t"; printf "Initial S:"}
 	ARGIND==1{edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2 {
