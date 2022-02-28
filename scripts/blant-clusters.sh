@@ -23,7 +23,7 @@ parse(){ awk "BEGIN{print $*}" </dev/null; }
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
-l -d $TMPDIR
+echo "TMPDIR is `l -d $TMPDIR`"
 
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
