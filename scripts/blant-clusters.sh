@@ -23,7 +23,7 @@ parse(){ awk "BEGIN{print $*}" </dev/null; }
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
-echo "TMPDIR is $TMPDIR"
+#echo "TMPDIR is $TMPDIR"
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
@@ -61,19 +61,39 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 	    }
 	}' <(nl -v -1 canon_maps/canon_list$k.txt) - | # the dash is the BLANT output from -mi run at the top
 	    sort -nr | tee $TMPDIR/cliqs.sorted | # sorted near-clique-counts of all the nodes, largest-to-smallest
-    hawk '
-	BEGIN{k='$k';OFS="\t"; printf "Initial S:"}
+    hawk 'BEGIN{k='$k';OFS="\t"; ID=0}
 	ARGIND==1{edge[$1][$2]=edge[$2][$1]=1} # get the edge list
-	ARGIND==2 {
-	    S[$2]=1; # take the top nodes according to near-clique count
-	    if(FNR<k) printf " %s",$2
-	    else if(FNR==k) printf " %s\n",$2
-	    else {
-		edgeHits=0;
-		for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
-		maxEdges=choose(FNR,2);
-		if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') exit;
-		printf "adding node %s gives %d nodes with", $2, length(S)
-		printf " %d out of a possible %d edges (edge density %.2f%%)\n", edgeHits, maxEdges, 100*edgeHits/maxEdges
+	ARGIND==2{node[FNR]=$2}
+	END{
+	    clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
+	    numCliques=0;
+	    for(start=1; start<=FNR; start++) { # look for a clique starting on line "start"
+		delete S;
+		fails=0;
+		S[node[start]]=1;
+		for(line=start+1;line<=FNR;line++) {
+		    S[node[line]]=1;
+		    edgeHits=0; maxEdges=choose(length(S),2);
+		    for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
+		    if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
+			delete S[node[line]];
+			++fails; if(fails>5) break; # try a few before giving up
+		    } else fails=0;
+		}
+		if(length(S)>k) { # now check if it is a subclique of something previously found
+		    is_subset=1;
+		    for(i=1;i<=numCliques;i++) {
+			for(u in S) if(!(u in clique[i])){is_subset=0;break;}
+			if(is_subset) break;
+		    }
+		    if(numCliques==0 || !is_subset) {
+			edgeHits=0; maxEdges=choose(length(S),2);
+			for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
+			++numCliques; printf "%d nodes, %d of %d edges (%g%%):",
+			    length(S), edgeHits, maxEdges, 100*edgeHits/maxEdges
+			for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+			print ""
+		    }
+		}
 	    }
 	}' "$net" - # dash is the output of the above pipe (sorted near-clique-counts)
