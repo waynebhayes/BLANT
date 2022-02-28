@@ -63,13 +63,13 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 	    sort -nr | tee $TMPDIR/cliqs.sorted | # sorted near-clique-counts of all the nodes, largest-to-smallest
     hawk 'BEGIN{k='$k';OFS="\t"; ID=0}
 	ARGIND==1{edge[$1][$2]=edge[$2][$1]=1} # get the edge list
-	ARGIND==2{node[FNR]=$2}
+	ARGIND==2{count[FNR]=$1; node[FNR]=$2}
 	END{
 	    clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
 	    numCliques=0;
 	    for(start=1; start<=FNR; start++) { # look for a clique starting on line "start"
 		delete S;
-		fails=0;
+		lastGood=start;
 		S[node[start]]=1;
 		for(line=start+1;line<=FNR;line++) {
 		    S[node[line]]=1;
@@ -77,8 +77,8 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 		    for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
 		    if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
 			delete S[node[line]];
-			++fails; if(fails>5) break; # try a few before giving up
-		    } else fails=0;
+			if(count[line]/count[lastGood] < 0.9) break; # keep going until count decreases significantly
+		    }
 		}
 		if(length(S)>k) { # now check if it is a subclique of something previously found
 		    is_subset=1;
