@@ -77,23 +77,44 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 		    for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
 		    if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
 			delete S[node[line]];
-			if(count[line]/count[lastGood] < 0.9) break; # keep going until count decreases significantly
+			# keep going until count decreases significantly; duplicates removed by post-processing
+			if(count[line]/count[lastGood] < 0.1) break;
 		    }
 		}
 		if(length(S)>k) { # now check if it is a subclique of something previously found
-		    is_subset=1;
 		    for(i=1;i<=numCliques;i++) {
-			for(u in S) if(!(u in clique[i])){is_subset=0;break;}
-			if(is_subset) break;
+			same=0;
+			for(u in S) if(u in clique[i]) ++same;
+			if(same == length(S)) break;
 		    }
-		    if(numCliques==0 || !is_subset) {
+		    if(numCliques==0 || same < length(S)) {
 			edgeHits=0; maxEdges=choose(length(S),2);
 			for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
-			++numCliques; printf "%d nodes, %d of %d edges (%g%%):",
-			    length(S), edgeHits, maxEdges, 100*edgeHits/maxEdges
+			++numCliques; printf "%d %d", length(S), edgeHits
 			for(u in S) {clique[numCliques][u]=1; printf " %s", u}
 			print ""
 		    }
 		}
 	    }
-	}' "$net" - # dash is the output of the above pipe (sorted near-clique-counts)
+	}' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
+    sort -nr |
+    hawk 'BEGIN{numCliques=0} # post-process to remove duplicates
+	{
+	    delete S; seenColon=0;
+	    numNodes=$1
+	    edgeHits=$2;
+	    for(i=3;i<=NF;i++) ++S[$i]
+	    ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+	    for(i=1;i<=numCliques;i++) {
+		same=0;
+		for(u in S) if(u in clique[i])++same;
+		if(same == length(S)) break;
+	    }
+	    if(numCliques==0 || same < length(S)) {
+		maxEdges=choose(length(S),2);
+		++numCliques; printf "%d nodes, %d of %d edges (%g%%):",
+		    length(S), edgeHits, maxEdges, 100*edgeHits/maxEdges
+		for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+		print ""
+	    }
+	}' | sort -k 1nr -k 8n
