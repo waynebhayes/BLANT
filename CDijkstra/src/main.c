@@ -1,24 +1,14 @@
 #include <getopt.h>
+#include <stdio.h>
 #include <stdlib.h>
 
-#include <iostream>
-#include <string>
-#include <utility>
+// #include "graph.h"
+// #include "matrix.h"
+// #include "seeding.h"
+// #include "sim.h"
 
 #include "graph.h"
-#include "matrix.h"
-#include "seeding.h"
 #include "sim.h"
-
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::string;
-
-using cdijkstra::get_seed_line;
-using cdijkstra::get_sim;
-using cdijkstra::Graph;
-using cdijkstra::Matrix;
 
 #define ERROR_INVALID_OR_MISSING_OPTION 1
 #define ERROR_UNKNOWN -1
@@ -37,13 +27,13 @@ static struct option long_opts[] = {
 };
 
 int main(int argc, char** argv) {
-    string graph1_fname;
-    string graph2_fname;
+    char* graph1_fname = "";
+    char* graph2_fname = "";
 
-    string sim_fname;
+    char* sim_fname = "";
 
-    string graph1_seed_fname;
-    string graph2_seed_fname;
+    char* graph1_seed_fname = "";
+    char* graph2_seed_fname = "";
 
     unsigned int graph1_seed_line = -1;
     unsigned int graph2_seed_line = -1;
@@ -101,46 +91,72 @@ int main(int argc, char** argv) {
     }
 
     // TODO: enforce required options
-    if (graph1_fname.empty()) {
-        cerr << "error: graph1 file is required" << endl;
+    if (strlen(graph1_fname) == 0) {
+        fprintf(stderr, "error: graph1 file is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 
-    if (graph2_fname.empty()) {
-        cerr << "error: graph2 file is required" << endl;
+    if (strlen(graph2_fname) == 0) {
+        fprintf(stderr, "error: graph2 file is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 
-    if (sim_fname.empty()) {
-        cerr << "error: similarity file is required" << endl;
+    if (strlen(sim_fname) == 0) {
+        fprintf(stderr, "error: similarity file is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 
 /*
-    if (graph1_seed_fname.empty()) {
-        cerr << "error: graph1 seed file is required" << endl;
+    if (strlen(graph1_seed_fname) == 0) {
+        fprintf(stderr, "error: graph1 seed file is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 
-    if (graph2_seed_fname.empty()) {
-        cerr << "error: graph2 seed file is required" << endl;
+    if (strlen(graph2_seed_fname) == 0) {
+        fprintf(stderr, "error: graph2 seed file is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 
     if (graph1_seed_line == -1) {
-        cerr << "error: graph1 seed line is required" << endl;
+        fprintf(stderr, "error: graph1 seed line is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 
     if (graph2_seed_line == -1) {
-        cerr << "error: graph2 seed line is required" << endl;
+        fprintf(stderr, "error: graph2 seed line is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 */
-    Graph g1(graph1_fname);
-    Graph g2(graph2_fname);
+    FILE* g1_file = fopen(graph1_fname, "r");
+    FILE* g2_file = fopen(graph2_fname, "r");
 
-    Matrix<double> sim = get_sim(sim_fname, g1, g2);
+    GRAPH* g1 = GraphReadEdgeList(g1_file, 1, 1);
+    GRAPH* g2 = GraphReadEdgeList(g2_file, 1, 1);
+
+    // NOTE: just for testing
+    GraphPrintConnections(stdout, g1);
+    printf("\n");
+    GraphPrintConnections(stdout, g2);
+
+    sim_t sim;
+    sim_from_file(&sim, sim_fname, g1, g2);
+
+    int i, j;
+
+    for (i = 0; i < sim.rows; i++) {
+        char* n1_name = g1->name[i];
+
+        for (j = 0; j < sim.cols; j++) {
+            char* n2_name = g2->name[j];
+            double sim_val = sim_get(&sim, i, j);
+            
+            if (sim_val > 0) {
+                printf("%s %s %f\n", n1_name, n2_name, sim_val);
+            }
+        }
+    }
+
+    // Matrix<double> sim = get_sim(sim_fname, g1, g2);
 
     // pair<unsigned int, unsigned int> g1_seed_line = get_seed_line(graph1_seed_fname, graph1_seed_line, g1);
     // pair<unsigned int, unsigned int> g2_seed_line = get_seed_line(graph2_seed_fname, graph2_seed_line, g2);
