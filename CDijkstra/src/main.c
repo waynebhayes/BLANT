@@ -8,6 +8,7 @@
 // #include "sim.h"
 
 #include "graph.h"
+#include "seeding.h"
 #include "sim.h"
 
 #define ERROR_INVALID_OR_MISSING_OPTION 1
@@ -106,7 +107,6 @@ int main(int argc, char** argv) {
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
 
-/*
     if (strlen(graph1_seed_fname) == 0) {
         fprintf(stderr, "error: graph1 seed file is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
         fprintf(stderr, "error: graph2 seed line is required\n");
         exit(ERROR_INVALID_OR_MISSING_OPTION);
     }
-*/
+
     FILE* g1_file = fopen(graph1_fname, "r");
     FILE* g2_file = fopen(graph2_fname, "r");
 
@@ -156,17 +156,14 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Matrix<double> sim = get_sim(sim_fname, g1, g2);
+    seed_t g1_seed, g2_seed;
+    seed_from_file(&g1_seed, graph1_seed_fname, graph1_seed_line, g1);
+    seed_from_file(&g2_seed, graph2_seed_fname, graph2_seed_line, g2);
 
-    // pair<unsigned int, unsigned int> g1_seed_line = get_seed_line(graph1_seed_fname, graph1_seed_line, g1);
-    // pair<unsigned int, unsigned int> g2_seed_line = get_seed_line(graph2_seed_fname, graph2_seed_line, g2);
-    /*
-    // check kvals
-    if (g1_seed_line.first != g2_seed_line.first) {
-        cerr << "error: seed k-values don't match" << endl;
+    if (g1_seed.kval != g2_seed.kval) {
+        fprintf(stderr, "error: seed k-values don't match\n");
         exit(ERROR_UNKNOWN);
     }
-    */
 
     return 0;
 }
