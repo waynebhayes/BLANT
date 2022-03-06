@@ -258,7 +258,7 @@ In order to try out different skip values (see paper), use the -T option. In ord
 
 After generating the index, you will need to remove duplicate lines in it before being able to use it. Importantly, make sure you do not modify the order of the lines, as this order will be important for the patching part of the local alignment algorithm.
 
-In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings on index files in the indexes/ directory, use final_results.py. Here is an example:
+All the code for the local alignment algorithm is in the seeding/ directory. In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings on index files in the indexes/ directory, use final_results.py. Here is an example:
 
 ./final_results.py mouse rat nodes
 
