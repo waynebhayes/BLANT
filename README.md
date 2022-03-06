@@ -245,6 +245,29 @@ To decode what's happening: the integer j1 is iterating through the nodes in the
 
 Hopefully that'll help you figure out how to use only canonicals to store your matrices. Lemme know if you have any questions.
 
+# Index Creation and Local Alignment Algorithm (Submitted to Very Large Data Bases 2022)
+The latest addition to BLANT (as of March 2022) is a deterministic variation of BLANT to create graphlet indexes. Additionally, a series of Python programs utilize these graphlet indexes in order to create high numbers of local alignments between two networks. The details of this algorithm can be found in the paper, so I will simply go over how to run this algorithm.
+
+To generate an index, run BLANT with the -sINDEX option. Here is an example:
+
+./blant -k8 -lDEG2 -mi -sINDEX seeding/networks/IIDhuman.el
+
+In order to try out different skip values (see paper), use the -T option. In order to try out different orbits as heuristic functions (see paper), use the -o and -f options. Below is an example:
+
+./blant -k8 -lDEG2 -mi -sINDEX -T3 -o4 -fseeding/odv/IIDhuman.orca4 seeding/networks/IIDhuman.el
+
+After generating the index, you will need to remove duplicate lines in it before being able to use it. Importantly, make sure you do not modify the order of the lines, as this order will be important for the patching part of the local alignment algorithm.
+
+In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings on index files in the indexes/ directory, use final_results.py. Here is an example:
+
+./final_results.py mouse rat nodes
+
+The third parameter determines whether node pairs or graphlet pairs are outputted.
+
+To run the algorithm with custom index files, graph files, odv files, and settings, use full_algorithm_helpers.py. Here is an example:
+
+./full_algorithm_helpers.py 8 mouse rat indexes/p0-o0-mouse-lDEG2.out indexes/p0-o0-rat-lDEG2.out networks/IIDmouse.el networks/IIDrat.el odv/IIDmouse.orca4 odv/IIDrat.orca4 3 0.74 True
+
 
 # References
 #### Our first paper on how BLANT performs so quickly on up to k=8 node graphlets: Hasan, Adib, Po-Chien Chung, and Wayne Hayes. ["Graphettes: Constant-time determination of graphlet and orbit identity including (possibly disconnected) graphlets up to size 8." PloS one 12, no. 8 (2017): e0181570.](https://doi.org/10.1371/journal.pone.0181570)

@@ -806,7 +806,9 @@ const char * const USAGE =
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
 "	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
 "   -M = multiplicity, meaning max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n" \
-"   -T = top percent to expand to in -sINDEX sampling method (default 0)";
+"   -T = top percent to expand to in -sINDEX sampling method (default 0)\n" \
+"   -o = the orbit to use for the heuristic function\n" \
+"   -f = the .orca4 file for the network";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here

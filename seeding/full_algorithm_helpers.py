@@ -40,9 +40,7 @@ def full_get_patch_combined_seeds(k, species1, species2, orbits, max_indices, si
 
         s1_graph_path = get_graph_path(species1)
         s2_graph_path = get_graph_path(species2)
-        s1_index = get_patched_index(k, s1_index_path, s1_graph_path)
-        s2_index = get_patched_index(k, s2_index_path, s2_graph_path)
-        all_seeds_list = find_seeds(10, species1, species2, s1_index, s2_index, get_odv_file_path(species1), get_odv_file_path(species2), SeedingAlgorithmSettings(max_indices=max_indices, sims_threshold=sims_threshold), print_progress=print_progress)
+        all_seeds_list = patch_find_seeds(k, s1_index_path, s2_index_path, s1_graph_path, s2_graph_path, get_odv_file_path(species1), get_odv_file_path(species2), max_indices, sims_threshold, print_progress)
         all_seeds_lists.append(all_seeds_list)
 
         if print_progress:
@@ -50,13 +48,26 @@ def full_get_patch_combined_seeds(k, species1, species2, orbits, max_indices, si
 
     return get_combined_seeds_list(all_seeds_lists)
 
+def patch_find_seeds(k, s1_index_path, s2_index_path, s1_graph_path, s2_graph_path, s1_odv_path, s2_odv_path, max_indices, sims_threshold, print_progress=False):
+    s1_index = get_patched_index(k, s1_index_path, s1_graph_path)
+    s2_index = get_patched_index(k, s2_index_path, s2_graph_path)
+    # 10 is the standard size of patched graphlets (patching two 8-node graphlets with 6 nodes in common)
+    return find_seeds(10, species1, species2, s1_index, s2_index, s1_odv_path, s2_odv_path, SeedingAlgorithmSettings(max_indices=max_indices, sims_threshold=sims_threshold), print_progress=print_progress)
+
 if __name__ == '__main__':
-    k = int(sys.argv[1]) if len(sys.argv) > 1 else 8
-    species1 = sys.argv[2] if len(sys.argv) > 2 else 'mouse'
-    species2 = sys.argv[3] if len(sys.argv) > 3 else 'rat'
-    orbits = [int(n) for n in sys.argv[4].split(',')] if len(sys.argv) > 4 else range(2)
-    max_indices = int(sys.argv[5]) if len(sys.argv) > 5 else 15
-    sims_threshold = float(sys.argv[6]) if len(sys.argv) > 6 else 0.74
-    print_progress = sys.argv[7] if len(sys.argv) > 7 else True
-    orthoresults, all_results = full_get_patch_pairs_results(k, species1, species2, orbits, max_indices, sims_threshold, print_progress=print_progress)
-    print(f'{len(orthoresults)} / {len(all_results)}')
+    k = int(sys.argv[1])
+    species1 = sys.argv[2]
+    species2 = sys.argv[3]
+    s1_index_path = sys.argv[4]
+    s2_index_path = sys.argv[5]
+    s1_graph_path = sys.argv[6]
+    s2_graph_path = sys.argv[7]
+    s1_odv_path = sys.argv[8]
+    s2_odv_path = sys.argv[9]
+    max_indices = int(sys.argv[10])
+    sims_threshold = float(sys.argv[11])
+    print_progress = sys.argv[12] == 'True'
+    all_graphlets = patch_find_seeds(k, s1_index_path, s2_index_path, s1_graph_path, s2_graph_path, s1_odv_path, s2_odv_path, max_indices, sims_threshold, print_progress)
+    s1_to_s2_orthologs = get_s1_to_s2_orthologs(species1, species2)
+    orthographlets = get_orthographlets_list(all_graphlets, s1_to_s2_orthologs)
+    print(f'{len(orthographlets)} / {len(all_graphlets)}')
