@@ -12,7 +12,7 @@ BASENAME=`basename "$0" .sh`
 TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
 trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 
-(rm -rf $TMPDIR/seed7/ ./seed7 && mkdir -p $TMPDIR/seed7 && ln -sf $TMPDIR/seed7 .) || die "Problems creating $TMPDIR/seed7 and/or ./seed7"
+(/bin/rm -rf $TMPDIR/seed7/ ./seed7 && mkdir -p $TMPDIR/seed7 && ln -sf $TMPDIR/seed7 .) || die "Problems creating $TMPDIR/seed7 and/or ./seed7"
 
 echo "=====Generating 10 alignments====="
 if module avail 2>/dev/null; then

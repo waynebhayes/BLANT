@@ -27,7 +27,7 @@ cpus() {
     lscpu >$TMP 2>/dev/null && awk '/^CPU[(s)]*:/{cpus=$NF}END{if(cpus)print cpus; else exit 1}' $TMP && return
 
     # MacOS:
-    ([ `arch` = Darwin -o `uname` = Darwin ] || uname -a | grep Darwin >/dev/null) && sysctl -n hw.ncpu && return
+    ([ `arch` = Darwin -o `uname` = Darwin -o `arch` = arm64 -o `uname` = arm64 ] || uname -a | egrep 'Darwin|arm64' >/dev/null) && sysctl -n hw.ncpu && return
 
     # Cygwin:
     case `arch` in
@@ -95,7 +95,7 @@ do
     NEW_FAILS=0
     export REG_DIR
     echo --- running test $r ---
-    if eval $STDBUF "$r"; then # force output and error to be line buffered
+    if eval time $STDBUF "$r"; then # force output and error to be line buffered
 	:
     else
 	NEW_FAILS=$?
