@@ -978,8 +978,20 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     // Loop through neighbor nodes with Top N (-lDEGN) distinct heur values
     // If there are multiple nodes with the same heur value (which might happen with degree), we need to expand to all of them because randomly picking one to expand to would break determinism
     // If -lDEGN flag is not given, then will loop through EVERY neighbor nodes in descending order of their degree.
+    int num_total_distinct_values = 0;
+    double old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics always being >= 0
+    i = 0;
+    while (i < next_step_count) {
+        node_wheur next_step_nwh = next_step_nwh_arr[i];
+        double curr_heur = next_step_nwh.heur;
+        if (curr_heur != old_heur) {
+            ++num_total_distinct_values;
+        }
+        ++i;
+    }
+    int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000;
     int num_distinct_values = 0;
-    double old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics
+    old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics
     i = 0;
     while (i < next_step_count) {
         node_wheur next_step_nwh = next_step_nwh_arr[i];
@@ -989,8 +1001,14 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         }
         old_heur = curr_heur;
 
+        // continue for the heurs we skip
+        if (num_distinct_values <= num_distinct_values_to_skip) {
+            ++i;
+            continue;
+        }
+
         // break once we've gotten enough distinct heur values
-        if (_numWindowRepLimit != 0 && num_distinct_values > _numWindowRepLimit) {
+        if (_numWindowRepLimit != 0 && num_distinct_values - num_distinct_values_to_skip > _numWindowRepLimit) {
             break;
         }
 

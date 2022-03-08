@@ -17,6 +17,10 @@ int _numWindowRep = 0;
 int _numWindowRepLimit = 0;
 int _numWindowRepArrSize = 100;
 
+int _topThousandth = 0;
+int _orbitNumber = -1; // -1 means not initialized
+char* _odvFile = NULL;
+
 int _windowSize = 0;
 Boolean _window = false;
 SET *_windowRep_allowed_ambig_set;
