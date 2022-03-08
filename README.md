@@ -250,23 +250,43 @@ The latest addition to BLANT (as of March 2022) is a deterministic variation of 
 
 To generate an index, run BLANT with the -sINDEX option. Here is an example:
 
-./blant -k8 -lDEG2 -mi -sINDEX seeding/networks/IIDhuman.el
+./blant -k8 -lDEG2 -mi -sINDEX IIDhuman.el
 
 In order to try out different skip values (see paper), use the -T option. In order to try out different orbits as heuristic functions (see paper), use the -o and -f options. Below is an example:
 
-./blant -k8 -lDEG2 -mi -sINDEX -T3 -o4 -fseeding/odv/IIDhuman.orca4 seeding/networks/IIDhuman.el
+./blant -k8 -lDEG2 -mi -sINDEX -T3 -o4 -fIIDhuman.orca4 IIDhuman.el
 
 After generating the index, you will need to remove duplicate lines in it before being able to use it. Importantly, make sure you do not modify the order of the lines, as this order will be important for the patching part of the local alignment algorithm.
 
-All the code for the local alignment algorithm is in the seeding/ directory. In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings on index files in the indexes/ directory, use final_results.py. Here is an example:
+All the code for the local alignment algorithm is in the seeding/ directory. In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings, use final_results.py. This script relies on having a directory structure that looks like this:
 
+.
+├── Orthologs.Uniprot.tsv
+├── networks
+│   ├── IIDmouse.el
+│   ├── IIDrat.el
+│   └── ...
+├── odv
+│   ├── IIDmouse.orca4
+│   ├── IIDrat.orca4
+│   └── ...
+└── indexes
+    ├── p0-o0-mouse-lDEG2.out
+    ├── p0-o1-mouse-lDEG2.out
+    └── ...
+
+Before running the script, you will need to set the environment variable BLANT_SEED_SUPPL to the base of this directory structure. You can find a zip of the network, odv, and index files we use here: https://drive.google.com/file/d/1lav7u-_P4zCcV8J9vzq9B7NxgsuvzrhZ/view?usp=sharing.
+
+Here is an example of running the script:
+
+export BLANT_SEED_SUPPL=blant_seeding_suppl
 ./final_results.py mouse rat nodes
 
-The third parameter determines whether node pairs or graphlet pairs are outputted.
+The first two parameters name the species you are comparing. The third parameter points to the base of the directory structure. The script will go into the directory structure and find the right files based on the species and settings. Finally, the third parameter determines whether node pairs or graphlet pairs are outputted.
 
 To run the algorithm with custom index files, graph files, odv files, and settings, use full_algorithm_helpers.py. Here is an example:
 
-./full_algorithm_helpers.py 8 mouse rat indexes/p0-o0-mouse-lDEG2.out indexes/p0-o0-rat-lDEG2.out networks/IIDmouse.el networks/IIDrat.el odv/IIDmouse.orca4 odv/IIDrat.orca4 3 0.74 True
+./full_algorithm_helpers.py 8 mouse rat p0-o0-mouse-lDEG2.out p0-o0-rat-lDEG2.out IIDmouse.el IIDrat.el IIDmouse.orca4 IIDrat.orca4 3 0.74 True
 
 
 # References

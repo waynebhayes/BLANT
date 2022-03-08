@@ -12,7 +12,7 @@ def calc_f1(orth, found, n):
     return tp / (tp + 0.5 * (fp + fn))
 
 def get_seeding_dir():
-    return os.path.dirname(os.path.abspath(__file__))
+    return os.getenv('BLANT_SEED_SUPPL')
 
 if __name__ == '__main__':
     assert_with_prints(5, 5, 'foo')

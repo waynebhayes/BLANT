@@ -117,6 +117,10 @@ def get_final_results(species1, species2, mode, print_progress=False):
         return ortholog_node_pairs, node_pairs
 
 if __name__ == '__main__':
+    if get_seeding_dir() == None:
+        print('make sure to set the BLANT_SEED_SUPPL envvar')
+        quit()
+
     species1 = sys.argv[1]
     species2 = sys.argv[2]
     mode = sys.argv[3]
