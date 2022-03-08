@@ -258,24 +258,22 @@ In order to try out different skip values (see paper), use the -T option. In ord
 
 After generating the index, you will need to remove duplicate lines in it before being able to use it. Importantly, make sure you do not modify the order of the lines, as this order will be important for the patching part of the local alignment algorithm.
 
-All the code for the local alignment algorithm is in the seeding/ directory. In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings, use final_results.py. This script relies on having a directory structure that looks like this: <br>
+All the code for the local alignment algorithm is in the seeding/ directory. In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings, use final_results.py. This script relies on having a directory structure that looks like this:
 ```
- <br>
-. <br>
-├── Orthologs.Uniprot.tsv <br>
-├── networks <br>
-│   ├── IIDmouse.el <br>
-│   ├── IIDrat.el <br>
-│   └── ... <br>
-├── odv <br>
-│   ├── IIDmouse.orca4 <br>
-│   ├── IIDrat.orca4 <br>
-│   └── ... <br>
-└── indexes <br>
-    ├── p0-o0-mouse-lDEG2.out <br>
-    ├── p0-o1-mouse-lDEG2.out <br>
-    └── ... <br>
- <br>
+.
+├── Orthologs.Uniprot.tsv
+├── networks
+│   ├── IIDmouse.el
+│   ├── IIDrat.el
+│   └── ...
+├── odv
+│   ├── IIDmouse.orca4
+│   ├── IIDrat.orca4
+│   └── ...
+└── indexes
+    ├── p0-o0-mouse-lDEG2.out
+    ├── p0-o1-mouse-lDEG2.out
+    └── ...
  ```
 Before running the script, you will need to set the environment variable BLANT_SEED_SUPPL to the base of this directory structure. You can find a zip of the network, odv, and index files we use here: https://drive.google.com/file/d/1lav7u-_P4zCcV8J9vzq9B7NxgsuvzrhZ/view?usp=sharing.
 
