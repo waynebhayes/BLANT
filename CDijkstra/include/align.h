@@ -12,6 +12,8 @@ struct align_combinations {
 
 struct aligned_pairs {
     SPARSE_SET* pairs;
+    unsigned int n1;
+    unsigned int n2;
 };
 
 struct aligned_pair {

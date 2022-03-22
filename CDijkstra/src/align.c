@@ -37,21 +37,10 @@ void align_combinations_insert(struct align_combinations* align, int k, struct a
 }
 
 unsigned long aligned_pair_index(unsigned int n1, unsigned int n2) {
-    unsigned long n1_component = (unsigned long)n1 << sizeof(unsigned int);
+    unsigned long n1_component = (unsigned long)n1 << (8 * sizeof(unsigned int));
     unsigned long n2_component = (unsigned long)n2;
 
     return n1_component | n2_component;
-}
-
-struct aligned_pair aligned_pair_from_index(unsigned long i) {
-    unsigned int n1 = i >> sizeof(unsigned int);
-    unsigned int n2 = i;
-
-    struct aligned_pair pair;
-    pair.n1 = n1;
-    pair.n2 = n2;
-
-    return pair;
 }
 
 struct aligned_pairs aligned_pairs_init(GRAPH* g1, GRAPH* g2) {
@@ -59,6 +48,8 @@ struct aligned_pairs aligned_pairs_init(GRAPH* g1, GRAPH* g2) {
 
     struct aligned_pairs alignment;
     alignment.pairs = SparseSetAlloc(last_pair);
+    alignment.n1 = g1->n;
+    alignment.n2 = g2->n;
 
     return alignment;
 }
@@ -80,15 +71,23 @@ unsigned long aligned_pairs_to_array(struct aligned_pairs alignment, struct alig
     unsigned long n_pairs = SparseSetCardinality(alignment.pairs);
     struct aligned_pair* array = malloc(sizeof(struct aligned_pair) * n_pairs);
 
-    unsigned long i;
     unsigned long p = 0;
-    for (i = 0; i < alignment.pairs->n; i++) {
-        if (SparseSetIn(alignment.pairs, i)) {
-            array[p++] = aligned_pair_from_index(i);
+    unsigned int i, j;
+
+    for (i = 0; i < alignment.n1; i++) {
+        for (j = 0; j < alignment.n2; j++) {
+            unsigned long index = aligned_pair_index(i, j);
+
+            if (SparseSetIn(alignment.pairs, index)) {
+                struct aligned_pair pair;
+                pair.n1 = i;
+                pair.n2 = j;
+
+                array[p++] = pair;
+            }
         }
     }
 
-    // because the pair indices are implicitly in sorted order, this array is guaranteed to be sorted
     *buf = array;
     return n_pairs;
 }
