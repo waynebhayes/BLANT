@@ -6,9 +6,13 @@
 
 #include <stdio.h>
 
+// Implementation of the align combinations support data structure: a mapping of k-value to ordered set of aligned node pairs. See bst.h/.c for details on the custom BST implementation used in the implementation.
+
 struct align_combinations {
     hashmap_t buckets;
 };
+
+// Pairs are stored in the set via a "pair-packing" technique that reduces the capacity of the set from O(n1 * n2) to O(n1 + n2). Tldr the two node indices in the pair are concatenated on top of each other in an 8-byte unsigned int; see align.c for details.
 
 struct aligned_pairs {
     SPARSE_SET* pairs;

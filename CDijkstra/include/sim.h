@@ -4,6 +4,8 @@
 #include <string.h>
 #include "graph.h"
 
+// A node similarity support data structure, basically a n1 x n2 matrix of similarity values. Implemented as a single buffer in row-major order, because that's faster than allocating for each row.
+
 typedef struct {
     int rows;
     int cols;

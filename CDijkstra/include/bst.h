@@ -3,6 +3,8 @@
 
 #include "align.h"
 
+// A BST of sets of aligned node pairs. The pairs array must be in sorted order (bst_insert & bst_node_init take care of that for you).
+
 struct bst_node {
     struct aligned_pair* pairs;
     unsigned long n_pairs;
