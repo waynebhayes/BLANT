@@ -72,9 +72,9 @@ alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
-base: .firsttime libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table test_maps test_sanity
+base: .notpristine libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table test_maps test_sanity
 
-.firsttime:
+.notpristine:
 	@echo '****************************************'
 	@echo "If you haven't already, you should read the README at"
 	@echo "	https://github.com/waynebhayes/BLANT#readme"
@@ -92,7 +92,7 @@ base: .firsttime libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcm
 	@echo "Set PAUSE to some other integer to pause less time, eg PAUSE=1"
 	@echo '****************************************'
 	@sleep $(PAUSE)
-	@touch .firsttime
+	@touch .notpristine
 
 most: libwayne base Draw subcanon_maps
 
@@ -250,7 +250,7 @@ realclean:
 
 pristine: clean # also clean all canonical data and libwayne
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
-	@/bin/rm -f canon_maps/* .firsttime
+	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@find . -name __pycache__ -o -name '*.pyc' | xargs /bin/rm -rf
 
 clean_canon_maps:
