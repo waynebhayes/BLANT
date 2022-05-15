@@ -951,7 +951,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         // loop through all of their neighbors and...
         for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
             neigh = G->neighbor[prev_nodes_array[i]][j];
-            // if the neighbor is not in prev_nodes_array, add it to the set
+            // if the neighbor is not in prev_nodes_array add it to the set
             if(!arrayIn(prev_nodes_array, prev_nodes_count, neigh)) {
                 SetAdd(next_step, neigh); // the SET takes care of deduplication
             }
@@ -966,14 +966,24 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 #endif
     SetFree(next_step); // now that we have the next_step_arr, we no longer need the SET next_step
 
-    // populate next_step_nwh_arr with all nodes in next_step_arr along with their heuristic values provided in heur_arr
-    node_wheur next_step_nwh_arr[next_step_count]; // we only need this so that we're able to sort the array
+    // populate next_step_nwhn_arr with all nodes in next_step_arr along with their heuristic values provided in heur_arr and their names
+    node_whn next_step_nwhn_arr[next_step_count]; // we only need this so that we're able to sort the array
     for (i = 0; i < next_step_count; ++i) {
         int curr_node = next_step_arr[i];
-        next_step_nwh_arr[i].node = curr_node;
-        next_step_nwh_arr[i].heur = heur_arr[curr_node];
+        next_step_nwhn_arr[i].node = curr_node;
+        next_step_nwhn_arr[i].heur = heur_arr[curr_node];
+        next_step_nwhn_arr[i].name = _nodeNames[curr_node];
     }
-    qsort((void*)next_step_nwh_arr, next_step_count, sizeof(node_wheur), nwh_descompFunc); // sort by heuristic, in either ascending or descending order (nwh_asccompFunc or nwh_descompFunc)
+
+    int (*comp_func)(const void*, const void*);
+
+    if (_alphabeticTieBreaking) {
+        comp_func = nwhn_des_alph_comp_func;
+    } else {
+        comp_func = nwhn_des_rev_comp_func;
+    }
+
+    qsort((void*)next_step_nwhn_arr, next_step_count, sizeof(node_whn), comp_func); // sort by heuristic first and name second
 
     // Loop through neighbor nodes with Top N (-lDEGN) distinct heur values
     // If there are multiple nodes with the same heur value (which might happen with degree), we need to expand to all of them because randomly picking one to expand to would break determinism
@@ -982,8 +992,8 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     double old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics always being >= 0
     i = 0;
     while (i < next_step_count) {
-        node_wheur next_step_nwh = next_step_nwh_arr[i];
-        double curr_heur = next_step_nwh.heur;
+        node_whn next_step_nwhn = next_step_nwhn_arr[i];
+        double curr_heur = next_step_nwhn.heur;
         if (curr_heur != old_heur) {
             ++num_total_distinct_values;
         }
@@ -994,8 +1004,8 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
     old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics
     i = 0;
     while (i < next_step_count) {
-        node_wheur next_step_nwh = next_step_nwh_arr[i];
-        double curr_heur = next_step_nwh.heur;
+        node_whn next_step_nwhn = next_step_nwhn_arr[i];
+        double curr_heur = next_step_nwhn.heur;
         if (curr_heur != old_heur) {
             ++num_distinct_values;
         }
@@ -1014,7 +1024,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 
         // perform the standard DFS step of set next, recurse with size + 1, and then unset next
         // the "unset" step is commented out for efficiency since it's not actually necessary, but the comment improves readability
-        prev_nodes_array[prev_nodes_count] = next_step_nwh.node;
+        prev_nodes_array[prev_nodes_count] = next_step_nwhn.node;
         SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, heur_arr);
         // prev_nodes_array[prev_nodes_count] = 0;
         ++i;

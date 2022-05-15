@@ -346,7 +346,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     int i, count = 0;
     int prev_nodes_array[_k];
 
-    // double importance_heur_arr[G->n];
+    // double importance_heur_arr[G->n]; IF YOU WANT TO USE IMPORTANCE, MAKE SURE TO FIX THE IMPORTANCE FUNCTION TO CONSIDER ALPHABETIC ORDER CORRECTLY
     // getImportances(importance_heur_arr, G);
         
     // Get heuristic values based on orbit number, if ODV file provided
@@ -359,17 +359,36 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     }
 
     int percentToPrint = 1;
+    node_whn nwhn_arr[G->n]; // nodes sorted first by the heuristic function and then either alphabetically or reverse alphabetically
+    
+    // fill node order array with base values
+    for (i = 0; i < G->n; i++) {
+        nwhn_arr[i].node = i;
+        nwhn_arr[i].heur = heuristicValues[i];
+        nwhn_arr[i].name = _nodeNames[i];
+    }
+
+    // sort array
+    int (*comp_func)(const void*, const void*);
+
+    if (_alphabeticTieBreaking) {
+        comp_func = nwhn_des_alph_comp_func;
+    } else {
+        comp_func = nwhn_des_rev_comp_func;
+    }
+
+    qsort((void*)nwhn_arr, G->n, sizeof(node_whn), comp_func);
 
     for(i=0; i<G->n; i++) {
-            prev_nodes_array[0] = i;
-            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, heuristicValues);
-            count = 0;
+        prev_nodes_array[0] = nwhn_arr[i].node;
+        SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, heuristicValues);
+        count = 0;
 
-            if (i * 100 / G->n >= percentToPrint) {
-                fprintf(stderr, "%d%% done\n", percentToPrint);
-                ++percentToPrint;
-            }
+        if (i * 100 / G->n >= percentToPrint) {
+            fprintf(stderr, "%d%% done\n", percentToPrint);
+            ++percentToPrint;
         }
+    }
     }
     else // sample numSamples graphlets for the entire graph
     {
@@ -808,7 +827,8 @@ const char * const USAGE =
 "   -M = multiplicity, meaning max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n" \
 "   -T = top percent to expand to in -sINDEX sampling method (default 0)\n" \
 "   -o = the orbit to use for the heuristic function\n" \
-"   -f = the .orca4 file for the network";
+"   -f = the .orca4 file for the network\n" \
+"   -a = sets whether ties are broken alphabetically or reverse alphabetically";
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -833,7 +853,7 @@ int main(int argc, char *argv[])
 
     int odv_fname_len = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:a:")) != -1)
     {
 	switch(opt)
 	{
@@ -1003,7 +1023,9 @@ int main(int argc, char *argv[])
         odv_fname_len = strlen(optarg);
         _odvFile = malloc(sizeof(char) * odv_fname_len);
         strncpy(_odvFile, optarg, odv_fname_len);
-
+        break;
+    case 'a':
+        _alphabeticTieBreaking = atoi(optarg) != 0;
         break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
     }
