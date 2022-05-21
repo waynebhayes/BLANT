@@ -32,8 +32,6 @@ Boolean _child; // are we a child process?
 
 char * _sampleFileName;
 
-#define USE_INSERTION_SORT 0
-
 // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 unsigned int _k;
 unsigned int _Bk, _k_small;
@@ -211,9 +209,9 @@ void initializeMCMC(GRAPH* G, int k, int numSamples) {
 	// Count the number of valid edges to start from
 	int i, validEdgeCount = 0;
 	for (i = 0; i < G->numEdges; i++)
-		if (_componentSize[_whichComponent[G->edgeList[2*i]]] >= k)
-			validEdgeCount++;
-	_samplesPerEdge =  (numSamples + (validEdgeCount / 2)) / validEdgeCount; // Division rounding up for samples per edge
+	    if (_componentSize[_whichComponent[G->edgeList[2*i]]] >= k)
+		validEdgeCount++;
+	_samplesPerEdge = (numSamples + (validEdgeCount / 2)) / validEdgeCount; // Division rounding up for samples per edge
 
 	char BUF[BUFSIZ];
 	_numSamples = numSamples;
@@ -339,37 +337,67 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
-    if (_sampleMethod == SAMPLE_INDEX) { // sample numSamples graphlets for each node in the graph
-	if (_outputMode != indexGraphlets && _outputMode != indexOrbits)
-	    Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 
-    int i, count = 0;
-    int prev_nodes_array[_k];
+    if ((_sampleMethod == SAMPLE_INDEX || _sampleMethod == SAMPLE_EDGE_COVER) && 
+	(_outputMode != indexGraphlets && _outputMode != indexOrbits))
+	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
-    // double importance_heur_arr[G->n];
-    // getImportances(importance_heur_arr, G);
-        
-    // Get heuristic values based on orbit number, if ODV file provided
-    double heuristicValues[G->n];
+    if (_sampleMethod == SAMPLE_INDEX) {
+	int i, count = 0;
+	int prev_nodes_array[_k];
 
-    if (_orbitNumber != -1) {
-        getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
-    } else {
-        getDoubleDegreeArr(heuristicValues, G);
+	// double importance_heur_arr[G->n];
+	// getImportances(importance_heur_arr, G);
+	    
+	// Get heuristic values based on orbit number, if ODV file provided
+	double heuristicValues[G->n];
+
+	if (_orbitNumber != -1) {
+	    getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
+	} else {
+	    getDoubleDegreeArr(heuristicValues, G);
+	}
+
+	int percentToPrint = 1;
+
+	for(i=0; i<G->n; i++) {
+	    prev_nodes_array[0] = i;
+	    SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, heuristicValues);
+	    count = 0;
+
+	    if (i * 100 / G->n >= percentToPrint) {
+		fprintf(stderr, "%d%% done\n", percentToPrint);
+		++percentToPrint;
+	    }
+	}
     }
+    else if (_sampleMethod == SAMPLE_EDGE_COVER) {
+	SET *needEdge = SetAlloc(G->numEdges);
+	int e;
+	for(e=0; e<G->numEdges; e++) SetAdd(needEdge,e);
 
-    int percentToPrint = 1;
+	for(e=0; e<G->numEdges; e++) if(SetIn(needEdge, e)) {
+	    int whichCC = -(e+1); // encoding edge number in whichCC
+	    SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
+	    ProcessGraphlet(G, V, Varray, k, empty_g);
 
-    for(i=0; i<G->n; i++) {
-            prev_nodes_array[0] = i;
-            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, heuristicValues);
-            count = 0;
-
-            if (i * 100 / G->n >= percentToPrint) {
-                fprintf(stderr, "%d%% done\n", percentToPrint);
-                ++percentToPrint;
-            }
-        }
+	    // Now remove all the edges in the graphlet from "needEdge" (SLOW AND DUMB but it's not really a problem)
+	    int i,j,f;
+	    for(i=0;i<k;i++) for(j=i+1;j<k;j++) {
+		int u=Varray[i], v=Varray[j];
+		if(GraphAreConnected(G,u,v)) { // find (u,v) in the edgeList and remove it from needEdge
+		    Boolean found=false;
+		    for(f=0;f<G->numEdges;f++) {
+			if((G->edgeList[2*f]==u && G->edgeList[2*f+1]==v) || (G->edgeList[2*f]==v && G->edgeList[2*f+1]==u)) {
+			    found=true;
+			    SetDelete(needEdge, f);
+			    break;
+			}
+		    }
+		    assert(found);
+		}
+	    }
+	}
     }
     else // sample numSamples graphlets for the entire graph
     {
@@ -567,8 +595,8 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_JOBS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
-    if (_sampleMethod == SAMPLE_INDEX)
-        Fatal("The sampling method '-s INDEX' does not yet support multithreading (feel free to add it!)");
+    if (_sampleMethod == SAMPLE_INDEX || _sampleMethod == SAMPLE_EDGE_COVER)
+        Fatal("The sampling methods INDEX and EDGE_COVER do not yet support multithreading (feel free to add it!)");
 
     // At this point, _JOBS must be greater than 1.
     assert(_JOBS>1);
@@ -747,8 +775,8 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 
 const char * const USAGE =
 "BLANT: Basic Local Alignment for Networks Tool (work in progress)\n"\
-"PURPOSE: randomly sample graphlets up to size 8 from a graph. Default output is similar to ORCA though stochastic\n"\
-"    rather than exaustive. Thus APPROXIMATE results but MUCH faster than ORCA on large or dense networks.\n"\
+"PURPOSE: sample graphlets (usually randomly) up to size 8 from a graph. Default output is similar to ORCA though\n"\
+"    stochastic rather than exaustive. Thus APPROXIMATE results but MUCH faster than ORCA on large or dense networks.\n"\
 "USAGE: blant [OPTIONS] -k K -n numSamples -s samplingMethod graphInputFile\n"\
 "where the following are REQUIRED:\n"\
 "    K is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
@@ -767,10 +795,13 @@ const char * const USAGE =
 "	RES (Lu Bressan's reservoir sampling): also asymptotically correct but much slower than MCMC.\n"\
 "	AR (Accept-Reject): EXTREMELY SLOW but asymptotically correct: pick k nodes entirely at random, reject if\n"\
 "	    resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
-"	INDEX: unlike all other sampling methods that use randomness, this mode is deterministic: for each node v in the graph,\n"\
-"           build a topologically deterministic set of k-graphlets to be used as indices for seed-and-extend local\n"\
-"           alignments (using, eg., our onw Dijkstra-inspired local aligner--see Dijkstra diretory). When using INDEX sampling,\n"\
-"           the -n command-line option specifies the maximum number of index entries per starting node v.\n"\
+"	INDEX: deterministic: for each node v in the graph, build a topologically deterministic set of k-graphlets to\n"\
+"           be used as indices for seed-and-extend local alignments (using, eg., our onw Dijkstra-inspired local aligner--\n"\
+"           see Dijkstra diretory). When using INDEX sampling, the -n command-line option specifies the maximum number\n"\
+"           of index entries per starting node v.\n"\
+"	EDGE_COVER: starting with E=all edges in the input graph, pick one edge in E and build a k-graphlet using EBE;\n"\
+"           then subtract ALL its edges from E. Continue until E is empty. The goal is to output a short list of graphlets\n"\
+"           that, in comglomerate, cover each edge in E at least once.\n"\
 "    graphInputFile: graph must be in one of the following formats with its extension name:\n"\
 "	Edgelist (.el), LEDA(.leda), GML (.gml), GraphML (.xml), LGF(.lgf), CSV(.csv)\n"\
 "	(extensions .gz and .xz are automatically decompressed using gunzip and unxz, respectively)\n"\
@@ -890,7 +921,7 @@ int main(int argc, char *argv[])
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 	    else if (strncmp(optarg, "NBE", 3) == 0)
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
-	    else if (strncmp(optarg, "FAYE", 3) == 0)
+	    else if (strncmp(optarg, "FAYE", 4) == 0)
 		_sampleMethod = SAMPLE_FAYE;
 	    else if (strncmp(optarg, "EBE", 3) == 0)
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
@@ -905,6 +936,8 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_ACCEPT_REJECT;
 	    else if (strncmp(optarg, "INDEX", 5) == 0)
 		_sampleMethod = SAMPLE_INDEX;
+	    else if (strncmp(optarg, "EDGE_COVER", 10) == 0)
+		_sampleMethod = SAMPLE_EDGE_COVER;
 	    else
 	    {
 		_sampleFileName = optarg;
@@ -1017,7 +1050,7 @@ int main(int argc, char *argv[])
         }
     } 
     
-    if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be between larger than 5 for INDEX sampling method since there are no unambiguous graphlets for k<=5",_k);
+    if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be at least 6 for INDEX sampling method because there are no unambiguous graphlets for k<=5",_k);
 
     if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
