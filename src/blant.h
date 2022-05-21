@@ -24,6 +24,7 @@ double RandomUniform(void) {
 #define RandomSeed srand48
 #endif
 
+#define USE_INSERTION_SORT 1
 #define GEN_SYN_GRAPH 0
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)

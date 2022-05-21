@@ -109,11 +109,11 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	}
 
 	if (edge < 0 && cc == -1) { // Pick a random edge from anywhere in the graph that has at least k nodes
-		do {
+	    do {
 		edge = G->numEdges * RandomUniform();
 		X[0] = G->edgeList[2*edge];
-		} while(!(_componentSize[_whichComponent[G->edgeList[2*edge]]] < k));
-		X[1] = G->edgeList[2*edge+1];
+	    } while(!(_componentSize[_whichComponent[G->edgeList[2*edge]]] < k));
+	    X[1] = G->edgeList[2*edge+1];
 	}
 	else if (edge < 0) { // Pick a random edge from within a chosen connected component
 		do {
@@ -156,6 +156,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 // new node (ie., edges that are not going back inside the graphlet).
 // So the "outset" is the set of edges going to nodes exactly distance
 // one from the set V, as V is being built.
+//   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
 
 double SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
@@ -172,10 +173,15 @@ double SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, in
     assert(V && V->n >= G->n);
     SetEmpty(V);
     int edge;
-    do {
+    if(whichCC<0){
+	edge = -(whichCC+1);
+	v1 = G->edgeList[2*edge];
+    }
+    else do {
 	edge = G->numEdges * RandomUniform();
 	v1 = G->edgeList[2*edge];
     } while(!SetIn(_componentSet[whichCC], v1));
+    assert(edge < G->numEdges);
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
@@ -382,28 +388,28 @@ double SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 double SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
 {
     SetEmpty(V);
-	int i, numRead;
-	char line[BUFSIZ];
-	char *s = fgets(line, sizeof(line), _sampleFile);
-	if(!s){
-		_sampleFileEOF = 1; // forces exit below
-		return 1.0;
-	}
-	switch(k)
-	{
-	case 3: numRead = sscanf(line, "%d%d%d",Varray,Varray+1,Varray+2); break;
-	case 4: numRead = sscanf(line, "%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3); break;
-	case 5: numRead = sscanf(line, "%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4); break;
-	case 6: numRead = sscanf(line, "%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5); break;
-	case 7: numRead = sscanf(line, "%d%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5,Varray+6); break;
-	case 8: numRead = sscanf(line, "%d%d%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5,Varray+6,Varray+7); break;
-	default: Fatal("unknown k value %d",k);
-	}
-	assert(numRead == k);
-	for(k=0;i<k;i++){
-		assert(Varray[i] >= 0 && Varray[i] < G->n);
-		SetAdd(V, Varray[i]);
-	}
+    int i, numRead;
+    char line[BUFSIZ];
+    char *s = fgets(line, sizeof(line), _sampleFile);
+    if(!s){
+	_sampleFileEOF = 1; // forces exit below
+	return 1.0;
+    }
+    switch(k)
+    {
+    case 3: numRead = sscanf(line, "%d%d%d",Varray,Varray+1,Varray+2); break;
+    case 4: numRead = sscanf(line, "%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3); break;
+    case 5: numRead = sscanf(line, "%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4); break;
+    case 6: numRead = sscanf(line, "%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5); break;
+    case 7: numRead = sscanf(line, "%d%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5,Varray+6); break;
+    case 8: numRead = sscanf(line, "%d%d%d%d%d%d%d%d",Varray,Varray+1,Varray+2,Varray+3,Varray+4,Varray+5,Varray+6,Varray+7); break;
+    default: Fatal("unknown k value %d",k);
+    }
+    assert(numRead == k);
+    for(k=0;i<k;i++){
+	    assert(Varray[i] >= 0 && Varray[i] < G->n);
+	    SetAdd(V, Varray[i]);
+    }
     return 1.0;
 }
 
@@ -442,6 +448,7 @@ double SampleGraphletFromFile(SET *V, int *Varray, GRAPH *G, int k)
 ** empirically this one does reasonably well too.  However, if the only goal
 ** is blinding speed at graphlet sampling, eg for building a graphlet database
 ** index, then this is the preferred method.
+**   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
 */
 double SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, int whichCC)
 {
@@ -449,10 +456,15 @@ double SampleGraphletEdgeBasedExpansion(SET *V, int *Varray, GRAPH *G, int k, in
     assert(V && V->n >= G->n);
     SetEmpty(V);
     int nOut = 0;
-    do {
+    if(whichCC<0){
+	edge = -(whichCC+1);
+	v1 = G->edgeList[2*edge];
+    }
+    else do {
 	edge = G->numEdges * RandomUniform();
 	v1 = G->edgeList[2*edge];
     } while(!SetIn(_componentSet[whichCC], v1));
+    assert(edge < G->numEdges);
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;

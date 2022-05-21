@@ -24,6 +24,7 @@
 #define SAMPLE_MCMC 5 // MCMC Algorithm estimates graphlet frequency with a random walk
 #define SAMPLE_FAYE 6
 #define SAMPLE_INDEX 7 // Use deterministic walk to find seeds which are used for extensions
+#define SAMPLE_EDGE_COVER 8 // cover all edges in G at least once, then stop
 
 extern int _sampleMethod;
 extern FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
