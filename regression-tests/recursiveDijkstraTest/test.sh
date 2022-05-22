@@ -28,6 +28,6 @@ if ./Dijkstracmd; then
 else
     D=$?
     [ $D = 99 ] && exit 0 # ignoring missing SIM file
-    echo "Python failed... wrong Python version?" >&2
+    echo "Dijkstra failed" >&2
     exit $D
 fi
