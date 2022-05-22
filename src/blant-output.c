@@ -3,6 +3,7 @@
 #include "blant-predict.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
+#include "sorts.h"
 
 #define SORT_INDEX_MODE 0 // Note this destroys the columns-are-identical property, don't use by default.
 
