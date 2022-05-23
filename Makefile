@@ -32,12 +32,15 @@ else
     endif
 endif
 
-GCC=gcc
+GCC_VER=$(shell echo $(ARCH) | awk '{if(/Darwin/){V="-6"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
+GCC=gcc$(GCC_VER)
 CXX=g++
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
+
+# Darwin needs gcc-6 ever since a commit on 22 May 2022:
 #GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
 #STACKSIZE=$(shell uname -a | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 STACKSIZE=$(shell ($(GCC) -v 2>&1; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/&&actualGCC{print "-Wl,-stack_size -Wl,0x5000000"}')
@@ -78,7 +81,10 @@ alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
-base: ./.notpristine libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table test_maps test_sanity
+base: gcc-ver ./.notpristine libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table test_maps test_sanity
+
+gcc-ver:
+	$(GCC) -v
 
 ./.notpristine:
 	@echo '****************************************'
