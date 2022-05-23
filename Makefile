@@ -32,7 +32,7 @@ else
     endif
 endif
 
-GCC_VER=$(shell echo $(ARCH) | awk '{if(/Darwin/){V="-6"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
+GCC_VER=$(shell echo $(ARCH) | awk '{if(/Darwin/){V="-6"}}END{if(V){print V;exit}}')
 GCC=gcc$(GCC_VER)
 CXX=g++
 
