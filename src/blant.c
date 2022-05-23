@@ -212,6 +212,10 @@ void initializeMCMC(GRAPH* G, int k, int numSamples) {
 	    if (_componentSize[_whichComponent[G->edgeList[2*i]]] >= k)
 		validEdgeCount++;
 	_samplesPerEdge = (numSamples + (validEdgeCount / 2)) / validEdgeCount; // Division rounding up for samples per edge
+	if(_sampleSubmethod == SAMPLE_MCMC_EC) {
+	    //_samplesPerEdge = numSamples;
+	    _EDGE_COVER_G = GraphCopy(NULL, G);
+	}
 
 	char BUF[BUFSIZ];
 	_numSamples = numSamples;
@@ -333,12 +337,12 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
     if (_outputMode == graphletDistribution) {
-        SampleGraphlet(G, V, Varray, k);
+        SampleGraphlet(G, V, Varray, k, G->n);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
 
-    if ((_sampleMethod == SAMPLE_INDEX || _sampleMethod == SAMPLE_EDGE_COVER) && 
+    if ((_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC) && 
 	(_outputMode != indexGraphlets && _outputMode != indexOrbits))
 	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
@@ -371,14 +375,13 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    }
 	}
     }
-    else if (_sampleMethod == SAMPLE_EDGE_COVER) {
-	SET *needEdge = SetAlloc(G->numEdges);
+    else if (_sampleMethod == SAMPLE_MCMC_EC) {
+	Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
+#if 0
 	int e;
-	for(e=0; e<G->numEdges; e++) SetAdd(needEdge,e);
-
 	for(e=0; e<G->numEdges; e++) if(SetIn(needEdge, e)) {
 	    int whichCC = -(e+1); // encoding edge number in whichCC
-	    SampleGraphletEdgeBasedExpansion(V, Varray, G, k, whichCC);
+	    SampleGraphlet(G, V, Varray, k, whichCC);
 	    ProcessGraphlet(G, V, Varray, k, empty_g);
 
 	    // Now remove all the edges in the graphlet from "needEdge" (SLOW AND DUMB but it's not really a problem)
@@ -398,13 +401,14 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 		}
 	    }
 	}
+#endif
     }
     else // sample numSamples graphlets for the entire graph
     {
         for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF)) && !_earlyAbort; i++)
         {
             if(_window) {
-                SampleGraphlet(G, V, Varray, _windowSize);
+                SampleGraphlet(G, V, Varray, _windowSize, G->n);
                 _numWindowRep = 0;
                 if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D ||
 			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
@@ -422,7 +426,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             else {
 		static int stuck;
 		// HACK: make the graphlet overcount global; it should really be PASSED into ProcessGraphlet
-                _g_overcount = SampleGraphlet(G, V, Varray, k); // weight will be 1.0 in most cases but if sample method is MCMC and it's not windowed it will be the count of the graphlet
+                _g_overcount = SampleGraphlet(G, V, Varray, k, G->n); // weight will be 1.0 in most cases but if sample method is MCMC and it's not windowed it will be the count of the graphlet
                 if(ProcessGraphlet(G, V, Varray, k, empty_g)) stuck = 0;
 		else {
 		    --i; // negate the sample count of duplicate graphlets
@@ -595,7 +599,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     if(_JOBS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
-    if (_sampleMethod == SAMPLE_INDEX || _sampleMethod == SAMPLE_EDGE_COVER)
+    if (_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC)
         Fatal("The sampling methods INDEX and EDGE_COVER do not yet support multithreading (feel free to add it!)");
 
     // At this point, _JOBS must be greater than 1.
@@ -930,14 +934,16 @@ int main(int argc, char *argv[])
 		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
 		    _MCMC_EVERY_EDGE=true;
 	    }
+	    else if (strncmp(optarg, "EDGE_COVER", 10) == 0) {
+		_sampleMethod = SAMPLE_MCMC;
+		_sampleSubmethod = SAMPLE_MCMC_EC;
+	    }
 	    else if (strncmp(optarg, "RES", 3) == 0)
 		_sampleMethod = SAMPLE_RESERVOIR;
 	    else if (strncmp(optarg, "AR", 2) == 0)
 		_sampleMethod = SAMPLE_ACCEPT_REJECT;
 	    else if (strncmp(optarg, "INDEX", 5) == 0)
 		_sampleMethod = SAMPLE_INDEX;
-	    else if (strncmp(optarg, "EDGE_COVER", 10) == 0)
-		_sampleMethod = SAMPLE_EDGE_COVER;
 	    else
 	    {
 		_sampleFileName = optarg;
