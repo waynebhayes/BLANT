@@ -14,31 +14,37 @@ ifdef NO7
     EIGHT := # can't have 8 without 7
 endif
 
-PROFILE=#-pg # comment out to turn off
-DEBUG=#-ggdb # comment out to turn off
 ifdef DEBUG
-    SPEED=-O0 -ggdb $(PROFILE)
     ifdef PROFILE
+	SPEED=-O0 -ggdb -pg
 	LIB_OPT=-g-pg
     else
+	SPEED=-O0 -ggdb
 	LIB_OPT=-g
     endif
 else
-    SPEED=-O3 $(PROFILE)
     ifdef PROFILE
+	SPEED=-O3 -pg
 	LIB_OPT=-pg
+    else
+	SPEED=-O3
+	LIB_OPT=
     endif
 endif
 
-CC=gcc $(SPEED) # -ggdb
-CXX=g++ $(SPEED) #-ggdb
+GCC=gcc
+CXX=g++
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
-GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
-STACKSIZE=$(shell uname -a | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
-LIBWAYNE=-I $(LIBWAYNE_HOME)/include -L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
+#GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
+#STACKSIZE=$(shell uname -a | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
+STACKSIZE=$(shell ($(GCC) -v 2>&1; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/&&actualGCC{print "-Wl,-stack_size -Wl,0x5000000"}')
+CC=$(GCC) $(SPEED) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG) $(STACKSIZE)
+LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(STACKSIZE) $(SPEED)
+LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
+LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 
 # Name of BLANT source directory
 SRCDIR = src
@@ -89,6 +95,7 @@ base: ./.notpristine libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha
 	@echo "which will make everything needed to get started sampling up to k=6 graphlets".
 	@echo "You will only see this message once on a 'pristine' repo. Pausing $(PAUSE) seconds..."
 	@echo "PAUSE is current $(PAUSE) seconds; set to some other integer to pause less time, eg PAUSE=1"
+	@echo "You can skip cleaning and re-making libwayne with NO_CLEAN_LIBWAYNE=1"
 	@echo '****************************************'
 	@echo "Pausing now for $(PAUSE) seconds..."
 	@sleep $(PAUSE)
@@ -110,50 +117,50 @@ canon_maps: base $(canon_map_files) subcanon_maps
 ### Executables ###
 
 fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE)
+	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
 
 slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE)
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_BOTH)
 
 make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE)
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
 
 blant: gcc-version libwayne $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE) $(LIBWAYNE_HOME)/MT19937/mt19937.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_LINK) $(LIBWAYNE_HOME)/MT19937/mt19937.o
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(LIBWAYNE)
+	$(CC) -c -o $@ $< $(LIBWAYNE_COMP)
 
 synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
-	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE)
-	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE)
+	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_COMP)
+	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE_LINK)
 
 CC: libwayne $(SRCDIR)/CC.c $(OBJDIR)/convert.o | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE)
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE_LINK)
 
 makeEHD: $(OBJDIR)/makeEHD.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE)
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_LINK)
 
 compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE)
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE)
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 Draw: Draw/graphette2dot
 
 Draw/graphette2dot: libwayne Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ $(LIBWAYNE) -std=c++11
+	$(CXX) $(LIBWAYNE_BOTH) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ -std=c++11
 
 make-subcanon-maps: libwayne $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE)
+	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 make-orca-jesse-blant-table: libwayne $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
-	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o $(LIBWAYNE) -std=c++11 
+	$(CXX) $(LIBWAYNE_BOTH) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=c++11 
 
 $(OBJDIR)/blant-predict.o:
-	if [ -f $(SRCDIR)/EdgePredict/blant-predict.c ]; then (cd $(SRCDIR)/EdgePredict && ../../libwayne/bin/wgcc -c -o ../blant-predict.o blant-predict.c; cd ..; cp -p blant-predict.o ../_objs); elif [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.Darwin.o.gz; elif [ -f $(SRCDIR)/blant-predict.$(GCC).o.gz ]; then gunzip < $(SRCDIR)/blant-predict.$(GCC).o.gz; else $(CC) -c -o $(SRCDIR)/blant-predict.o $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE); cat $(SRCDIR)/blant-predict.o; fi > $@
+	if [ -f $(SRCDIR)/EdgePredict/blant-predict.c ]; then (cd $(SRCDIR)/EdgePredict && ../../libwayne/bin/wgcc -c -o ../blant-predict.o blant-predict.c; cd ..; cp -p blant-predict.o ../_objs); elif [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.Darwin.o.gz; elif [ -f $(SRCDIR)/blant-predict.$(GCC).o.gz ]; then gunzip < $(SRCDIR)/blant-predict.$(GCC).o.gz; else $(CC) -c -o $(SRCDIR)/blant-predict.o $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_LINK); cat $(SRCDIR)/blant-predict.o; fi > $@
 
 ### Object Files/Prereqs ###
 
@@ -166,11 +173,11 @@ $(LIBWAYNE_HOME)/MT19937/mt19937.o: libwayne
 
 $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE) -o $@
+	$(CC) -c $(SRCDIR)/libblant.c $(LIBWAYNE_COMP) -o $@
 
 $(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
 	@mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE) -o $@
+	$(CC) -c $(SRCDIR)/makeEHD.c $(LIBWAYNE_COMP) -o $@
 
 $(LIBWAYNE_HOME)/Makefile:
 	echo "Hmm, submodule libwayne doesn't seem to exist; getting it now"
@@ -186,7 +193,7 @@ $(LIBWAYNE_HOME)/made:
 ### Generated File Recipes ###
 
 canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
-	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE)
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	./create-bin-data$*
 	/bin/rm -f create-bin-data$*
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
@@ -218,7 +225,7 @@ $(magic_table_txts): .created-magic-tables
 ### Testing ###
 
 blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
-	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE)
+	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
 	
 test_sanity: blant blant-sanity $(canon_map_bins)
 	# First run blant-sanity for various values of k
@@ -248,12 +255,14 @@ realclean:
 	echo "'realclean' is now called 'pristine'; try again"
 	false
 
-pristine: clean # also clean all canonical data and libwayne
+pristine: clean clean_canon_maps
+ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
+endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this make take awhile..."
 	find . -name __pycache__ -o -name '*.pyc' | xargs /bin/rm -rf
 
 clean_canon_maps:
-	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes a few minutes to create
+	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
 	@/bin/rm -f orca_jesse_blant_table/UpperToLower*.txt
