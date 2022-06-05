@@ -381,6 +381,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
     for(i=0; i<G->n; i++) {
         prev_nodes_array[0] = nwhn_arr[i].node;
+
         SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, heuristicValues);
         count = 0;
 
@@ -1037,9 +1038,7 @@ int main(int argc, char *argv[])
         } else {
             Fatal("an ODV orbit number was provided, but no ODV file path was supplied");
         }
-    } 
-    
-    if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be between larger than 5 for INDEX sampling method since there are no unambiguous graphlets for k<=5",_k);
+    }
 
     if(_seed == -1) _seed = GetFancySeed(false);
     // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"

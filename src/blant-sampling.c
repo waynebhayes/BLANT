@@ -937,6 +937,10 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         // ProcessGraphlet will create the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of a low enough multiplicity (<= multiplicity)
         // ProcessGraphlet will also check that the k nodes you passed it haven't already been printed (although, this system does not work 100% perfectly)
         // ProcessGraphlet will also print the nodes as output if the graphlet passes all checks
+        for (i = 0; i < prev_nodes_count; i++) {
+            // fprintf(stderr, "%s, ", _nodeNames[prev_nodes_array[i]]);
+        }
+        // fprintf(stderr, "\n");
         if (ProcessGraphlet(G, NULL, prev_nodes_array, _k, g))
             *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies all of ProcessGraphlet's checks
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
@@ -999,9 +1003,29 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         }
         ++i;
     }
-    int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000;
+    int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000; // algo=base
+    /* int num_distinct_values_to_skip;
+    if (prev_nodes_count <= _k / 2) {
+        num_distinct_values_to_skip = 1;
+    } else {
+        num_distinct_values_to_skip = 0;
+    }
+    algo=fhs1 */
+    // int num_distinct_values_to_skip = _k - prev_nodes_count - 1; algo=stairs
+    /* int num_distinct_values_to_skip = _k - prev_nodes_count - 3;
+    if (num_distinct_values_to_skip < 0) {
+        num_distinct_values_to_skip = 0;
+    }
+    algo=offstairs */
+    // int num_distinct_values_to_skip = (_k - prev_nodes_count - 1) * 2; algo=steepstairs
+    /* int num_distinct_values_to_skip = _k - prev_nodes_count - 3;
+    if (num_distinct_values_to_skip < 0) {
+        num_distinct_values_to_skip = 0;
+    }
+    num_distinct_values_to_skip *= 2; algo=steepoffstairs */
+
     int num_distinct_values = 0;
-    old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics
+    old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics not being -1
     i = 0;
     while (i < next_step_count) {
         node_whn next_step_nwhn = next_step_nwhn_arr[i];
@@ -1025,6 +1049,16 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         // perform the standard DFS step of set next, recurse with size + 1, and then unset next
         // the "unset" step is commented out for efficiency since it's not actually necessary, but the comment improves readability
         prev_nodes_array[prev_nodes_count] = next_step_nwhn.node;
+
+        // PAT DEBUG START
+        int patDebugInc;
+        for (patDebugInc = 0; patDebugInc < prev_nodes_count; patDebugInc++) {
+            // fprintf(stderr, "\t");
+        }
+
+        // fprintf(stderr, "%s\n", _nodeNames[next_step_nwhn.node]);
+        // PAT DEBUG END
+
         SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, heur_arr);
         // prev_nodes_array[prev_nodes_count] = 0;
         ++i;
