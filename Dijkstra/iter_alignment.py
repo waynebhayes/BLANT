@@ -5,16 +5,16 @@ import random
 random.seed(0)
 from aligner_helper import *
 
-def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
+def fast_align(g1, g2, seed, m, seedname, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
     ## align without skiplist: use array
     alignments = []
     ec1 = ec_mode[0]
     ec2 = ec_mode[1]
     seed1, seed2 = seed
 
-    curralign = Alignment(seed=seed, m=m, seednum=seednum, ec_mode=ec_mode, ed=ed, sb=sb, delta=delta)
-    curralign.logfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".log"
-    curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats"
+    curralign = Alignment(seed=seed, m=m, seedname=seedname, ec_mode=ec_mode, ed=ed, sb=sb, delta=delta)
+    curralign.logfile = g1.name + "_" + g2.name + "_" + seedname + ".log"
+    curralign.statsfile = g1.name + "_" + g2.name + "_" + seedname + ".stats"
     for i in range(K):
         start = time.time()
         print("Iteration", i)
@@ -95,16 +95,16 @@ def fast_align(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, 
 
 
 
-def fast_align_with_edgefreq(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
+def fast_align_with_edgefreq(g1, g2, seed, m, seedname, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
     ''' align without skiplist: random pick node to explore; use edge freq to save calculation '''
     alignments = []
     ec1 = ec_mode[0]
     ec2 = ec_mode[1]
     seed1, seed2 = seed
 
-    curralign = Alignment(seed=seed, m=m, seednum=seednum, ec_mode=ec_mode, ed=ed, sb=sb, delta=delta)
-    curralign.logfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".log"
-    curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats"
+    curralign = Alignment(seed=seed, m=m, seedname=seedname, ec_mode=ec_mode, ed=ed, sb=sb, delta=delta)
+    curralign.logfile = g1.name + "_" + g2.name + "_" + seedname + ".log"
+    curralign.statsfile = g1.name + "_" + g2.name + "_" + seedname + ".stats"
     for i in range(K):
         start = time.time()
         # m is number of edges in seed graphlet
@@ -163,7 +163,7 @@ def fast_align_with_edgefreq(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 
 
 
 
-def iter_align_with_skiplist(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
+def iter_align_with_skiplist(g1, g2, seed, m, seedname, sims, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0, K=10, delta=0.0,debug=False):
     # date = str(datetime.datetime.today()[:-10])
     # filename = g1.name+"-"+g2.name+date+".align"
     # to save each alignment
@@ -173,9 +173,9 @@ def iter_align_with_skiplist(g1, g2, seed, m, seednum, sims, ec_mode=(0.0, 0.0, 
     seed1, seed2 = seed
     
     C_pairs = get_new_neighbor_pairs(g1, g2, seed1, seed2, {seed1}, {seed2}, sb, sims)
-    curralign = Alignment(seed=seed, m=m, seednum=seednum, ec_mode=ec_mode, ed=ed, sb=sb, delta=delta)
-    curralign.logfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".log"
-    curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats"
+    curralign = Alignment(seed=seed, m=m, seedname=seedname, ec_mode=ec_mode, ed=ed, sb=sb, delta=delta)
+    curralign.logfile = g1.name + "_" + g2.name + "_" + seedname + ".log"
+    curralign.statsfile = g1.name + "_" + g2.name + "_" + seedname + ".stats"
     for i in range(K):
         start = time.time()
         #m is number of edges in seed graphlet

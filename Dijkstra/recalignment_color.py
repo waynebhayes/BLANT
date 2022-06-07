@@ -18,7 +18,7 @@ import sys
 import structs
 
 class Alignment:
-    def __init__(self, seed, m, ec_mode, ed, sb, alpha, delta, seednum, outputdir,timestop, alignstop):
+    def __init__(self, seed, m, ec_mode, ed, sb, alpha, delta, seedname, outputdir,timestop, alignstop):
         self.g1alignednodes = set()
         self.g2alignednodes = set()
         self.aligned_pairs = set()
@@ -43,7 +43,7 @@ class Alignment:
         self.seed = seed
         self.alpha = alpha
         self.delta = delta
-        self.seednum = seednum
+        self.seedname = seedname
         self.currtime = 0 
         self.recdepth = 0
         self.timestop = timestop
@@ -202,14 +202,15 @@ def printoutput(g1, g2, curralign):
     minutes, seconds = divmod(rem, 60)
     runtime = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
 
-    result = ("seednum: " + str(curralign.seednum) + " k:" + str(curralign.k) +  " size:" + str(size) + " E1:" + str(curralign.E1) + " E2:" + str(curralign.E2) + " EA:" + str(curralign.EA) + " time:" + str(runtime) + " seed: " + curralign.g1seedstr)
+    result = ("seedname: " + curralign.seedname + " k:" + str(curralign.k) +  " size:" + str(size) + " E1:" + str(curralign.E1) + " E2:" + str(curralign.E2) + " EA:" + str(curralign.EA) + " time:" + str(runtime) + " seed: " + curralign.g1seedstr)
     
     if curralign.outputdir == "":
-        output_dir =  "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else: 
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + curralign.logfile
+    #print("J. output_file ", output_file);
 
     with open(output_file, "a") as f:
         f.write(result+"\n") 
@@ -220,14 +221,15 @@ def printoutput(g1, g2, curralign):
 def append_result(g1,g2, curralign):
     #uuidstr = str(uuid.uuid4())
     #uid = uuidstr[:13]
-    fname = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--seed"  + str(curralign.seednum) + ".dijkstra"
+    fname = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--seed"  + curralign.seedname + ".dijkstra"
 
     if curralign.outputdir == "":
-        output_dir =  "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else: 
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + fname
+    #print("K. output_file ", output_file);
     with open(output_file, 'a')as f:
         for x in curralign.aligned_pairs:
             #print(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]))
@@ -417,15 +419,15 @@ def rec_alignhelper(g1, g2, curralign, candidatePairs, aligncombs, sims, debug):
             return
 
 
-def rec_align(g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, seednum, outputdir, alignstop=-1, timestop=None,  debug=False):
+def rec_align(g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, seedname, outputdir, alignstop=-1, timestop=None,  debug=False):
     if alignstop == -1:
         alignstop = float('inf')
     else:
         alignstop = int(alignstop)
 
-    curralign = Alignment(seed, m, ec_mode, ed, sb, alpha, delta, seednum, outputdir, timestop, alignstop)
-    curralign.logfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".log" 
-    curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats" 
+    curralign = Alignment(seed, m, ec_mode, ed, sb, alpha, delta, seedname, outputdir, timestop, alignstop)
+    curralign.logfile = g1.name + "_" + g2.name + "_" + seedname + ".log" 
+    curralign.statsfile = g1.name + "_" + g2.name + "_" + seedname + ".stats" 
 
     if debug:
         print("seed: ", seed)
@@ -435,7 +437,7 @@ def rec_align(g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, seednum, out
         print("sb: ", sb)
         print("delta: ", delta)
         print("alpha: ", alpha)
-        print("seednum: ", seednum)
+        print("seedname: ", seedname)
         print("outputdir: ", outputdir)
         print("timestop: ", timestop)
         print("debug: ", debug)
@@ -530,16 +532,17 @@ def write_result(g1,g2, curralign):
     uid = uuidstr[:13]
     fname = g1.name + "--" + g2.name + "--" + str(curralign.delta) + "--" + str(curralign.k) + "--"  + uid +  ".dijkstra"
     if curralign.outputdir == "":
-        output_dir =  "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else: 
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + fname
+    #print("L. output_file ", output_file);
     with open(output_file, 'w+')as f:
         for x in curralign.aligned_pairs:
             print(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]))
             f.write(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]) + '\n')
 
-def output(k, E1, E2, EA, seed, runtime, seednum, size):
-    print("seednum: " + str(seednum) + " k:" + str(k) +  " size:" + str(size) + " E1:" + str(E1) + " E2:" + str(E2) + " EA:" + str(EA) + " time:" + str(runtime) + " seed: " + str(seed))
+def output(k, E1, E2, EA, seed, runtime, seedname, size):
+    print("seedname: " + seedname + " k:" + str(k) +  " size:" + str(size) + " E1:" + str(E1) + " E2:" + str(E2) + " EA:" + str(EA) + " time:" + str(runtime) + " seed: " + str(seed))
 

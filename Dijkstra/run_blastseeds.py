@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     sims = builder.get_sim(args.sim, graph1, graph2, args.pickle)
 
-    seednum = 0
+    seedname = 0
     
     seedpairs = 0 
     for seed in seeding.generate_seed(g1_seed_file,g2_seed_file):
@@ -74,8 +74,8 @@ if __name__ == '__main__':
     print("Num of Seedpairs: " + str(seedpairs))
 
     for seed in seeding.generate_seed(g1_seed_file,g2_seed_file):
-        seednum += 1 
-        print("seednum: " + str(seednum) + " out of " + str(seedpairs))
+        seedname += 1 
+        print("seedname: " + str(seedname) + " out of " + str(seedpairs))
         n1, n2 = seed
         mat1, e1 = seeding.adj_mat(n1,graph1)
         mat2, e2 = seeding.adj_mat(n2,graph2)
@@ -85,7 +85,7 @@ if __name__ == '__main__':
 
 
         start = time.time()
-        a, b, pairs = alignment.local_align3(graph1, graph2, seeding.get_aligned_seed(zip(*seed),graph1, graph2), sims, ec_mode, ed, e1, delta, alpha, seednum, debug=args.debugval)    
+        a, b, pairs = alignment.local_align3(graph1, graph2, seeding.get_aligned_seed(zip(*seed),graph1, graph2), sims, ec_mode, ed, e1, delta, alpha, seedname, debug=args.debugval)    
         #a, b, pairs = alignment.stop_align2(graph1, graph2, seeding.get_aligned_seed(zip(*seed),graph1, graph2), sims, ec_mode, delta)
         subgraph = alignment.induced_subgraph(graph1, graph2, list(pairs))
         cov = alignment.coverage(graph1, graph2, subgraph)[0]

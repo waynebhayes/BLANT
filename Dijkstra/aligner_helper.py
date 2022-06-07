@@ -4,7 +4,7 @@ from skip_list import *
 import uuid
 
 class Alignment:
-    def __init__(self, seed, m, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0.0, alpha=0.0, delta=0.0, seednum=0, outputdir="",
+    def __init__(self, seed, m, ec_mode=(0.0, 0.0, 0.0), ed=0.0, sb=0.0, alpha=0.0, delta=0.0, seedname="", outputdir="",
                  timestop=-1, alignstop=1000):
         self.g1alignednodes = set()
         self.g2alignednodes = set()
@@ -30,7 +30,7 @@ class Alignment:
         self.seed = seed
         self.alpha = alpha
         self.delta = delta
-        self.seednum = seednum
+        self.seedname = seedname
         self.currtime = 0
         self.recdepth = 0
         self.timestop = timestop
@@ -320,16 +320,17 @@ def printoutput(g1, g2, curralign):
     minutes, seconds = divmod(rem, 60)
     runtime = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
 
-    result = ("seednum: " + str(curralign.seednum) + " k:" + str(curralign.k) + " size:" + str(size) + " E1:" + str(
+    result = ("seedname: " + curralign.seedname + " k:" + str(curralign.k) + " size:" + str(size) + " E1:" + str(
         curralign.E1) + " E2:" + str(curralign.E2) + " EA:" + str(curralign.EA) + " time:" + str(
         runtime) + " seed: " + curralign.g1seedstr)
 
     if curralign.outputdir == "":
-        output_dir = "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else:
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + curralign.logfile
+    #print("A. output_file ", output_file);
 
     with open(output_file, "a") as f:
         f.write(result + "\n")
@@ -342,11 +343,12 @@ def write_result(g1, g2, curralign):
     uid = uuidstr[:13]
     fname = g1.name + "--" + g2.name + "--" + str(curralign.delta) + "--" + str(curralign.k) + "--" + uid + ".dijkstra"
     if curralign.outputdir == "":
-        output_dir = "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else:
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + fname
+    #print("B. output_file ", output_file);
     with open(output_file, 'w+')as f:
         for x in curralign.aligned_pairs:
             print(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]))
@@ -356,14 +358,15 @@ def write_result(g1, g2, curralign):
 def append_result(g1, g2, curralign):
     # uuidstr = str(uuid.uuid4())
     # uid = uuidstr[:13]
-    fname = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--seed" + str(curralign.seednum) + ".dijkstra"
+    fname = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--seed" + curralign.seedname + ".dijkstra"
 
     if curralign.outputdir == "":
-        output_dir = "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else:
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + fname
+    #print("C. output_file ", output_file);
     with open(output_file, 'a')as f:
         for x in curralign.aligned_pairs:
             # print(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]))
