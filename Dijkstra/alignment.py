@@ -264,7 +264,7 @@ def num_edge_pairs_back_to_subgraph(g1, g2, g1node, g2node, aligned_pairs):
     return edgepairs
 
 
-def local_align3(g1, g2, seed, sims, ec_mode, ed, m, delta, alpha, seednum, debug=False):
+def local_align3(g1, g2, seed, sims, ec_mode, ed, m, delta, alpha, seedname, debug=False):
             
     #m is number of edges in seed graphlet
     g1alignednodes = set()
@@ -489,7 +489,7 @@ def local_align3(g1, g2, seed, sims, ec_mode, ed, m, delta, alpha, seednum, debu
     hours, rem = divmod(end-start, 3600)
     minutes, seconds = divmod(rem, 60)
     runtime = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
-    output(k, E1,E2,EA,g1seedstr,runtime, seednum, len(aligned_pairs))
+    output(k, E1,E2,EA,g1seedstr,runtime, seedname, len(aligned_pairs))
     
     g1edges = induced_graph1(g1,aligned_pairs)
     g2edges = induced_graph2(g2,aligned_pairs)
@@ -503,7 +503,7 @@ def local_align3(g1, g2, seed, sims, ec_mode, ed, m, delta, alpha, seednum, debu
     return (g1alignednodes, g2alignednodes, aligned_pairs)
 
 
-def local_align2(g1, g2, seed, sims, ec_mode, m, delta, alpha, seednum, debug=False):
+def local_align2(g1, g2, seed, sims, ec_mode, m, delta, alpha, seedname, debug=False):
     def update_edge_freq(g1node,g2node):
         del_nodes = []
         for n1, n2 in edge_freq:
@@ -701,12 +701,12 @@ def local_align2(g1, g2, seed, sims, ec_mode, m, delta, alpha, seednum, debug=Fa
     hours, rem = divmod(end-start, 3600)
     minutes, seconds = divmod(rem, 60)
     runtime = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
-    output(k, E1,E2,EA,g1seedstr,runtime, seednum, len(aligned_pairs))
+    output(k, E1,E2,EA,g1seedstr,runtime, seedname, len(aligned_pairs))
     return (g1alignednodes, g2alignednodes, aligned_pairs)
 
 
-def output(k, E1, E2, EA, seed, runtime, seednum, size):
-    print("seednum: " + str(seednum) + " k:" + str(k) +  " size:" + str(size) + " E1:" + str(E1) + " E2:" + str(E2) + " EA:" + str(EA) + " time:" + str(runtime) + " seed: " + str(seed))
+def output(k, E1, E2, EA, seed, runtime, seedname, size):
+    print("seedname: " + seedname + " k:" + str(k) +  " size:" + str(size) + " E1:" + str(E1) + " E2:" + str(E2) + " EA:" + str(EA) + " time:" + str(runtime) + " seed: " + str(seed))
 
 
 
