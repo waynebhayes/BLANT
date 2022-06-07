@@ -93,10 +93,32 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_CIRC_BUF], bufPos;
     static SET *seen;
     static unsigned Vcopy[MAX_K];
+    unsigned i;
     if(!seen) seen=SetAlloc(MCMC_MAX_HASH);
     memcpy(Vcopy, Varray, k*sizeof(*Varray));
     VarraySort(Vcopy, k);
-    unsigned hash=Vcopy[0], i;
+
+    if (true /*_addBaseOrbitToID*/) {
+        // move the first node in Varray (the base node) to the start of Vcopy
+        unsigned base_node = Varray[0];
+
+        if (Vcopy[0] != base_node) {
+            unsigned stored_node = Vcopy[0];
+
+            for (i = 1; i < k; i++) {
+                unsigned tmp = stored_node;
+                stored_node = Vcopy[i];
+                Vcopy[i] = tmp;
+
+                if (stored_node == base_node) {
+                    Vcopy[0] = stored_node;
+                    break;
+                }
+            }
+        }
+    }
+
+    unsigned hash=Vcopy[0];
     for(i=1;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will likely overflow. Shouldn't matter.
     hash = hash % MCMC_MAX_HASH;
     if(SetInSafe(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
@@ -118,6 +140,12 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
     static char buf[2][BUFSIZ];
     int which=0;
     strcpy(buf[which], PrintCanonical(GintOrdinal));
+
+    // PAT TODO: if this works well, actually implement it as a setting
+    if (true /*_addBaseOrbitToID*/) {
+        sprintf(buf[which], "%s+bno%d", buf[which], perm[0]);
+    }
+
     for(j=0;j<k;j++) {
 	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
     }

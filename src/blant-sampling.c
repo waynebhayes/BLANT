@@ -1003,7 +1003,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         }
         ++i;
     }
-    int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000; // algo=base
+    // int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000; algo=base
     /* int num_distinct_values_to_skip;
     if (prev_nodes_count <= _k / 2) {
         num_distinct_values_to_skip = 1;
@@ -1011,7 +1011,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         num_distinct_values_to_skip = 0;
     }
     algo=fhs1 */
-    // int num_distinct_values_to_skip = _k - prev_nodes_count - 1; algo=stairs
+    int num_distinct_values_to_skip = _k - prev_nodes_count - 1; // algo=stairs
     /* int num_distinct_values_to_skip = _k - prev_nodes_count - 3;
     if (num_distinct_values_to_skip < 0) {
         num_distinct_values_to_skip = 0;

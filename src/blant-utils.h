@@ -10,6 +10,7 @@ typedef struct nwhn { // this struct is needed for sorting
 } node_whn;
 
 Boolean arrayIn(int* arr, int size, int item);
+void printIntArray(int* arr, int n, char* name);
 void ExtractPerm(char perm[_k], int i);
 void InvertPerm(char inverse[_k], const char perm[_k]);
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray);

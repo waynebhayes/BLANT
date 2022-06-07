@@ -93,6 +93,17 @@ Boolean arrayIn(int* arr, int size, int item) {
     return false;
 }
 
+void printIntArray(int* arr, int n, char* name) {
+    fprintf(stderr, "%s:");
+    int i;
+
+    for (i = 0; i < n; i++) {
+        fprintf(stderr, " %d", arr[i]);
+    }
+
+    fprintf(stderr, "\n");
+}
+
 int asccompFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i ? 0 : -1;} // ascending (smallest at top)
 
 int descompFunc(const void *a, const void *b)
