@@ -154,12 +154,14 @@ def printoutput(g1, g2, curralign):
 
     result = ("seedname: " + curralign.seedname + " k:" + str(curralign.k) +  " size:" + str(size) + " E1:" + str(curralign.E1) + " E2:" + str(curralign.E2) + " EA:" + str(curralign.EA) + " time:" + str(runtime) + " seed: " + curralign.g1seedstr)
     if curralign.outputdir == "":
+        #print("curralign.outputdir is empty")
         output_dir = curralign.seedname
     else: 
+        #print("curralign.outputdir not empty")
         output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + curralign.logfile
-    #print("G. output_file ", output_file);
+    #print("G. output_dir and file: ", output_dir, output_file);
 
     with open(output_file, "a") as f:
         f.write(result+"\n")
