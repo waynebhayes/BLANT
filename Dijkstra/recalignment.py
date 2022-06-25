@@ -204,6 +204,12 @@ def rec_alignhelper(cg1, cg2, g1, g2, curralign, candidatePairs, aligncombs, sim
     start1 = time.time()
    
     if len(candidatePairs) == 0 and len(curralign.pq) == 0:
+	# Here, it would be worth the future time savings to determine the *orbit* membership of all the nodes in the CCS,
+	# as well as on the subgraphs induced on both G1 and G2 (for now, in Python, just call NAUTY or SAUCY externally
+	# since they run very fast on "small" networks); then add *all* the resulting alignments to the list of "seen"
+	# alignments... which also means that it would be worth the *space* savings to refactor the "seen" alignments
+	# to allow the storage and search of not just sets of node pairs, but sets of *orbit* pairs.
+	# The time and space savings should be huge in both cases.
         return
 
     update_skip_list(cg1, cg2, g1, g2, curralign, candidatePairs, sims, debug, copt)
