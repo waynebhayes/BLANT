@@ -36,6 +36,7 @@ extern int _topThousandth;
 extern int _orbitNumber;
 extern char* _odvFile;
 extern bool _alphabeticTieBreaking;
+extern int _numOrbitsInId;
 
 extern int _windowSize;
 extern Boolean _window;

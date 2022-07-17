@@ -141,9 +141,13 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
     int which=0;
     strcpy(buf[which], PrintCanonical(GintOrdinal));
 
-    // PAT TODO: if this works well, actually implement it as a setting
-    if (true /*_addBaseOrbitToID*/) {
-        sprintf(buf[which], "%s+bno%d", buf[which], perm[0]);
+    // IMPORTANT NOTE: this code prints the perm, not the orbit (ambiguous graphlets have repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code here (and code in a lot of other places)
+    if (_numOrbitsInId > 0) {
+        sprintf(buf[which], "%s+o", buf[which]);
+
+        for (j = 0; j < _numOrbitsInId; j++) {
+            sprintf(buf[which], "%s%d", buf[which], perm[j]);
+        }
     }
 
     for(j=0;j<k;j++) {

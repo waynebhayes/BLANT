@@ -21,6 +21,7 @@ int _topThousandth = 0;
 int _orbitNumber = -1; // -1 means not initialized
 char* _odvFile = NULL;
 bool _alphabeticTieBreaking = true;
+int _numOrbitsInId = 0;
 
 int _windowSize = 0;
 Boolean _window = false;

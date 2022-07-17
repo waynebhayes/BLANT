@@ -853,6 +853,7 @@ int main(int argc, char *argv[])
     _k = 0; _k_small = 0;
 
     int odv_fname_len = 0;
+    _numOrbitsInId = 8;
 
     while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:a:")) != -1)
     {
