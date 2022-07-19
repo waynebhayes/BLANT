@@ -209,14 +209,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     case graphletFrequency:
 	++_graphletCount[GintOrdinal];
 	break;
-<<<<<<< HEAD
     case indexGraphlets: case indexGraphletsRNO:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
-=======
-    case indexGraphlets:
->>>>>>> 40b26ae4a7401c96d63b17268b714251be29eecd
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k));
