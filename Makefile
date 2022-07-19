@@ -266,7 +266,7 @@ ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
-	@echo "Finding all python crap and removing it... this make take awhile..."
+	@echo "Finding all python crap and removing it... this may take awhile..."
 	find . -name __pycache__ -o -name '*.pyc' | xargs /bin/rm -rf
 
 clean_canon_maps:
