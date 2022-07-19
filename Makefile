@@ -6,7 +6,7 @@ ifndef PAUSE
     PAUSE := 100
 endif
 ifndef EIGHT
-    EIGHT := #8 #uncomment the 8 to generate the k=8 lookup table, which can take up to an hour.
+    EIGHT := 8 #uncomment the 8 to generate the k=8 lookup table, which can take up to an hour.
 endif
 SEVEN := 7
 ifdef NO7
@@ -172,7 +172,7 @@ $(OBJDIR)/blant-predict.o:
 
 $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=c++11 
+	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=c++11
 
 $(LIBWAYNE_HOME)/MT19937/mt19937.o: libwayne
 	cd $(LIBWAYNE_HOME)/MT19937 && $(MAKE)
@@ -205,7 +205,7 @@ canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt can
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
 	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
 
-canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map 
+canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p canon_maps
 	./fast-canon-map $* | cut -f2- | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
 
@@ -222,8 +222,8 @@ $(subcanon_txts): .created-subcanon-maps
 .created-subcanon-maps: make-subcanon-maps | $(canon_list_txts) $(canon_map_bins)
 	# only do it for k > 3 since it's 4-3, 5-4, etc.
 	for k in $(K); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k > canon_maps/subcanon_map$$k-$$(($$k-1)).txt; fi; done
-		
-magic_table: $(magic_table_txts) ;  	
+
+magic_table: $(magic_table_txts) ;
 $(magic_table_txts): .created-magic-tables
 .created-magic-tables: make-orca-jesse-blant-table | $(canon_list_txts) $(canon_map_bins)
 	./make-orca-jesse-blant-table $(if $(EIGHT),8,$(if $(SEVEN),7,6))
@@ -232,12 +232,12 @@ $(magic_table_txts): .created-magic-tables
 
 blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
 	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
-	
+
 test_sanity: blant blant-sanity $(canon_map_bins)
 	# First run blant-sanity for various values of k
 	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
-test_freq: blant $(canon_map_bins) 
+test_freq: blant $(canon_map_bins)
 	# Test to see that the most frequent 10 graphlets in syeast appear in the expected order in
 	# frequency; need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
