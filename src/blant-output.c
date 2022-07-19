@@ -3,6 +3,9 @@
 #include "blant-predict.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
+#include "sorts.h"
+
+#define SORT_INDEX_MODE 0 // Note this destroys the columns-are-identical property, don't use by default.
 
 char *PrintNode(char c, int v) {
     static char buf[BUFSIZ];
@@ -36,8 +39,8 @@ static int IntCmp(const void *a, const void *b)
 void VarraySort(int *Varray, int k)
 {
 #if USE_INSERTION_SORT
-    InsertionSortInt(Varray,k);
-    //InsertionSort((void*)Varray,k,sizeof(Varray[0]),IntCmp);
+    //InsertionSortInt(Varray,k);
+    InsertionSort((void*)Varray,k,sizeof(Varray[0]),IntCmp);
 #else
     qsort((void*)Varray, k, sizeof(Varray[0]), IntCmp);
 #endif
@@ -135,9 +138,14 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
 {
     int j;
     char perm[MAX_K];
+#if SORT_INDEX_MODE
+    VarraySort(Varray, k);
+    for(j=0;j<k;j++) perm[j]=j;
+#else
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
     assert(PERMS_CAN2NON);
+#endif
     static char buf[2][BUFSIZ];
     int which=0;
     strcpy(buf[which], PrintCanonical(GintOrdinal));
@@ -160,12 +168,17 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], 
     if(!printed) printed = SetAlloc(k);
     SetEmpty(printed);
     char perm[MAX_K+1];
+#if SORT_INDEX_MODE
+    VarraySort(Varray, k);
+    for(j=0;j<k;j++) perm[j]=j;
+#else
     memset(perm, 0, k);
     ExtractPerm(perm, Gint);
+    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+#endif
     static char buf[2][BUFSIZ];
     int which=0;
     strcpy(buf[which], PrintCanonical(GintOrdinal));
-    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
     for(j=0;j<k;j++) if(!SetIn(printed,j))
     {
 	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
@@ -196,10 +209,14 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     case graphletFrequency:
 	++_graphletCount[GintOrdinal];
 	break;
+<<<<<<< HEAD
     case indexGraphlets: case indexGraphletsRNO:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif
+=======
+    case indexGraphlets:
+>>>>>>> 40b26ae4a7401c96d63b17268b714251be29eecd
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k));
@@ -209,9 +226,6 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	else Predict_AccumulateMotifs(G,Varray,g,Gint,GintOrdinal);
 	break;
     case indexOrbits:
-#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
-	VarraySort(Varray, k);
-#endif
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k));

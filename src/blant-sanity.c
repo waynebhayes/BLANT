@@ -1,5 +1,5 @@
 // BLANT sanity checker: given a value of k, n and the name of a "large" graph input file G, read lines from
-// BLANT that have been SORTED by the first column, which is the canonical graphlet ID.  Then, without caring
+// BLANT that have been sorted by the first column, which is the canonical graphlet ID.  Then, without caring
 // which graphlet it actually is, simply verify that adjacent lines that have the same value in the first column,
 // contain of nodes whose column-wise induced subgraph on G are exactly the same graph, node for node and edge
 // for edge. a list (We do *not* fire up an isomorphism checker because BLANT is supposed to have already done
