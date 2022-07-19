@@ -93,17 +93,6 @@ Boolean arrayIn(int* arr, int size, int item) {
     return false;
 }
 
-void printIntArray(int* arr, int n, char* name) {
-    fprintf(stderr, "%s:");
-    int i;
-
-    for (i = 0; i < n; i++) {
-        fprintf(stderr, " %d", arr[i]);
-    }
-
-    fprintf(stderr, "\n");
-}
-
 int asccompFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i ? 0 : -1;} // ascending (smallest at top)
 
 int descompFunc(const void *a, const void *b)
@@ -112,52 +101,14 @@ int descompFunc(const void *a, const void *b)
     return (*j)-(*i);
 }
 
-int nwhn_des_alph_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
-    int i = nwhn_a->heur, j = nwhn_b->heur;
-
-    if (j != i) {
-        return j - i;
-    } else {
-        return strcmp(nwhn_a->name, nwhn_b->name);
-    }
+int nwh_descompFunc(const void *a, const void *b) {
+    int i = ((node_wheur*)a)->heur, j = ((node_wheur*)b)->heur;
+    return j - i;
 }
 
-int nwhn_des_rev_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
-    int i = nwhn_a->heur, j = nwhn_b->heur;
-
-    if (j != i) {
-        return j - i;
-    } else {
-        return -1 * strcmp(nwhn_a->name, nwhn_b->name);
-    }
-}
-
-int nwhn_asc_alph_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
-    int i = nwhn_a->heur, j = nwhn_b->heur;
-
-    if (j != i) {
-        return i - j;
-    } else {
-        return strcmp(nwhn_a->name, nwhn_b->name);
-    }
-}
-
-int nwhn_asc_rev_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
-    int i = nwhn_a->heur, j = nwhn_b->heur;
-
-    if (j != i) {
-        return i - j;
-    } else {
-        return -1 * strcmp(nwhn_a->name, nwhn_b->name);
-    }
+int nwh_asccompFunc(const void *a, const void *b) {
+    int i = ((node_wheur*)a)->heur, j = ((node_wheur*)b)->heur;
+    return i - j;
 }
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
@@ -176,4 +127,158 @@ int getMaximumIntNumber(int K)
     assert(K >= 3 && K <= 8);
     int num_of_bits = K * (K-1) / 2;
     return pow(2, num_of_bits);
+}
+
+int* enumerateNodeOrder(GRAPH *G) {
+    node_wheur orderArray[G->n];
+    int i;
+
+    for (i = 0; i < G->n; ++i) {
+        orderArray[i].node = i;
+    }
+
+    enumerateNodeOrderHelper(G, orderArray, 0, G->n, 0);
+    int* node_order = malloc(sizeof(int) * G->n);
+
+    for (i = 0; i < G->n; ++i) {
+        node_order[orderArray[i].node] = i;
+    }
+
+    return node_order;
+}
+
+void enumerateNodeOrderHelper(GRAPH *G, node_wheur* orderArray, int start, int end, int layer) {
+    // this is a temporary solution that will stop this function if it's called on two nodes with identical neighbors. this is pretty common since there are a lot of nodes of degree 1 and if both of them have the same neighbor, the algorithm will go through the entire graph before declaring them a tie. this just does that earlier while barely missing out on any real ties. I'm leaving this temporary solution here because the whole thing is temporary; I'm gonna test out many different methods of sorting the array
+    if (layer >= 3) {
+        return;
+    }
+
+    // fill in degree vals in orderArray based on the layer, from start to end
+    SET *old_nodes = SetAlloc(G->n);
+    SET *new_nodes = SetAlloc(G->n);
+    SET *all_nodes = SetAlloc(G->n);
+    int curr_i, curr_node, curr_layer, old_i, old_node, neigh_i, neigh_node, layer_deg_sum, i;
+
+    for (curr_i = start; curr_i < end; ++curr_i) {
+        curr_node = orderArray[curr_i].node;
+        SetAdd(old_nodes, curr_node);
+        SetAdd(all_nodes, curr_node);
+
+        for (curr_layer = 0; curr_layer < layer; ++curr_layer) {
+            int old_nodes_count = SetCardinality(old_nodes);
+            int old_nodes_arr[old_nodes_count];
+            assert(SetToArray(old_nodes_arr, old_nodes) == old_nodes_count);
+
+            for (old_i = 0; old_i < old_nodes_count; ++old_i) {
+                old_node = old_nodes_arr[old_i];
+
+                for (neigh_i = 0; neigh_i < G->degree[old_node]; ++neigh_i) {
+                    neigh_node = G->neighbor[old_node][neigh_i];
+
+                    if (!SetIn(all_nodes, neigh_node)) {
+                        SetAdd(new_nodes, neigh_node);
+                        SetAdd(all_nodes, neigh_node);
+                    }
+                }
+            }
+
+            SetFree(old_nodes); // doing this is faster than copying new_nodes to old_nodes
+            old_nodes = new_nodes;
+            new_nodes = SetAlloc(G->n);
+        }
+
+        int old_nodes_count = SetCardinality(old_nodes);
+        int old_nodes_arr[old_nodes_count];
+        assert(SetToArray(old_nodes_arr, old_nodes) == old_nodes_count);
+        layer_deg_sum = 0;
+
+        for (old_i = 0; old_i < old_nodes_count; ++old_i) {
+            old_node = old_nodes_arr[old_i];
+            layer_deg_sum += G->degree[old_node];
+        }
+
+        orderArray[curr_i].heur = layer_deg_sum;
+        SetEmpty(old_nodes);
+        SetEmpty(all_nodes);
+    }
+
+    SetFree(old_nodes);
+    SetFree(new_nodes);
+
+    // sort start through end by degree val
+    qsort((void*)(orderArray + start), end - start, sizeof(node_wheur), nwh_descompFunc);
+
+    // sort next layer for all tied sections between start and end
+    int new_start;
+    int new_end;
+
+    for (i = start; i < end; ++i) {
+        if (i == start || orderArray[i].heur != orderArray[i - 1].heur) {
+            new_start = i;
+        }
+
+        if (i == end || orderArray[i].heur != orderArray[i + 1].heur) {
+            new_end = i + 1;
+
+            if (new_end - new_start >= 2) { // make sure it's a tie with more than one number
+                if (orderArray[i].heur != 0) { // if the degree is 0, it's an edge case because none of the nodes' heurs will change, causing an infinite loop
+                    enumerateNodeOrderHelper(G, orderArray, new_start, new_end, layer + 1);
+                }
+            }
+        }
+    }
+}
+
+// this function is not currently being used anywhere, but I kept it here in case it becomes useful later
+// for info on the antidup algorithm, see Patrick Wang's Fall 2020 Writeup, titled "Multiplicity-and-Antiduplication-Algorithm" and linked here: https://docs.google.com/document/d/18wtIBu8VQ0rVzHTPTfLbYoBmxjw56H77XYoHzqK63Q8/edit?usp=sharing
+void antidupFillNextStepSet(SET **next_step_pointer, SET **deg_set_pointer, GRAPH *G, int *prev_nodes_array, int prev_nodes_count, int *node_order) {
+    assert(node_order != NULL); // assert this because node_order is NULL when useAntidup is true
+    int i, j, neigh, rolling_max[prev_nodes_count];
+
+    int last_order = node_order[prev_nodes_array[prev_nodes_count-1]];
+    rolling_max[prev_nodes_count-1] = last_order;
+    for(i=prev_nodes_count-2; i>=0; i--) {
+        int curr_node = prev_nodes_array[i];
+        int curr_order = node_order[curr_node];
+        if (curr_order > rolling_max[i + 1]) {
+            rolling_max[i] = curr_order;
+        } else {
+            rolling_max[i] = rolling_max[i + 1];
+        }
+    }
+    // Then, go forwards in the array and find valid neighbors
+    SET *next_step = SetAlloc(G->n);
+    SET *deg_set = SetAlloc(G->n);
+    *next_step_pointer = next_step;
+    *deg_set_pointer = deg_set;
+    SET *all_neighbors = SetAlloc(G->n);
+    int first_order = node_order[prev_nodes_array[0]];
+    for(i=0; i<prev_nodes_count; i++) {
+        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) { // loop through all neighbors for the current node
+            neigh = G->neighbor[prev_nodes_array[i]][j];
+            int neigh_order = node_order[neigh];
+            if (!SetIn(all_neighbors, neigh) && !arrayIn(prev_nodes_array, prev_nodes_count, neigh)) { // we're only processing it if it's not an old neighbor and it's not a node in the graphlet we're building
+                Boolean neigh_is_valid = true;
+                if (i == prev_nodes_count - 1) {
+                    if (neigh_order > first_order) {
+                        neigh_is_valid = true;
+                    } else {
+                        neigh_is_valid = false;
+                    }
+                } else {
+                    if (neigh_order > rolling_max[i + 1]) {
+                        neigh_is_valid = true;
+                    } else {
+                        neigh_is_valid = false;
+                    }
+                }
+                if (neigh_is_valid) {
+                    SetAdd(next_step, neigh);
+                    SetAdd(deg_set, G->degree[neigh]);
+                }
+                SetAdd(all_neighbors, neigh);
+            }
+        }
+    }
+    SetFree(all_neighbors);
 }
