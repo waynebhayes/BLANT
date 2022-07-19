@@ -1,7 +1,12 @@
 *.o
 *.a
 *~
-blant
+blant*
+**/__pycache__/
+libcalci.so
+.deduped
+.firsttime
+regression-tests
 canon-sift
 holding
 machines.89

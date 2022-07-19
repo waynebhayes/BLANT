@@ -20,6 +20,7 @@ int _numWindowRepArrSize = 100;
 int _topThousandth = 0;
 int _orbitNumber = -1; // -1 means not initialized
 char* _odvFile = NULL;
+bool _alphabeticTieBreaking = true;
 
 int _windowSize = 0;
 Boolean _window = false;
@@ -396,7 +397,7 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
         case graphletFrequency:
             _graphletCount[windowRepInt] += _numWindowRep;
             break;
-        case indexGraphlets:
+        case indexGraphlets: case indexGraphletsRNO:
             for(i=0; i<_windowSize; i++) PrintNode((i>0)*' ', VArray[i]);
            	// printf("\n");
             printf("\n%i %i\n", windowRepInt, _numWindowRep);
