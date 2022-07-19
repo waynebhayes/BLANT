@@ -923,26 +923,18 @@ double SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
  *                      being processed in RunBlantFromGraph function
  * @param heur_arr  the array containing the heuristic values for all nodes which is used to determine which nodes in next_step to expand to
  */
-void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, int numSamplesPerNode, int *tempCountPtr, double *heur_arr) {
+void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, double *heur_arr) {
     // i, j, and neigh are just used in for loops in this function
     int i, j, neigh;
     // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
     TINY_GRAPH *g = TinyGraphAlloc(_k);
 
-    // Set a maximum number N of returned windowReps (-n N) in case there is a bunch
-    // If (-n N) flag is not given, then will return all satisfied windowReps.
-    // NOTE: using -n is not recommended because with the current implementation, the output will change greatly depending on which nodes you start expanding from first in blant.c
-    if (numSamplesPerNode != 0 && *tempCountPtr >= numSamplesPerNode) return;  // already enough samples found, no need to search further
-    if (prev_nodes_count == _k) { // base case for the recursion: a k-graphlet is found, print it and return
+    // base case for the recursion: a k-graphlet is found, print it and return
+    if (prev_nodes_count == _k) {
         // ProcessGraphlet will create the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of a low enough multiplicity (<= multiplicity)
         // ProcessGraphlet will also check that the k nodes you passed it haven't already been printed (although, this system does not work 100% perfectly)
         // ProcessGraphlet will also print the nodes as output if the graphlet passes all checks
-        for (i = 0; i < prev_nodes_count; i++) {
-            // fprintf(stderr, "%s, ", _nodeNames[prev_nodes_array[i]]);
-        }
-        // fprintf(stderr, "\n");
-        if (ProcessGraphlet(G, NULL, prev_nodes_array, _k, g))
-            *tempCountPtr = *tempCountPtr + 1; // increment the count only if the graphlet sampled satisfies all of ProcessGraphlet's checks
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g);
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 
@@ -1004,25 +996,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         ++i;
     }
     int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000; // algo=base
-    /* int num_distinct_values_to_skip;
-    if (prev_nodes_count <= _k / 2) {
-        num_distinct_values_to_skip = 1;
-    } else {
-        num_distinct_values_to_skip = 0;
-    }
-    algo=fhs1 */
     // int num_distinct_values_to_skip = _k - prev_nodes_count - 1; // algo=stairs
-    /* int num_distinct_values_to_skip = _k - prev_nodes_count - 3;
-    if (num_distinct_values_to_skip < 0) {
-        num_distinct_values_to_skip = 0;
-    }
-    algo=offstairs */
-    // int num_distinct_values_to_skip = (_k - prev_nodes_count - 1) * 2; algo=steepstairs
-    /* int num_distinct_values_to_skip = _k - prev_nodes_count - 3;
-    if (num_distinct_values_to_skip < 0) {
-        num_distinct_values_to_skip = 0;
-    }
-    num_distinct_values_to_skip *= 2; algo=steepoffstairs */
 
     int num_distinct_values = 0;
     old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics not being -1
@@ -1047,19 +1021,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
         }
 
         // perform the standard DFS step of set next, recurse with size + 1, and then unset next
-        // the "unset" step is commented out for efficiency since it's not actually necessary, but the comment improves readability
         prev_nodes_array[prev_nodes_count] = next_step_nwhn.node;
-
-        // PAT DEBUG START
-        int patDebugInc;
-        for (patDebugInc = 0; patDebugInc < prev_nodes_count; patDebugInc++) {
-            // fprintf(stderr, "\t");
-        }
-
-        // fprintf(stderr, "%s\n", _nodeNames[next_step_nwhn.node]);
-        // PAT DEBUG END
-
         SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, heur_arr);
+        // the "unset" step is commented out for efficiency since it's not actually necessary, but the comment improves readability
         // prev_nodes_array[prev_nodes_count] = 0;
         ++i;
     }

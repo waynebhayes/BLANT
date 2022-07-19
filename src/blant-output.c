@@ -98,8 +98,9 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     memcpy(Vcopy, Varray, k*sizeof(*Varray));
     VarraySort(Vcopy, k);
 
-    if (true /*_addBaseOrbitToID*/) {
-        // move the first node in Varray (the base node) to the start of Vcopy
+    if (_outputMode == indexGraphletsRNO) {
+        // move the first node in Varray (the root node) to the start of Vcopy
+        // this is because we now consider identical sets of nodes different if they were created in a different order (specifically, if the root node was different)
         unsigned base_node = Varray[0];
 
         if (Vcopy[0] != base_node) {
@@ -142,12 +143,8 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
     strcpy(buf[which], PrintCanonical(GintOrdinal));
 
     // IMPORTANT NOTE: this code prints the perm, not the orbit (ambiguous graphlets have repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code here (and code in a lot of other places)
-    if (_numOrbitsInId > 0) {
-        sprintf(buf[which], "%s+o", buf[which]);
-
-        for (j = 0; j < _numOrbitsInId; j++) {
-            sprintf(buf[which], "%s%d", buf[which], perm[j]);
-        }
+    if (_outputMode == indexGraphletsRNO) {
+        sprintf(buf[which], "%s+o%d", buf[which], perm[0]);
     }
 
     for(j=0;j<k;j++) {
@@ -199,7 +196,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     case graphletFrequency:
 	++_graphletCount[GintOrdinal];
 	break;
-    case indexGraphlets:
+    case indexGraphlets: case indexGraphletsRNO:
 #if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
 	VarraySort(Varray, k);
 #endif

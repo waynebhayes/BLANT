@@ -29,23 +29,6 @@ def extract_node_pairs(all_seeds_list):
     pairs = extract_node_pairs_from_m2m(m2m_pairs)
     return pairs
 
-'''def get_rid_of_deg1_pairs(pairs, gtag1, gtag2):
-    graph_path1 = get_graph_path(gtag1)
-    nodes1 = read_in_nodes(graph_path1)
-    adj_set1 = read_in_adj_set(graph_path1)
-    graph_path2 = get_graph_path(gtag2)
-    nodes2 = read_in_nodes(graph_path2)
-    adj_set2 = read_in_adj_set(graph_path2)
-    deg1_nodes1 = [node for node in nodes1 if len(adj_set1[node]) == 1]
-    deg1_nodes2 = [node for node in nodes2 if len(adj_set2[node]) == 1]
-    new_pairs = []
-
-    for node1, node2 in pairs:
-        if node1 not in deg1_nodes1 and node2 not in deg1_nodes2:
-            new_pairs.append((node1, node2))
-
-    return new_pairs TODO'''
-
 def create_node_pair_voting(m2m_pairs):
     def add_to_voting(node1, node2):
         if node1 not in node_pair_voting:

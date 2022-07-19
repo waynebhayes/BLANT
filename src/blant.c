@@ -340,22 +340,19 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
     if (_sampleMethod == SAMPLE_INDEX) { // sample numSamples graphlets for each node in the graph
-	if (_outputMode != indexGraphlets && _outputMode != indexOrbits)
+	if (_outputMode != indexGraphlets && _outputMode != indexGraphletsRNO && _outputMode != indexOrbits)
 	    Fatal("currently only -mi and -mj output modes are supported for -s INDEX sampling option");
 
     int i, count = 0;
     int prev_nodes_array[_k];
 
-    // double importance_heur_arr[G->n]; IF YOU WANT TO USE IMPORTANCE, MAKE SURE TO FIX THE IMPORTANCE FUNCTION TO CONSIDER ALPHABETIC ORDER CORRECTLY
-    // getImportances(importance_heur_arr, G);
-        
     // Get heuristic values based on orbit number, if ODV file provided
     double heuristicValues[G->n];
 
     if (_orbitNumber != -1) {
         getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
     } else {
-        getDoubleDegreeArr(heuristicValues, G);
+        getDoubleDegreeArr(heuristicValues, G); // since heuristic values are doubles, we need to convert degree values to doubles
     }
 
     int percentToPrint = 1;
@@ -446,7 +443,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     {
 	int canon;
 	int orbit_index;
-    case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
+    case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	break; // already printed on-the-fly in the Sample/Process loop above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
@@ -543,7 +540,7 @@ FILE *ForkBlant(int k, int numSamples, GRAPH *G)
 	(void)close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
 
 	// For any "counting" mode, use internal numbering when communicating through pipes to the parent
-	if(_outputMode != indexGraphlets && _outputMode != indexOrbits) _supportNodeNames = false;
+	if(_outputMode != indexGraphlets && _outputMode != indexGraphletsRNO && _outputMode != indexOrbits) _supportNodeNames = false;
 
 	RunBlantFromGraph(k, numSamples, G);
 	exit(0);
@@ -697,7 +694,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		}
 		assert(*nextChar == '\0');
 		break;
-	    case indexGraphlets: case indexOrbits: case indexMotifs: case indexMotifOrbits:
+	    case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 		fputs(line, stdout);
 		if(_window)
 		    while(fgets(line, sizeof(line), fpThreads[thread]))
@@ -805,6 +802,7 @@ const char * const USAGE =
 "	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
 "	i = {i}ndex: each line is a graphlet with columns: canonical ID, then k nodes in canonical order; useful since\n"\
 "	    two lines with the same first column constitutes a PERFECT k-node local alignment between the two graphlets.\n"\
+"	r = index with {r}oot node orbit: each line is a canonical ID + the orbit of the root node, then k nodes in canonical order; produces better seeds when the index is queried by the alignment algorithm\n"\
 "	d = graphlet neighbor {D}istribution\n"\
 "    -d{displayMode} [no default--MANDATORY for indexing modes]: single character controls how canonical IDs are displayed:\n"\
 "	o = ORCA numbering\n"\
@@ -829,7 +827,8 @@ const char * const USAGE =
 "   -T = top percent to expand to in -sINDEX sampling method (default 0)\n" \
 "   -o = the orbit to use for the heuristic function\n" \
 "   -f = the .orca4 file for the network\n" \
-"   -a = sets whether ties are broken alphabetically or reverse alphabetically";
+"   -a = sets whether ties are broken alphabetically or reverse alphabetically"\
+;
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
@@ -853,9 +852,8 @@ int main(int argc, char *argv[])
     _k = 0; _k_small = 0;
 
     int odv_fname_len = 0;
-    _numOrbitsInId = 8;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:a:")) != -1)
+    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:a:R")) != -1)
     {
 	switch(opt)
 	{
@@ -867,6 +865,7 @@ int main(int argc, char *argv[])
 	    case 'm': _outputMode = indexMotifs; break;
 	    case 'M': _outputMode = indexMotifOrbits; break;
 	    case 'i': _outputMode = indexGraphlets; break;
+	    case 'r': _outputMode = indexGraphletsRNO; break;
 	    case 'j': _outputMode = indexOrbits; break;
 	    case 'f': _outputMode = graphletFrequency;
 		switch (*(optarg + 1))
@@ -1028,6 +1027,9 @@ int main(int argc, char *argv[])
         break;
     case 'a':
         _alphabeticTieBreaking = atoi(optarg) != 0;
+        break;
+    case 'R':
+        fprintf(stderr, "root node orbit");
         break;
 	default: Fatal("unknown option %c\n%s", opt, USAGE);
     }
