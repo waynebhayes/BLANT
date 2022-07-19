@@ -96,33 +96,10 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_CIRC_BUF], bufPos;
     static SET *seen;
     static unsigned Vcopy[MAX_K];
-    unsigned i;
     if(!seen) seen=SetAlloc(MCMC_MAX_HASH);
     memcpy(Vcopy, Varray, k*sizeof(*Varray));
     VarraySort(Vcopy, k);
-
-    if (_outputMode == indexGraphletsRNO) {
-        // move the first node in Varray (the root node) to the start of Vcopy
-        // this is because we now consider identical sets of nodes different if they were created in a different order (specifically, if the root node was different)
-        unsigned base_node = Varray[0];
-
-        if (Vcopy[0] != base_node) {
-            unsigned stored_node = Vcopy[0];
-
-            for (i = 1; i < k; i++) {
-                unsigned tmp = stored_node;
-                stored_node = Vcopy[i];
-                Vcopy[i] = tmp;
-
-                if (stored_node == base_node) {
-                    Vcopy[0] = stored_node;
-                    break;
-                }
-            }
-        }
-    }
-
-    unsigned hash=Vcopy[0];
+    unsigned hash=Vcopy[0], i;
     for(i=1;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will likely overflow. Shouldn't matter.
     hash = hash % MCMC_MAX_HASH;
     if(SetInSafe(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
@@ -149,12 +126,6 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
     static char buf[2][BUFSIZ];
     int which=0;
     strcpy(buf[which], PrintCanonical(GintOrdinal));
-
-    // IMPORTANT NOTE: this code prints the perm, not the orbit (ambiguous graphlets have repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code here (and code in a lot of other places)
-    if (_outputMode == indexGraphletsRNO) {
-        sprintf(buf[which], "%s+o%d", buf[which], perm[0]);
-    }
-
     for(j=0;j<k;j++) {
 	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
     }
@@ -209,10 +180,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     case graphletFrequency:
 	++_graphletCount[GintOrdinal];
 	break;
-    case indexGraphlets: case indexGraphletsRNO:
-#if SORT_INDEX_MODE // Note this destroys the columns-are-identical property, don't use by default.
-	VarraySort(Varray, k);
-#endif
+    case indexGraphlets:
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k));

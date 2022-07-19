@@ -111,8 +111,8 @@ extern unsigned int L_K_Func(Gint_type Gint);
 #define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
 extern SET *_connectedCanonicals;
 
-enum OutputMode {undef, indexGraphlets, indexGraphletsRNO, indexOrbits, indexMotifs,
-    indexMotifOrbits, predict, predict_merge, graphletFrequency, outputODV, outputGDV,
+enum OutputMode {undef, indexGraphlets, indexOrbits, indexMotifs, indexMotifOrbits,
+    predict, predict_merge, graphletFrequency, outputODV, outputGDV,
     graphletDistribution // used in Windowing
 };
 extern enum OutputMode _outputMode;

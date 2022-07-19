@@ -16,24 +16,15 @@ void getDoubleDegreeArr(double *double_degree_arr, GRAPH *G) {
 int *enumerateImportanceNodeOrder(GRAPH *G) {
     double importances[G->n];
     getImportances(importances, G);
-    node_whn arrForSorting[G->n];
+    node_wheur arrForSorting[G->n];
     int i;
 
     for (i = 0; i < G->n; ++i) {
         arrForSorting[i].node = i;
         arrForSorting[i].heur = importances[i];
-        arrForSorting[i].name = _nodeNames[i];
     }
 
-    int (*comp_func)(const void*, const void*);
-
-    if (_alphabeticTieBreaking) {
-        comp_func = nwhn_asc_alph_comp_func;
-    } else {
-        comp_func = nwhn_asc_rev_comp_func;
-    }
-
-    qsort((void*)arrForSorting, G->n, sizeof(node_whn), comp_func);
+    qsort((void*)arrForSorting, G->n, sizeof(node_wheur), nwh_asccompFunc);
 
     int* nodeOrder = malloc(sizeof(int) * G->n);
 
@@ -193,24 +184,15 @@ void freeAdjacencyList(ADJ_LIST *adjList, GRAPH *G) {
 }
 
 void fillSortedNodes(int *sortedNodes, GRAPH *G) {
-    node_whn arrForSorting[G->n];
+    node_wheur arrForSorting[G->n];
     int i, j;
 
     for (i = 0; i < G->n; ++i) {
         arrForSorting[i].node = i;
         arrForSorting[i].heur = G->degree[i];
-        arrForSorting[i].name = _nodeNames[i];
     }
 
-    int (*comp_func)(const void*, const void*);
-
-    if (_alphabeticTieBreaking) {
-        comp_func = nwhn_asc_alph_comp_func;
-    } else {
-        comp_func = nwhn_asc_rev_comp_func;
-    }
-
-    qsort((void*)arrForSorting, G->n, sizeof(node_whn), comp_func);
+    qsort((void*)arrForSorting, G->n, sizeof(node_wheur), nwh_asccompFunc);
 
     for (i = 0; i < G->n; ++i) {
         sortedNodes[i] = arrForSorting[i].node;

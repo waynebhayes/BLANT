@@ -4,7 +4,6 @@
 #include "heap.h"
 #include "graph.h"
 #include "multisets.h"
-#include <stdbool.h>
 
 //windowRep global Variables
 #define WINDOW_SAMPLE_MIN 1 // Find the k-graphlet with minimal canonicalInt
@@ -35,7 +34,6 @@ extern int _numWindowRepArrSize;
 extern int _topThousandth;
 extern int _orbitNumber;
 extern char* _odvFile;
-extern bool _alphabeticTieBreaking;
 
 extern int _windowSize;
 extern Boolean _window;
