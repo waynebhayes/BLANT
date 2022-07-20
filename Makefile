@@ -33,6 +33,7 @@ else
 endif
 
 GCC_VER=$(shell echo $(ARCH) | awk '{if(/Darwin/){V="-6"}}END{if(V){print V;exit}}')
+XARGS=$(shell echo $(ARCH) | awk '{if(!/Darwin/)print "-r"}')
 GCC=gcc$(GCC_VER)
 CXX=g++
 
@@ -42,7 +43,6 @@ ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwi
 
 # Darwin needs gcc-6 ever since a commit on 22 May 2022:
 #GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
-#STACKSIZE=$(shell uname -a | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 STACKSIZE=$(shell ($(GCC) -v 2>&1; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/&&actualGCC{print "-Wl,-stack_size -Wl,0x5000000"}')
 CC=$(GCC) $(SPEED) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG) $(STACKSIZE)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(STACKSIZE) $(SPEED)
@@ -267,7 +267,7 @@ ifndef NO_CLEAN_LIBWAYNE
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..."
-	find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | xargs -r /bin/rm -f
+	find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | xargs $(XARGS) /bin/rm -f
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
