@@ -36,4 +36,8 @@ if __name__ == '__main__':
     g2_index_path = sys.argv[5]
     g2_graph_path = sys.argv[6]
     seeds, seed_metrics, extr_metrics = full_run(gtag1, gtag2, g1_index_path, g1_graph_path, g2_index_path, g2_graph_path, prox=2, target_num_matching=1)
-    print(len(seeds), seed_metrics, extr_metrics)
+    print(f'num seeds: {len(seeds)}')
+    print(f'avg seed size: {seed_metrics[0]:.3f}')
+    print(f'seed node correctness: {seed_metrics[1]:.3f}')
+    print(f'num extracted pairs: {extr_metrics[0]}')
+    print(f'num correct extracted pairs: {extr_metrics[1]}')
