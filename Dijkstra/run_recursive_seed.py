@@ -21,7 +21,7 @@ def initParser():
     parser.add_argument("-g1s", "--g1seed", required=False, help ="g1 seed file")
     parser.add_argument("-g2s", "--g2seed", required=False, help ="g2 seed file")
     parser.add_argument("-g1sline", "--g1seedline", required=False, help ="g1 seed file line")
-    parser.add_argument("-g2sline", "--g2seedline", required=False, help ="g2 seed file")
+    parser.add_argument("-g2sline", "--g2seedline", required=False, help ="g2 seed file line")
     parser.add_argument("-ec1", "--ec1bound", required=False, default = "0.0", help ="lower bound for ec1")
     parser.add_argument("-ec2", "--ec2bound", required=False, default = "0.0", help ="lower bound for ec2")
     parser.add_argument("-s3", "--s3bound", required=False, default = "0.0", help ="lower bound for s3")
@@ -32,7 +32,7 @@ def initParser():
     parser.add_argument("-pk", "--pickle", required=False, default = "", help = "location of existing pickle file")
     parser.add_argument("-t", "--timestop", required=False, default = "-1.0", help = "Stop program after specified time, units in hours")
     parser.add_argument("-at", "--alignstop", required=False, default = -1, help = "Stop program after speciefied number of alignments generated")
-    parser.add_argument("-sn", "--seednum", required=False, default = "", help = "seed num")
+    parser.add_argument("-sn", "--seedname", required=False, default = "", help = "seed num")
     parser.add_argument("-od", "--outputdir", required=False, default = "", help = "outputdir")
     parser.add_argument('-copt', "--coptimize",required=False,  default = 1, help="using C code to speed up the Dijkstra process")
     parser.add_argument('-debug', "--debugval",action='store_true', help="adding debug will set to True, no entry is False")
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     ec_mode = (float(args.ec1bound), float(args.ec2bound), float(args.s3bound))
     ed = (float(args.edbound))
     alpha = float(args.alpha)
-    seednum = int(args.seednum)
+    seedname = args.seedname
     simbound = float(args.simbound)
     g1seed = seeding.get_seed_line(args.g1seed, args.g1seedline)
     g2seed = seeding.get_seed_line(args.g2seed, args.g2seedline)
@@ -86,8 +86,8 @@ if __name__ == '__main__':
         sims = builder.get_sim(args.sim, graph1, graph2, args.pickle)
         print("sim built")
 
-        recalignment.rec_align(c_graph_a, c_graph_b, graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, alignstop=args.alignstop, timestop=timestop_arg, copt=args.coptimize, debug=args.debugval)
-        # p = multiprocessing.Process(target=recalignment.rec_align, name = "alignfunc", args=((graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seednum, args.outputdir, args.alignstop,timestop_arg, args.debugval)))
+        recalignment.rec_align(c_graph_a, c_graph_b, graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seedname, args.outputdir, alignstop=args.alignstop, timestop=timestop_arg, copt=args.coptimize, debug=args.debugval)
+        # p = multiprocessing.Process(target=recalignment.rec_align, name = "alignfunc", args=((graph1, graph2, seed, sims, ec_mode, ed, e1, simbound, delta, alpha, seedname, args.outputdir, args.alignstop,timestop_arg, args.debugval)))
         # p.start()
         # p.join(timestop_arg)
         # time.sleep(timestop_arg)
@@ -96,11 +96,11 @@ if __name__ == '__main__':
         #     p.join()
 
     else:
-        p = multiprocessing.Process(target=recalignment_nosim.rec_align, name = "alignfunc", args=((graph1, graph2, seed, ec_mode, ed, e1, delta, alpha, seednum, args.outputdir, timestop_arg, args.debugval)))
+        p = multiprocessing.Process(target=recalignment_nosim.rec_align, name = "alignfunc", args=((graph1, graph2, seed, ec_mode, ed, e1, delta, alpha, seedname, args.outputdir, timestop_arg, args.debugval)))
         p.start()
         time.sleep(timestop_arg)
         if p.is_alive():
             p.terminate()
             
-        #recalignment_nosim.rec_align(graph1, graph2, seed, ec_mode, ed, e1, delta, alpha, seednum, args.outputdir, timestop=timestop_arg, debug=args.debugval)    
+        #recalignment_nosim.rec_align(graph1, graph2, seed, ec_mode, ed, e1, delta, alpha, seedname, args.outputdir, timestop=timestop_arg, debug=args.debugval)    
 

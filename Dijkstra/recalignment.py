@@ -19,7 +19,7 @@ libCalc = CDLL(lib_path)
 #libCalc = CDLL("../../Dijkstra/libcalci.so")
 
 class Alignment:
-    def __init__(self, seed, m, ec_mode, ed, sb, alpha, delta, seednum, outputdir,timestop, alignstop):
+    def __init__(self, seed, m, ec_mode, ed, sb, alpha, delta, seedname, outputdir,timestop, alignstop):
         self.g1alignednodes = set()
         self.g2alignednodes = set()
         self.aligned_pairs = set()
@@ -44,7 +44,7 @@ class Alignment:
         self.seed = seed
         self.alpha = alpha
         self.delta = delta
-        self.seednum = seednum
+        self.seedname = seedname
         self.currtime = 0 
         self.recdepth = 0
         self.timestop = timestop
@@ -152,13 +152,16 @@ def printoutput(g1, g2, curralign):
     minutes, seconds = divmod(rem, 60)
     runtime = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
 
-    result = ("seednum: " + str(curralign.seednum) + " k:" + str(curralign.k) +  " size:" + str(size) + " E1:" + str(curralign.E1) + " E2:" + str(curralign.E2) + " EA:" + str(curralign.EA) + " time:" + str(runtime) + " seed: " + curralign.g1seedstr)
+    result = ("seedname: " + curralign.seedname + " k:" + str(curralign.k) +  " size:" + str(size) + " E1:" + str(curralign.E1) + " E2:" + str(curralign.E2) + " EA:" + str(curralign.EA) + " time:" + str(runtime) + " seed: " + curralign.g1seedstr)
     if curralign.outputdir == "":
-        output_dir =  "seed" + str(curralign.seednum)
+        #print("curralign.outputdir is empty")
+        output_dir = curralign.seedname
     else: 
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        #print("curralign.outputdir not empty")
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + curralign.logfile
+    #print("G. output_dir and file: ", output_dir, output_file);
 
     with open(output_file, "a") as f:
         f.write(result+"\n")
@@ -171,11 +174,12 @@ def append_result(g1,g2, curralign):
     fname = curralign.alignfile
 
     if curralign.outputdir == "":
-        output_dir =  "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else: 
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + fname
+    #print("H. output_file ", output_file);
     with open(output_file, 'a')as f:
         for x in curralign.aligned_pairs:
             #print(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]))
@@ -200,6 +204,12 @@ def rec_alignhelper(cg1, cg2, g1, g2, curralign, candidatePairs, aligncombs, sim
     start1 = time.time()
    
     if len(candidatePairs) == 0 and len(curralign.pq) == 0:
+	# Here, it would be worth the future time savings to determine the *orbit* membership of all the nodes in the CCS,
+	# as well as on the subgraphs induced on both G1 and G2 (for now, in Python, just call NAUTY or SAUCY externally
+	# since they run very fast on "small" networks); then add *all* the resulting alignments to the list of "seen"
+	# alignments... which also means that it would be worth the *space* savings to refactor the "seen" alignments
+	# to allow the storage and search of not just sets of node pairs, but sets of *orbit* pairs.
+	# The time and space savings should be huge in both cases.
         return
 
     update_skip_list(cg1, cg2, g1, g2, curralign, candidatePairs, sims, debug, copt)
@@ -363,16 +373,16 @@ def rec_alignhelper(cg1, cg2, g1, g2, curralign, candidatePairs, aligncombs, sim
             return
 
 
-def rec_align(cg1, cg2, g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, seednum, outputdir, alignstop, copt, timestop, debug=False):
+def rec_align(cg1, cg2, g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, seedname, outputdir, alignstop, copt, timestop, debug=False):
     time_start = time.perf_counter()
     if alignstop == -1:
         alignstop = float('inf')
     else:
         alignstop = int(alignstop)
 
-    curralign = Alignment(seed, m, ec_mode, ed, sb, alpha, delta, seednum, outputdir, timestop, alignstop)
-    curralign.logfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".log" 
-    curralign.statsfile = g1.name + "_" + g2.name + "_" + str(seednum) + ".stats"
+    curralign = Alignment(seed, m, ec_mode, ed, sb, alpha, delta, seedname, outputdir, timestop, alignstop)
+    curralign.logfile = g1.name + "_" + g2.name + "_" + seedname + ".log" 
+    curralign.statsfile = g1.name + "_" + g2.name + "_" + seedname + ".stats"
 
 
 
@@ -384,7 +394,7 @@ def rec_align(cg1, cg2, g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, se
         print("sb: ", sb)
         print("delta: ", delta)
         print("alpha: ", alpha)
-        print("seednum: ", seednum)
+        print("seedname: ", seedname)
         print("outputdir: ", outputdir)
         print("timestop: ", timestop)
         print("debug: ", debug)
@@ -414,8 +424,7 @@ def rec_align(cg1, cg2, g1, g2, seed, sims, ec_mode, ed, m, sb, delta, alpha, se
     curralign.g1seedstr += curralign.g2seedstr
     curralign.k = len(curralign.aligned_pairs)
 
-    curralign.alignfile = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--seed" + str(
-        curralign.seednum) + ".dijkstra"
+    curralign.alignfile = g1.name + "--" + g2.name + "--" + str(curralign.k) + "--" + curralign.seedname + ".dijkstra"
 
     print('initial alignment:',curralign.aligned_pairs)
     #print("ec1: " + str(curralign.ec1))
@@ -430,16 +439,17 @@ def write_result(g1,g2, curralign):
     uid = uuidstr[:13]
     fname = g1.name + "--" + g2.name + "--" + str(curralign.delta) + "--" + str(curralign.k) + "--"  + uid +  ".dijkstra"
     if curralign.outputdir == "":
-        output_dir =  "seed" + str(curralign.seednum)
+        output_dir = curralign.seedname
     else: 
-        output_dir = curralign.outputdir + "/seed" + str(curralign.seednum)
+        output_dir = curralign.outputdir + "/seed-" + curralign.seedname
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     output_file = output_dir + "/" + fname
+    #print("I. output_file ", output_file);
     with open(output_file, 'w+')as f:
         for x in curralign.aligned_pairs:
             print(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]))
             f.write(str(g1.nodes[x[0]]) + ' ' + str(g2.nodes[x[1]]) + '\n')
 
-def output(k, E1, E2, EA, seed, runtime, seednum, size):
-    print("seednum: " + str(seednum) + " k:" + str(k) +  " size:" + str(size) + " E1:" + str(E1) + " E2:" + str(E2) + " EA:" + str(EA) + " time:" + str(runtime) + " seed: " + str(seed))
+def output(k, E1, E2, EA, seed, runtime, seedname, size):
+    print("seedname: " + seedname + " k:" + str(k) +  " size:" + str(size) + " E1:" + str(E1) + " E2:" + str(E2) + " EA:" + str(EA) + " time:" + str(runtime) + " seed: " + str(seed))
 
