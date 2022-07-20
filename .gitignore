@@ -6,6 +6,7 @@ blant*
 libcalci.so
 .deduped
 .firsttime
+.notpristine
 regression-tests
 canon-sift
 holding
