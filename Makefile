@@ -101,7 +101,7 @@ show-gcc-ver:
 	@echo "The fastest way to get started is to skip k=8 graphlets:"
 	@echo "    PAUSE=0 NO8=1 make base"
 	@echo "which will make everything needed to get started sampling up to k=7 graphlets".
-	@echo "To force a clean libwayne, set CLEAN_LIBWAYNE=1"
+	@echo "To skip cleaning and re-making libwayne, set NO_CLEAN_LIBWAYNE=1"
 	@echo "You will only see this message once on a 'pristine' repo. Pausing $(PAUSE) seconds..."
 	@echo '****************************************'
 	sleep $(PAUSE)
@@ -201,7 +201,6 @@ $(LIBWAYNE_HOME)/made:
 canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	./create-bin-data$*
-	create-bin-data$*
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
 	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
 
@@ -262,12 +261,12 @@ realclean:
 	false
 
 pristine: clean clean_canon_maps
-ifdef CLEAN_LIBWAYNE
+ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..."
-	find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | xargs $(XARGS) /bin/rm -f
+	find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | xargs $(XARGS) /bin/rm -rf
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
