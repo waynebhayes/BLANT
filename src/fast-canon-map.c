@@ -63,16 +63,17 @@ typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal a
 
 static xChar* data;
 static bool* done;
-static unsigned long canonicalDecimal[274668];//274668 canonical graphettes for k=9
+static unsigned long canonicalDecimal[12346];//12346 canonical graphettes for k=8
 
 unsigned long power(int x, int y){
+    assert(x>0 && y>=0);
     if(y==0)return 1;
     return (unsigned long)x*power(x,y-1);
 }
 
 void encodeChar(xChar ch, long indexD, long indexP){
 
-    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*power(2,19);//19 bits for canonical decimal index
+    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*power(2,14);//14 bits for canonical decimal index
     unsigned long z=power(2,8);
     for(int i=4; i>=0; i--){
 	ch[i]=(char)(x%z);
@@ -91,13 +92,14 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
 	x+=w*m;
 	y+=8;
     }
-    unsigned long z=power(2,19);
+    unsigned long z=power(2,14);
     *indexD=x%z;
     *indexP=x/z;
 }
 
 long factorial(int n) {
-    if(n==0)return 1;
+    assert(n>=0);
+    if(n==0)return 1L;
     return (long)n*factorial(n-1);
 }
 
@@ -133,15 +135,16 @@ void canon_map(void){
     int numBits = (k*(k-1))/2;
     int bitMatrix[k][k];
 
-    for(unsigned long i=0; i<numBitValues; i++)done[i]=0;
+    for(int i=0; i<numBitValues; i++) assert(i>=0), done[i]=0;
     canonicalDecimal[0]=0;
-    long f=factorial(k);
+    int f=factorial(k);
     char Permutations[f][k];
     int tmpPerm[k];
     for(int i=0;i<k;i++)tmpPerm[i]=i;
 
     //saving all permutations
-    for(long i=0;i<f;i++){
+    for(int i=0;i<f;i++){
+	assert(i>=0);
 	for(int j=0; j<k; j++)
 	    Permutations[i][j]=tmpPerm[j];
 	nextPermutation(tmpPerm);
@@ -151,17 +154,20 @@ void canon_map(void){
     long num_canon=0;
 
     //finding canonical forms of all graphettes
-    for(unsigned long t=1; t<numBitValues; t++){
+    for(int t=1; t<numBitValues; t++){
+	assert(t>=0);
 	if(done[t]) continue;
 	done[t]=1; // this is a new canonical, and it the lowest by construction
 	encodeChar(data[t],++num_canon,0);
 	canonicalDecimal[num_canon]=t;
 
-	unsigned long num = 0;
+	int num = 0;
 	decimalToBitArray(bitMatrix, t);
-	for(long nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
+	for(int nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
 	{
+	    assert(nP>0);
 	    num=bitArrayToDecimal(bitMatrix, Permutations[nP], numBits);
+	    assert(num>=0);
 	    if(!done[num]){
 		done[num]=true;
 		encodeChar(data[num],num_canon,nP);
@@ -218,8 +224,8 @@ static char USAGE[] = "USAGE: $0 k";
 int main(int argc, char* argv[]){
     if(argc != 2){fprintf(stderr, "expecting exactly one argument, which is k\n%s\n",USAGE); exit(1);}
     k = atoi(argv[1]);
-    if(k<=8) numBitValues = 1 << k*(k-1)/2;
-    else numBitValues = 1LL << k*(k-1LL)/2;
+    if(k<=8) numBitValues = (1UL << k*(k-1)/2);
+    else numBitValues = (1UL << k*(k-1)/2);
     data = malloc(sizeof(xChar)*numBitValues);
     done = malloc(sizeof(bool)*numBitValues);
     canon_map();

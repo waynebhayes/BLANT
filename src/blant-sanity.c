@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
     lines=0;
     while(fgets(line, sizeof(line), stdin))
     {
-
 	int i,j;
 	++lines;
 	char newName[BUFSIZ];
@@ -59,14 +58,20 @@ int main(int argc, char *argv[])
 	    strcpy(name, newName);
 	    for(i=0;i<k;i++)Varray[i]=a[i];
 	}
-	//fputs(line, stdout); fflush(stdout);
 	for(i=0; i<k-1; i++)for(j=i+1;j<k;j++)
 	{
 	    assert(i!=j);
-	    //printf("%d-%d, %d-%d\n", a[i], a[j], Varray[i], Varray[j]); fflush(stdout);
-	    assert(GraphAreConnected(G, a[i], a[j]) == GraphAreConnected(G, Varray[i], Varray[j]));
+	    if(GraphAreConnected(G, a[i], a[j]) == GraphAreConnected(G, Varray[i], Varray[j]));
+	    else {
+		printf("line %d: edge(%d,%d)=%d, edge(%d,%d)=%d\t", lines,
+		    a[i], a[j], GraphAreConnected(G, a[i], a[j]),
+		    Varray[i], Varray[j], GraphAreConnected(G, Varray[i], Varray[j])); fflush(stdout);
+		fputs(line, stdout); fflush(stdout);
+		//assert(false);
+	    }
 	}
     }
     if(n != lines) Fatal("blant-sanity: expected %d lines but got %d\n",n,lines);
     return 0;
 }
+
