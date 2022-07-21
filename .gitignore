@@ -3,6 +3,7 @@
 *~
 blant
 blant[a-z]*
+blant*
 **/__pycache__/
 libcalci.so
 .deduped
