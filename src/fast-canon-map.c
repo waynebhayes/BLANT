@@ -189,12 +189,15 @@ void canon_map(void){
     //saving canonical decimal and permutation in the file
     long canonDec, canonPerm;
     for(unsigned long i=0; i<numBitValues; i++){
+	char printPerm[k+1];
 	canonDec=0;canonPerm=0;
 	decodeChar(data[i],&canonDec,&canonPerm);
 	assert(canonDec >= 0);
 	assert(canonPerm >= 0);
 	fprintf(fcanon,"%lu\t", canonicalDecimal[canonDec]);
-	for(int p=0;p<k;p++) putc('0'+Permutations[canonPerm][p], fcanon);
+	for(int p=0;p<k;p++) printPerm[p] = '0' + Permutations[canonPerm][p];
+	printPerm[k]='\0';
+	fputs(printPerm, fcanon);
 	if(canonPerm == 0) {
 	    G = TinyGraphAlloc(k);
 	    Int2TinyGraph(G, i);
