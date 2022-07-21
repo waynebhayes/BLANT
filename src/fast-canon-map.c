@@ -136,8 +136,8 @@ void canon_map(void){
     for(unsigned long i=0; i<numBitValues; i++)done[i]=0;
     canonicalDecimal[0]=0;
     long f=factorial(k);
-    char Permutations[f][k+1];
-    int tmpPerm[k+1];
+    char Permutations[f][k];
+    int tmpPerm[k];
     for(int i=0;i<k;i++)tmpPerm[i]=i;
 
     //saving all permutations
@@ -176,7 +176,7 @@ void canon_map(void){
     // our time thinking in "canonical space", and if we want to know where to find canonical
     // node j in a particular non-canonical, we use perm[j].
     if(PERMS_CAN2NON){
-	int tmp[k+1];
+	int tmp[k];
 	for(int i=0; i<f; i++){
 	    for(int j=0; j<k; j++)
 		tmp[(int)Permutations[i][j]]=j;
