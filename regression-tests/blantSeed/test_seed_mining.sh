@@ -1,7 +1,7 @@
 #!/bin/bash
 TEST_DIR=$(pwd)/regression-tests/blantSeed
 cd seed_mining
-./full_algorithm_helpers.py syeast0 syeast05 ../examples/syeast0.index ../networks/syeast0/syeast0.el ../examples/syeast05.index ../networks/syeast05/syeast05.el >$TEST_DIR/syeast0-syeast05-results.txt
+python3 full_algorithm_helpers.py syeast0 syeast05 ../examples/syeast0.index ../networks/syeast0/syeast0.el ../examples/syeast05.index ../networks/syeast05/syeast05.el >$TEST_DIR/syeast0-syeast05-results.txt
 cd ..
 
 DIFF=$(diff $TEST_DIR/syeast0-syeast05-results.txt examples/syeast0-syeast05-results.txt)
