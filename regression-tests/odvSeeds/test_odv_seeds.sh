@@ -1,6 +1,6 @@
 #!/bin/bash
 TEST_DIR=$(pwd)/regression-tests/odvSeeds
-python3 seed_mining/odv_helpers.py networks/syeast0/syeast0.el networks/syeast05/syeast05.el examples/syeast0-k5.odv examples/syeast05-k5.odv 5 1004 >$TEST_DIR/syeast0-syeast05-k5-n1004.odvseeds
+python3 seed_mining/odv_helpers.py networks/syeast0/syeast0.el networks/syeast05/syeast05.el examples/syeast0-k5.odv examples/syeast05-k5.odv 5 1004 >$TEST_DIR/syeast0-syeast05-k5-n1004.odvseeds 2>/dev/null
 
 DIFF=$(diff $TEST_DIR/syeast0-syeast05-k5-n1004.odvseeds examples/syeast0-syeast05-k5-n1004.odvseeds)
 
