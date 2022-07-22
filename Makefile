@@ -5,10 +5,12 @@
 ifndef PAUSE
     PAUSE := 100
 endif
-ifndef EIGHT
-    EIGHT := 8 #uncomment the 8 to generate the k=8 lookup table, which can take up to an hour.
-endif
+# Uncomment either of these to remove them (removing 7 implies removing 8)
+EIGHT := 8
 SEVEN := 7
+ifdef NO8
+    EIGHT := 
+endif
 ifdef NO7
     SEVEN :=
     EIGHT := # can't have 8 without 7
@@ -90,21 +92,19 @@ show-gcc-ver:
 	@echo '****************************************'
 	@echo "If you haven't already, you should read the README at"
 	@echo "	https://github.com/waynebhayes/BLANT#readme"
-	@echo "BLANT can sample graphlets of up to k=8 nodes, but the lookup table for k=8 can"
-	@echo "take up to an hour to generate. By default we generate it anyway; set NO8=1 if you"
-	@echo "don't want it; k=7 takes only a minute but if you're impatient you can also set NO7."
+	@echo "BLANT can sample graphlets of up to k=8 nodes. The lookup table for k=8 can take"
+	@echo "up to an hour to generate, but is needed if you want BLANT-seed to work, and so"
+	@echo "we make it by default; set NO8=1 to turn it off."
 	@echo "The best way to start the very first time is to run the following command:"
 	@echo "    ./regression-test-all.sh -make"
 	@echo "This may take an hour or more but performs a full battery of tests."
-	@echo "On the other hand, the fastest way to get started (assuming you use bash) is to type:"
-	@echo "    PAUSE=0 NO7=1 make base"
-	@echo "which will make everything needed to get started sampling up to k=6 graphlets".
+	@echo "The fastest way to get started is to skip k=8 graphlets:"
+	@echo "    PAUSE=0 NO8=1 make base"
+	@echo "which will make everything needed to get started sampling up to k=7 graphlets".
+	@echo "To skip cleaning and re-making libwayne, set NO_CLEAN_LIBWAYNE=1"
 	@echo "You will only see this message once on a 'pristine' repo. Pausing $(PAUSE) seconds..."
-	@echo "PAUSE is current $(PAUSE) seconds; set to some other integer to pause less time, eg PAUSE=1"
-	@echo "You can skip cleaning and re-making libwayne with NO_CLEAN_LIBWAYNE=1"
 	@echo '****************************************'
-	@echo "Pausing now for $(PAUSE) seconds..."
-	@sleep $(PAUSE)
+	sleep $(PAUSE)
 	@touch .notpristine
 
 most: base Draw subcanon_maps
@@ -201,13 +201,12 @@ $(LIBWAYNE_HOME)/made:
 canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	./create-bin-data$*
-	/bin/rm -f create-bin-data$*
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
 	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
 
 canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p canon_maps
-	./fast-canon-map $* | cut -f2- | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
+	./fast-canon-map $* | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
 
 canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_maps/canon_map%.bin
 	@if [ ! -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp canon_maps.correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
@@ -267,7 +266,7 @@ ifndef NO_CLEAN_LIBWAYNE
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..."
-	find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | xargs $(XARGS) /bin/rm -f
+	find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | xargs $(XARGS) /bin/rm -rf
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create

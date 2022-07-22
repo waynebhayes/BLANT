@@ -74,10 +74,10 @@ export EXE CORES MAKE_CORES
 
 if $MAKE ; then
     make pristine
-    export EIGHT=8
-    if [ "$NO8" != "" ]; then unset EIGHT; fi
-    make -j$MAKE_CORES all || die "failed to make"
 fi
+export EIGHT=8
+if [ "$NO8" != "" ]; then unset EIGHT; fi
+make -j$MAKE_CORES all || die "failed to make"
 
 [ -x "$EXE" ] || die "no executable '$EXE' exists to test!"
 
