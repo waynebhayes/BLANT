@@ -77,7 +77,8 @@ canon_ordinal_to_signature_txts := $(foreach k,$(K), canon_maps/canon-ordinal-to
 orbit_map_txts := $(foreach k,$(K), canon_maps/orbit_map$(k).txt)
 canon_map_files := $(canon_map_bins) $(perm_map_bins) $(canon_map_txts) $(canon_list_txts) $(canon_ordinal_to_signature_txts) $(orbit_map_txts)
 
-ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
+# ehd takes up too much space and isn't used anywhere yet
+#ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
 alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
 alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt)
