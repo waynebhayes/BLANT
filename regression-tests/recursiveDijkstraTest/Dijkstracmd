@@ -8,8 +8,8 @@ if [ -r "$SIM" ]; then
 	/bin/rm -f $PICKLE
     else
 	echo "Python failed... wrong Python version?" >&2
-	/bin/rm -f $PICKLE.xz
-	[ -f $PICKLE ] && (echo "$PICKLE file will be compressed rather than removed" >&2; xz $PICKLE)
+	/bin/rm -f $PICKLE*
+	#[ -f $PICKLE ] && (echo "$PICKLE file will be compressed rather than removed" >&2; xz $PICKLE)
     fi
 else
     echo "Warning: skipping recursiveDijkstra test due to missing SIM file '$SIM'" >&2
