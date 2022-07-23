@@ -32,6 +32,8 @@ Note that doing the above performs a "make pristine", which is even cleaner than
 
 Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
 
+BLANT has been tested and runs fine on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 10 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is an incredibly unstsable travesty of a development environment that is prone to bit-rot on a timescale of weeks to months; these are slowly being replaced by C/C++ implementations.
+
 ### Required Command-line arguments
 SYNOPSIS (things inside {} are mandatory; those inside [] are optional; if no source network is given, it is read from the standard input):
 
