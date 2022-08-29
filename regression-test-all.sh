@@ -78,7 +78,8 @@ fi
 export EIGHT=8
 if [ "$NO8" != "" ]; then unset EIGHT; fi
 make -j$MAKE_CORES all || die "failed to make"
-F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -5 $F &
+# The gzip below is now done in the Makefile
+#F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -9 $F &
 
 [ -x "$EXE" ] || die "no executable '$EXE' exists to test!"
 

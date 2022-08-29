@@ -201,13 +201,15 @@ $(LIBWAYNE_HOME)/made:
 
 canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
-	./create-bin-data$*
+	[ -f canon_maps/canon_map$*.bin -a -f canon_maps/perm_map$*.bin ] || ./create-bin-data$*
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
 	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
 
 canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p canon_maps
-	./fast-canon-map $* | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
+	# It's cheap to make all but k=8 canon maps, so make all but skip 8 if it already exists
+	[ $* -eq 8 -a '(' -f canon_maps/canon_map$*.txt -o -f canon_maps/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
+	if [ $* -eq 8 -a -f canon_maps/canon_map$*.txt -a ! -f canon_maps/canon_map$*.txt.gz ]; then gzip canon_maps/canon_map$*.txt & fi
 
 canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_maps/canon_map%.bin
 	@if [ ! -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp canon_maps.correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
