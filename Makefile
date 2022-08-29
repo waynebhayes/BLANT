@@ -34,7 +34,7 @@ else
     endif
 endif
 
-GCC_VER=$(shell echo $(ARCH) | awk '{if(/Darwin/){V="-6"}}END{if(V){print V;exit}}')
+GCC_VER=$(shell echo $(ARCH) | awk '/Darwin/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
 XARGS=$(shell echo $(ARCH) | awk '{if(!/Darwin/)print "-r"}')
 GCC=gcc$(GCC_VER)
 CXX=g++
