@@ -69,22 +69,27 @@ OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
 ### Generated File Lists ###
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
-canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
-perm_map_bins := $(foreach k,$(K), canon_maps/perm_map$(k).bin)
-canon_map_txts := $(foreach k,$(K), canon_maps/canon_map$(k).txt)
-canon_list_txts := $(foreach k,$(K), canon_maps/canon_list$(k).txt)
-canon_ordinal_to_signature_txts := $(foreach k,$(K), canon_maps/canon-ordinal-to-signature$(k).txt)
-orbit_map_txts := $(foreach k,$(K), canon_maps/orbit_map$(k).txt)
-canon_map_files := $(canon_map_bins) $(perm_map_bins) $(canon_map_txts) $(canon_list_txts) $(canon_ordinal_to_signature_txts) $(orbit_map_txts)
+canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map orca_jesse_blant_table/UpperToLower canon_maps/alpha_list_nbe canon_maps/alpha_list_mcmc
+canon_bin := canon_maps/canon_map canon_maps/perm_map
+canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix $(k).bin, $(canon_bin)))
+subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt) canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map4-3.txt
+
+#canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
+#perm_map_bins := $(foreach k,$(K), canon_maps/perm_map$(k).bin)
+#canon_map_txts := $(foreach k,$(K), canon_maps/canon_map$(k).txt)
+#canon_list_txts := $(foreach k,$(K), canon_maps/canon_list$(k).txt)
+#canon_ordinal_to_signature_txts := $(foreach k,$(K), canon_maps/canon-ordinal-to-signature$(k).txt)
+#orbit_map_txts := $(foreach k,$(K), canon_maps/orbit_map$(k).txt)
+#canon_map_files := $(canon_map_bins) $(perm_map_bins) $(canon_map_txts) $(canon_list_txts) $(canon_ordinal_to_signature_txts) $(orbit_map_txts)
 
 # ehd takes up too much space and isn't used anywhere yet
 #ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
-alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
-alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
-subcanon_txts := canon_maps/subcanon_map4-3.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map7-6.txt $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt)
+#alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
+#alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
-base: show-gcc-ver ./.notpristine libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table test_maps test_sanity
+#base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant test_maps test_sanity
+base: show-gcc-ver ./.notpristine libwayne $(canon_all) magic_table blant test_maps test_sanity
 
 show-gcc-ver:
 	$(GCC) -v
@@ -117,7 +122,7 @@ all: most $(ehd_txts) test_all
 gcc-version:
 	@if ls $(SRCDIR)/*.gz | fgrep -q "$(GCC)"; then :; else echo "WARNING: gcc version not supported; prediction disabled" >&2; fi
 
-canon_maps: base $(canon_map_files) subcanon_maps
+canon_maps: base $(canon_all) subcanon_maps
 
 .PHONY: all most test_blant test_maps pristine clean_canon_maps
 
@@ -203,7 +208,7 @@ canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt can
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	[ -f canon_maps/canon_map$*.bin -a -f canon_maps/perm_map$*.bin ] || ./create-bin-data$*
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
-	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp -p canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
+	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
 
 canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p canon_maps
@@ -221,13 +226,13 @@ canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 .INTERMEDIATE: .created-magic-tables .created-subcanon-maps
 subcanon_maps: $(subcanon_txts) ;
 $(subcanon_txts): .created-subcanon-maps
-.created-subcanon-maps: make-subcanon-maps | $(canon_list_txts) $(canon_map_bins)
+.created-subcanon-maps: make-subcanon-maps | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
 	# only do it for k > 3 since it's 4-3, 5-4, etc.
 	for k in $(K); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k > canon_maps/subcanon_map$$k-$$(($$k-1)).txt; fi; done
 
 magic_table: $(magic_table_txts) ;
 $(magic_table_txts): .created-magic-tables
-.created-magic-tables: make-orca-jesse-blant-table | $(canon_list_txts) $(canon_map_bins)
+.created-magic-tables: make-orca-jesse-blant-table | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
 	./make-orca-jesse-blant-table $(if $(EIGHT),8,$(if $(SEVEN),7,6))
 
 ### Testing ###
@@ -235,22 +240,22 @@ $(magic_table_txts): .created-magic-tables
 blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
 	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
 
-test_sanity: blant blant-sanity $(canon_map_bins)
+test_sanity: blant blant-sanity $(canon_all) #$(canon_map_bins)
 	# First run blant-sanity for various values of k
 	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
-test_freq: blant $(canon_map_bins)
+test_freq: blant $(canon_all) #$(canon_map_bins)
 	# Test to see that the most frequent 10 graphlets in syeast appear in the expected order in
 	# frequency; need 10 million samples to ensure with high probability we get the same graphlets.
 	# We then sort them because the top 10 are a pretty stable set but their order is not.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
 	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t $(CORES) -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
 
-test_GDV: blant $(canon_map_files) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
+test_GDV: blant $(canon_all) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'
 	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | $(LIBWAYNE_HOME)/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
-test_maps: blant blant-sanity $(canon_map_files) $(alphas) $(subcanon_txts)
+test_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.xz|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 ### Cleaning ###
@@ -269,7 +274,7 @@ ifndef NO_CLEAN_LIBWAYNE
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..."
-	find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | egrep -v 'PPI-predict|HI-union' | xargs $(XARGS) /bin/rm -rf
+	 find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | egrep -v 'PPI-predict|HI-union' | xargs $(XARGS) /bin/rm -rf
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
