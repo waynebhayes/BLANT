@@ -5,8 +5,8 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 EDGE_DENSITY_THRESHOLD=1.0
 USAGE="USAGE: $BASENAME blant.exe k n network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
-PURPOSE: use n samples of k-graphlets from BLANT in attempt to find large cliques (or more generally clusters) in network.el
-    The last argument, EDGE_DENSITY_THRESHOLD, is optional; we stop adding nodes once the edge density under that."
+PURPOSE: use n samples of k-graphlets from BLANT in attempt to find large clusters in network.el.  The last argument,
+    EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD."
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -57,28 +57,55 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 	}
 	END{
 	    for(u in Kc){
-		print Kc[u],u; # print the near-clique count
+		print Kc[u],u; # print the near-clique count and the node
 	    }
 	}' <(nl -v -1 canon_maps/canon_list$k.txt) - | # the dash is the BLANT output from -mi run at the top
 	    sort -nr | tee $TMPDIR/cliqs.sorted | # sorted near-clique-counts of all the nodes, largest-to-smallest
     hawk 'BEGIN{k='$k';OFS="\t"; ID=0}
 	ARGIND==1{edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2{count[FNR]=$1; node[FNR]=$2}
+	function EdgeCount(       edgeCount,u,v) {
+	    edgeCount=0;
+	    for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeCount;}
+	    return edgeCount;
+	}
 	END{
 	    clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
 	    numCliques=0;
 	    for(start=1; start<=FNR; start++) { # look for a clique starting on line "start"
-		delete S;
+		delete S; # this will contain the nodes in the current cluster
 		lastGood=start;
 		S[node[start]]=1;
 		for(line=start+1;line<=FNR;line++) {
 		    S[node[line]]=1;
-		    edgeHits=0; maxEdges=choose(length(S),2);
-		    for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
+		    Slen = length(S);
+		    maxEdges=choose(Slen,2);
+		    edgeHits = EdgeCount();
 		    if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
-			delete S[node[line]];
-			# keep going until count decreases significantly; duplicates removed by post-processing
-			if(count[line]/count[lastGood] < 0.1) break;
+			# This is where the greedy algorithm mail fail badly: it is possible that
+			# deleting a node currently in S and *keeping* this one may ultimately lead to a larger cluster;
+			# we leave this possibility for later implementation. Probably the best possibility is to keep
+			# a list of the top X% (X about 80% maybe?) nodes and then use Simulated Annealing to find the
+			# biggest clique... but that is much better done in C/C++, not awk.
+
+			numDel=Slen/4 # heuristic
+			if(Slen>numDel+3) {
+			    # See if removing a recent node or two helps
+			    maxEdges1=choose(Slen-1,2);
+			    maxEdges2=choose(Slen-2,2);
+			    for(del=1; del<numDel; ++del) {
+				delete S[node[line-del]]; if(EdgeCount()/maxEdges1 >= '$EDGE_DENSITY_THRESHOLD') break;
+				for(del2=del+1; del2<=numDel;++del2) {
+				    delete S[node[line-del2]]; if(EdgeCount()/maxEdges2 >= '$EDGE_DENSITY_THRESHOLD') break;
+				    ++S[node[line-del2]]; # add it back in
+				}
+				if(length(S)==Slen-2) break; # removing both nodes helped
+				++S[node[line-del]]; # add it back in
+			    }
+			}
+			if(length(S)==Slen) delete S[node[line]]; # no node was removed, so remove this one
+			# keep going until count decreases significantly; duplicate cliques removed in the next awk
+			if(count[line]/count[lastGood] < 0.5) break;
 		    }
 		}
 		if(length(S)>k) { # now check if it is a subclique of something previously found
@@ -97,7 +124,7 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 		}
 	    }
 	}' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
-    sort -nr |
+    sort -nr | # sort the above output by number of nodes in the near-clique
     hawk 'BEGIN{numCliques=0} # post-process to remove duplicates
 	{
 	    delete S; seenColon=0;
@@ -117,4 +144,4 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 		for(u in S) {clique[numCliques][u]=1; printf " %s", u}
 		print ""
 	    }
-	}' | sort -k 1nr -k 8n
+	}' | sort -k 1nr -k 8n # sort by number of nodes and then by the first node in the list
