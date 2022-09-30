@@ -34,7 +34,8 @@ else
     endif
 endif
 
-GCC_VER=$(shell echo $(ARCH) | awk '/Darwin/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
+# Waywe needs gcc-6 on MacOS:
+GCC_VER=$(shell echo $(ARCH) $(HOME) | awk '/Darwin/&&/Users.wayne/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
 XARGS=$(shell echo $(ARCH) | awk '{if(!/Darwin/)print "-r"}')
 GCC=gcc$(GCC_VER)
 CXX=g++
