@@ -13,7 +13,7 @@ esac
 USAGE="USAGE: $0 [ -make ] [ -x BLANT_EXE ][ list of tests to run, defaults to regression-tests/*/*.sh ]"
 
 
-# Functions
+# Bash Functions
 die(){ (echo "$USAGE"; echo "FATAL ERROR: $@")>&2; exit 1; }
 warn(){ (echo "WARNING: $@")>&2; }
 not(){ if eval "$@"; then return 1; else return 0; fi; }
@@ -43,8 +43,10 @@ cpus() {
     echo "couldn't figure out number of CPUs" >&2; exit 1
 }
 
-PATH=`pwd`:`pwd`/scripts:$PATH
-export PATH
+BLANT_HOME=`/bin/pwd`
+LIBWAYNE_HOME="$BLANT_HOME/libwayne"
+PATH="$BLANT_HOME:$BLANT_HOME/scripts:$PATH"
+export PATH BLANT_HOME LIBWAYNE_HOME
 
 if [ ! -f libwayne/Makefile ]; then
     echo "you need the submodule libwayne; trying to get it now" >&2
@@ -52,7 +54,7 @@ if [ ! -f libwayne/Makefile ]; then
     [ -f libwayne/Makefile ] || die "Still can't find libwayne"
 fi
 
-EXE=./blant
+EXE=$BLANT_HOME/blant
 MAKE=false
 while [ $# -gt -0 ]; do
     case "$1" in
