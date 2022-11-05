@@ -36,7 +36,6 @@ endif
 
 # Waywe needs gcc-6 on MacOS:
 GCC_VER=$(shell echo $(ARCH) $(HOME) | awk '/Darwin/&&/Users.wayne/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
-XARGS=$(shell echo $(ARCH) | awk '{if(!/Darwin/)print "-r"}')
 GCC=gcc$(GCC_VER)
 CXX=g++
 
@@ -275,7 +274,7 @@ ifndef NO_CLEAN_LIBWAYNE
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..."
-	find . '(' -path ./Patrick -o -path ./.git -o -path ./PPI-predict -o -path ./HI-union -o -path ./Graphette-faye -o -path './SYNTH*' ')' -prune -o -name __pycache__ -o -name '*.pyc' #| xargs $(XARGS) /bin/rm -rf
+	./scripts/delete-python-shit.sh $(ARCH)
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
