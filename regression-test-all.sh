@@ -74,12 +74,14 @@ MAKE_CORES=1 # for BLANT, we don't want or need paralellism during make
 echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
 
+WHAT=most
 if $MAKE ; then
     make pristine
+    WHAT=all
 fi
 export EIGHT=8
 if [ "$NO8" != "" ]; then unset EIGHT; fi
-make -j$MAKE_CORES most || die "failed to make"
+make -j$MAKE_CORES $WHAT || die "failed to make"
 # The gzip below is now done in the Makefile
 #F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -9 $F &
 

@@ -273,8 +273,8 @@ ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
-	@echo "Finding all python crap and removing it... this may take awhile..."
-	./scripts/delete-python-shit.sh $(ARCH)
+	#@echo "Finding all python crap and removing it... this may take awhile..."
+	@./scripts/delete-python-shit.sh $(ARCH)
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
