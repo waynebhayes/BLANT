@@ -79,7 +79,7 @@ if $MAKE ; then
 fi
 export EIGHT=8
 if [ "$NO8" != "" ]; then unset EIGHT; fi
-make -j$MAKE_CORES all || die "failed to make"
+make -j$MAKE_CORES most || die "failed to make"
 # The gzip below is now done in the Makefile
 #F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -9 $F &
 
