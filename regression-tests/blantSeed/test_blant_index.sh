@@ -1,15 +1,14 @@
 #!/bin/bash
-TEST_DIR=$(pwd)/regression-tests/blantSeed
-./blant -k8 -lDEG2 -sINDEX -mr -a1 networks/syeast0/syeast0.el >$TEST_DIR/syeast0.index 2>/dev/null
-./dedup.sh $TEST_DIR/syeast0.index
+TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
+ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+./blant -k8 -lDEG2 -sINDEX -mr -a1 networks/syeast0/syeast0.el >$TMPDIR/syeast0.index 2>/dev/null
+./dedup.sh $TMPDIR/syeast0.index
 
-DIFF=$(diff $TEST_DIR/syeast0.index examples/syeast0.index)
-
-if [ "$DIFF" == "" ]; then
-    echo "indexes identical"
-    exit 0
+echo Checking for index correctness
+if diff $TMPDIR/syeast0.index seed_mining/examples/syeast0.index; then
+    :
 else
-    echo "indexes different"
-    echo "diff is $DIFF"
+    echo "ERROR: indexes different; see $TMPDIR" >&2
+    trap ""
     exit 1
 fi

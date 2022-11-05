@@ -275,7 +275,7 @@ ifndef NO_CLEAN_LIBWAYNE
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..."
-	 find . -path ./PPI-predict -prune -path ./HI-union -prune -o -name __pycache__ -o -name '*.pyc' | egrep -v 'PPI-predict|HI-union' | xargs $(XARGS) /bin/rm -rf
+	find . '(' -path ./Patrick -o -path ./.git -o -path ./PPI-predict -o -path ./HI-union -o -path ./Graphette-faye -o -path './SYNTH*' ')' -prune -o -name __pycache__ -o -name '*.pyc' #| xargs $(XARGS) /bin/rm -rf
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
