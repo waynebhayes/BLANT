@@ -794,35 +794,47 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
     return RunBlantInThreads(k, numSamples, G);
 }
 
-const char * const USAGE =
-"BLANT: Basic Local Alignment for Networks Tool (work in progress)\n"\
-"PURPOSE: sample graphlets (usually randomly) up to size 8 from a graph. Default output is similar to ORCA though\n"\
-"    stochastic rather than exaustive. Thus APPROXIMATE results but MUCH faster than ORCA on large or dense networks.\n"\
-"USAGE: blant [OPTIONS] -k K -n numSamples -s samplingMethod graphInputFile\n"\
+const char * const USAGE_SHORT =
+"BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
+"USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
+" Common options: (use -h for longer help)\n"\
+"    -s samplingMethod (default MCMC; NBE, EBE, RES, AR, INDEX, EDGE_COVER)\n"\
+"    -m{outputMode} (default o=ODV; g=GDV, f=frequency, i=index, r=root(used only for INDEX), d=distribution of neighbors\n"\
+"    -d{displayModeForCanonicalIDs} (o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, i=integerOrdinal)\n"\
+"    -r seed (integer)\n\n"\
+"    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the task up into N jobs (default 1) allowing\n"\
+"        at most M to run at one time; M can be anything from 1 to a compile-time-specified maximum possible value\n"\
+"        (MAX_POSSIBLE_THREADS in blant.h), but defaults to 4 to be conservative.";
+
+const char * const USAGE_LONG =
+"BLANT: Basic Local Alignment of Network Topology (work in progress)\n"\
+"PURPOSE: sample graphlets of up to 8 nodes from a graph. Default output is similar to ORCA, though via stochastic sampling\n"\
+"    rather than exaustive enumeration. Our APPROXIMATE results come MUCH faster than ORCA on large or dense networks.\n"\
+"USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
 "where the following are REQUIRED:\n"\
-"    K is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
+"    numNodes is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
 "    numSamples is the number of graphlet samples to take (large samples are recommended), except in INDEX sampling mode,\n"\
 "	where it specifies the maximum number of samples to take from each node in the graph.\n"\
 "	(note: -c {confidence} option is mutually exclusive to -n but is pending implementation)\n"\
 "    samplingMethod is:\n"\
-"	NBE (node-based expansion): pick a node at random and add it to the node set S; add new nodes by choosing uniformly\n"\
-"           at random from all nodes one step outside S. (Fast on sparse networks, slightly biased counts)\n"\
-"	EBE (edge-based expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
-"           uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
-"	MCMC (Markov Chain Monte Carlo): Build the first set S of k nodes using NBE; then randomly remove and add nodes to S\n"\
-"           using an MCMC graph walking algorithm with restarts. (Asymptotically correct relative graphlet frequencies when\n"\
-"           using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
+"	MCMC (default): Markov Chain Monte Carlo: Build the first set S of k nodes using NBE; then randomly remove and add\n"\
+"         nodes to S using an MCMC graph walking algorithm with restarts; gives asymptotically correct relative frequencies\n"\
+"         when using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
 "           duplicates in indexing modes.)\n"\
-"	RES (Lu Bressan's reservoir sampling): also asymptotically correct but much slower than MCMC.\n"\
+"	NBE (Node-Based Expansion): pick a node at random and add it to the node set S; add new nodes by choosing uniformly\n"\
+"         at random from all nodes one step outside S. (Fast on sparse networks, slightly biased counts)\n"\
+"	EBE (Edge-Based Expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
+"         uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
+"	RES (Lu Bressan's REServoir sampling): also asymptotically correct but much slower than MCMC.\n"\
 "	AR (Accept-Reject): EXTREMELY SLOW but asymptotically correct: pick k nodes entirely at random, reject if\n"\
-"	    resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
+"	  resulting graphlet is disconnected (vast majority of such grpahlets are disconnected, thus VERY SLOW)\n"\
 "	INDEX: deterministic: for each node v in the graph, build a topologically deterministic set of k-graphlets to\n"\
-"           be used as indices for seed-and-extend local alignments (using, eg., our onw Dijkstra-inspired local aligner--\n"\
-"           see Dijkstra diretory). When using INDEX sampling, the -n command-line option specifies the maximum number\n"\
-"           of index entries per starting node v.\n"\
+"         be used as indices for seed-and-extend local alignments (using, eg., our onw Dijkstra-inspired local aligner--\n"\
+"         see Dijkstra diretory). When using INDEX sampling, the -n command-line option specifies the maximum number\n"\
+"         of index entries per starting node v.\n"\
 "	EDGE_COVER: starting with E=all edges in the input graph, pick one edge in E and build a k-graphlet using EBE;\n"\
-"           then subtract ALL its edges from E. Continue until E is empty. The goal is to output a short list of graphlets\n"\
-"           that, in comglomerate, cover each edge in E at least once.\n"\
+"         then subtract ALL its edges from E. Continue until E is empty. The goal is to output a short list of graphlets\n"\
+"         that, in comglomerate, cover each edge in E at least once.\n"\
 "    graphInputFile: graph must be in one of the following formats with its extension name:\n"\
 "	Edgelist (.el), LEDA(.leda), GML (.gml), GraphML (.xml), LGF(.lgf), CSV(.csv)\n"\
 "	(extensions .gz and .xz are automatically decompressed using gunzip and unxz, respectively)\n"\
@@ -850,9 +862,8 @@ const char * const USAGE =
 "       M can be anything from 1 to a compile-time-specified maximum possible value (MAX_POSSIBLE_THREADS in blant.h),\n"\
 "       but defaults to 4 to be conservative.\n"\
 "    -r seed: pick your own random seed\n"\
-"    -w windowSize: DEPRECATED. (use '-h' option for more)",
-* const USAGE2 = \
-"	-p windowRepSamplingMethod: (deprecated) one of the below\n"\
+"    -w windowSize: DEPRECATED. (use '-h' option for more)\n"\
+"	-p windowRepSamplingMethod: (DEPRECATED) one of the below\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
 "	    LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer)\n"\
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
@@ -877,7 +888,7 @@ int main(int argc, char *argv[])
 
     if(argc == 1)
     {
-	printf("%s\nNote: current TSET size is %ld bits\n", USAGE, 8*sizeof(TSET));
+	puts(USAGE_SHORT);
 	exit(1);
     }
 
@@ -892,7 +903,10 @@ int main(int argc, char *argv[])
     {
 	switch(opt)
 	{
-	case 'h': printf("%s\n%s\n", USAGE,USAGE2); exit(1); break;
+	case 'h':
+	    printf("%s\n", USAGE_LONG);
+	    printf("Note: current TSET size is %ld bits\n", 8*sizeof(TSET));
+	    exit(1); break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
@@ -984,11 +998,12 @@ int main(int argc, char *argv[])
 	case 'k': _k = atoi(optarg);
 		if (_GRAPH_GEN && _k >= 33) {
 			_k_small = _k % 10;
-			if (!(3 <= _k_small && _k_small <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+			if (!(3 <= _k_small && _k_small <= 8))
+			    Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k_small);
 			_k /= 10;
 			assert(_k_small <= _k);
 		} // First k indicates stamping size, second k indicates KS test size.
-	    if (!(3 <= _k && _k <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
+	    if (!(3 <= _k && _k <= 8)) Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k);
 	    break;
 	case 'w': _window = true; _windowSize = atoi(optarg); break;
 	case 'p':
@@ -1036,7 +1051,17 @@ int main(int argc, char *argv[])
 		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
 		break;
 	case 'n': numSamples = atoi(optarg);
-		if(numSamples < 0) Fatal("numSamples must be non-negative\n%s", USAGE);
+		char lastChar = optarg[strlen(optarg)-1];
+		if(!isdigit(lastChar))
+		    switch(lastChar) {
+		    case 'b': case 'B': case 'g': case 'G': numSamples *= 1024; // do NOT break, fall through
+		    case 'm': case 'M': numSamples *= 1024;
+		    case 'k': case 'K': numSamples *= 1024; break;
+		    default: Fatal("%s\nERROR: numSamples can be appended by k, m, b, or g but not %c\n%s", USAGE_SHORT, lastChar);
+		    break;
+		    }
+		if(numSamples < 0) Fatal("%s\nFatal Error: numSamples [%d] must be non-negative", USAGE_SHORT, numSamples);
+		//fprintf(stderr, "numSamples set to %d\n", numSamples);
 		break;
 	case 'K': _KS_NUMSAMPLES = atoi(optarg);
 	    break;
@@ -1053,7 +1078,7 @@ int main(int argc, char *argv[])
 	    else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
 	    break;
 	case 'M': multiplicity = atoi(optarg);
-	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity must be non-negative\n", USAGE);
+	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity [%d] must be non-negative\n", USAGE_SHORT, multiplicity);
     case 'T': _topThousandth = atoi(optarg);
 	    break;
 	case 'o':
@@ -1067,9 +1092,11 @@ int main(int argc, char *argv[])
     case 'a':
         _alphabeticTieBreaking = atoi(optarg) != 0;
         break;
-	default: Fatal("unknown option %c\n%s", opt, USAGE);
+	default: Fatal("%s\nERROR: unknown option %c", USAGE_SHORT, opt);
     }
     }
+
+    if (_sampleMethod == -1) _sampleMethod = SAMPLE_MCMC; // the default
 
     if (_orbitNumber != -1) {
         if (_odvFile != NULL) {

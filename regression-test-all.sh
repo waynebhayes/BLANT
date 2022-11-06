@@ -13,7 +13,7 @@ esac
 USAGE="USAGE: $0 [ -make ] [ -x BLANT_EXE ][ list of tests to run, defaults to regression-tests/*/*.sh ]"
 
 
-# Functions
+# Bash Functions
 die(){ (echo "$USAGE"; echo "FATAL ERROR: $@")>&2; exit 1; }
 warn(){ (echo "WARNING: $@")>&2; }
 not(){ if eval "$@"; then return 1; else return 0; fi; }
@@ -43,8 +43,10 @@ cpus() {
     echo "couldn't figure out number of CPUs" >&2; exit 1
 }
 
-PATH=`pwd`:`pwd`/scripts:$PATH
-export PATH
+BLANT_HOME=`/bin/pwd`
+LIBWAYNE_HOME="$BLANT_HOME/libwayne"
+PATH="$BLANT_HOME:$BLANT_HOME/scripts:$PATH"
+export PATH BLANT_HOME LIBWAYNE_HOME
 
 if [ ! -f libwayne/Makefile ]; then
     echo "you need the submodule libwayne; trying to get it now" >&2
@@ -52,7 +54,7 @@ if [ ! -f libwayne/Makefile ]; then
     [ -f libwayne/Makefile ] || die "Still can't find libwayne"
 fi
 
-EXE=./blant
+EXE=$BLANT_HOME/blant
 MAKE=false
 while [ $# -gt -0 ]; do
     case "$1" in
@@ -72,13 +74,16 @@ MAKE_CORES=1 # for BLANT, we don't want or need paralellism during make
 echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
 
+WHAT=most
 if $MAKE ; then
     make pristine
+    WHAT=all
 fi
 export EIGHT=8
 if [ "$NO8" != "" ]; then unset EIGHT; fi
-make -j$MAKE_CORES all || die "failed to make"
-F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -5 $F &
+make -j$MAKE_CORES $WHAT || die "failed to make"
+# The gzip below is now done in the Makefile
+#F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -9 $F &
 
 [ -x "$EXE" ] || die "no executable '$EXE' exists to test!"
 
