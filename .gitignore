@@ -1,12 +1,16 @@
 *.o
 *.a
 *~
+blant
+blant[a-z]*
 blant*
+create-bin-data*
 **/__pycache__/
 libcalci.so
 .deduped
 .firsttime
-regression-tests
+.notpristine
+git-at
 canon-sift
 holding
 machines.89

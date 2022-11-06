@@ -941,10 +941,6 @@ double SampleWindowMCMC(GRAPH *G, SET *V, int *Varray, int W, int whichCC)
  *
  * @param G the graph
  * @param prev_nodes  the temporary set of nodes in the graphlet to build
- * @param numSamplesPerNode  the number of samples to take for each node as the start node in the determistic walk
- * @param tempCountPtr  the pointer to the temporary count of the number of samples taken so far; when the temporary
- *                      count is equal to numSamplesPerNode, no more samples are needed to take for the node currently
- *                      being processed in RunBlantFromGraph function
  * @param heur_arr  the array containing the heuristic values for all nodes which is used to determine which nodes in next_step to expand to
  */
 void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, double *heur_arr) {
@@ -1046,7 +1042,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 
         // perform the standard DFS step of set next, recurse with size + 1, and then unset next
         prev_nodes_array[prev_nodes_count] = next_step_nwhn.node;
-        SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, numSamplesPerNode, tempCountPtr, heur_arr);
+        SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, heur_arr);
         // the "unset" step is commented out for efficiency since it's not actually necessary, but the comment improves readability
         // prev_nodes_array[prev_nodes_count] = 0;
         ++i;

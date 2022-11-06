@@ -231,8 +231,8 @@ def validate_sim_function(gtag1, gtag2):
     print(f'avg_diff: {avg_diff}')
     print(f'num_gt10: {num_gt10}')
 
-def odv_seeds_to_str(odv_seeds, mark1, mark2):
-    return '\n'.join([f'{mark1}_{node1}\t{mark2}_{node2}\t{score}' for score, node1, node2 in odv_seeds])
+def odv_seeds_to_str(odv_seeds):
+    return '\n'.join([f'{node1}\t{node2}\t{score}' for score, node1, node2 in odv_seeds])
 
 
 if __name__ == '__main__':
@@ -242,9 +242,9 @@ if __name__ == '__main__':
     odv_path1 = sys.argv[3]
     odv_path2 = sys.argv[4]
     # k is 5 when small enough networks (syeast), 4 for larger networks (iid & temporal)
-    k = sys.argv[5]
+    k = int(sys.argv[5])
     # n is usually the # of nodes in the smaller of the two networks
-    n = sys.argv[6]
+    n = int(sys.argv[6])
     ODV.set_weights_vars(k)
     odv_seeds = get_odv_seeds(graph_path1, graph_path2, odv_path1, odv_path2, n)
-    print(odv_seeds_to_str(odv_seeds, '', ''))
+    print(odv_seeds_to_str(odv_seeds))

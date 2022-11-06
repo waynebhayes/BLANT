@@ -90,7 +90,7 @@ char *PrintCanonical(int GintOrdinal)
 
 // The following is > 2^32, and would requires a SET implementation allowing members with value > 32 bits.
 //#define MCMC_MAX_HASH 8589934591UL // 2^33-9, according to https://www.dcode.fr/closest-prime-number; about 1GB
-                              
+
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_CIRC_BUF], bufPos;

@@ -32,6 +32,8 @@ Note that doing the above performs a "make pristine", which is even cleaner than
 
 Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
 
+BLANT has been tested and runs fine on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 10 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is an incredibly unstsable travesty of a development environment that is prone to bit-rot on a timescale of weeks to months; these are slowly being replaced by C/C++ implementations.
+
 ### Required Command-line arguments
 SYNOPSIS (things inside {} are mandatory; those inside [] are optional; if no source network is given, it is read from the standard input):
 
@@ -244,50 +246,6 @@ PrintNode(':', Varray[(int)perm[ j1 ]]));
 To decode what's happening: the integer j1 is iterating through the nodes in the canonical graphlet from 0 through k-1 inclusive; perm[ j1 ] tells us which node (0 through k-1) is the corresponding graphlet node of the non-canonical graphlet we came from; and Varray[(int)perm[j1]]) is the ID of the corresponding node in the bigger graph (an integer from 0 to about 9,000 for HI-union.)
 
 Hopefully that'll help you figure out how to use only canonicals to store your matrices. Lemme know if you have any questions.
-
-# Index Creation and Local Alignment Algorithm (Submitted to Very Large Data Bases 2022)
-The latest addition to BLANT (as of March 2022) is a deterministic variation of BLANT to create graphlet indexes. Additionally, a series of Python programs utilize these graphlet indexes in order to create high numbers of local alignments between two networks. The details of this algorithm can be found in the paper, so I will simply go over how to run this algorithm.
-
-To generate an index, run BLANT with the -sINDEX option. Here is an example:
-
-./blant -k8 -lDEG2 -mi -sINDEX IIDhuman.el
-
-In order to try out different skip values (see paper), use the -T option. In order to try out different orbits as heuristic functions (see paper), use the -o and -f options. Below is an example:
-
-./blant -k8 -lDEG2 -mi -sINDEX -T3 -o4 -fIIDhuman.orca4 IIDhuman.el
-
-After generating the index, you will need to remove duplicate lines in it before being able to use it. Importantly, make sure you do not modify the order of the lines, as this order will be important for the patching part of the local alignment algorithm.
-
-All the code for the local alignment algorithm is in the seeding/ directory. In order to run the local alignment algorithm, you will need all index files in both species for all orbits whose results are combining. For convenience, we have provided index files generated with all orbits 0-14 for the most complete species in IID: human, mouse, and rat. To run the algorithm with our recommended settings, use final_results.py. This script relies on having a directory structure that looks like this:
-```
-.
-├── Orthologs.Uniprot.tsv
-├── networks
-│   ├── IIDmouse.el
-│   ├── IIDrat.el
-│   └── ...
-├── odv
-│   ├── IIDmouse.orca4
-│   ├── IIDrat.orca4
-│   └── ...
-└── indexes
-    ├── p0-o0-mouse-lDEG2.out
-    ├── p0-o1-mouse-lDEG2.out
-    └── ...
- ```
-Before running the script, you will need to set the environment variable BLANT_SEED_SUPPL to the base of this directory structure. You can find a zip of the network, odv, and index files we use here: https://drive.google.com/file/d/1lav7u-_P4zCcV8J9vzq9B7NxgsuvzrhZ/view?usp=sharing.
-
-Here is an example of running the script:
-
-export BLANT_SEED_SUPPL=blant_seeding_suppl
-./final_results.py mouse rat nodes
-
-The first two parameters name the species you are comparing. The third parameter points to the base of the directory structure. The script will go into the directory structure and find the right files based on the species and settings. Finally, the third parameter determines whether node pairs or graphlet pairs are outputted.
-
-To run the algorithm with custom index files, graph files, odv files, and settings, use full_algorithm_helpers.py. Here is an example:
-
-./full_algorithm_helpers.py 8 mouse rat p0-o0-mouse-lDEG2.out p0-o0-rat-lDEG2.out IIDmouse.el IIDrat.el IIDmouse.orca4 IIDrat.orca4 3 0.74 True
-
 
 # References
 #### Our first paper on how BLANT performs so quickly on up to k=8 node graphlets: Hasan, Adib, Po-Chien Chung, and Wayne Hayes. ["Graphettes: Constant-time determination of graphlet and orbit identity including (possibly disconnected) graphlets up to size 8." PloS one 12, no. 8 (2017): e0181570.](https://doi.org/10.1371/journal.pone.0181570)

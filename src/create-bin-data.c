@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 	printf("\n");
 #endif
     }
+    fprintf(stderr, "Finished reading ASCII files; now writing binary ones\n"); fflush(stderr);
     fclose(fp);
     sprintf(buf, "%s/%s/canon_map%s.bin", _BLANT_DIR, CANON_DIR, kString);
     fp=fopen(buf,"wb");

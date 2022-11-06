@@ -341,55 +341,56 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
+
     if ((_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC) &&
-    (_outputMode != indexGraphlets && _outputMode != indexGraphletsRNO && _outputMode != indexOrbits))
-        Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
+	(_outputMode != indexGraphlets && _outputMode != indexGraphletsRNO && _outputMode != indexOrbits))
+	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
     if (_sampleMethod == SAMPLE_INDEX) {
-    int i, count = 0;
-    int prev_nodes_array[_k];
+        int i, count = 0;
+        int prev_nodes_array[_k];
 
-    // Get heuristic values based on orbit number, if ODV file provided
-    double heuristicValues[G->n];
+        // Get heuristic values based on orbit number, if ODV file provided
+        double heuristicValues[G->n];
 
-    if (_orbitNumber != -1) {
-        getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
-    } else {
-        getDoubleDegreeArr(heuristicValues, G); // since heuristic values are doubles, we need to convert degree values to doubles
-    }
+        if (_orbitNumber != -1) {
+            getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
+        } else {
+            getDoubleDegreeArr(heuristicValues, G); // since heuristic values are doubles, we need to convert degree values to doubles
+        }
 
-    int percentToPrint = 1;
-    node_whn nwhn_arr[G->n]; // nodes sorted first by the heuristic function and then either alphabetically or reverse alphabetically
+        int percentToPrint = 1;
+        node_whn nwhn_arr[G->n]; // nodes sorted first by the heuristic function and then either alphabetically or reverse alphabetically
 
-    // fill node order array with base values
-    for (i = 0; i < G->n; i++) {
-        nwhn_arr[i].node = i;
-        nwhn_arr[i].heur = heuristicValues[i];
-        nwhn_arr[i].name = _nodeNames[i];
-    }
+        // fill node order array with base values
+        for (i = 0; i < G->n; i++) {
+            nwhn_arr[i].node = i;
+            nwhn_arr[i].heur = heuristicValues[i];
+            nwhn_arr[i].name = _nodeNames[i];
+        }
 
-    // sort array
-    int (*comp_func)(const void*, const void*);
+        // sort array
+        int (*comp_func)(const void*, const void*);
 
-    if (_alphabeticTieBreaking) {
-        comp_func = nwhn_des_alph_comp_func;
-    } else {
-        comp_func = nwhn_des_rev_comp_func;
-    }
+        if (_alphabeticTieBreaking) {
+            comp_func = nwhn_des_alph_comp_func;
+        } else {
+            comp_func = nwhn_des_rev_comp_func;
+        }
 
-    qsort((void*)nwhn_arr, G->n, sizeof(node_whn), comp_func);
+        qsort((void*)nwhn_arr, G->n, sizeof(node_whn), comp_func);
 
-    for(i=0; i<G->n; i++) {
-        prev_nodes_array[0] = nwhn_arr[i].node;
+        for(i=0; i<G->n; i++) {
+            prev_nodes_array[0] = nwhn_arr[i].node;
 
-        SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, numSamples, &count, heuristicValues);
-        count = 0;
+            SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, heuristicValues);
+            count = 0;
 
-        if (i * 100 / G->n >= percentToPrint) {
-		fprintf(stderr, "%d%% done\n", percentToPrint);
-		++percentToPrint;
+            if (i * 100 / G->n >= percentToPrint) {
+                fprintf(stderr, "%d%% done\n", percentToPrint);
+                ++percentToPrint;
+            }
 	    }
-	}
     }
     else if (_sampleMethod == SAMPLE_MCMC_EC) {
 	Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
@@ -418,8 +419,6 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    }
 	}
 #endif
->>>>>>> 40b26ae4a7401c96d63b17268b714251be29eecd
-    }
     }
     else // sample numSamples graphlets for the entire graph
     {
