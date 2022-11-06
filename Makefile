@@ -86,7 +86,7 @@ magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).tx
 
 base: gcc-ver ./.notpristine libwayne blant $(canon_map_files) $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table test_maps test_sanity
 
-show-gcc-ver:
+gcc-ver:
 	$(GCC) -v
 
 ./.notpristine:
