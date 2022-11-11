@@ -32,7 +32,13 @@ if ./Dijkstracmd; then
 	fi
 else
     D=$?
-    [ $D = 99 ] && exit 0 # ignoring missing SIM file
-    echo "Dijkstra failed" >&2
+    if [ $D -eq 10 ]; then
+	echo "Missing SIM file; this shouldn't happen" >&2;
+	exit $D
+    elif [ $D -eq 20 ]; then
+	echo "The Dijkstra subsystem is not critical to BLANT, so this error can be ignored" >&2
+	exit 0
+    fi
+    echo "Dijkstra failed for unknown reasons" >&2
     exit $D
 fi
