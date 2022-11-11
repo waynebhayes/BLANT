@@ -69,7 +69,7 @@ OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
 ### Generated File Lists ###
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
-canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map orca_jesse_blant_table/UpperToLower canon_maps/alpha_list_nbe canon_maps/alpha_list_mcmc
+canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map canon_maps/alpha_list_nbe canon_maps/alpha_list_mcmc
 canon_bin := canon_maps/canon_map canon_maps/perm_map
 canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix $(k).bin, $(canon_bin)))
 subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt) canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map4-3.txt
@@ -223,7 +223,7 @@ canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_
 canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
 
-.INTERMEDIATE: .created-magic-tables .created-subcanon-maps
+.INTERMEDIATE: .created-subcanon-maps
 subcanon_maps: $(subcanon_txts) ;
 $(subcanon_txts): .created-subcanon-maps
 .created-subcanon-maps: make-subcanon-maps | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
@@ -231,8 +231,7 @@ $(subcanon_txts): .created-subcanon-maps
 	for k in $(K); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k > canon_maps/subcanon_map$$k-$$(($$k-1)).txt; fi; done
 
 magic_table: $(magic_table_txts) ;
-$(magic_table_txts): .created-magic-tables
-.created-magic-tables: make-orca-jesse-blant-table | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
+$(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
 	./make-orca-jesse-blant-table $(if $(EIGHT),8,$(if $(SEVEN),7,6))
 
 ### Testing ###
