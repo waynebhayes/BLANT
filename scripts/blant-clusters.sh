@@ -4,9 +4,14 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 EDGE_DENSITY_THRESHOLD=1.0
-USAGE="USAGE: $BASENAME blant.exe k n network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
-PURPOSE: use n samples of k-graphlets from BLANT in attempt to find large clusters in network.el.  The last argument,
-    EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD."
+USAGE="USAGE: $BASENAME [tryHard] [-1] [-e] blant.exe k M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
+PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
+    M is the 'sample multiplier': BLANT will take M*(n/k) total samples of k-node graphlets; we recommend experimenting with
+	a minimum of M=100, and going as high as necessary (over 1000 is not uncommon) for reliable results.
+    The last argument, EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD.
+    An optional leading integer (with no dash) 'tryHard' [default 0] should not be changed [experimental].
+    The option '-1' means 'exit after printing only one 1 cluster--the top one'.
+    The option '-e' means make all the clusters mutually exclusive."
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -21,22 +26,39 @@ newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
 parse(){ awk "BEGIN{print $*}" </dev/null; }
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
-TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
+TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 #echo "TMPDIR is $TMPDIR"
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
+
+tryHard=0
+case "$1" in
+[0-9]*) tryHard=$1; shift;;
+esac
+
+ONLY_ONE=0
+exclusive=0
+while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
+    case "$1" in
+    -1) ONLY_ONE=1; shift;;
+    -e) exclusive=1; die "exclusive not yet supported"; shift;;
+    esac
+done
 
 [ $# -lt 4 ] && die "not enough arguments"
 [ $# -gt 5 ] && die "too many arguments"
 
 BLANT=$1
 k=$2
-n=$3
+sampleMultiplier=$3
 net=$4
 if [ $# -eq 5 ]; then
     EDGE_DENSITY_THRESHOLD=$5
 fi
+
+numNodes=`newlines < $net | sort -u | wc -l`
+n=`expr $sampleMultiplier '*' $numNodes / $k`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
 [ "$k" -ge 3 -a "$k" -le 8 ] || die "k is '$k' but must be between 3 and 8"
@@ -45,6 +67,8 @@ case "$net" in
 *.el) ;;
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
+
+echo "running: $BLANT -k$k -n$n -sMCMC -mi '$net'" >&2
 
 $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT index
     hawk 'BEGIN{k='$k'; want='$EDGE_DENSITY_THRESHOLD'*choose(k,2)} # want = desired minimum number of edges in the k-graphlet
@@ -62,35 +86,37 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 	}' <(nl -v -1 canon_maps/canon_list$k.txt) - | # the dash is the BLANT output from -mi run at the top
 	    sort -nr | tee $TMPDIR/cliqs.sorted | # sorted near-clique-counts of all the nodes, largest-to-smallest
     hawk 'BEGIN{k='$k';OFS="\t"; ID=0}
-	ARGIND==1{edge[$1][$2]=edge[$2][$1]=1} # get the edge list
+	ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2{count[FNR]=$1; node[FNR]=$2}
 	function EdgeCount(       edgeCount,u,v) {
 	    edgeCount=0;
 	    for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeCount;}
 	    return edgeCount;
 	}
-	END{
+	END{n=length(degree); # number of nodes in the input network
 	    clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
 	    numCliques=0;
 	    for(start=1; start<=FNR; start++) { # look for a clique starting on line "start"
 		delete S; # this will contain the nodes in the current cluster
 		lastGood=start;
 		S[node[start]]=1;
+		misses=0; # how many nodes have been skipped because they did not work?
 		for(line=start+1;line<=FNR;line++) {
 		    S[node[line]]=1;
 		    Slen = length(S);
 		    maxEdges=choose(Slen,2);
 		    edgeHits = EdgeCount();
 		    if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
-			# This is where the greedy algorithm mail fail badly: it is possible that
-			# deleting a node currently in S and *keeping* this one may ultimately lead to a larger cluster;
-			# we leave this possibility for later implementation. Probably the best possibility is to keep
-			# a list of the top X% (X about 80% maybe?) nodes and then use Simulated Annealing to find the
-			# biggest clique... but that is much better done in C/C++, not awk.
+			if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
+			# This is where the greedy algorithm may fail badly: it is possible that deleting a node currently
+			# in S and *keeping* this one may ultimately lead to a larger cluster; we leave this possibility for
+			# later implementation. Probably the best possibility is to keep a list of the top X% (X about 80%
+			# maybe?) nodes and then use Simulated Annealing to find the biggest clique... but that is much
+			# better done in C/C++, not awk.
 
-			numDel=Slen/4 # heuristic
-			if(Slen>numDel+3) {
-			    # See if removing a recent node or two helps
+			numDel='$tryHard' # Slen/4 # 
+			if(numDel && Slen>numDel+3) {
+			    # See if removing at most 1-2 recent nodes helps
 			    maxEdges1=choose(Slen-1,2);
 			    maxEdges2=choose(Slen-2,2);
 			    for(del=1; del<numDel; ++del) {
@@ -120,6 +146,7 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT ind
 			++numCliques; printf "%d %d", length(S), edgeHits
 			for(u in S) {clique[numCliques][u]=1; printf " %s", u}
 			print ""
+			if('$ONLY_ONE') exit;
 		    }
 		}
 	    }
