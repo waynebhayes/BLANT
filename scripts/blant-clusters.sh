@@ -6,8 +6,9 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 EDGE_DENSITY_THRESHOLD=1.0
 USAGE="USAGE: $BASENAME [tryHard] [-1] [-e] blant.exe k M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
-    M is the 'sample multiplier': BLANT will take M*(n/k) total samples of k-node graphlets; we recommend experimenting with
-	a minimum of M=100, and going as high as necessary (over 1000 is not uncommon) for reliable results.
+    M is the mean number of times each *node* should be touched by a graphlet sample; thus, BLANT will take M*(n/k) total
+    samples of k-node graphlets; we recommend experimenting with a minimum of M=100, and going as high as necessary (over
+    1000 is not uncommon) for reliable results.
     The last argument, EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD.
     An optional leading integer (with no dash) 'tryHard' [default 0] should not be changed [experimental].
     The option '-1' means 'exit after printing only one 1 cluster--the top one'.
@@ -67,10 +68,10 @@ case "$net" in
 *.el) ;;
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
+DEBUG=false # set to true to store BLANT output
+echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n -sMCMC -mi '$net'" >&2
 
-echo "running: $BLANT -k$k -n$n -sMCMC -mi '$net'" >&2
-
-$BLANT -k$k -n$n -sMCMC -mi "$net" | tee $TMPDIR/blant.out | # produce BLANT index
+$BLANT -k$k -n$n -sMCMC -mi "$net" | if $DEBUG; then tee $TMPDIR/blant.out; else cat; fi |
     hawk 'BEGIN{k='$k'; want='$EDGE_DENSITY_THRESHOLD'*choose(k,2)} # want = desired minimum number of edges in the k-graphlet
 	ARGIND==1{m[$1]=$4} # actual edges in graphlets, from canon_list$k.txt
 	ARGIND==2 && m[$1]>=want{
