@@ -33,11 +33,11 @@ Boolean _child; // are we a child process?
 char * _sampleFileName;
 
 // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
-unsigned int _k;
+unsigned int _k, _min_edge_count;
 unsigned int _Bk, _k_small;
 
 int _alphaList[MAX_CANONICALS];
-int _numCanon, _numSamples;
+int _numCanon, _numSamples, _canonNumEdges[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 int _numConnectedCanon;
@@ -1026,47 +1026,47 @@ int main(int argc, char *argv[])
 		Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
 	    break;
 	case 'P':
-		if (strncmp(optarg, "COMB", 4) == 0)
-			_windowIterationMethod = WINDOW_ITER_COMB;
-		else if (strncmp(optarg, "DFS", 3) == 0)
-			_windowIterationMethod = WINDOW_ITER_DFS;
-		else
-			Fatal("Unrecognized window Iteration method specified. Options are: -P{COMB|DFS}\n");
-		break;
+	    if (strncmp(optarg, "COMB", 4) == 0)
+		    _windowIterationMethod = WINDOW_ITER_COMB;
+	    else if (strncmp(optarg, "DFS", 3) == 0)
+		    _windowIterationMethod = WINDOW_ITER_DFS;
+	    else
+		    Fatal("Unrecognized window Iteration method specified. Options are: -P{COMB|DFS}\n");
+	    break;
 	case 'l':
-		if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF) Fatal("Tried to define window limiting method twice");
-		if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
-		    _windowRep_limit_neglect_trivial = true; optarg += 1;
-		}
-		if (strncmp(optarg, "DEG", 3) == 0) {
-			_windowRep_limit_method = WINDOW_LIMIT_DEGREE; optarg += 3;
-		}
-		else if (strncmp(optarg, "EDGE", 4) == 0) {
-			_windowRep_limit_method = WINDOW_LIMIT_EDGES; optarg += 4;
-		}
-		else
-			Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{EDGE}{limit_num}\n");
-		_numWindowRepLimit = atoi(optarg);
-		if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
-		_windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
-		break;
+	    if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF) Fatal("Tried to define window limiting method twice");
+	    if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
+		_windowRep_limit_neglect_trivial = true; optarg += 1;
+	    }
+	    if (strncmp(optarg, "DEG", 3) == 0) {
+		    _windowRep_limit_method = WINDOW_LIMIT_DEGREE; optarg += 3;
+	    }
+	    else if (strncmp(optarg, "EDGE", 4) == 0) {
+		    _windowRep_limit_method = WINDOW_LIMIT_EDGES; optarg += 4;
+	    }
+	    else
+		    Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{EDGE}{limit_num}\n");
+	    _numWindowRepLimit = atoi(optarg);
+	    if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
+	    _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
+	    break;
 	case 'n': numSamples = atoi(optarg);
-		char lastChar = optarg[strlen(optarg)-1];
-		if(!isdigit(lastChar))
-		    switch(lastChar) {
-		    case 'b': case 'B': case 'g': case 'G': numSamples *= 1024; // do NOT break, fall through
-		    case 'm': case 'M': numSamples *= 1024;
-		    case 'k': case 'K': numSamples *= 1024; break;
-		    default: Fatal("%s\nERROR: numSamples can be appended by k, m, b, or g but not %c\n%s", USAGE_SHORT, lastChar);
-		    break;
-		    }
-		if(numSamples < 0) Fatal("%s\nFatal Error: numSamples [%d] must be non-negative", USAGE_SHORT, numSamples);
-		//fprintf(stderr, "numSamples set to %d\n", numSamples);
+	    char lastChar = optarg[strlen(optarg)-1];
+	    if(!isdigit(lastChar))
+		switch(lastChar) {
+		case 'b': case 'B': case 'g': case 'G': numSamples *= 1024; // do NOT break, fall through
+		case 'm': case 'M': numSamples *= 1024;
+		case 'k': case 'K': numSamples *= 1024; break;
+		default: Fatal("%s\nERROR: numSamples can be appended by k, m, b, or g but not %c\n%s", USAGE_SHORT, lastChar);
 		break;
+	    }
+	    if(numSamples < 0) Fatal("%s\nFatal Error: numSamples [%d] must be non-negative", USAGE_SHORT, numSamples);
+	    //fprintf(stderr, "numSamples set to %d\n", numSamples);
+	    break;
 	case 'K': _KS_NUMSAMPLES = atoi(optarg);
 	    break;
 	case 'e':
-	    _GRAPH_GEN_EDGES = atoi(optarg);
+	    _min_edge_count = _GRAPH_GEN_EDGES = atoi(optarg);
 	    windowRep_edge_density = atof(optarg);
 	    break;
 	case 'g':
@@ -1079,21 +1079,22 @@ int main(int argc, char *argv[])
 	    break;
 	case 'M': multiplicity = atoi(optarg);
 	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity [%d] must be non-negative\n", USAGE_SHORT, multiplicity);
-    case 'T': _topThousandth = atoi(optarg);
 	    break;
-	case 'o':
-        _orbitNumber = atoi(optarg);
-        break;
-    case 'f':
-        odv_fname_len = strlen(optarg);
-        _odvFile = malloc(sizeof(char) * odv_fname_len);
-        strncpy(_odvFile, optarg, odv_fname_len);
-        break;
-    case 'a':
-        _alphabeticTieBreaking = atoi(optarg) != 0;
-        break;
+	case 'T': _topThousandth = atoi(optarg);
+	    break;
+	case 'o': _orbitNumber = atoi(optarg);
+	    break;
+	case 'f':
+	    odv_fname_len = strlen(optarg);
+	    _odvFile = malloc(sizeof(char) * odv_fname_len);
+	    strncpy(_odvFile, optarg, odv_fname_len);
+	    break;
+	case 'a':
+	    _alphabeticTieBreaking = (atoi(optarg) != 0);
+	    break;
 	default: Fatal("%s\nERROR: unknown option %c", USAGE_SHORT, opt);
-    }
+	    break;
+	}
     }
 
     if (_sampleMethod == -1) _sampleMethod = SAMPLE_MCMC; // the default

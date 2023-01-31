@@ -211,7 +211,8 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	break;
     case indexGraphlets: case indexGraphletsRNO:
 	if(NodeSetSeenRecently(G, Varray,k) ||
-	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
+	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||
+	    _canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
 	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k));
 	break;
     case predict:

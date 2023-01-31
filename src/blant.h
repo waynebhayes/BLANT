@@ -55,7 +55,7 @@ typedef unsigned Gint_type;
     #define MAX_BINTREE_K 8
 #endif
 
-extern int _numCanon, _numConnectedCanon;
+extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS];
 extern Gint_type _canonList[MAX_CANONICALS];
 
 #define MAX_ORBITS	79264	// This is the number of orbits for k=8
@@ -105,7 +105,7 @@ extern int _numOrbits, _orbitList[MAX_CANONICALS][MAX_K];
 extern int _alphaList[MAX_CANONICALS];
 
 extern char **_nodeNames, _supportNodeNames;
-extern unsigned int _k;
+extern unsigned int _k, _min_edge_count;
 extern short int *_K;
 extern unsigned int L_K_Func(Gint_type Gint);
 #define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
