@@ -81,13 +81,13 @@ SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k) {
     sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    int numCanon, i, connected, numEdges;
+    int numCanon, i, connected;
     assert(1==fscanf(fp_ord, "%d\n",&numCanon));
     SET *connectedCanonicals = SetAlloc(numCanon);
     for(i=0; i<numCanon; i++) {
 	char *tmp, buf[BUFSIZ], edge[BUFSIZ];
 	tmp = fgets(buf, sizeof(buf), fp_ord); // shut the compiler up
-	assert(3==sscanf(buf, "%llu\t%d %d", &canon_list[i], &connected, &numEdges));
+	assert(3==sscanf(buf, "%llu\t%d %d", &canon_list[i], &connected, &_canonNumEdges[i]));
 	if(connected) SetAdd(connectedCanonicals, i);
     }
     fclose(fp_ord);
