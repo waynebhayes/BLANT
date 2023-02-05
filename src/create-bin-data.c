@@ -37,6 +37,7 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 short int K[Bk]; // does not NEED to be unsigned, so leave it signed, since for kk<=8 max_Bk is 12346 < 32657
 kperm Permutations[Bk];
 static Gint_type canon_list[MAX_CANONICALS];
+static int canon_num_edges[MAX_CANONICALS];
 
 void ExtractPerm(char perm[kk], int i) // you provide a permutation array, we fill it with permutation i
 {
@@ -70,7 +71,7 @@ int main(int argc, char *argv[])
 {
     int i;
     char buf[BUFSIZ];
-    SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk);
+    SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges);
     int numCanon = connectedCanonicals->n;
     SetFree(connectedCanonicals);
     sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, CANON_DIR, kString);

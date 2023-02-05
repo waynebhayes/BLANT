@@ -29,7 +29,7 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= 8);
     _Bk = (1 <<(_k*(_k-1)/2));
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, _k);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges);
     _numCanon = _connectedCanonicals->n;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);

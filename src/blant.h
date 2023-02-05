@@ -63,7 +63,7 @@ extern Gint_type _canonList[MAX_CANONICALS];
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 short int* mapCanonMap(char* BUF, short int *K, int k);
-SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k); // returns a SET containing list of connected ordinals
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, int *canon_num_edges); // returns a SET containing list of connected ordinals
 int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K],  int orbit_canon_mapping[MAX_ORBITS],
     int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
