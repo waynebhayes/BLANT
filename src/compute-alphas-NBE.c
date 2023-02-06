@@ -6,6 +6,7 @@
 
 int _alphaList[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS];
+int _canonNumEdges[MAX_CANONICALS];
 
 int CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
     seen = TSetUnion(seen, candidates);
@@ -63,7 +64,7 @@ int main(int argc, char* argv[]) {
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
     TINY_GRAPH *g = TinyGraphAlloc(k);
-    SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k);
+    SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     int numCanon = _connectedCanonicals->n;
     int i;
     for (i = 0; i < numCanon; i++) {

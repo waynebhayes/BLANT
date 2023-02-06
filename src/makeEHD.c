@@ -20,7 +20,8 @@ void SetGlobalCanonMaps(int k){
     unsigned int _Bk = (1 <<(k*(k-1)/2));
     char BUF[BUFSIZ];
     Gint_type _canonList[MAX_CANONICALS];
-    SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k);
+	int _canonNumEdges[MAX_CANONICALS];
+    SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     _numCanon = _connectedCanonicals->n;
     _K = (short int*) mapCanonMap(BUF, _K, k);
 

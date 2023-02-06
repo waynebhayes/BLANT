@@ -77,7 +77,7 @@ short int* mapCanonMap(char* BUF, short int *K, int k) {
     return Kf;
 }
 
-SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k) {
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, int *canon_num_edges) {
     sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
@@ -87,7 +87,7 @@ SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k) {
     for(i=0; i<numCanon; i++) {
 	char *tmp, buf[BUFSIZ], edge[BUFSIZ];
 	tmp = fgets(buf, sizeof(buf), fp_ord); // shut the compiler up
-	assert(3==sscanf(buf, "%llu\t%d %d", &canon_list[i], &connected, &_canonNumEdges[i]));
+	assert(3==sscanf(buf, "%llu\t%d %d", &canon_list[i], &connected, &canon_num_edges[i]));
 	if(connected) SetAdd(connectedCanonicals, i);
     }
     fclose(fp_ord);

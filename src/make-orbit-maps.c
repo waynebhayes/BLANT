@@ -10,6 +10,7 @@
 
 static int k;
 static Gint_type canon_list[MAX_CANONICALS];
+static int canon_num_edges[MAX_CANONICALS];
 
 Boolean suitablePerm(int permutation[], int adj[k][k+1]);
 void permuteNodes(int permutation[], int adj[k][k+1], long *D);
@@ -180,7 +181,7 @@ int main(int argc, char* argv[]){
     assert(k > 2 && k <= 8);
     //reading data from canon_list file
     char BUF[BUFSIZ];
-    SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k);
+    SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
     int numCanon = connectedCanonicals->n;
     SetFree(connectedCanonicals);
     int numOrbits = 0, i, j;

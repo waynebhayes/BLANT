@@ -6,6 +6,7 @@
 
 int _alphaList[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS];
+int _canonNumEdges[MAX_CANONICALS];
 
 static int L;
 static COMBIN *_Lcombin;
@@ -116,7 +117,7 @@ int main(int argc, char* argv[]) {
     char BUF[BUFSIZ];
     TINY_GRAPH *gk = TinyGraphAlloc(k);
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-    SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k);
+    SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     int numCanon = _connectedCanonicals->n;
 
     L = k - mcmc_d  + 1;
