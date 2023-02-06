@@ -12,6 +12,7 @@
 
 static short int *K; // The (k-1)-graphlet canonmap.
 static Gint_type canon_list[MAX_CANONICALS];
+static int canon_num_edges[MAX_CANONICALS];
 
 int main(int argc, char* argv[]) {
     int i, j, k;
@@ -20,7 +21,7 @@ int main(int argc, char* argv[]) {
 
     //Create k canon list
     char BUF[BUFSIZ];
-    SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k);
+    SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
     int numCanon = connectedCanonicals->n;
     SetFree(connectedCanonicals);
 

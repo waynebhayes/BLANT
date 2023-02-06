@@ -69,89 +69,96 @@ case "$net" in
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
 DEBUG=false # set to true to store BLANT output
-echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n -sMCMC -mi '$net'" >&2
+edgesCount=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
+echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n -sMCMC -mi '$net' -e$edgesCount " >&2
 
-$BLANT -k$k -n$n -sMCMC -mi "$net" | if $DEBUG; then tee $TMPDIR/blant.out; else cat; fi |
-    hawk 'BEGIN{k='$k'; want='$EDGE_DENSITY_THRESHOLD'*choose(k,2)} # want = desired minimum number of edges in the k-graphlet
-	ARGIND==1{m[$1]=$4} # actual edges in graphlets, from canon_list$k.txt
-	ARGIND==2 && m[$1]>=want{
-	    for(i=2;i<=NF;i++){
-		++Kc[$i]; # increment the near-clique count for each node in the graphlet
-		# for(j=i+1;j<=NF;j++){u=MIN($i,$j);v=MAX($i,$j);++Kp[u][v]} # pair count, apparently not needed...
-	    }
-	}
-	END{
-	    for(u in Kc){
-		print Kc[u],u; # print the near-clique count and the node
-	    }
-	}' <(nl -v -1 canon_maps/canon_list$k.txt) - | # the dash is the BLANT output from -mi run at the top
+$BLANT -k$k -n$n -sMCMC -mi "$net" -e$edgesCount  | if $DEBUG; then tee $TMPDIR/blant.out; else cat; fi |
+    hawk 'BEGIN{k='$k'} 
+		ARGIND==1{
+			for(i=2;i<=NF;i++){
+				++Kc[$i]; # increment the near-clique count for each node in the graphlet
+				for(j=2;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
+					if (j==i) continue;
+					neighbors[$i][$j] = 1
+				}
+			}
+		}
+		END{
+			for(u in Kc){
+				ORS=" "
+				print Kc[u], u # print the near-clique count and the node
+				for (v in neighbors[u]){
+					print v
+				}
+				ORS="\n"; print;
+			}
+		}' - | # the dash is the BLANT output from -mi run at the top
 	    sort -nr | tee $TMPDIR/cliqs.sorted | # sorted near-clique-counts of all the nodes, largest-to-smallest
     hawk 'BEGIN{k='$k';OFS="\t"; ID=0}
-	ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
-	ARGIND==2{count[FNR]=$1; node[FNR]=$2}
-	function EdgeCount(       edgeCount,u,v) {
-	    edgeCount=0;
-	    for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeCount;}
-	    return edgeCount;
-	}
-	END{n=length(degree); # number of nodes in the input network
-	    clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
-	    numCliques=0;
-	    for(start=1; start<=FNR; start++) { # look for a clique starting on line "start"
-		delete S; # this will contain the nodes in the current cluster
-		lastGood=start;
-		S[node[start]]=1;
-		misses=0; # how many nodes have been skipped because they did not work?
-		for(line=start+1;line<=FNR;line++) {
-		    S[node[line]]=1;
-		    Slen = length(S);
-		    maxEdges=choose(Slen,2);
-		    edgeHits = EdgeCount();
-		    if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
-			if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
-			# This is where the greedy algorithm may fail badly: it is possible that deleting a node currently
-			# in S and *keeping* this one may ultimately lead to a larger cluster; we leave this possibility for
-			# later implementation. Probably the best possibility is to keep a list of the top X% (X about 80%
-			# maybe?) nodes and then use Simulated Annealing to find the biggest clique... but that is much
-			# better done in C/C++, not awk.
-
-			numDel='$tryHard' # Slen/4 # 
-			if(numDel && Slen>numDel+3) {
-			    # See if removing at most 1-2 recent nodes helps
-			    maxEdges1=choose(Slen-1,2);
-			    maxEdges2=choose(Slen-2,2);
-			    for(del=1; del<numDel; ++del) {
-				delete S[node[line-del]]; if(EdgeCount()/maxEdges1 >= '$EDGE_DENSITY_THRESHOLD') break;
-				for(del2=del+1; del2<=numDel;++del2) {
-				    delete S[node[line-del2]]; if(EdgeCount()/maxEdges2 >= '$EDGE_DENSITY_THRESHOLD') break;
-				    ++S[node[line-del2]]; # add it back in
+		ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
+		ARGIND==2{count[$2]=$1; node[FNR]=$2; line[$2]=FNR; for(i=3; i<=NF; i++){neighbors[$2][$i]=1;}}
+		function EdgeCount(       edgeCount,u,v) {
+			edgeCount=0;
+			for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeCount;}
+			return edgeCount;
+		}
+		function expand(u){
+			for (v in neighbors[u]){
+				if((v in line) && !(v in visited)){
+					QueueAdd("Q", v);
+					visited[v]=1;
 				}
-				if(length(S)==Slen-2) break; # removing both nodes helped
-				++S[node[line-del]]; # add it back in
-			    }
 			}
-			if(length(S)==Slen) delete S[node[line]]; # no node was removed, so remove this one
-			# keep going until count decreases significantly; duplicate cliques removed in the next awk
-			if(count[line]/count[lastGood] < 0.5) break;
-		    }
+			return;
 		}
-		if(length(S)>k) { # now check if it is a subclique of something previously found
-		    for(i=1;i<=numCliques;i++) {
-			same=0;
-			for(u in S) if(u in clique[i]) ++same;
-			if(same == length(S)) break;
-		    }
-		    if(numCliques==0 || same < length(S)) {
-			edgeHits=0; maxEdges=choose(length(S),2);
-			for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
-			++numCliques; printf "%d %d", length(S), edgeHits
-			for(u in S) {clique[numCliques][u]=1; printf " %s", u}
-			print ""
-			if('$ONLY_ONE') exit;
-		    }
-		}
-	    }
-	}' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
+		END{n=length(degree); # number of nodes in the input network
+			clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
+			numCliques=0;
+			QueueAlloc("Q");
+			for(start=1; start<=FNR; start++) { # look for a clique starting on line "start"
+				while(QueueLength("Q")>0){QueueNext("Q");} #Ensure the queue is empty
+				delete S; # this will contain the nodes in the current cluster
+				delete visited;
+				origin=node[start];
+				misses=0; # how many nodes have been skipped because they did not work?
+				QueueAdd("Q", origin);
+				visited[origin] = 1;
+				while(QueueLength("Q")>0){
+					u = QueueNext("Q");
+					S[u]=1;
+					Slen = length(S);
+					if (Slen>1){
+						maxEdges = choose(Slen,2);
+						edgeHits = EdgeCount();
+						if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
+							if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
+							if(length(S)==Slen) delete S[u]; # no node was removed, so remove this one
+							# keep going until count decreases significantly; duplicate cliques removed in the next awk
+							if(count[u]/count[origin] < 0.5) break;
+						}else{
+							expand(u);
+						}
+					} else {
+						expand(u);
+					}
+				}
+				if(length(S)>k) { # now check if it is a subclique of something previously found
+					for(i=1;i<=numCliques;i++) {
+						same=0;
+						for(u in S) if(u in clique[i]) ++same;
+						if(same == length(S)) break;
+					}
+					if(numCliques==0 || same < length(S)) {
+						edgeHits=0; maxEdges=choose(length(S),2);
+						for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
+						++numCliques; printf "%d %d", length(S), edgeHits
+						for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+						print ""
+						if('$ONLY_ONE') exit;
+					}
+				}
+			}
+		}' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
     sort -nr | # sort the above output by number of nodes in the near-clique
     hawk 'BEGIN{numCliques=0} # post-process to remove duplicates
 	{
@@ -161,15 +168,15 @@ $BLANT -k$k -n$n -sMCMC -mi "$net" | if $DEBUG; then tee $TMPDIR/blant.out; else
 	    for(i=3;i<=NF;i++) ++S[$i]
 	    ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
 	    for(i=1;i<=numCliques;i++) {
-		same=0;
-		for(u in S) if(u in clique[i])++same;
-		if(same == length(S)) break;
+			same=0;
+			for(u in S) if(u in clique[i])++same;
+			if(same == length(S)) break;
 	    }
 	    if(numCliques==0 || same < length(S)) {
-		maxEdges=choose(length(S),2);
-		++numCliques; printf "%d nodes, %d of %d edges (%g%%):",
+			maxEdges=choose(length(S),2);
+			++numCliques; printf "%d nodes, %d of %d edges (%g%%):",
 		    length(S), edgeHits, maxEdges, 100*edgeHits/maxEdges
-		for(u in S) {clique[numCliques][u]=1; printf " %s", u}
-		print ""
+			for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+			print ""
 	    }
 	}' | sort -k 1nr -k 8n # sort by number of nodes and then by the first node in the list
