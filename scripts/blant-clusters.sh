@@ -7,10 +7,9 @@ EDGE_DENSITY_THRESHOLD=1.0
 USAGE="USAGE: $BASENAME [tryHard] [-1] [-e] blant.exe k M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ] [(k1 k2 ...)]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
     M is the mean number of times each *node* should be touched by a graphlet sample; thus, BLANT will take M*(n/k) total
-    samples of k-node graphlets; we recommend experimenting with a minimum of M=100, and going as high as necessary (over
-    1000 is not uncommon) for reliable results.
-	The last argument, EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD.
-	If we add an array of numbers at the end, we will use more than one k for our analysis.
+    samples of k-node graphlets. 
+	EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD.
+	If we add an array of numbers at the end, we will use more than one k for our analysis and the k written after blant.exe will be ignored
     An optional leading integer (with no dash) 'tryHard' [default 0] should not be changed [experimental].
     The option '-1' means 'exit after printing only one 1 cluster--the top one'.
     The option '-e' means make all the clusters mutually exclusive."
@@ -81,12 +80,12 @@ DEBUG=false # set to true to store BLANT output
 
 for k in "${Ks[@]}";
 	do
-		n=`expr $sampleMultiplier '*' $numNodes / $k`
+		n=`hawk 'BEGIN{print int('$sampleMultiplier' * '$numNodes' / '$k')}'`
 		edgesCount=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
 		echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n -sMCMC -mi '$net' -e$edgesCount " >&2
 		$BLANT -k$k -n$n -sMCMC -mi "$net" -e$edgesCount >> $TMPDIR/blant.out
 	done
-echo "BLANT DONE"
+
 hawk 'BEGIN{} 
 	ARGIND==1{
 		for(i=2;i<=NF;i++){
@@ -104,22 +103,30 @@ hawk 'BEGIN{}
 			for (v in neighbors[u]){
 				print v
 			}
-			ORS="\n"; print;
+			ORS="\n"; print "";
 		}
 	}' $TMPDIR/blant.out | 
 	sort -nr > $TMPDIR/cliqs.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
-echo "CLIQUES SORTED"
+
 hawk 'BEGIN{OFS="\t"; ID=0}
 	ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2{count[$2]=$1; node[FNR]=$2; line[$2]=FNR; for(i=3; i<=NF; i++){neighbors[$2][$i]=1;neighbors[$i][$2]=1;}}
-	function EdgeCount(       edgeCount,u,v) {
-		edgeCount=0;
-		for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeCount;}
-		return edgeCount;
+	function EdgeCount(v,       edgeHits,u) {
+		edgeHits=0;
+		for(u in S){if(edge[u][v]) ++edgeHits;}
+		return edgeHits;
 	}
-	function expand(u){
+	function highRelCliqueCount(u, v){ # Heuristic
+		if (v in count){
+			return count[v]/count[u]>=0.5;
+		} else {
+			return 1/count[u]>=0.5;
+		}
+	}
+
+	function expand(u, origin){
 		for (v in neighbors[u]){
-			if(!(v in visited) && v>u){
+			if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)){
 				QueueAdd("Q", v);
 				visited[v]=1;
 			}
@@ -130,47 +137,45 @@ hawk 'BEGIN{OFS="\t"; ID=0}
 		clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
 		numCliques=0;
 		QueueAlloc("Q");
-		for(start=1; start<=FNR; start++) { # look for a clique starting on line "start"
+		for(start=1; start<=FNR; start++) { # look for a clique starting on line "start". 
 			if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
+			origin=node[start];
+			if (origin in visited) continue;
 			delete S; # this will contain the nodes in the current cluster
 			delete visited;
-			origin=node[start];
 			misses=0; # how many nodes have been skipped because they did not work?
 			QueueAdd("Q", origin);
 			visited[origin] = 1;
+			edgeCount = 0;
 			while(QueueLength("Q")>0){
 				u = QueueNext("Q");
+				newEdgeHits = EdgeCount(u);
+				edgeCount += newEdgeHits;
 				S[u]=1;
 				Slen = length(S);
 				if (Slen>1){
 					maxEdges = choose(Slen,2);
-					edgeHits = EdgeCount();
-					if(edgeHits/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
-						#if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
-						if(length(S)==Slen) delete S[u]; # no node was removed, so remove this one
+					if(edgeCount/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
+						if(length(S)==Slen){
+							delete S[u]; # no node was removed, so remove this one
+							edgeCount -= newEdgeHits;
+						}
+						if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
 						# keep going until count decreases significantly; duplicate cliques removed in the next awk
-						if(count[u]/count[origin] < 0.5) break;
+						#visited[u]=0;
 					}else{
-						expand(u);
+						expand(u, orign);
 					}
 				} else {
-					expand(u);
+					expand(u, origin);
 				}
 			}
-			if(length(S)>3) { # now check if it is a subclique of something previously found
-				for(i=1;i<=numCliques;i++) {
-					same=0;
-					for(u in S) if(u in clique[i]) ++same;
-					if(same == length(S)) break;
-				}
-				if(numCliques==0 || same < length(S)) {
-					edgeHits=0; maxEdges=choose(length(S),2);
-					for(u in S){for(v in S) if(u>v && edge[u][v]) ++edgeHits;}
-					++numCliques; printf "%d %d", length(S), edgeHits
-					for(u in S) {clique[numCliques][u]=1; printf " %s", u}
-					print ""
-					if('$ONLY_ONE') exit;
-				}
+			if(length(S)>3) {
+				maxEdges=choose(length(S),2);
+				++numCliques; printf "%d %d", length(S), edgeCount
+				for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+				print ""
+				if('$ONLY_ONE') exit;
 			}
 		}
 	}' "$net" $TMPDIR/cliqs.sorted  | # dash is the output of the above pipe (sorted near-clique-counts)
@@ -182,7 +187,7 @@ hawk 'BEGIN{OFS="\t"; ID=0}
 	    edgeHits=$2;
 	    for(i=3;i<=NF;i++) ++S[$i]
 	    ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
-	    for(i=1;i<=numCliques;i++) {
+		for(i=1;i<=numCliques;i++) {
 			same=0;
 			for(u in S) if(u in clique[i])++same;
 			if(same == length(S)) break;
