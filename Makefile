@@ -41,7 +41,7 @@ CXX=g++
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
-ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
+ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm64/)V="arm64";else V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
 
 # Darwin needs gcc-6 ever since a commit on 22 May 2022:
 #GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
@@ -172,7 +172,7 @@ make-orca-jesse-blant-table: libwayne $(SRCDIR)/magictable.cpp | $(OBJDIR)/libbl
 	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=c++11 $(LIBWAYNE_BOTH)
 
 $(OBJDIR)/blant-predict.o:
-	if [ -f $(SRCDIR)/EdgePredict/blant-predict.c ]; then (cd $(SRCDIR)/EdgePredict && ../../libwayne/bin/wgcc -c -o ../blant-predict.o blant-predict.c; cd ..; cp -p blant-predict.o ../_objs); elif [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.Darwin.o.gz; elif [ -f $(SRCDIR)/blant-predict.$(GCC).o.gz ]; then gunzip < $(SRCDIR)/blant-predict.$(GCC).o.gz; else $(CC) -c -o $(SRCDIR)/blant-predict.o $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); cat $(SRCDIR)/blant-predict.o; fi > $@
+	if [ -f $(SRCDIR)/EdgePredict/blant-predict.c ]; then (cd $(SRCDIR)/EdgePredict && ../../libwayne/bin/wgcc -c -o ../blant-predict.o blant-predict.c; cd ..; cp -p blant-predict.o ../_objs); elif [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = arm64 ]; then gunzip < $(SRCDIR)/blant-predict.arm64.o.gz; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.Darwin.o.gz; elif [ -f $(SRCDIR)/blant-predict.$(GCC).o.gz ]; then gunzip < $(SRCDIR)/blant-predict.$(GCC).o.gz; else $(CC) -c -o $(SRCDIR)/blant-predict.o $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); cat $(SRCDIR)/blant-predict.o; fi > $@
 
 ### Object Files/Prereqs ###
 
