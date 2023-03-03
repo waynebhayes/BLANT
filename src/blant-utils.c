@@ -10,6 +10,7 @@
 // makes the coding much simpler.
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
+// WRONG COMMENT HERE: we actually *DO* use less memory...
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
 // So we're allocating 256MBx3=768MB even if we need much less.  I figure anything less than 1GB isn't a big deal
