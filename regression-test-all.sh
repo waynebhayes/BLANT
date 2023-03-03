@@ -79,7 +79,13 @@ if $MAKE ; then
     make pristine
     WHAT=all
 fi
+
 export EIGHT=8
+if [ "$CI" = true ]; then # continuous integration needs to run faster
+    unset EIGHT
+    export NO8=1
+fi
+
 if [ "$NO8" != "" ]; then unset EIGHT; fi
 make -j$MAKE_CORES $WHAT || die "failed to make"
 # The gzip below is now done in the Makefile
