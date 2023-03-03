@@ -17,7 +17,7 @@ jobs:
           command: "export PATH=\"$PATH:/libwayne/bin\""
       - run:
           name: "run regression test"
-          command: "ulimit -s unlimited;./regression-test-all.sh -make"
+          command: "./regression-test-all.sh -make"
 
   test-MacOS-Intel:
     macos:
