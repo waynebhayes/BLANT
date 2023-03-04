@@ -38,7 +38,7 @@ jobs:
   test-MacOS-M1:
     macos:
       xcode: "14.2.0"
-    resource_class: macos.m1
+    resource_class: macos.m1.medium.gen1
       
     steps:
       - checkout
