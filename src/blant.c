@@ -903,7 +903,7 @@ int main(int argc, char *argv[])
 	{
 	case 'h':
 	    printf("%s\n", USAGE_LONG);
-	    printf("Note: current TSET size is %ud bits\n", 8*sizeof(TSET));
+	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
 	    exit(1); break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
