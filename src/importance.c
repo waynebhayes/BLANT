@@ -148,13 +148,11 @@ void getImportances(double *importances, GRAPH *G) {
     int u;
 
     for (u = 0; u < n; ++u) {
-        double edgeWeightSum = 0;
-
+        edgeWeightSum = 0;
         for (i = 0; i < G->degree[u]; ++i) {
             int v = G->neighbor[u][i];
             edgeWeightSum += edgeWeights[u][v];
         }
-
         importances[u] = nodeWeights[u] + edgeWeightSum;
     }
 
@@ -194,7 +192,7 @@ void freeAdjacencyList(ADJ_LIST *adjList, GRAPH *G) {
 
 void fillSortedNodes(int *sortedNodes, GRAPH *G) {
     node_whn arrForSorting[G->n];
-    int i, j;
+    int i;
 
     for (i = 0; i < G->n; ++i) {
         arrForSorting[i].node = i;
@@ -220,7 +218,7 @@ void fillSortedNodes(int *sortedNodes, GRAPH *G) {
 void removeFromAdjacencyList(ADJ_LIST *adjList, int base, int neigh) {
     assert(adjList->sizes[base] > 0);
     int i;
-    int neighPos;
+    int neighPos=-1;
 
     for (i = 0; i < adjList->sizes[base]; ++i) {
         if (adjList->lists[base][i] == neigh) {
@@ -228,6 +226,7 @@ void removeFromAdjacencyList(ADJ_LIST *adjList, int base, int neigh) {
             break;
         }
     }
+    assert(neighPos!=-1);
 
     adjList->lists[base][neighPos] = adjList->lists[base][adjList->sizes[base] - 1]; // one way swap
     adjList->sizes[base]--; // decrement size

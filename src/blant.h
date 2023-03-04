@@ -85,7 +85,7 @@ char** convertToEL(char* file); // from convert.cpp
 //#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 
 #define DEFAULT_BLANT_DIR "."
-extern char* _BLANT_DIR;
+extern const char* _BLANT_DIR;
 
 #define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
 

@@ -8,7 +8,7 @@ int _alphaList[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS];
 int _canonNumEdges[MAX_CANONICALS];
 
-static int L;
+static int _L;
 static COMBIN *_Lcombin;
 static int *_Darray;
 static int _alpha;
@@ -23,7 +23,7 @@ static int _alpha;
 Boolean _permuteDgraphlets(int size, int* array) {
 	int g1, i;
 	Boolean validWalk = true;
-	for (g1 = 0; g1 < L-1; g1++) { //Unsure if this combination strategy works for d != 2
+	for (g1 = 0; g1 < _L-1; g1++) { //Unsure if this combination strategy works for d != 2
 		TSET tset1 = 0;
 		TSET tset2 = 0;
 		for (i = 0; i < mcmc_d; i++) {
@@ -47,6 +47,7 @@ Boolean _permuteDgraphlets(int size, int* array) {
 */
 int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, unsigned* combinArrayL, int k, int L) {
 	assert(k >= 3 && k <=8); //TSET used limits to 8 bits of set represntation.
+	assert(_L == L);
 	_alpha = 0;
 	int numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
 	int Darray[numDGraphlets * mcmc_d]; //Vertices in our d graphlets
@@ -108,6 +109,8 @@ int ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, unsigne
 	return _alpha / 2;
 }
 
+SET *_connectedCanonicals;
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         fprintf(stderr, "USAGE: %s k\n", argv[0]);
@@ -117,19 +120,19 @@ int main(int argc, char* argv[]) {
     char BUF[BUFSIZ];
     TINY_GRAPH *gk = TinyGraphAlloc(k);
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
-    SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     int numCanon = _connectedCanonicals->n;
 
-    L = k - mcmc_d  + 1;
+    _L = k - mcmc_d  + 1;
     unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
-	unsigned combinArrayL[L]; //Used to hold combinations of L d graphlets from Darray
+	unsigned combinArrayL[_L]; //Used to hold combinations of L d graphlets from Darray
 	// create the alpha list
 	int i;
 	for (i = 0; i < numCanon; i++) {
 		Int2TinyGraph(gk, _canonList[i]);
 		TinyGraphEdgesAllDelete(gd);
 		if (SetIn(_connectedCanonicals, i)) {
-			_alphaList[i] = ComputeAlpha(gk, gd, combinArrayD, combinArrayL, k, L);
+			_alphaList[i] = ComputeAlpha(gk, gd, combinArrayD, combinArrayL, k, _L);
 		}
 		else _alphaList[i] = 0; // set to 0 if unconnected graphlet
 	}

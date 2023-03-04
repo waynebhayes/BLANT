@@ -24,7 +24,7 @@ double KStestPVal(double KS_stats, float precision);
 void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* twodarray[], int mode);
 double compareSynGraph(GRAPH *G, GRAPH *G_Syn, int numSamples, int k, double theoreticalPDF[], double theoreticalCDF[]);
 int PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], int k);
-void stampFunction(GRAPH *G, int binaryNum[], int Varray[], int k);
+void stampFunction(GRAPH *G, int binaryNum[], unsigned Varray[], int k);
 void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k_small, double theoreticalPDF[], double theoreticalCDF[]);
 int GenSynGraph(int k, int k_small, int numSamples, GRAPH *G, FILE *SynOutFile);
 
