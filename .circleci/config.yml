@@ -35,10 +35,26 @@ jobs:
           name: "run regression test"
           command: "ulimit -c 0 -s 65532; ./regression-test-all.sh -make"
 
+  test-MacOS-M1:
+    macos:
+      xcode: "14.2.0"
+    resource_class: macos.m1
+      
+    steps:
+      - checkout
+      
+      - run:
+          name: "check libwayne path"
+          command: "export PATH=\"$PATH:/libwayne/bin\""
+      - run:
+          name: "run regression test"
+          command: "ulimit -c 0 -s 65532; ./regression-test-all.sh -make"
+
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
   test-workflow:
     jobs:
       - test-MacOS-Intel
+      - test-MacOS-M1
       - test-ubuntu
