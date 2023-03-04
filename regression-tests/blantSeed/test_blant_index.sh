@@ -7,7 +7,7 @@ TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
 ./dedup.sh $TMPDIR/syeast0.index
 
 echo Checking for index correctness
-if diff $TMPDIR/syeast0.index seed_mining/examples/syeast0.index; then
+if cmp $TMPDIR/syeast0.index seed_mining/examples/syeast0.index; then
     :
 else
     echo "ERROR: indexes different; see $TMPDIR" >&2
