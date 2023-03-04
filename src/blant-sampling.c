@@ -402,7 +402,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 {
     SetEmpty(V);
-    int i, numRead;
+    int i, numRead=-1;
     char line[BUFSIZ];
     char *s = fgets(line, sizeof(line), _sampleFile);
     if(!s){
