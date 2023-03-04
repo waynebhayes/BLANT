@@ -27,11 +27,11 @@ cpus() {
     lscpu >$TMP 2>/dev/null && awk '/^CPU[(s)]*:/{cpus=$NF}END{if(cpus)print cpus; else exit 1}' $TMP && return
 
     # MacOS:
-    ([ `arch` = Darwin -o `uname` = Darwin -o `arch` = arm64 -o `uname` = arm64 ] || uname -a | egrep 'Darwin|arm64' >/dev/null) && sysctl -n hw.ncpu && return
+    (uname -a | egrep 'Darwin|arm64' >/dev/null) && sysctl -n hw.ncpu && return
 
     # Cygwin:
-    case `arch` in
-    CYGWIN*) grep -c '^processor[ 	]*:' /proc/cpuinfo; return ;;
+    case "`uname -a`" in
+    *CYGWIN*) grep -c '^processor[ 	]*:' /proc/cpuinfo; return ;;
     *) if [ -d /dev/cpu -a ! -f /dev/cpu/microcode ]; then
 	ls -F /dev/cpu | fgrep -c
 	return
