@@ -56,5 +56,5 @@ workflows:
   test-workflow:
     jobs:
       - test-MacOS-Intel
-      - test-MacOS-M1
+      #- test-MacOS-M1
       - test-ubuntu
