@@ -903,7 +903,11 @@ int main(int argc, char *argv[])
 	{
 	case 'h':
 	    printf("%s\n", USAGE_LONG);
+	    #if __MINGW32__ || __WIN32__ || __CYGWIN__
+	    printf("Note: current TSET size is %u bits\n", 8*sizeof(TSET));
+	    #else
 	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
+	    #endif
 	    exit(1); break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
