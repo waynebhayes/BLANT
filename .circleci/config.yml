@@ -14,7 +14,7 @@ jobs:
       - checkout
       
       - run:
-          name: "check libwayen path"
+          name: "check libwayne path"
           command: "export PATH=\"$PATH:/libwayne/bin\""
       - run:
           name: "run regression test"
@@ -29,7 +29,7 @@ jobs:
       - checkout
       
       - run:
-          name: "check libwayen path"
+          name: "check libwayne path"
           command: "export PATH=\"$PATH:/libwayne/bin\""
       - run:
           name: "run regression test"
