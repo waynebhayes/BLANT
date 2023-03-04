@@ -61,10 +61,10 @@ static int siCmp(const void *A, const void *B)
     return *a-*b;
 }
 
-short int canon2ordinal(int numCanon, Gint_type canon_list[numCanon], int canonical)
+short int canon2ordinal(int numCanon, Gint_type *_canon_list, int canonical)
 {
-    Gint_type *found = bsearch(&canonical, canon_list, numCanon, sizeof(canon_list[0]), siCmp);
-    return found-canon_list;
+    Gint_type *found = bsearch(&canonical, _canon_list, numCanon, sizeof(_canon_list[0]), siCmp);
+    return found-_canon_list;
 }
 
 int main(int argc, char *argv[])
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     assert(fp);
     int line;
     for(line=0; line < Bk; line++) {
-	int canonical, ordinal, isGraphlet, numRead, numEdges;
+	int canonical, ord, isGraphlet, numRead, numEdges;
 	char perm[9], *tmp;
 	tmp = fgets(buf, sizeof(buf), fp); // shut the compiler up
 	assert(tmp >= 0);
@@ -94,8 +94,8 @@ int main(int argc, char *argv[])
 	    else Fatal("too many count errors");
 	}
 #endif
-	ordinal=canon2ordinal(numCanon, canon_list, canonical);
-	K[line]=ordinal;
+	ord=canon2ordinal(numCanon, canon_list, canonical);
+	K[line]=ord;
 	for(i=0;i<kk;i++)perm[i] -= '0';
 	EncodePerm(&Permutations[line], perm);
 #if 0  // output sanity checking info?

@@ -27,7 +27,7 @@ Boolean nextPermutation(int permutation[])
 	    int j;
 	    for(j=k-1;j>i-1;j--){
 		if(permutation[i-1]<permutation[j]){
-		    int t=permutation[i-1];
+		    t=permutation[i-1];
 		    permutation[i-1]=permutation[j];
 		    permutation[j]=t;
 		    break;
@@ -67,7 +67,7 @@ void getDecimal(int adj[k][k+1],long *D){
 
 }
 
-void getGraph(long int decimal, int adj[k][k+1]){
+void getGraph(long int base10, int adj[k][k+1]){
     int i,j;
 #if LOWER_TRIANGLE
     for(i=k-1;i>0;i--)
@@ -77,9 +77,9 @@ void getGraph(long int decimal, int adj[k][k+1]){
 	for(j=k-1;j>i;j--)
 #endif
 	{
-	    adj[i][j]=decimal%2;
+	    adj[i][j]=base10%2;
             adj[j][i]=adj[i][j];
-            decimal/=2;
+            base10/=2;
    	}
 
      for(i=0; i<k; i++)

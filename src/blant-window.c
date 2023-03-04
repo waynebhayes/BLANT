@@ -11,7 +11,7 @@ int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
 HEAP * _windowRep_limit_heap;
 
-int **_windowReps;
+unsigned **_windowReps;
 int _MAXnumWindowRep = 0;
 int _numWindowRep = 0;
 int _numWindowRepLimit = 0;
@@ -43,7 +43,7 @@ int getD(int num_of_edges)
 // Self construct the adjacency matrix of the window. Use _connectedCanonicals to check connectivity of the K-node graphlet
 // No need to use TinyGraphInducedFromGraph, expensive calling GraphAreConnected for each combination
 // This method is twice faster than previous
-Gint_type combWindow2Int(int (*windowAdjList)[_windowSize], int *Varray, int *numEdges)
+Gint_type combWindow2Int(int (*windowAdjList)[_windowSize], unsigned *Varray, unsigned *numEdges)
 {
     int i, j, bitPos=0, bit;
     Gint_type Gint = 0;
@@ -84,9 +84,9 @@ void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_
     }
 }
 
-void updateWindowRepLimitHeap(int *WArray, int *VArray, char perm[], int foundNum)
+void updateWindowRepLimitHeap(unsigned *WArray, unsigned *VArray, unsigned char perm[], int foundNum)
 {
-    int i, j;
+    int i;
     if (HeapSize(_windowRep_limit_heap) < _numWindowRepLimit) // case to fill up limit heap
         HeapInsert(_windowRep_limit_heap, (foint) foundNum);
     else if (HeapSize(_windowRep_limit_heap) >= _numWindowRepLimit && foundNum > HeapPeek(_windowRep_limit_heap).i)
@@ -101,7 +101,7 @@ void updateWindowRepLimitHeap(int *WArray, int *VArray, char perm[], int foundNu
     assert(HeapSize(_windowRep_limit_heap) <= _numWindowRepLimit);
 }
 
-void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, int GintOrdinal, char perm[])
+void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numEdges, int GintOrdinal, unsigned char perm[])
 {
     int i, j;
     // dynamic windowRep Arr step
@@ -119,7 +119,7 @@ void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, int 
 	}
 	else if (_windowRep_limit_method == WINDOW_LIMIT_DEGREE)
 	{
-		int indegree=0, prevIndegree;
+		int indegree=0;
 		for(i=0; i<_k; i++) indegree += G->degree[WArray[VArray[i]]]; // should remove 2*numEdges to get the exact indegree but the scale is the same.
 		updateWindowRepLimitHeap(WArray, VArray, perm, indegree);
 	}
@@ -135,9 +135,9 @@ void updateWindowRepArray(GRAPH *G, int *WArray, int *VArray, int numEdges, int 
 		Fatal("Undefined windowRep Limiting Method. Refer to -l{DEG}.\n");
 }
 
-void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int numEdges, int *WArray, int *VArray, MULTISET *canonMSET, char perm[])
+void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int numEdges, unsigned *WArray, unsigned *VArray, MULTISET *canonMSET, unsigned char perm[])
 {
-    int i, pending_D;
+    int pending_D;
     int GintOrdinal = L_K(Gint);
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);
@@ -177,7 +177,7 @@ void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int nu
 
 void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET)
 {
-    int ordinals[MultisetSupport(canonMSET)];
+    unsigned ordinals[MultisetSupport(canonMSET)];
     int i, pos = SetToArray(ordinals, canonMSET->set);
     int freq = _numWindowRep, multiplicity;
     for(i = 0; i < pos; i++)
@@ -205,9 +205,9 @@ void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET)
     _numWindowRep = new_numWindowRep;
 }
 
-void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET, char perm[])
+void ExtendSubGraph(GRAPH *G, GRAPH *Gi, unsigned *WArray, unsigned *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET, unsigned char perm[])
 {
-    int u, w, i, j, GintOrdinal, GintOrdinalInt, numEdges=0;
+    unsigned u, w, i, j, numEdges=0;
     Gint_type Gint;
     Boolean inclusive = false;
     SET *Vext = SetAlloc(Gi->n), *uNeighbors = SetAlloc(Gi->n);
@@ -239,7 +239,7 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextensi
                     if(!inclusive && u > v) SetAdd(Vext, u);
                 }
             }
-            int* VArrayCopy = Calloc(_k, sizeof(int));
+            unsigned *VArrayCopy = Calloc(_k, sizeof(int));
             for(i=0; i<_k; i++) VArrayCopy[i] = VArray[i];
             int varrayCopySize = *varraySize;
             VArrayCopy[varrayCopySize++] = w;
@@ -253,67 +253,68 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, int *WArray, int *VArray, SET *Vextensi
     return;
 }
 
-int FindHighestDegNeighbor(GRAPH *Gi, SET *foundNode, SET *searchNodeSet, int *WArray)
+int FindHighestDegNeighbor(GRAPH *Gi, SET *foundNode, SET *searchNodeSet, unsigned *WArray)
 {
-	if(SetCardinality(searchNodeSet) == 0) return -1;
-	int numSearch = SetCardinality(searchNodeSet), i, searchNodeArr[numSearch], largestNode=-1;
+    if(SetCardinality(searchNodeSet) == 0) return -1;
+    int numSearch = SetCardinality(searchNodeSet), i, largestNode=-1;
+    unsigned searchNodeArr[numSearch];
     float curr_deg, prev_deg = -1;
-	SetToArray(searchNodeArr, searchNodeSet);
-	for(i=0; i<numSearch; i++)
-	{
-		curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[searchNodeArr[i]]] : Gi->degree[searchNodeArr[i]];
-		if (curr_deg > prev_deg && !SetIn(foundNode, searchNodeArr[i])) {largestNode = searchNodeArr[i]; prev_deg = curr_deg;}
-	}
-	return largestNode;
+    SetToArray(searchNodeArr, searchNodeSet);
+    for(i=0; i<numSearch; i++)
+    {
+	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[searchNodeArr[i]]] : Gi->degree[searchNodeArr[i]];
+	    if (curr_deg > prev_deg && !SetIn(foundNode, searchNodeArr[i])) {largestNode = searchNodeArr[i]; prev_deg = curr_deg;}
+    }
+    return largestNode;
 }
 
-void FindWindowRepByDeg(GRAPH *Gi, int *WArray)
+void FindWindowRepByDeg(GRAPH *Gi, unsigned *WArray)
 {
-	int i, j, u, neigh, num_k_saved, NodeFound, GintOrdinal, numInitialSeed=0;
+    int i, j, neigh, num_k_saved, NodeFound, GintOrdinal, numInitialSeed=0;
     float curr_deg, prev_deg = -1;
-	int SeedArray[_windowSize], NodeAddedArr[_k];
-	SET *savedNodesSET = SetAlloc(Gi->n), *neighborNodeSet = SetAlloc(Gi->n);
-	TINY_GRAPH *g = TinyGraphAlloc(_k);
-	for (i=0; i < _windowSize; i++)
-	{
-		curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : Gi->degree[i];
-		if (curr_deg > prev_deg) {numInitialSeed = 0; prev_deg = curr_deg;}
-		if (curr_deg >= prev_deg) SeedArray[numInitialSeed++] = i;
-	}
-	for (i=0; i < numInitialSeed; i++)
-	{
-		num_k_saved = 0; SetEmpty(savedNodesSET);
-		NodeAddedArr[num_k_saved++] = SeedArray[i];
-		// _windowReps[_numWindowRep][num_k_saved++] = SeedArray[i];
-		SetAdd(savedNodesSET, SeedArray[i]);
-		while(num_k_saved < _k + 1)
-		{
-			SetEmpty(neighborNodeSet);
-			for(j=0; j < num_k_saved; j++)
-				for(neigh=0; neigh < Gi->degree[NodeAddedArr[j]]; neigh++)
-					SetAdd(neighborNodeSet, Gi->neighbor[NodeAddedArr[j]][neigh]);
+    unsigned SeedArray[_windowSize], NodeAddedArr[_k];
+    SET *savedNodesSET = SetAlloc(Gi->n), *neighborNodeSet = SetAlloc(Gi->n);
+    TINY_GRAPH *g = TinyGraphAlloc(_k);
+    for (i=0; i < _windowSize; i++)
+    {
+	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : Gi->degree[i];
+	    if (curr_deg > prev_deg) {numInitialSeed = 0; prev_deg = curr_deg;}
+	    if (curr_deg >= prev_deg) SeedArray[numInitialSeed++] = i;
+    }
+    for (i=0; i < numInitialSeed; i++)
+    {
+	    num_k_saved = 0; SetEmpty(savedNodesSET);
+	    NodeAddedArr[num_k_saved++] = SeedArray[i];
+	    // _windowReps[_numWindowRep][num_k_saved++] = SeedArray[i];
+	    SetAdd(savedNodesSET, SeedArray[i]);
+	    while(num_k_saved < _k + 1)
+	    {
+		    SetEmpty(neighborNodeSet);
+		    for(j=0; j < num_k_saved; j++)
+			    for(neigh=0; neigh < Gi->degree[NodeAddedArr[j]]; neigh++)
+				    SetAdd(neighborNodeSet, Gi->neighbor[NodeAddedArr[j]][neigh]);
 
-			NodeFound = FindHighestDegNeighbor(Gi, savedNodesSET, neighborNodeSet, WArray);
-			if (NodeFound == -1) break;
-			NodeAddedArr[num_k_saved++] = NodeFound;
-			SetAdd(savedNodesSET, NodeFound);
-		}
-		if (num_k_saved == _k + 1)
-		{
+		    NodeFound = FindHighestDegNeighbor(Gi, savedNodesSET, neighborNodeSet, WArray);
+		    if (NodeFound == -1) break;
+		    NodeAddedArr[num_k_saved++] = NodeFound;
+		    SetAdd(savedNodesSET, NodeFound);
+	    }
+	    if (num_k_saved == _k + 1)
+	    {
 
-			for(j=0; j<_k; j++) _windowReps[_numWindowRep][j] = WArray[NodeAddedArr[j]];
-			TinyGraphInducedFromGraph(g, Gi, NodeAddedArr);
-			GintOrdinal = L_K(TinyGraph2Int(g, _k));
-			_windowReps[_numWindowRep][_k] = GintOrdinal;
-			++_numWindowRep;
-		}
-	}
+		    for(j=0; j<_k; j++) _windowReps[_numWindowRep][j] = WArray[NodeAddedArr[j]];
+		    TinyGraphInducedFromGraph(g, Gi, NodeAddedArr);
+		    GintOrdinal = L_K(TinyGraph2Int(g, _k));
+		    _windowReps[_numWindowRep][_k] = GintOrdinal;
+		    ++_numWindowRep;
+	    }
+    }
 }
 
 // Right now use least frequent windowRep canonicals
-void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char perm[])
+void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char unsigned perm[])
 {
-    int WArray[_windowSize], *VArray, ca[_k], i, j, GintOrdinal, GintOrdinalInt, numEdges=0;   // Window node array, pending_window node array
+    unsigned WArray[_windowSize], *VArray, ca[_k], i, j, GintOrdinal, numEdges=0;   // Window node array, pending_window node array
     Gint_type Gint;
     assert(SetToArray(WArray, W) == _windowSize);
     MULTISET *canonMSET = MultisetAlloc(getMaximumIntNumber(_k));
@@ -379,9 +380,10 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char per
     MultisetFree(canonMSET);
 }
 
-void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
+void ProcessWindowRep(GRAPH *G, unsigned *VArray, int windowRepInt) {
     // We should probably figure out a faster sort? This requires a function call for every comparison.
-    int i, j, limit_num=0, limitIndex[_numWindowRep];
+    int i, j, limit_num=0;
+    unsigned limitIndex[_numWindowRep];
     assert(!(_windowRep_limit_neglect_trivial && windowRepInt == _k - 1));
     if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF)
     {
@@ -393,7 +395,6 @@ void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt) {
 
     switch(_outputMode)
     {
-        static SET* printed;
         case graphletFrequency:
             _graphletCount[windowRepInt] += _numWindowRep;
             break;

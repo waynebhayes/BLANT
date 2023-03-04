@@ -23,7 +23,6 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
     {
 	int oldu = Xcurrent[0];
 	int oldv = Xcurrent[1];
-	int numTries = 0;
 	while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
 	    double p = RandomUniform();
 	    // if 0 < p < 1, p < deg(u) + deg(v) then
@@ -150,6 +149,19 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	numTries = 0;
 }
 
+// return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
+static TSET _visited;
+static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
+{
+    if(startingNode == 0) TSetEmpty(_visited);
+    TSetAdd(_visited,startingNode);
+    unsigned int j, Varray[MAX_K], numVisited = 0;
+    int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
+    assert(numNeighbors == g->degree[startingNode]);
+    for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
+    return 1+numVisited;
+}
+
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
@@ -162,10 +174,9 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 // one from the set V, as V is being built.
 //   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
 
-double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, int *Varray, int k, int whichCC)
+double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
     static SET *outSet;
-    static int numIsolatedNodes;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
     else if(G->n > outSet->n)
@@ -266,7 +277,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, int *Varray, int k, in
 }
 
 // modelled after faye by Tuong Do
-double SampleGraphletFaye(GRAPH *G, SET *V, int *Varray, int k, int whichCC)
+double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
     /* Faye: Add a visited array to keep track of nodes. Initialize to 0 */
     int visited[G->n];
@@ -275,7 +286,6 @@ double SampleGraphletFaye(GRAPH *G, SET *V, int *Varray, int k, int whichCC)
         visited[m] = 0;
     }
     static SET *outSet;
-    static int numIsolatedNodes;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
     else if(G->n > outSet->n)
@@ -389,7 +399,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, int *Varray, int k, int whichCC)
 }
 
 // Returns NULL if there are no more samples
-double SampleGraphletFromFile(GRAPH *G, SET *V, int *Varray, int k)
+double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 {
     SetEmpty(V);
     int i, numRead;
@@ -410,9 +420,9 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, int *Varray, int k)
     default: Fatal("unknown k value %d",k);
     }
     assert(numRead == k);
-    for(k=0;i<k;i++){
-	    assert(Varray[i] >= 0 && Varray[i] < G->n);
-	    SetAdd(V, Varray[i]);
+    for(i=0;i<k;i++){
+	assert(Varray[i] >= 0 && Varray[i] < G->n);
+	SetAdd(V, Varray[i]);
     }
     return 1.0;
 }
@@ -454,12 +464,11 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, int *Varray, int k)
 ** index, then this is the preferred method.
 **   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
 */
-double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, int *Varray, int k, int whichCC)
+double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
     int edge, v1, v2;
     assert(V && V->n >= G->n);
     SetEmpty(V);
-    int nOut = 0;
     if(whichCC<0){
 	edge = -(whichCC+1);
 	v1 = G->edgeList[2*edge];
@@ -580,13 +589,12 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, int *Varray, int k, in
 // Note that they suggest *edge* based expansion to select the first k nodes, and then
 // use reservoir sampling for the rest. But we know edge-based expansion sucks, so we'll
 // start with a better starting guess, which is node-based expansion.
-double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, int *Varray, int k, int whichCC)
+double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
     // Start by getting the first k nodes using a previous method. Once you figure out which is
     // better, it's probably best to share variables so you don't have to recompute the outset here.
 #if 1  // the following is copied almost verbatim from NodeEdgeExpansion, just changing for loop to while loop.
     static SET *outSet;
-    static int numIsolatedNodes;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
     else if(G->n > outSet->n)
@@ -733,7 +741,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, int *Varray, int k, in
 */
 
 // foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]), which needs to be returned (but must be a parameter since there's already a return value on the function)
-double SampleGraphletMCMC(GRAPH *G, SET *V, int *Varray, int k, int whichCC) {
+double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC) {
 	static Boolean setup = false;
 	static int currSamples = 0; // Counts how many samples weve done at the current starting point
 	static int currEdge = 0; // Current edge we are starting at for uniform sampling
@@ -813,53 +821,53 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, int *Varray, int k, int whichCC) {
 	assert(numNodes == k); // Ensure we are returning k nodes
 
 	if(_sampleSubmethod == SAMPLE_MCMC_EC) {
-	    int i,j;
-	    for(i=0;i<k;i++) for(j=i+1;j<k;j++) {
-		int u=Varray[i], v=Varray[j];
+	    int _i,_j;
+	    for(_i=0;_i<k;_i++) for(_j=_i+1;_j<k;_j++) {
+		unsigned u=Varray[_i], v=Varray[_j];
 		if(GraphAreConnected(G,u,v)) GraphDisconnect(_EDGE_COVER_G,u,v);
 	    }
 	}
-	double count = 1.0;
+	double ocount = 1.0;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 	    // The over counting ratio is the alpha value only.
-	    count = 1.0/(_alphaList[GintOrdinal]);
+	    ocount = 1.0/(_alphaList[GintOrdinal]);
 	} else {
 	    // The over counting ratio is the alpha value divided by the multiplier
-	    count = (double)multiplier/((double)_alphaList[GintOrdinal]);
+	    ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	}
 	if (_outputMode == outputODV) {
-	    char perm[k];
+	    unsigned char perm[k];
 	    memset(perm, 0, k);
 	    ExtractPerm(perm, Gint);
 	    for (j = 0; j < k; j++) {
-		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += count;
+		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	} else {
-	    if(count < 0) {
-		Warning("count (%g) is less than 0\n", count);
+	    if(ocount < 0) {
+		Warning("ocount (%g) is less than 0\n", ocount);
 	    }
-	    _graphletConcentration[GintOrdinal] += count;
+	    _graphletConcentration[GintOrdinal] += ocount;
 	}
 
-	return count; // return the expected overcount
+	return ocount; // return the expected overcount
 }
 
-double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, int *Varray, int k) { return 1.0; } // slower
-double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, int *Varray, int k) { return 1.0; } // faster!
+double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k) { return 1.0; } // slower
+double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k) { return 1.0; } // faster!
 
 /*
 * Very slow: sample k nodes uniformly at random and throw away ones that are disconnected.
 */
-double SampleGraphletAcceptReject(GRAPH *G, SET *V, int *Varray, int k)
+double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k)
 {
-    int arrayV[k], i;
-    int nodeArray[G->n], distArray[G->n];
+    int distArray[G->n];
     TINY_GRAPH *g = TinyGraphAlloc(k);
     int graphetteArray[k];
 
     int tries = 0;
     do
     {
+	int i;
 	SetEmpty(V);
 	// select k nodes uniformly at random from G without regard to connectivity
 	for(i=0; i<k; i++)
@@ -881,21 +889,8 @@ double SampleGraphletAcceptReject(GRAPH *G, SET *V, int *Varray, int k)
     return 1.0;
 }
 
-// return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
-static TSET _visited;
-static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
-{
-    if(startingNode == 0) TSetEmpty(_visited);
-    TSetAdd(_visited,startingNode);
-    unsigned int j, Varray[MAX_K], numVisited = 0;
-    int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
-    assert(numNeighbors == g->degree[startingNode]);
-    for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
-    return 1+numVisited;
-}
-
 // Fit SampleGraphletMCMC for windowRep implementation (alphalist and overcounting is not used here)
-double SampleWindowMCMC(GRAPH *G, SET *V, int *Varray, int W, int whichCC)
+double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
 {
 	//Original SampleGraphletMCMC initial step.
 	// Not using tinyGraph to compute overcounting since W_size exceeeds the max tinygrpah size
@@ -918,11 +913,10 @@ double SampleWindowMCMC(GRAPH *G, SET *V, int *Varray, int W, int whichCC)
 			crawlOneStep(XLS, XLQ, Xcurrent, G);
 		} while (MultisetSupport(XLS) != W);  //Keep crawling until we have W distinct vertices, Crawl at least once
 	}
-	int node, numNodes = 0, i, j, graphletDegree;
+	int node, numNodes = 0, i, j;
 	SetEmpty(V);
 
 	for (i = 0; i < _MCMC_L; i++) {
-		graphletDegree = -2; //The edge between the vertices in the graphlet isn't included and is double counted
 		for (j = 0; j < mcmc_d; j++) {
 			node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
 			if (!SetIn(V, node)) {
@@ -943,7 +937,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, int *Varray, int W, int whichCC)
  * @param prev_nodes  the temporary set of nodes in the graphlet to build
  * @param heur_arr  the array containing the heuristic values for all nodes which is used to determine which nodes in next_step to expand to
  */
-void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes_count, double *heur_arr) {
+void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr) {
     // i, j, and neigh are just used in for loops in this function
     int i, j, neigh;
     // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
@@ -951,7 +945,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 
     // base case for the recursion: a k-graphlet is found, print it and return
     if (prev_nodes_count == _k) {
-        // ProcessGraphlet will create the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of a low enough multiplicity (<= multiplicity)
+        // ProcessGraphlet creates the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of a low enough multiplicity (<= multiplicity)
         // ProcessGraphlet will also check that the k nodes you passed it haven't already been printed (although, this system does not work 100% perfectly)
         // ProcessGraphlet will also print the nodes as output if the graphlet passes all checks
         ProcessGraphlet(G, NULL, prev_nodes_array, _k, g);
@@ -976,7 +970,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, int* prev_nodes_array, int prev_nodes
 
     // create and sort next step heur arr
     int next_step_count = SetCardinality(next_step);
-    int next_step_arr[next_step_count];
+    unsigned next_step_arr[next_step_count];
 #if PARANOID_ASSERTS
     assert(SetToArray(next_step_arr, next_step) == next_step_count);
 #endif

@@ -106,7 +106,7 @@ void parseOdvFromFile(char* fname) {
     }
 }
 
-void freeOdvData() {
+void freeOdvData(void) {
     int i;
     for (i = 0; i < nOdvRows; i++) {
         freeOdvRow(odvdata + i);
