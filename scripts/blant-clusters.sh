@@ -4,12 +4,12 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 EDGE_DENSITY_THRESHOLD=1.0
-USAGE="USAGE: $BASENAME [tryHard] [-1] [-e] blant.exe k M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ] [(k1 k2 ...)]
+USAGE="USAGE: $BASENAME [tryHard] [-1] [-e] blant.exe 'k1 k2...' M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ] [(k1 k2 ...)]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
+    Multiple values of k can be put in quotes (eg '3 4 5').
     M is the mean number of times each *node* should be touched by a graphlet sample; thus, BLANT will take M*(n/k) total
     samples of k-node graphlets. 
 	EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD.
-	If we add an array of numbers at the end, we will use more than one k for our analysis and the k written after blant.exe will be ignored
     An optional leading integer (with no dash) 'tryHard' [default 0] should not be changed [experimental].
     The option '-1' means 'exit after printing only one 1 cluster--the top one'.
     The option '-e' means make all the clusters mutually exclusive."
@@ -60,7 +60,6 @@ fi
 
 if [ $# -gt 5 ]; then
     EDGE_DENSITY_THRESHOLD=$5; shift 5
-	Ks=( $@ );
 fi
 
 numNodes=`newlines < $net | sort -u | wc -l`
