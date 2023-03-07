@@ -81,8 +81,12 @@ for k in "${Ks[@]}";
 	do
 		n=`hawk 'BEGIN{print int('$sampleMultiplier' * '$numNodes' / '$k')}'`
 		edgesCount=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
-		echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n -sMCMC -mi '$net' -e$edgesCount " >&2
-		$BLANT -k$k -n$n -sMCMC -mi "$net" -e$edgesCount >> $TMPDIR/blant.out
+		# DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
+		# -mi output will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
+		# values: MCMC NBE EBE RES
+		SAMPLE_METHOD=RES
+		echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n -s$SAMPLE_METHOD -mi '$net' -e$edgesCount " >&2
+		$BLANT -k$k -n$n -s$SAMPLE_METHOD -mi "$net" -e$edgesCount >> $TMPDIR/blant.out
 	done
 
 hawk 'BEGIN{} 
