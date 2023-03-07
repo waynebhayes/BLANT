@@ -26,7 +26,7 @@ extern HEAP * _windowRep_limit_heap;
 #define WINDOW_ITER_DFS 2 // Default way: using DFS-like way.
 extern int _windowIterationMethod;
 
-extern int **_windowReps;
+extern unsigned **_windowReps;
 extern int _MAXnumWindowRep;
 extern int _numWindowRep;
 extern int _numWindowRepLimit;
@@ -46,8 +46,8 @@ extern Boolean _supportNodeImportance;
 
 extern Boolean _windowRep_limit_neglect_trivial;
 
-void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char perm[]);
-void ProcessWindowRep(GRAPH *G, int *VArray, int windowRepInt);
+void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, unsigned char perm[]);
+void ProcessWindowRep(GRAPH *G, unsigned *Varray, int windowRepInt);
 void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_GRAPH *prev_graph, SET *prev_node_set, SET *intersect_node);
 
 #endif

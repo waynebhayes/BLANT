@@ -56,6 +56,7 @@ int ComputeAlphaNode(TINY_GRAPH* g, int k) {
     return total;
 }
 
+SET* _connectedCanonicals;
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         fprintf(stderr, "USAGE: %s k\n", argv[0]);
@@ -64,7 +65,7 @@ int main(int argc, char* argv[]) {
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
     TINY_GRAPH *g = TinyGraphAlloc(k);
-    SET* _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     int numCanon = _connectedCanonicals->n;
     int i;
     for (i = 0; i < numCanon; i++) {

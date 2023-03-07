@@ -109,7 +109,7 @@ void SetGlobalCanonMaps(void){
 }
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
-static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray){
+static TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, unsigned *Varray){
     unsigned i, j;
     TinyGraphEdgesAllDelete(Gv);
     for(i=0; i < Gv->n; i++) for(j=i+1; j < Gv->n; j++)
@@ -467,7 +467,7 @@ double EHDObjective(int D[2][MAX_K][_maxNumCanon], int CanonicalEdges[MAX_K][_ma
 }
 
 // updates the BLANT sample, and updates the cost for the GRAPHLET BASED objective functions : GraphletEuclidean, GraphletKernel, SGKDiff, GDV
-void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhistograms[2][MAX_K][_maxNumCanon], int GDVbinsize[2][MAX_K][_maxNumCanon], int GDV[2][MAX_K][_maxNumCanon][_numNodes], int CanonicalEdges[MAX_K][_maxNumCanon], int EHD[MAX_K][_maxNumCanon][_maxNumCanon], int EHDaway[MAX_K][_maxNumCanon][NC2(MAX_K)+1][1 + _maxNumCanon], GRAPH *G, SET ***samples, int ***Varrays, int ***BLANT, int v1, int v2, double oldcost[NUMPROPS], RevertStack* rvStack){
+void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhistograms[2][MAX_K][_maxNumCanon], int GDVbinsize[2][MAX_K][_maxNumCanon], int GDV[2][MAX_K][_maxNumCanon][_numNodes], int CanonicalEdges[MAX_K][_maxNumCanon], int EHD[MAX_K][_maxNumCanon][_maxNumCanon], int EHDaway[MAX_K][_maxNumCanon][NC2(MAX_K)+1][1 + _maxNumCanon], GRAPH *G, SET ***samples, unsigned ***Varrays, int ***BLANT, int v1, int v2, double oldcost[NUMPROPS], RevertStack* rvStack){
     // D stores the squiggly plot vectors
     // gkstate maintains variables for GraphletKernel objective
     // GDV histograms and matrices for GraphletGDV objective
@@ -1281,7 +1281,7 @@ int main(int argc, char *argv[]){
     }
 
     // Varrays is the same as SET samples. It is used as an iterator
-    int **Varrays[MAX_K];
+    unsigned **Varrays[MAX_K];
     for (i=0; i<MAX_K; i++){
         if (_k[i] == -1) break;
         Varrays[_k[i]-1] = (int**) Malloc(G[1]->n * sizeof(int*));

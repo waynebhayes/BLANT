@@ -27,11 +27,11 @@ cpus() {
     lscpu >$TMP 2>/dev/null && awk '/^CPU[(s)]*:/{cpus=$NF}END{if(cpus)print cpus; else exit 1}' $TMP && return
 
     # MacOS:
-    ([ `arch` = Darwin -o `uname` = Darwin -o `arch` = arm64 -o `uname` = arm64 ] || uname -a | egrep 'Darwin|arm64' >/dev/null) && sysctl -n hw.ncpu && return
+    (uname -a | egrep 'Darwin|arm64' >/dev/null) && sysctl -n hw.ncpu && return
 
     # Cygwin:
-    case `arch` in
-    CYGWIN*) grep -c '^processor[ 	]*:' /proc/cpuinfo; return ;;
+    case "`uname -a`" in
+    *CYGWIN*) grep -c '^processor[ 	]*:' /proc/cpuinfo; return ;;
     *) if [ -d /dev/cpu -a ! -f /dev/cpu/microcode ]; then
 	ls -F /dev/cpu | fgrep -c
 	return
@@ -79,7 +79,14 @@ if $MAKE ; then
     make pristine
     WHAT=all
 fi
+
 export EIGHT=8
+if [ "$CI" = true ]; then # continuous integration needs to run faster
+    unset EIGHT
+    export NO8=1
+    export PAUSE=0
+fi
+
 if [ "$NO8" != "" ]; then unset EIGHT; fi
 make -j$MAKE_CORES $WHAT || die "failed to make"
 # The gzip below is now done in the Makefile

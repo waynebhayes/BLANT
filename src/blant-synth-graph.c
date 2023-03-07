@@ -72,7 +72,7 @@ void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* t
     int i, j, canon, numRead, row, col, row_sum, total_sum;
     double concentrationNum;
     FILE * fpThread;
-    int Varray[_numConnectedCanon];
+    unsigned Varray[_numConnectedCanon];
 
     switch(mode)
     {
@@ -182,7 +182,7 @@ Gint_type PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], i
     return Gint;
 }
 
-void stampFunction(GRAPH *G, int binaryNum[], int Varray[], int k)
+void stampFunction(GRAPH *G, int binaryNum[], unsigned Varray[], int k)
 {
     int i, j, z = 0, numBits = k * (k-1) / 2;
     for(i=k-1; i>0; i--) for(j=i-1;j>=0;j--)
@@ -201,7 +201,8 @@ void stampFunction(GRAPH *G, int binaryNum[], int Varray[], int k)
 void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k_small, double theoreticalPDF[], double theoreticalCDF[])
 {
     double KS_stats, P_val;
-    int i, j, z, step, Varray[k], numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample;
+    int i, j, z, step, numBits = k*(k-1)/2, binaryNum[numBits], numRemoveSample;
+    unsigned Varray[k];
     Gint_type canonList_small[MAX_CANONICALS], Gint;
     char BUF[BUFSIZ];
     SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small);
@@ -247,7 +248,8 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k
 // Main function for generating synthetic graph
 int GenSynGraph(int k, int k_small, int numSamples, GRAPH *G, FILE *SynOutFile)
 {
-    int i, j, Varray[MAX_CANONICALS];
+    int i, j;
+    unsigned Varray[MAX_CANONICALS];
     double graphletPDF[_numConnectedCanon], graphletCDF[_numConnectedCanon], theoreticalPDF[_numConnectedCanon], theoreticalCDF[_numConnectedCanon], KS_stats;
     double *distributionTablePDF[_numConnectedCanon], *distributionTableCDF[_numConnectedCanon];
 

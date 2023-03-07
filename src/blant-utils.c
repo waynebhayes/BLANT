@@ -10,6 +10,7 @@
 // makes the coding much simpler.
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
+// WRONG COMMENT HERE: we actually *DO* use less memory...
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
 // that is big enough for the 256 million permutations from non-canonicals to canonicals for k=8, even if k<8.
 // So we're allocating 256MBx3=768MB even if we need much less.  I figure anything less than 1GB isn't a big deal
@@ -19,7 +20,7 @@ kperm *Permutations = NULL; // Allocating memory dynamically
 
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
 
-unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented");}
+unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented"); return -1;}
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
@@ -47,7 +48,7 @@ void SetGlobalCanonMaps(void)
 	orcaOrbitMappingPopulate(BUF, _orca_orbit_mapping, _k);
 }
 
-void LoadMagicTable()
+void LoadMagicTable(void)
 {
     int i,j;
     char BUF[BUFSIZ];
@@ -68,7 +69,7 @@ void LoadMagicTable()
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
-void ExtractPerm(char perm[_k], int i)
+void ExtractPerm(unsigned char perm[_k], int i)
 {
     int j, i32 = 0;
     for(j=0;j<3;j++) i32 |= (Permutations[i][j] << j*8);
@@ -76,14 +77,14 @@ void ExtractPerm(char perm[_k], int i)
 	perm[j] = (i32 >> 3*j) & 7;
 }
 
-void InvertPerm(char inv[_k], const char perm[_k])
+void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
 {
     int j;
     for(j=0; j<_k; j++)
 	inv[(int)perm[j]]=j;
 }
 
-Boolean arrayIn(int* arr, int size, int item) {
+Boolean arrayIn(unsigned *arr, int size, int item) {
     int i;
     for(i=0; i<size; i++) {
         if (arr[i] == item) {
@@ -94,9 +95,8 @@ Boolean arrayIn(int* arr, int size, int item) {
 }
 
 void printIntArray(int* arr, int n, char* name) {
-    fprintf(stderr, "%s:");
+    fprintf(stderr, "%s:", name);
     int i;
-
     for (i = 0; i < n; i++) {
         fprintf(stderr, " %d", arr[i]);
     }
@@ -108,13 +108,13 @@ int asccompFunc(const foint i, const foint j) {return i.i > j.i ? 1 : i.i == j.i
 
 int descompFunc(const void *a, const void *b)
 {
-    int *i = (int*)a, *j = (int*)b;
+    const int *i = (const int*)a, *j = (const int*)b;
     return (*j)-(*i);
 }
 
 int nwhn_des_alph_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
+    const node_whn *nwhn_a = (const node_whn*)a;
+    const node_whn *nwhn_b = (const node_whn*)b;
     int i = nwhn_a->heur, j = nwhn_b->heur;
 
     if (j != i) {
@@ -125,8 +125,8 @@ int nwhn_des_alph_comp_func(const void *a, const void *b) {
 }
 
 int nwhn_des_rev_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
+    const node_whn *nwhn_a = (const node_whn*)a;
+    const node_whn *nwhn_b = (const node_whn*)b;
     int i = nwhn_a->heur, j = nwhn_b->heur;
 
     if (j != i) {
@@ -137,8 +137,8 @@ int nwhn_des_rev_comp_func(const void *a, const void *b) {
 }
 
 int nwhn_asc_alph_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
+    const node_whn *nwhn_a = (const node_whn*)a;
+    const node_whn *nwhn_b = (const node_whn*)b;
     int i = nwhn_a->heur, j = nwhn_b->heur;
 
     if (j != i) {
@@ -149,8 +149,8 @@ int nwhn_asc_alph_comp_func(const void *a, const void *b) {
 }
 
 int nwhn_asc_rev_comp_func(const void *a, const void *b) {
-    node_whn *nwhn_a = (node_whn*)a;
-    node_whn *nwhn_b = (node_whn*)b;
+    const node_whn *nwhn_a = (const node_whn*)a;
+    const node_whn *nwhn_b = (const node_whn*)b;
     int i = nwhn_a->heur, j = nwhn_b->heur;
 
     if (j != i) {
@@ -161,7 +161,7 @@ int nwhn_asc_rev_comp_func(const void *a, const void *b) {
 }
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
-TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, int *Varray)
+TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, unsigned *Varray)
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(Gv);

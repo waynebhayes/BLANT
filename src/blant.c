@@ -87,24 +87,11 @@ short *_K = NULL; // Allocating memory dynamically
 
 /* AND NOW THE CODE */
 
-// return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
-static TSET _visited;
-static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
-{
-    if(startingNode == 0) TSetEmpty(_visited);
-    TSetAdd(_visited,startingNode);
-    unsigned int j, Varray[MAX_K], numVisited = 0;
-    int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
-    assert(numNeighbors == g->degree[startingNode]);
-    for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
-    return 1+numVisited;
-}
-
-static int **_componentList; // list of lists of components, largest to smallest.
+static unsigned int **_componentList; // list of lists of components, largest to smallest.
 static double _totalCombinations, *_combinations, *_probOfComponent;
 SET **_componentSet;
 
-void SetBlantDir() {
+void SetBlantDir(void) {
     char* temp = getenv("BLANT_DIR");
     if (temp != NULL)
 	_BLANT_DIR = strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
@@ -112,7 +99,7 @@ void SetBlantDir() {
 
 static int InitializeConnectedComponents(GRAPH *G)
 {
-    static unsigned int v, *Varray, j, i;
+    static unsigned v, *Varray, j, i;
     assert(!Varray); // we only can be called once.
     assert(_numConnectedComponents == 0);
     SET *visited = SetAlloc(G->n);
@@ -154,7 +141,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 	// Now swap the biggest one into position i;
 	for(j=0; j < _componentSize[biggest]; j++)
 	    _whichComponent[_componentList[biggest][j]] = i;
-	int itmp, *pitmp;
+	unsigned itmp, *pitmp;
 	SET * stmp;
 	itmp = _componentSize[i];
 	_componentSize[i] = _componentSize[biggest];
@@ -230,7 +217,7 @@ void initializeMCMC(GRAPH* G, int k, int numSamples) {
 }
 
 // Convert the graphlet frequencies to concentrations
-void finalizeMCMC() {
+void finalizeMCMC(void) {
 	double totalConcentration = 0;
 	int i;
 	for (i = 0; i < _numCanon; i++) {
@@ -247,6 +234,20 @@ void finalizeMCMC() {
 	}
 }
 
+#if 0 // unused code, commented out to shut up the compiler
+// return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
+static TSET _visited;
+int NumReachableNodes(TINY_GRAPH *g, int startingNode)
+{
+    if(startingNode == 0) TSetEmpty(_visited);
+    TSetAdd(_visited,startingNode);
+    unsigned j, Varray[MAX_K], numVisited = 0;
+    int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
+    assert(numNeighbors == g->degree[startingNode]);
+    for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
+    return 1+numVisited;
+}
+
 // Compute the degree of the state in the state graph (see Lu&Bressen)
 // Given the big graph G, and a set of nodes S (|S|==k), compute the
 // degree of the *state* represented by these nodes, which is:
@@ -258,7 +259,7 @@ static int StateDegree(GRAPH *G, SET *S)
 #if PARANOID_ASSERTS
     assert(SetCardinality(S) == _k);
 #endif
-    int Varray[_k]; // array of elements in S
+    unsigned Varray[_k]; // array of elements in S
     SetToArray(Varray, S);
 
     SET *outSet=SetAlloc(G->n); // the set of nodes in G that are one step outside S, from *anybody* in S
@@ -279,7 +280,7 @@ static int StateDegree(GRAPH *G, SET *S)
 #if PARANOID_ASSERTS
     assert(SetCardinality(outSet) == numOut);
 #endif
-    int outArray[numOut], Sdeg = 0;
+    unsigned outArray[numOut], Sdeg = 0;
     i = SetToArray(outArray, outSet);
     assert(i == numOut);
     for(i=0; i < numOut; i++)
@@ -294,7 +295,7 @@ static int StateDegree(GRAPH *G, SET *S)
     SetFree(outSet);
     return Sdeg;
 }
-
+#endif
 
 // This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
 void convertFrequencies(int numSamples)
@@ -324,8 +325,8 @@ void convertFrequencies(int numSamples)
 // threads that finished and we have nothing to do except output their accumulated results.
 int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 {
-    int i,j, windowRepInt, D;
-    char perm[MAX_K+1];
+    int i, j, windowRepInt, D;
+    unsigned char perm[MAX_K+1];
     assert(k <= G->n);
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
@@ -347,8 +348,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
     if (_sampleMethod == SAMPLE_INDEX) {
-        int i, count = 0;
-        int prev_nodes_array[_k];
+        unsigned prev_nodes_array[_k];
 
         // Get heuristic values based on orbit number, if ODV file provided
         double heuristicValues[G->n];
@@ -384,7 +384,6 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             prev_nodes_array[0] = nwhn_arr[i].node;
 
             SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, heuristicValues);
-            count = 0;
 
             if (i * 100 / G->n >= percentToPrint) {
                 fprintf(stderr, "%d%% done\n", percentToPrint);
@@ -666,16 +665,15 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		continue; // we'll ask for output next time around.
 	    }
 	    char *nextChar = line, *pch;
-	    unsigned long int count;
-	    int canon, orbit, numRead, nodeId, value;
-	    float fValue;
+	    unsigned long int gcount;
+	    int canon=-1, orbit=-1, numRead, nodeId;
 	    //fprintf(stderr, "Parent received the following line from the child: <%s>\n", line);
 	    switch(_outputMode)
 	    {
 	    case graphletFrequency:
-		numRead = sscanf(line, "%lu%d", &count, &canon);
+		numRead = sscanf(line, "%lu%d", &gcount, &canon);
 		assert(numRead == 2);
-		_graphletCount[canon] += count;
+		_graphletCount[canon] += gcount;
 		break;
 	    case graphletDistribution:
 		for(i=0; i<_numCanon; i++) {
@@ -698,9 +696,9 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		for(canon=0; canon < _numCanon; canon++)
 		{
 		    assert(isdigit(*nextChar));
-		    numRead = sscanf(nextChar, "%lu", &count);
+		    numRead = sscanf(nextChar, "%lu", &gcount);
 		    assert(numRead == 1);
-		    GDV(lineNum,canon) += count;
+		    GDV(lineNum,canon) += gcount;
 		    while(isdigit(*nextChar)) nextChar++; // read past current integer
 		    assert(*nextChar == ' ' || (canon == _numCanon-1 && *nextChar == '\n'));
 		    nextChar++;
@@ -717,9 +715,9 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		for(orbit=0; orbit < _numOrbits; orbit++)
 		{
 		    assert(isdigit(*nextChar));
-		    numRead = sscanf(nextChar, "%lu", &count);
+		    numRead = sscanf(nextChar, "%lu", &gcount);
 		    assert(numRead == 1);
-		    ODV(lineNum,orbit) += count;
+		    ODV(lineNum,orbit) += gcount;
 		    while(isdigit(*nextChar)) nextChar++; // read past current integer
 		    assert(*nextChar == ' ' || (orbit == _numOrbits-1 && *nextChar == '\n'));
 		    nextChar++;
@@ -905,7 +903,11 @@ int main(int argc, char *argv[])
 	{
 	case 'h':
 	    printf("%s\n", USAGE_LONG);
-	    printf("Note: current TSET size is %ld bits\n", 8*sizeof(TSET));
+	    #if __MINGW32__ || __WIN32__ || __CYGWIN__
+	    printf("Note: current TSET size is %u bits\n", 8*sizeof(TSET));
+	    #else
+	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
+	    #endif
 	    exit(1); break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");

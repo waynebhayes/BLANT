@@ -32,11 +32,11 @@ char *PrintNodePairSorted(int u, char c, int v) {
 
 static int IntCmp(const void *a, const void *b)
 {
-    int *i = (int*)a, *j = (int*)b;
+    const int *i = (const int*)a, *j = (const int*)b;
     return (*i)-(*j);
 }
 
-void VarraySort(int *Varray, int k)
+void VarraySort(unsigned *Varray, int k)
 {
 #if USE_INSERTION_SORT
     //InsertionSortInt(Varray,k);
@@ -137,7 +137,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
 char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k)
 {
     int j;
-    char perm[MAX_K];
+    unsigned char perm[MAX_K];
 #if SORT_INDEX_MODE
     VarraySort(Varray, k);
     for(j=0;j<k;j++) perm[j]=j;
@@ -147,16 +147,18 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
     assert(PERMS_CAN2NON);
 #endif
     static char buf[2][BUFSIZ];
-    int which=0;
+    int which=0; // which should ALWAYS point to the one that HAS the data
     strcpy(buf[which], PrintCanonical(GintOrdinal));
 
     // IMPORTANT NOTE: this code prints the perm, not the orbit (ambiguous graphlets have repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code here (and code in a lot of other places)
     if (_outputMode == indexGraphletsRNO) {
-        sprintf(buf[which], "%s+o%d", buf[which], perm[0]);
+        sprintf(buf[1-which], "%s+o%d", buf[which], perm[0]);
+	which=1-which;
     }
 
     for(j=0;j<k;j++) {
-	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
+	sprintf(buf[1-which], "%s%s", buf[which], PrintNode(' ', Varray[(int)perm[j]]));
+	which=1-which;
     }
     return buf[which];
 }
@@ -167,7 +169,7 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], 
     static SET* printed;
     if(!printed) printed = SetAlloc(k);
     SetEmpty(printed);
-    char perm[MAX_K+1];
+    unsigned char perm[MAX_K+1];
 #if SORT_INDEX_MODE
     VarraySort(Varray, k);
     for(j=0;j<k;j++) perm[j]=j;
@@ -205,7 +207,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #endif
     switch(_outputMode)
     {
-	char perm[MAX_K];
+	unsigned char perm[MAX_K];
     case graphletFrequency:
 	++_graphletCount[GintOrdinal];
 	break;

@@ -35,19 +35,19 @@ else
 endif
 
 # Waywe needs gcc-6 on MacOS:
-GCC_VER=$(shell echo $(ARCH) $(HOME) | awk '/Darwin/&&/Users.wayne/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
+GCC_VER=$(shell echo $(UNAME) $(HOME) | awk '/Darwin/&&/Users.wayne/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
 GCC=gcc$(GCC_VER)
 CXX=g++
 
 # Some architectures, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
-ARCH=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
+UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm64/)V="arm64";else V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
 
 # Darwin needs gcc-6 ever since a commit on 22 May 2022:
-#GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(ARCH).gcc"V; else exit 1}')
-STACKSIZE=$(shell ($(GCC) -v 2>&1; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/&&actualGCC{print "-Wl,-stack_size -Wl,0x5000000"}')
-CC=$(GCC) $(SPEED) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG) $(STACKSIZE)
-LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(STACKSIZE) $(SPEED)
+#GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(UNAME).gcc"V; else exit 1}')
+STACKSIZE=$(shell ($(GCC) -v 2>&1; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
+CC=$(GCC) $(SPEED) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
+LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
 LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 
@@ -172,7 +172,7 @@ make-orca-jesse-blant-table: libwayne $(SRCDIR)/magictable.cpp | $(OBJDIR)/libbl
 	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=c++11 $(LIBWAYNE_BOTH)
 
 $(OBJDIR)/blant-predict.o:
-	if [ -f $(SRCDIR)/EdgePredict/blant-predict.c ]; then (cd $(SRCDIR)/EdgePredict && ../../libwayne/bin/wgcc -c -o ../blant-predict.o blant-predict.c; cd ..; cp -p blant-predict.o ../_objs); elif [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(ARCH)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.Darwin.o.gz; elif [ -f $(SRCDIR)/blant-predict.$(GCC).o.gz ]; then gunzip < $(SRCDIR)/blant-predict.$(GCC).o.gz; else $(CC) -c -o $(SRCDIR)/blant-predict.o $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); cat $(SRCDIR)/blant-predict.o; fi > $@
+	if [ -f $(SRCDIR)/EdgePredict/blant-predict.c ]; then (cd $(SRCDIR)/EdgePredict && ../../libwayne/bin/wgcc -c -o ../blant-predict.o blant-predict.c; cd ..; cp -p blant-predict.o ../_objs); elif [ -f $(SRCDIR)/blant-predict.o ]; then cat $(SRCDIR)/blant-predict.o; elif [ "$(UNAME)" = arm64 ]; then gunzip < $(SRCDIR)/blant-predict.arm64.o.gz; elif [ "$(UNAME)" = Darwin ]; then gunzip < $(SRCDIR)/blant-predict.Darwin.o.gz; elif [ -f $(SRCDIR)/blant-predict.$(GCC).o.gz ]; then gunzip < $(SRCDIR)/blant-predict.$(GCC).o.gz; else $(CC) -c -o $(SRCDIR)/blant-predict.o $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); cat $(SRCDIR)/blant-predict.o; fi > $@
 
 ### Object Files/Prereqs ###
 
@@ -252,7 +252,7 @@ test_freq: blant $(canon_all) #$(canon_map_bins)
 
 test_GDV: blant $(canon_all) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | $(LIBWAYNE_HOME)/bin/hawk '{cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | awk 'function MIN(a,b){return (a<b)?a:b} function MAX(a,b){return (a>b)?a:b} {cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
 test_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.xz|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
@@ -273,7 +273,7 @@ ifndef NO_CLEAN_LIBWAYNE
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	#@echo "Finding all python crap and removing it... this may take awhile..."
-	@./scripts/delete-python-shit.sh $(ARCH)
+	@./scripts/delete-python-shit.sh $(UNAME)
 
 clean_canon_maps:
 	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create

@@ -2,7 +2,7 @@
 #define BLANT_ODV_HEADER
 
 void parseOdvFromFile(char* fname);
-void freeOdvInfo();
+void freeOdvInfo(void);
 
 void getOdvValues(double* heuristicVals, int orbitNumber, char** nodeNames, int nodes);
 
