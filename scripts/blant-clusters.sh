@@ -4,16 +4,19 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 EDGE_DENSITY_THRESHOLD=1.0
-USAGE="USAGE: $BASENAME [tryHard] [-1] [-e] blant.exe 'k1 k2...' M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ] [(k1 k2 ...)]
+USAGE="USAGE: $BASENAME [OPTIONS] blant.exe 'k1 k2...' M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ] [(k1 k2 ...)]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
-    Multiple values of k can be put in quotes (eg '3 4 5').
-    M is the mean number of times each *node* should be touched by a graphlet sample; thus, BLANT will take M*(n/k) total
-    samples of k-node graphlets. 
-	EDGE_DENSITY_THRESHOLD, is optional and defaults to $EDGE_DENSITY_THRESHOLD.
+    blant.exe is the name of the executable BLANT to use (usually just './blant')
+    k1 k2...: value(s) of k to use. Multiple values of k can be put in quotes (eg '3 4 5').
+    M is the mean number of times each *node* should be touched by a graphlet sample,
+	so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
+    EDGE_DENSITY_THRESHOLD is optional and defaults to $EDGE_DENSITY_THRESHOLD.
+OPTIONS (added BEFORE the blant.exe name)
+    -1: exit after printing only one 1 cluster (the biggest one)
+    -e: make all the clusters mutually exclusive.
+    -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
     An optional leading integer (with no dash) 'tryHard' [default 0] should not be changed [experimental].
-    The option '-1' means 'exit after printing only one 1 cluster--the top one'.
-    The option '-e' means make all the clusters mutually exclusive."
-
+"
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
 USAGE=${USAGE:?"$0 should have a USAGE message before sourcing skel.sh"}
@@ -40,10 +43,13 @@ esac
 
 ONLY_ONE=0
 exclusive=0
+SAMPLE_METHOD=-sNBE
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
     -e) exclusive=1; die "exclusive not yet supported"; shift;;
+    -s) SAMPLE_METHOD="$2"; shift 2;;
+    -s*) SAMPLE_METHOD="$1"; shift;;
     esac
 done
 
@@ -51,7 +57,7 @@ done
 #[ $# -gt 6 ] && die "too many arguments"
 
 BLANT=$1;
-Ks=($2); 
+Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 sampleMultiplier=$3 
 net=$4; 
 if [ $# -eq 5 ]; then
@@ -66,9 +72,9 @@ numNodes=`newlines < $net | sort -u | wc -l`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
 for k in "${Ks[@]}";
-	do
-		[ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
-	done
+    do
+	[ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
+    done
 
 [ -f "$net" ] || die "network '$net' does not exist"
 case "$net" in
@@ -78,19 +84,20 @@ esac
 DEBUG=false # set to true to store BLANT output
 
 for k in "${Ks[@]}";
-	do
-		n=`hawk 'BEGIN{print int('$sampleMultiplier' * '$numNodes' / '$k')}'`
-		edgesCount=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
-		# DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
-		# -mi output will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
-		# values: MCMC NBE EBE RES
-		SAMPLE_METHOD=RES
-		echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n -s$SAMPLE_METHOD -mi '$net' -e$edgesCount " >&2
-		$BLANT -k$k -n$n -s$SAMPLE_METHOD -mi "$net" -e$edgesCount >> $TMPDIR/blant.out
-	done
+    do
+	n=`hawk 'BEGIN{print int('$sampleMultiplier' * '$numNodes' / '$k')}'`
+	edgesCount=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
+	# DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
+	# -mi output will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
+	# values: MCMC NBE EBE RES
+	echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n $SAMPLE_METHOD -mi -e$edgesCount '$net'" >&2
+	$BLANT -k$k -n$n $SAMPLE_METHOD -mi -e$edgesCount "$net" > $TMPDIR/blant$k.out & # run them all parallel in the background, outputting to separate files
+    done
+
+for k in "${Ks[@]}"; do wait; done
 
 hawk 'BEGIN{} 
-	ARGIND==1{
+	{ # run this on ALL input files, not just ARGIND==1
 		for(i=2;i<=NF;i++){
 			++Kc[$i]; # increment the near-clique count for each node in the graphlet
 			for(j=2;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
@@ -108,7 +115,7 @@ hawk 'BEGIN{}
 			}
 			ORS="\n"; print "";
 		}
-	}' $TMPDIR/blant.out | 
+	}' $TMPDIR/blant?.out | # the ? matches all values of k
 	sort -nr > $TMPDIR/cliqs.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 
 hawk 'BEGIN{OFS="\t"; ID=0}
