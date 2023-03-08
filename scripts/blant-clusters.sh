@@ -31,7 +31,7 @@ parse(){ awk "BEGIN{print $*}" </dev/null; }
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
-trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 #echo "TMPDIR is $TMPDIR"
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
@@ -96,7 +96,9 @@ for k in "${Ks[@]}";
 
 for k in "${Ks[@]}"; do wait; done
 
-hawk 'BEGIN{} 
+hawk 'BEGIN{Srand(); # fancy random seed
+	PROCINFO["sorted_in"]="randsort"; # make for loops go in random order
+      }
 	{ # run this on ALL input files, not just ARGIND==1
 		for(i=2;i<=NF;i++){
 			++Kc[$i]; # increment the near-clique count for each node in the graphlet
@@ -118,7 +120,10 @@ hawk 'BEGIN{}
 	}' $TMPDIR/blant?.out | # the ? matches all values of k
 	sort -nr > $TMPDIR/cliqs.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 
-hawk 'BEGIN{OFS="\t"; ID=0}
+hawk 'BEGIN{Srand(); # fancy random seed
+	PROCINFO["sorted_in"]="randsort"; # make for loops go in random order
+	    OFS="\t"; ID=0;
+	   }
 	ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2{count[$2]=$1; node[FNR]=$2; line[$2]=FNR; for(i=3; i<=NF; i++){neighbors[$2][$i]=1;neighbors[$i][$2]=1;}}
 	function EdgeCount(v,       edgeHits,u) {
@@ -190,7 +195,10 @@ hawk 'BEGIN{OFS="\t"; ID=0}
 		}
 	}' "$net" $TMPDIR/cliqs.sorted  | # dash is the output of the above pipe (sorted near-clique-counts)
     sort -nr | # sort the above output by number of nodes in the near-clique
-    hawk 'BEGIN{numCliques=0} # post-process to remove duplicates
+    hawk 'BEGIN{Srand(); # fancy random seed
+	    PROCINFO["sorted_in"]="randsort"; # make for loops go in random order
+	    numCliques=0
+	} # post-process to remove duplicates
 	{
 	    delete S; seenColon=0;
 	    numNodes=$1
