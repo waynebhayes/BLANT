@@ -4,7 +4,7 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 EDGE_DENSITY_THRESHOLD=1.0
-USAGE="USAGE: $BASENAME [OPTIONS] blant.exe 'k1 k2...' M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ] [(k1 k2 ...)]
+USAGE="USAGE: $BASENAME [OPTIONS] blant.exe 'k1 k2...' M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
     k1 k2...: value(s) of k to use. Multiple values of k can be put in quotes (eg '3 4 5').
@@ -31,7 +31,7 @@ parse(){ awk "BEGIN{print $*}" </dev/null; }
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
- trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 #echo "TMPDIR is $TMPDIR"
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
@@ -96,9 +96,7 @@ for k in "${Ks[@]}";
 
 for k in "${Ks[@]}"; do wait; done
 
-hawk 'BEGIN{Srand(); # fancy random seed
-	PROCINFO["sorted_in"]="randsort"; # make for loops go in random order
-      }
+hawk 'BEGIN{}
 	{ # run this on ALL input files, not just ARGIND==1
 		for(i=2;i<=NF;i++){
 			++Kc[$i]; # increment the near-clique count for each node in the graphlet
@@ -120,10 +118,7 @@ hawk 'BEGIN{Srand(); # fancy random seed
 	}' $TMPDIR/blant?.out | # the ? matches all values of k
 	sort -nr > $TMPDIR/cliqs.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 
-hawk 'BEGIN{Srand(); # fancy random seed
-	PROCINFO["sorted_in"]="randsort"; # make for loops go in random order
-	    OFS="\t"; ID=0;
-	   }
+hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 	ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2{count[$2]=$1; node[FNR]=$2; line[$2]=FNR; for(i=3; i<=NF; i++){neighbors[$2][$i]=1;neighbors[$i][$2]=1;}}
 	function EdgeCount(v,       edgeHits,u) {
@@ -140,12 +135,14 @@ hawk 'BEGIN{Srand(); # fancy random seed
 	}
 
 	function expand(u, origin){
+		PROCINFO["sorted_in"]="randsort";
 		for (v in neighbors[u]){
 			if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)){
 				QueueAdd("Q", v);
 				visited[v]=1;
 			}
 		}
+		PROCINFO["sorted_in"]="@unsorted";
 		return;
 	}
 	END{n=length(degree); # number of nodes in the input network
@@ -195,8 +192,7 @@ hawk 'BEGIN{Srand(); # fancy random seed
 		}
 	}' "$net" $TMPDIR/cliqs.sorted  | # dash is the output of the above pipe (sorted near-clique-counts)
     sort -nr | # sort the above output by number of nodes in the near-clique
-    hawk 'BEGIN{Srand(); # fancy random seed
-	    PROCINFO["sorted_in"]="randsort"; # make for loops go in random order
+    hawk 'BEGIN{
 	    numCliques=0
 	} # post-process to remove duplicates
 	{
