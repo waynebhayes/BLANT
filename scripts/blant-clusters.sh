@@ -83,6 +83,7 @@ case "$net" in
 esac
 DEBUG=false # set to true to store BLANT output
 
+BLANT_EXIT_CODE=0
 for k in "${Ks[@]}";
     do
 	n=`hawk 'BEGIN{print int('$sampleMultiplier' * '$numNodes' / '$k')}'`
@@ -94,7 +95,9 @@ for k in "${Ks[@]}";
 	$BLANT -k$k -n$n $SAMPLE_METHOD -mi -e$edgesCount "$net" > $TMPDIR/blant$k.out & # run them all parallel in the background, outputting to separate files
     done
 
-for k in "${Ks[@]}"; do wait; done
+for k in "${Ks[@]}"; do
+    wait; (( BLANT_EXIT_CODE += $? ))
+done
 
 hawk 'BEGIN{}
 	{ # run this on ALL input files, not just ARGIND==1
@@ -102,7 +105,7 @@ hawk 'BEGIN{}
 			++Kc[$i]; # increment the near-clique count for each node in the graphlet
 			for(j=2;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
 				if (j==i) continue;
-				neighbors[$i][$j] = 1
+				neighbors[$i][$j] = 1; # maybe better to ++ to keep count, then sort on that count?
 			}
 		}
 	}
@@ -214,3 +217,5 @@ hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 			print ""
 	    }
 	}' | sort -k 1nr -k 8n # sort by number of nodes and then by the first node in the list
+set -x
+exit $BLANT_EXIT_CODE

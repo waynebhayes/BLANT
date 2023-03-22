@@ -541,7 +541,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     SetFree(V);
     SetFree(prev_node_set);
     SetFree(intersect_node);
-    return 0;
+    return _earlyAbort;
 }
 
 /*
