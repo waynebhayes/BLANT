@@ -196,7 +196,7 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], 
     return buf[which];
 }
 
-void ProcessNodeOrbitNeighbors(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
     unsigned char perm[MAX_K+1];
@@ -211,9 +211,11 @@ void ProcessNodeOrbitNeighbors(Gint_type Gint, int GintOrdinal, unsigned Varray[
     for(c=0;c<k;c++)
     {
 	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
-	++ODV(u, _orbitList[GintOrdinal][c]);
-	for(d=0;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
+	++ODV(u, u_orbit);
+	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
 	    int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
+	    if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
+	    if(!_communityNeighbors[u][u_orbit]) _communityNeighbors[u][u_orbit] = SetAlloc(G->n);
 	    SetAdd(_communityNeighbors[u][u_orbit], v);
 	}
     }
@@ -251,7 +253,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	break;
     case communityDetection:
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else ProcessNodeOrbitNeighbors(Gint, GintOrdinal, Varray, g, k);
+	else ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k);
 	break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);

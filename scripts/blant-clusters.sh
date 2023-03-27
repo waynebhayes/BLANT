@@ -101,11 +101,10 @@ for k in "${Ks[@]}"; do
 done
 
 hawk 'BEGIN{}
-	{ # run this on ALL input files, not just ARGIND==1
+	$3>0{ # ensure the actual count is nonzero
 		Kc[$1]+=$3; # increment the near-clique count across all orbits (for now, ignore orbit in $2)
 		for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
-			#if ($j==$1) continue;
-			neighbors[$1][$j] = 1;
+			++neighbors[$1][$j];
 		}
 	}
 	END{
