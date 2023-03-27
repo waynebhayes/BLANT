@@ -43,7 +43,7 @@ esac
 
 ONLY_ONE=0
 exclusive=0
-SAMPLE_METHOD=-sNBE
+SAMPLE_METHOD=-sMCMC #-sNBE
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
@@ -91,8 +91,9 @@ for k in "${Ks[@]}";
 	# DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
 	# -mi output will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
 	# values: MCMC NBE EBE RES
-	echo "[DEBUG=$DEBUG] running: $BLANT -k$k -n$n $SAMPLE_METHOD -mi -e$edgesCount '$net'" >&2
-	$BLANT -k$k -n$n $SAMPLE_METHOD -mi -e$edgesCount "$net" > $TMPDIR/blant$k.out & # run them all parallel in the background, outputting to separate files
+	CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -e$edgesCount -mc $net"
+	echo "[DEBUG=$DEBUG] running: $CMD" >&2
+	$CMD > $TMPDIR/blant$k.out & # run them all parallel in the background, outputting to separate files
     done
 
 for k in "${Ks[@]}"; do
@@ -101,23 +102,21 @@ done
 
 hawk 'BEGIN{}
 	{ # run this on ALL input files, not just ARGIND==1
-		for(i=2;i<=NF;i++){
-			++Kc[$i]; # increment the near-clique count for each node in the graphlet
-			for(j=2;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
-				if (j==i) continue;
-				neighbors[$i][$j] = 1; # maybe better to ++ to keep count, then sort on that count?
-			}
+		Kc[$1]+=$3; # increment the near-clique count across all orbits (for now, ignore orbit in $2)
+		for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
+			#if ($j==$1) continue;
+			neighbors[$1][$j] = 1;
 		}
 	}
 	END{
-		for(u in Kc){
-			ORS=" "
-			print Kc[u], u # print the near-clique count and the node
-			for (v in neighbors[u]){
-				print v
-			}
-			ORS="\n"; print "";
-		}
+	    for(u in Kc){
+		    ORS=" "
+		    print Kc[u], u # print the near-clique count and the node
+		    for (v in neighbors[u]){
+			    print v
+		    }
+		    ORS="\n"; print "";
+	    }
 	}' $TMPDIR/blant?.out | # the ? matches all values of k
 	sort -nr > $TMPDIR/cliqs.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 
@@ -217,5 +216,5 @@ hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 			print ""
 	    }
 	}' | sort -k 1nr -k 8n # sort by number of nodes and then by the first node in the list
-set -x
+#set -x
 exit $BLANT_EXIT_CODE
