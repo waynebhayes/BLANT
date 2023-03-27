@@ -249,7 +249,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k));
 	break;
-    case communityDetection: ProcessNodeOrbitNeighbors(Gint, GintOrdinal, Varray, g, k); break;
+    case communityDetection:
+	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
+	else ProcessNodeOrbitNeighbors(Gint, GintOrdinal, Varray, g, k);
+	break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
 	break;
