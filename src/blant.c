@@ -473,7 +473,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
     switch(_outputMode)
     {
-	int canon, orbit_index, u,v;
+	int canon, orbit_index, u,v,c;
     case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	break; // already printed on-the-fly in the Sample/Process loop above
     case graphletFrequency:
@@ -520,12 +520,20 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
         break;
     case communityDetection:
         for(u=0; u<G->n; u++) {
-	    for(j=0; j<_numConnectedOrbits; j++) {
-		printf("%s", PrintNode(0,u));
-		orbit_index = _connectedOrbits[j];
-		printf(" %d %lu\t", orbit_index, ODV(u,orbit_index));
-		for(v=0;v<G->n; v++) if(SetIn(_communityNeighbors[u][orbit_index],v)) printf("%s", PrintNode(' ',v));
-		printf("\n");
+	    for(c=0; c<_numConnectedOrbits; c++) {
+		orbit_index = _connectedOrbits[c];
+		unsigned long odv=ODV(u,orbit_index);
+		int numPrinted = 0;
+		if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
+		    for(j=0;j<G->degree[u]; j++) {
+			v = G->neighbor[u][j];
+			if(SetIn(_communityNeighbors[u][orbit_index],v)) {
+			    if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), orbit_index, odv);
+			    printf("%s", PrintNode(' ',v));
+			}
+		    }
+		    if(numPrinted) printf("\n");
+		}
 	    }
 	}
 	break;
@@ -543,8 +551,8 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
 	Free(_graphletDegreeVector[i]);
-    if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
-	if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
+    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
+    if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
     TinyGraphFree(empty_g);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
@@ -606,22 +614,6 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     int i,j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
-    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
-	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
-    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++){
-	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
-	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
-    }
-    if (_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
-	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
-	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
-    }
-    if(_outputMode == predict) Predict_Init(G);
-    if (_outputMode == graphletDistribution) {
-        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
-        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
-        for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
-    }
 
     if(_JOBS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
@@ -1129,7 +1121,7 @@ int main(int argc, char *argv[])
     // exactly _THREADS-1 values from near the beginning of this main random stream.
     RandomSeed(_seed);
 
-    if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse us
+    if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse use
 	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
 		_freqDisplayMode = count;
 
@@ -1172,46 +1164,48 @@ int main(int argc, char *argv[])
     // whether to output a sampled graphlet at all during INDEXING based on how much "ambiguity" there is in its
     // local alignment. The more permutations of the graphlet there are, the less useful it is for seeding local
     // alignments and therefore the less useful as a database index entry.
-    _windowRep_allowed_ambig_set = SetAlloc(_numCanon);
-    SET *orbit_temp = SetAlloc(_numOrbits);
-    for(i=0; i<_numCanon; i++) {
-        if (SetIn(_connectedCanonicals, i)) {
-            // calculate number of permutations for the given canonical graphlet
-	    // (loop through all unique orbits and count how many times they appear)
-            // the formula is for every unique orbit, multiply the number of permutations by
-	    // the factorial of how many appearances that unique orbit has
-            // if there is one orbit with three nodes and a second orbit with 2 nodes,
-	    // the number of permutations would be (3!)(2!)
-            // NOTE: this is not the most efficient algorithm since it doesn't use hash tables.
-	    // I didn't want to overcomplicate it because it only happens once per run.
-            // however, if speed is important (this currently takes about 5 seconds on k=8) this can be sped up
-            for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
-            unsigned uniq_orbits[_k];
-            unsigned num_uniq_orbits = SetToArray(uniq_orbits, orbit_temp);
-            unsigned uniq_orbit_i;
-            unsigned total_orbit_perms = 1;
+    if(_sampleMethod == SAMPLE_INDEX) {
+	_windowRep_allowed_ambig_set = SetAlloc(_numCanon);
+	SET *orbit_temp = SetAlloc(_numOrbits);
+	for(i=0; i<_numCanon; i++) {
+	    if (SetIn(_connectedCanonicals, i)) {
+		// calculate number of permutations for the given canonical graphlet
+		// (loop through all unique orbits and count how many times they appear)
+		// the formula is for every unique orbit, multiply the number of permutations by
+		// the factorial of how many appearances that unique orbit has
+		// if there is one orbit with three nodes and a second orbit with 2 nodes,
+		// the number of permutations would be (3!)(2!)
+		// NOTE: this is not the most efficient algorithm since it doesn't use hash tables.
+		// I didn't want to overcomplicate it because it only happens once per run.
+		// however, if speed is important (this currently takes about 5 seconds on k=8) this can be sped up
+		for(j=0; j<_k; j++) SetAdd(orbit_temp, _orbitList[i][j]);
+		unsigned uniq_orbits[_k];
+		unsigned num_uniq_orbits = SetToArray(uniq_orbits, orbit_temp);
+		unsigned uniq_orbit_i;
+		unsigned total_orbit_perms = 1;
 
-            for (uniq_orbit_i=0; uniq_orbit_i<num_uniq_orbits; uniq_orbit_i++) {
-                unsigned orbit_appearances = 0;
-                unsigned orbit_i = 0;
+		for (uniq_orbit_i=0; uniq_orbit_i<num_uniq_orbits; uniq_orbit_i++) {
+		    unsigned orbit_appearances = 0;
+		    unsigned orbit_i = 0;
 
-                for (orbit_i=0; orbit_i<_k; orbit_i++) {
-                    if (_orbitList[i][orbit_i] == uniq_orbits[uniq_orbit_i]) {
-                        orbit_appearances++;
-                        total_orbit_perms *= orbit_appearances;
-                    }
-                }
-            }
+		    for (orbit_i=0; orbit_i<_k; orbit_i++) {
+			if (_orbitList[i][orbit_i] == uniq_orbits[uniq_orbit_i]) {
+			    orbit_appearances++;
+			    total_orbit_perms *= orbit_appearances;
+			}
+		    }
+		}
 
-            // I know it's inefficient to put multiplicity here instead of around the whole orbit perm calculation code but
-	    // it increases readability, at least until orbit perm calculation is put into a function
-            if(multiplicity == 0 || total_orbit_perms <= multiplicity) { // multiplicity = 0 means any ambiguity is allowed
-                SetAdd(_windowRep_allowed_ambig_set, i);
-            }
-            SetEmpty(orbit_temp);
-        }
+		// I know it's inefficient to put multiplicity here instead of around the whole orbit perm calculation code but
+		// it increases readability, at least until orbit perm calculation is put into a function
+		if(multiplicity == 0 || total_orbit_perms <= multiplicity) { // multiplicity = 0 means any ambiguity is allowed
+		    SetAdd(_windowRep_allowed_ambig_set, i);
+		}
+		SetEmpty(orbit_temp);
+	    }
+	}
+	SetFree(orbit_temp);
     }
-    SetFree(orbit_temp);
 
     // Read network using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames);
@@ -1222,20 +1216,31 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
+    // Initialize various things based on _outputMode
+    if(_outputMode==outputGDV) for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Calloc(G->n, sizeof(*_graphletDegreeVector));
+    if(_outputMode==outputODV) for(i=0;i<_numOrbits;i++) {
+	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(*_doubleOrbitDegreeVector));
+	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
+    }
     if(_outputMode == communityDetection) { // allocate sets for [node][orbit]
 	assert(_numOrbits>0);
-	int node, orbit;
 	_communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**));
-	for(node=0; node < G->n; node++) {
-	    _communityNeighbors[node] = (SET**) Calloc(_numOrbits, sizeof(SET*));
-	    for(orbit=0; orbit<_numOrbits;orbit++) {
-		_communityNeighbors[node][orbit] = SetAlloc(G->n);
-	    }
-	}
+	// Only allocate when needed
+	//    _communityNeighbors[node] = (SET**) Calloc(_numOrbits, sizeof(SET*));
     }
 
-    if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
-    {
+    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++) {
+	    _orbitDegreeVector[i] = Calloc(G->n, sizeof(*_orbitDegreeVector));
+	    for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+    }
+    if(_outputMode == predict) Predict_Init(G);
+    if (_outputMode == graphletDistribution) {
+        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
+        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
+        for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
+    }
+
+    if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) {
         FILE *fp;
         _graphNodeImportance = Calloc(G->n, sizeof(float));
         if((optind + 1) == argc) {
