@@ -40,6 +40,7 @@ int _alphaList[MAX_CANONICALS];
 int _numCanon, _numSamples, _canonNumEdges[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
+SET ***_communityNeighbors;
 int _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -472,8 +473,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
     switch(_outputMode)
     {
-	int canon;
-	int orbit_index;
+	int canon, orbit_index, u,v;
     case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	break; // already printed on-the-fly in the Sample/Process loop above
     case graphletFrequency:
@@ -518,6 +518,17 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 	    printf("\n");
 	}
         break;
+    case communityDetection:
+        for(u=0; u<G->n; u++) {
+	    for(j=0; j<_numConnectedOrbits; j++) {
+		printf("%s", PrintNode(0,u));
+		orbit_index = _connectedOrbits[j];
+		printf(" %d %lu\t", orbit_index, ODV(u,orbit_index));
+		for(v=0;v<G->n; v++) if(SetIn(_communityNeighbors[u][orbit_index],v)) printf("%s", PrintNode(' ',v));
+		printf("\n");
+	    }
+	}
+	break;
     case graphletDistribution:
         for(i=0; i<_numCanon; i++) {
             for(j=0; j<_numCanon; j++)
@@ -597,7 +608,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
     if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
 	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
-    if(_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
+    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++){
 	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
     }
@@ -797,7 +808,7 @@ const char * const USAGE_SHORT =
 "USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
 "    -s samplingMethod (default MCMC; NBE, EBE, RES, AR, INDEX, EDGE_COVER)\n"\
-"    -m{outputMode} (default o=ODV; g=GDV, f=frequency, i=index, r=root(used only for INDEX), d=distribution of neighbors\n"\
+"    -m{outputMode} (default o=ODV; g=GDV, f=frequency, i=index, c=community, r=root, d=distribution of neighbors\n"\
 "    -d{displayModeForCanonicalIDs} (o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, i=integerOrdinal)\n"\
 "    -r seed (integer)\n\n"\
 "    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the task up into N jobs (default 1) allowing\n"\
@@ -843,13 +854,14 @@ const char * const USAGE_LONG =
 "	g = GDV (Graphlet Degree Vector) Note this is NOT what is commonly called a GDV, which is actually an ODV (above).\n"\
 "	NOTE: the difference is that an ODV counts the number of nodes that touch all possible *orbits*, while a GDV lists\n"\
 "		only the smaller vector of how many nodes touch each possible *graphlet* (independent of orbit).\n"\
+"	c = Community detection: each line consists of: node orbit count [TAB] neighbors.\n"\
 "	f = graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across our random samples.\n"\
 "	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
 "	i = {i}ndex: each line is a graphlet with columns: canonical ID, then k nodes in canonical order; useful since\n"\
 "	    two lines with the same first column constitutes a PERFECT k-node local alignment between the two graphlets.\n"\
 "	r = index with {r}oot node orbit: each line is a canonical ID + the orbit of the root node, then k nodes in canonical order; produces better seeds when the index is queried by the alignment algorithm\n"\
 "	d = graphlet neighbor {D}istribution\n"\
-"    -d{displayMode} [no default--MANDATORY for indexing modes]: single character controls how canonical IDs are displayed:\n"\
+"    -d{displayMode: single character controls how canonical IDs are displayed. (DEFAULT=-mi): \n"\
 "	o = ORCA numbering\n"\
 "	j = JESSE numbering\n"\
 "	b = explicit binary representation of the half-adjacency matrix of the canonical graphlet\n"\
@@ -913,6 +925,7 @@ int main(int argc, char *argv[])
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
 	    {
+	    case 'c': _outputMode = communityDetection; break;
 	    case 'm': _outputMode = indexMotifs; break;
 	    case 'M': _outputMode = indexMotifOrbits; break;
 	    case 'i': _outputMode = indexGraphlets; break;
@@ -1208,6 +1221,18 @@ int main(int argc, char *argv[])
 	_nodeNames = G->name;
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
+
+    if(_outputMode == communityDetection) { // allocate sets for [node][orbit]
+	assert(_numOrbits>0);
+	int node, orbit;
+	_communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**));
+	for(node=0; node < G->n; node++) {
+	    _communityNeighbors[node] = (SET**) Calloc(_numOrbits, sizeof(SET*));
+	    for(orbit=0; orbit<_numOrbits;orbit++) {
+		_communityNeighbors[node][orbit] = SetAlloc(G->n);
+	    }
+	}
+    }
 
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
     {
