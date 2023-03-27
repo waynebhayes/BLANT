@@ -111,7 +111,10 @@ extern unsigned int L_K_Func(Gint_type Gint);
 #define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
 extern SET *_connectedCanonicals;
 
-enum OutputMode {undef, indexGraphlets, indexGraphletsRNO, indexOrbits, indexMotifs,
+// When in community mode: for each node, and for each orbit it is in, a set of its neigbors when it apppears at that orbit
+extern SET ***_communityNeighbors;
+
+enum OutputMode {undef, indexGraphlets, indexGraphletsRNO, indexOrbits, indexMotifs, communityDetection,
     indexMotifOrbits, predict, predict_merge, graphletFrequency, outputODV, outputGDV,
     graphletDistribution // used in Windowing
 };

@@ -12,6 +12,9 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 // YOU must print it (immediately is best, since the buffer will be over-written the next time you call the function).
 char *PrintCanonical(int GintOrdinal); // returns a string that YOU must print
 
+// For _outputMode = communityDetection, process the orbit counts and neighbors
+void ProcessNodeOrbitNeighbors(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k);
+
 // You should print a node EXCLUSIVELY with this function; it automatically determines if we're supporting names or not.
 // If c is non-zero, the character is prepended, using putchar(), before the node is printed (eg ' ', ';' or '\t').
 char *PrintNode(char c, int v); // returns a pointer to a constant buffer; YOU need to print it.

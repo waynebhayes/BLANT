@@ -196,6 +196,29 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], 
     return buf[which];
 }
 
+void ProcessNodeOrbitNeighbors(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+    assert(TinyGraphDFSConnected(g,0));
+    int c,d; // canonical nodes
+    unsigned char perm[MAX_K+1];
+#if SORT_INDEX_MODE
+    VarraySort(Varray, k);
+    for(c=0;c<k;c++) perm[c]=c;
+#else
+    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+    memset(perm, 0, k);
+    ExtractPerm(perm, Gint);
+#endif
+    for(c=0;c<k;c++)
+    {
+	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
+	++ODV(u, _orbitList[GintOrdinal][c]);
+	for(d=0;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
+	    int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
+	    SetAdd(_communityNeighbors[u][u_orbit], v);
+	}
+    }
+}
+
 Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g)
 {
     Boolean processed = true;
@@ -226,6 +249,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k));
 	break;
+    case communityDetection: ProcessNodeOrbitNeighbors(Gint, GintOrdinal, Varray, g, k); break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
 	break;
