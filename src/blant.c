@@ -1164,7 +1164,7 @@ int main(int argc, char *argv[])
     // whether to output a sampled graphlet at all during INDEXING based on how much "ambiguity" there is in its
     // local alignment. The more permutations of the graphlet there are, the less useful it is for seeding local
     // alignments and therefore the less useful as a database index entry.
-    if(_sampleMethod == SAMPLE_INDEX) {
+    if(_sampleMethod == SAMPLE_INDEX || _window) {
 	_windowRep_allowed_ambig_set = SetAlloc(_numCanon);
 	SET *orbit_temp = SetAlloc(_numOrbits);
 	for(i=0; i<_numCanon; i++) {
