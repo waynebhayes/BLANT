@@ -7,7 +7,7 @@ EDGE_DENSITY_THRESHOLD=1.0
 USAGE="USAGE: $BASENAME [OPTIONS] blant.exe k M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
-    k1 k2...: value(s) of k to use. Multiple values of k can be put in quotes (eg '3 4 5').
+    k : value of k to use for graphlet sampling
     M is the mean number of times each *node* should be touched by a graphlet sample,
 	so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
     EDGE_DENSITY_THRESHOLD is optional and defaults to $EDGE_DENSITY_THRESHOLD.
@@ -54,11 +54,10 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
 done
 
 [ $# -lt 4 ] && die "not enough arguments"
-#[ $# -gt 6 ] && die "too many arguments"
+[ $# -gt 6 ] && die "too many arguments"
 
 BLANT=$1;
-Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
-[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
+k=$2
 
 sampleMultiplier=$3 
 net=$4; 
@@ -66,17 +65,10 @@ if [ $# -eq 5 ]; then
     EDGE_DENSITY_THRESHOLD=$5;
 fi
 
-if [ $# -gt 5 ]; then
-    EDGE_DENSITY_THRESHOLD=$5; shift 5
-fi
-
 numNodes=`newlines < $net | sort -u | wc -l`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
-for k in "${Ks[@]}";
-    do
-	[ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
-    done
+[ "$k" -ge 3 -a "$k" -le 8 ] || die "k is '$k' but must be between 3 and 8"
 
 [ -f "$net" ] || die "network '$net' does not exist"
 case "$net" in
@@ -86,21 +78,14 @@ esac
 DEBUG=false # set to true to store BLANT output
 
 BLANT_EXIT_CODE=0
-for k in "${Ks[@]}";
-    do
-	n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
-	minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
-	# DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
-	# -mi output will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
-	# values: MCMC NBE EBE RES
-	CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc $net" #-e$minEdges
-	echo "[DEBUG=$DEBUG] running: $CMD" >&2
-	$CMD > $TMPDIR/blant$k.out & # run them all parallel in the background, outputting to separate files
-    done
-
-for k in "${Ks[@]}"; do
-    wait; (( BLANT_EXIT_CODE += $? ))
-done
+n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
+minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
+# DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
+# -mi output will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
+# values: MCMC NBE EBE RES
+CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc $net" #-e$minEdges
+echo "[DEBUG=$DEBUG] running: $CMD" >&2
+$CMD > $TMPDIR/blant$k.out
 
 hawk 'BEGIN{}
 	ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
