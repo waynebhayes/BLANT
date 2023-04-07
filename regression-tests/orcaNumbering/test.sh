@@ -1,6 +1,6 @@
 #!/bin/bash
 if $CI; then
-    echo "WARNING: cannot use hawk during continuous integration; returning success" >&2
+    echo "CI is $CI; cannot use hawk during continuous integration; returning success" >&2
     exit 0
 fi
 

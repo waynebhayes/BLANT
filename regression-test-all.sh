@@ -82,6 +82,7 @@ fi
 
 export EIGHT=8
 if [ "$CI" = true ]; then # continuous integration needs to run faster
+    echo '$CI'" variable is '$CI', so assuming we are doing continuous integration" >&2
     unset EIGHT
     export NO8=1
     export PAUSE=0
