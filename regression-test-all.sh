@@ -86,6 +86,8 @@ if [ "$CI" = true ]; then # continuous integration needs to run faster
     unset EIGHT
     export NO8=1
     export PAUSE=0
+else
+    echo '$CI'" = '$CI'; NOT doing continuous integration" >&2
 fi
 
 if [ "$NO8" != "" ]; then unset EIGHT; fi
