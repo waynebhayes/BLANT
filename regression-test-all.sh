@@ -1,4 +1,11 @@
 #!/bin/bash
+
+if [ "$RUNNING_UNDER_TIME" != true ]; then
+    export RUNNING_UNDER_TIME=true
+    echo "restarting with timing" >&2
+    exec time $0 "$@"
+fi
+
 case "$1" in
 -use-git-at)
     if [ -f git-at ] && [ `wc -l < git-at` -eq 2 -a `git log -1 --format=%at` -eq `tail -1 git-at` ]; then
