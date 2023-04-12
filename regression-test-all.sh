@@ -1,4 +1,11 @@
 #!/bin/bash
+
+if [ "$RUNNING_UNDER_TIME" != true ]; then
+    export RUNNING_UNDER_TIME=true
+    echo "restarting with timing" >&2
+    exec time $0 "$@"
+fi
+
 case "$1" in
 -use-git-at)
     if [ -f git-at ] && [ `wc -l < git-at` -eq 2 -a `git log -1 --format=%at` -eq `tail -1 git-at` ]; then
@@ -82,9 +89,12 @@ fi
 
 export EIGHT=8
 if [ "$CI" = true ]; then # continuous integration needs to run faster
+    echo '$CI'" variable is '$CI', so assuming we are doing continuous integration" >&2
     unset EIGHT
     export NO8=1
     export PAUSE=0
+else
+    echo '$CI'" = '$CI'; NOT doing continuous integration" >&2
 fi
 
 if [ "$NO8" != "" ]; then unset EIGHT; fi

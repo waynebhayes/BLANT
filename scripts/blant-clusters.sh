@@ -4,7 +4,7 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 EDGE_DENSITY_THRESHOLD=1.0
-USAGE="USAGE: $BASENAME [OPTIONS] blant.exe k M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
+USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
     k : value of k to use for graphlet sampling
@@ -53,22 +53,37 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     esac
 done
 
+<<<<<<< HEAD
 [ $# -lt 4 ] && die "not enough arguments"
 [ $# -gt 6 ] && die "too many arguments"
 
 BLANT=$1;
 k=$2
+=======
+[ $# -lt 3 ] && die "not enough arguments"
+#[ $# -gt 5 ] && die "too many arguments"
 
-sampleMultiplier=$3 
-net=$4; 
-if [ $# -eq 5 ]; then
+BLANT=$1;
+Ks=(7 6 5 4 3) #(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
+#[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
+>>>>>>> 760c0b4f9284d902e06ea6d5522c3998631f5e40
+
+sampleMultiplier=$2
+net=$3;
+if [ $# -eq 4 ]; then
     EDGE_DENSITY_THRESHOLD=$5;
 fi
 
 numNodes=`newlines < $net | sort -u | wc -l`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
+<<<<<<< HEAD
 [ "$k" -ge 3 -a "$k" -le 8 ] || die "k is '$k' but must be between 3 and 8"
+=======
+for k in "${Ks[@]}"; do
+    [ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
+done
+>>>>>>> 760c0b4f9284d902e06ea6d5522c3998631f5e40
 
 [ -f "$net" ] || die "network '$net' does not exist"
 case "$net" in
@@ -78,6 +93,7 @@ esac
 DEBUG=false # set to true to store BLANT output
 
 BLANT_EXIT_CODE=0
+<<<<<<< HEAD
 n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
 minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
 # DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
@@ -86,107 +102,121 @@ minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=i
 CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc $net" #-e$minEdges
 echo "[DEBUG=$DEBUG] running: $CMD" >&2
 $CMD > $TMPDIR/blant$k.out
+=======
+for k in "${Ks[@]}"; do
+    n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
+    minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
+    # Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
+    # DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
+    # Possible values: MCMC NBE EBE RES
+    CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc $net" #-e$minEdges
+    echo "[DEBUG=$DEBUG] running: $CMD" >&2
+    $CMD > $TMPDIR/blant$k.out & # run them all parallel in the background, outputting to separate files
+done
 
-hawk 'BEGIN{}
+for k in "${Ks[@]}"; do
+    wait; (( BLANT_EXIT_CODE += $? ))
+done
+>>>>>>> 760c0b4f9284d902e06ea6d5522c3998631f5e40
+
+for k in "${Ks[@]}"; do
+    hawk 'BEGIN{}
 	ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
 	ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2; canon2orbit[FNR-2][i]=$i}
 	ARGIND==3 && $3>0{ # ensure the actual count is nonzero
-		orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<'$minEdges') next;
-		Kc[$1]+=$3; # increment the near-clique count across all orbits
-		for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
-			++neighbors[$1][$j];
-		}
+	    orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<'$minEdges') next;
+	    Kc[$1]+=$3; # increment the near-clique count across all orbits
+	    for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
+		    ++neighbors[$1][$j];
+	    }
 	}
 	END{
 	    for(u in Kc){
-		    ORS=" "
-		    print Kc[u], u # print the near-clique count and the node
-		    for (v in neighbors[u]){
-			    print v
-		    }
-		    ORS="\n"; print "";
+		ORS=" "
+		print Kc[u], u # print the near-clique count and the node
+		for (v in neighbors[u]){
+		    print v
+		}
+		ORS="\n"; print "";
 	    }
-	}' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $TMPDIR/blant?.out | # the ? matches all values of k
-	sort -nr > $TMPDIR/cliqs.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
-
-hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
+	}' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $TMPDIR/blant$k.out |
+    sort -nr | # > $TMPDIR/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
+    hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 	ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	ARGIND==2{count[$2]=$1; node[FNR]=$2; line[$2]=FNR; for(i=3; i<=NF; i++){neighbors[$2][$i]=1;neighbors[$i][$2]=1;}}
 	function EdgeCount(v,       edgeHits,u) {
-		edgeHits=0;
-		for(u in S){if(edge[u][v]) ++edgeHits;}
-		return edgeHits;
+	    edgeHits=0;
+	    for(u in S){if(edge[u][v]) ++edgeHits;}
+	    return edgeHits;
 	}
 	function highRelCliqueCount(u, v){ # Heuristic
-		if(!(u in count) || count[u]==0) return 1;
-		if (v in count){
-			return count[v]/count[u]>=0.5;
-		} else {
-			return 1/count[u]>=0.5;
-		}
+	    if(!(u in count) || count[u]==0) return 1;
+	    if (v in count){
+		    return count[v]/count[u]>=0.5;
+	    } else {
+		    return 1/count[u]>=0.5;
+	    }
 	}
 
 	function expand(u, origin){
-		PROCINFO["sorted_in"]="randsort";
-		for (v in neighbors[u]){
-			if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)){
-				QueueAdd("Q", v);
-				visited[v]=1;
-			}
+	    PROCINFO["sorted_in"]="randsort";
+	    for (v in neighbors[u]){
+		if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)){
+		    QueueAdd("Q", v);
+		    visited[v]=1;
 		}
-		PROCINFO["sorted_in"]="@unsorted";
-		return;
+	    }
+	    PROCINFO["sorted_in"]="@unsorted";
+	    return;
 	}
 	END{n=length(degree); # number of nodes in the input network
-		clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
-		numCliques=0;
-		QueueAlloc("Q");
-		for(start=1; start<=FNR; start++) { # look for a clique starting on line "start". 
-			if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
-			origin=node[start];
-			if (origin in visited) continue;
-			delete S; # this will contain the nodes in the current cluster
-			delete visited;
-			misses=0; # how many nodes have been skipped because they did not work?
-			QueueAdd("Q", origin);
-			visited[origin] = 1;
-			edgeCount = 0;
-			while(QueueLength("Q")>0){
-				u = QueueNext("Q");
-				newEdgeHits = EdgeCount(u);
-				edgeCount += newEdgeHits;
-				S[u]=1;
-				Slen = length(S);
-				if (Slen>1){
-					maxEdges = choose(Slen,2);
-					if(edgeCount/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
-						if(length(S)==Slen){
-							delete S[u]; # no node was removed, so remove this one
-							edgeCount -= newEdgeHits;
-						}
-						if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
-						# keep going until count decreases significantly; duplicate cliques removed in the next awk
-						#visited[u]=0;
-					}else{
-						expand(u, orign);
-					}
-				} else {
-					expand(u, origin);
-				}
+	    clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
+	    numCliques=0;
+	    QueueAlloc("Q");
+	    for(start=1; start<=FNR; start++) { # look for a clique starting on line "start". 
+		if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
+		origin=node[start];
+		if (origin in visited) continue;
+		delete S; # this will contain the nodes in the current cluster
+		delete visited;
+		misses=0; # how many nodes have been skipped because they did not work?
+		QueueAdd("Q", origin);
+		visited[origin] = 1;
+		edgeCount = 0;
+		while(QueueLength("Q")>0){
+		    u = QueueNext("Q");
+		    newEdgeHits = EdgeCount(u);
+		    edgeCount += newEdgeHits;
+		    S[u]=1;
+		    Slen = length(S);
+		    if (Slen>1){
+			maxEdges = choose(Slen,2);
+			if(edgeCount/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
+			    if(length(S)==Slen){
+				delete S[u]; # no node was removed, so remove this one
+				edgeCount -= newEdgeHits;
+			    }
+			    if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
+			    # keep going until count decreases significantly; duplicate cliques removed in the next awk
+			    #visited[u]=0;
+			}else{
+				expand(u, orign);
 			}
-			if(length(S)>3) {
-				maxEdges=choose(length(S),2);
-				++numCliques; printf "%d %d", length(S), edgeCount
-				for(u in S) {clique[numCliques][u]=1; printf " %s", u}
-				print ""
-				if('$ONLY_ONE') exit;
-			}
+		    } else {
+			    expand(u, origin);
+		    }
 		}
-	}' "$net" $TMPDIR/cliqs.sorted  | # dash is the output of the above pipe (sorted near-clique-counts)
+		if(length(S)>3) {
+		    maxEdges=choose(length(S),2);
+		    ++numCliques; printf "%d %d", length(S), edgeCount
+		    for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+		    print ""
+		    if('$ONLY_ONE') exit;
+		}
+	    }
+	}' "$net" - | # $TMPDIR/cliqs$k.sorted | # dash is the output of the above pipe (sorted near-clique-counts)
     sort -nr | # sort the above output by number of nodes in the near-clique
-    hawk 'BEGIN{
-	    numCliques=0
-	} # post-process to remove duplicates
+    hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 	{
 	    delete S; seenColon=0;
 	    numNodes=$1
@@ -200,11 +230,19 @@ hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 	    }
 	    if(numCliques==0 || same < length(S)) {
 			maxEdges=choose(length(S),2);
-			++numCliques; printf "%d nodes, %d of %d edges (%g%%):",
+			++numCliques; printf "%d nodes, %d of %d edges from k '$k' (%g%%):",
 		    length(S), edgeHits, maxEdges, 100*edgeHits/maxEdges
 			for(u in S) {clique[numCliques][u]=1; printf " %s", u}
 			print ""
 	    }
-	}' | sort -k 1nr -k 8n # sort by number of nodes and then by the first node in the list
+	}' | sort -k 1nr -k 11n > $TMPDIR/final$k.out & # sort by number of nodes and then by the first node in the list
+done
+
+for k in "${Ks[@]}"; do
+    wait; (( BLANT_EXIT_CODE += $? ))
+done
+
+sort -k 1nr -k 11n $TMPDIR/final?.out
+
 #set -x
 exit $BLANT_EXIT_CODE
