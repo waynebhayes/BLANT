@@ -7,7 +7,6 @@ EDGE_DENSITY_THRESHOLD=1.0
 USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
-    k : value of k to use for graphlet sampling
     M is the mean number of times each *node* should be touched by a graphlet sample,
 	so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
     EDGE_DENSITY_THRESHOLD is optional and defaults to $EDGE_DENSITY_THRESHOLD.
@@ -53,37 +52,25 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     esac
 done
 
-<<<<<<< HEAD
-[ $# -lt 4 ] && die "not enough arguments"
-[ $# -gt 6 ] && die "too many arguments"
-
-BLANT=$1;
-k=$2
-=======
 [ $# -lt 3 ] && die "not enough arguments"
 #[ $# -gt 5 ] && die "too many arguments"
 
 BLANT=$1;
 Ks=(7 6 5 4 3) #(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
->>>>>>> 760c0b4f9284d902e06ea6d5522c3998631f5e40
 
 sampleMultiplier=$2
 net=$3;
 if [ $# -eq 4 ]; then
-    EDGE_DENSITY_THRESHOLD=$5;
+    EDGE_DENSITY_THRESHOLD=$4;
 fi
 
 numNodes=`newlines < $net | sort -u | wc -l`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
-<<<<<<< HEAD
-[ "$k" -ge 3 -a "$k" -le 8 ] || die "k is '$k' but must be between 3 and 8"
-=======
 for k in "${Ks[@]}"; do
     [ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
 done
->>>>>>> 760c0b4f9284d902e06ea6d5522c3998631f5e40
 
 [ -f "$net" ] || die "network '$net' does not exist"
 case "$net" in
@@ -93,19 +80,9 @@ esac
 DEBUG=false # set to true to store BLANT output
 
 BLANT_EXIT_CODE=0
-<<<<<<< HEAD
-n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
-minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
-# DO NOT USE MCMC! Because although MCMC gives asymptotically correct concentrations *internally*, the
-# -mi output will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
-# values: MCMC NBE EBE RES
-CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc $net" #-e$minEdges
-echo "[DEBUG=$DEBUG] running: $CMD" >&2
-$CMD > $TMPDIR/blant$k.out
-=======
 for k in "${Ks[@]}"; do
     n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
-    minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
+    #minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
     # Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
     # DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
     # Possible values: MCMC NBE EBE RES
@@ -117,14 +94,13 @@ done
 for k in "${Ks[@]}"; do
     wait; (( BLANT_EXIT_CODE += $? ))
 done
->>>>>>> 760c0b4f9284d902e06ea6d5522c3998631f5e40
 
 for k in "${Ks[@]}"; do
-    hawk 'BEGIN{}
+    hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;};minEdges=rounded_edC}
 	ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
 	ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2; canon2orbit[FNR-2][i]=$i}
 	ARGIND==3 && $3>0{ # ensure the actual count is nonzero
-	    orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<'$minEdges') next;
+	    orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<minEdges) next;
 	    Kc[$1]+=$3; # increment the near-clique count across all orbits
 	    for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
 		    ++neighbors[$1][$j];
