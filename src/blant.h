@@ -28,7 +28,8 @@ double RandomUniform(void) {
 #define GEN_SYN_GRAPH 0
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
-extern int _JOBS, _MAX_THREADS, _numSamples;
+extern int _JOBS, _MAX_THREADS;
+extern unsigned long _numSamples;
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
 // This is the maximum graphlet size that BLANT supports when using a fixed lookup table. (Cannot be bigger than 8.)

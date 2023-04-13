@@ -37,7 +37,7 @@ unsigned int _k, _min_edge_count;
 unsigned int _Bk, _k_small;
 
 int _alphaList[MAX_CANONICALS];
-int _numCanon, _numSamples, _canonNumEdges[MAX_CANONICALS];
+int _numCanon, _canonNumEdges[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
@@ -53,7 +53,7 @@ int *_whichComponent;
 // char* _BLANT_DIR;
 
 enum OutputMode _outputMode = undef;
-unsigned long int _graphletCount[MAX_CANONICALS];
+unsigned long _numSamples, _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
 double _g_overcount, _graphletConcentration[MAX_CANONICALS];
 
@@ -192,7 +192,7 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
 // _MCMC_L represents the length of the sliding window in d graphlets for sampling
 // Global variable _numSamples needed for the algorithm to reseed halfway through
 // Concentrations are initialized to 0
-void initializeMCMC(GRAPH* G, int k, int numSamples) {
+void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 	_MCMC_L = k - mcmc_d  + 1;
 	// Count the number of valid edges to start from
 	int i, validEdgeCount = 0;
@@ -299,7 +299,7 @@ static int StateDegree(GRAPH *G, SET *S)
 #endif
 
 // This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
-void convertFrequencies(int numSamples)
+void convertFrequencies(unsigned long numSamples)
 {
     int i;
     if (_sampleMethod == SAMPLE_MCMC) {
@@ -324,7 +324,7 @@ void convertFrequencies(int numSamples)
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
-int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
+int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 {
     int i, j, windowRepInt, D;
     unsigned char perm[MAX_K+1];
@@ -422,6 +422,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     }
     else // sample numSamples graphlets for the entire graph
     {
+	unsigned long i;
         for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF)) && !_earlyAbort; i++)
         {
             if(_window) {
@@ -441,7 +442,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
             else if (_outputMode == graphletDistribution)
                 ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
             else {
-		static int stuck;
+		static unsigned long stuck;
 		// HACK: make the graphlet overcount global; it should really be PASSED into ProcessGraphlet
                 _g_overcount = SampleGraphlet(G, V, Varray, k, G->n); // weight will be 1.0 in most cases but if sample method is MCMC and it's not windowed it will be the count of the graphlet
                 if(ProcessGraphlet(G, V, Varray, k, empty_g)) stuck = 0;
@@ -568,7 +569,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 ** Caller is responsible for reading all the stuff from the returned FILE pointer,
 ** detecting EOF on it, and fclose'ing it.
 */
-FILE *ForkBlant(int k, int numSamples, GRAPH *G)
+FILE *ForkBlant(int k, unsigned long numSamples, GRAPH *G)
 {
     int fds[2];
     assert(pipe(fds) >= 0);
@@ -609,9 +610,9 @@ static FILE *fpThreads[MAX_POSSIBLE_THREADS]; // these will be the pipes reading
 // This is the primary entry point into BLANT, even if THREADS=1.  We assume you've already
 // read the graph into G, and will do whatever is necessary to run blant with the number of
 // threads specified.  Also does some sanity checking.
-int RunBlantInThreads(int k, int numSamples, GRAPH *G)
+int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 {
-    int i,j;
+    int i, j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
 
@@ -623,19 +624,19 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 
     // At this point, _JOBS must be greater than 1.
     assert(_JOBS>1);
-    int totalSamples = numSamples;
+    unsigned long totalSamples = numSamples;
     double meanSamplesPerJob = totalSamples/(double)_JOBS;
     Warning("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
 
     int threadsRunning = 0, jobsDone = 0;
     int thread, lineNum = 0, job=0;
     for(i=0; numSamples > 0 && i<_MAX_THREADS;i++) {
-	int samples = meanSamplesPerJob;
+	unsigned long samples = meanSamplesPerJob;
 	assert(samples>0);
 	if(samples > numSamples) samples = numSamples;
 	numSamples -= samples;
 	fpThreads[i] = ForkBlant(_k, samples, G);
-	Warning("Started job %d requesting %d samples; %d threads running, %d samples remaining to take",
+	Warning("Started job %d of %d samples; %d threads running, %ld samples remaining to take",
 	    job++, samples, ++threadsRunning, numSamples);
     }
     do
@@ -656,13 +657,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 		Warning("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
 		if(numSamples == 0) fpThreads[thread] = NULL; // signify this pointer is finished.
 		else {
-		    int samples = meanSamplesPerJob;
+		    unsigned long samples = meanSamplesPerJob;
 		    if(samples > numSamples) samples = numSamples;
 		    numSamples -= samples;
 		    fpThreads[thread] = ForkBlant(_k, samples, G);
 		    assert(fpThreads[thread]);
 		    ++threadsRunning;
-		    Warning("Started job %d (thread %d) requesting %d samples, %d threads running, %d samples remaining to take",
+		    Warning("Started job %d (thread %d) of %d samples, %d threads running, %ld samples remaining to take",
 			job++, thread, samples, threadsRunning, numSamples);
 		}
 		continue; // we'll ask for output next time around.
@@ -746,7 +747,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     } while(threadsRunning > 0);
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
-    int leftovers = numSamples % _JOBS;
+    unsigned long leftovers = numSamples % _JOBS;
     return RunBlantFromGraph(_k, leftovers, G);
 }
 
@@ -775,7 +776,7 @@ void BlantAddEdge(int v1, int v2)
     _numEdges++;
 }
 
-int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
+int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **nodeNames)
 {
     GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE);
     Free(_pairs);
@@ -787,7 +788,7 @@ int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
 // to have 2*numEdges elements (all integers), and each entry must be between 0 and
 // numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
 // we are going to free it right after creating G (ie., before returning to the caller.)
-int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int *pairs)
+int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, int *pairs)
 {
     assert(numNodes >= k);
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE);
@@ -883,7 +884,8 @@ const char * const USAGE_LONG =
 // in the parent.
 int main(int argc, char *argv[])
 {
-    int i, j, opt, numSamples=0, multiplicity=1;
+    int i, j, opt, multiplicity=1;
+    unsigned long numSamples=0;
     confidence = 0;
     double windowRep_edge_density = 0.0;
     int exitStatus = 0;
@@ -905,6 +907,7 @@ int main(int argc, char *argv[])
     {
 	switch(opt)
 	{
+	long nSampArg;
 	case 'h':
 	    printf("%s\n", USAGE_LONG);
 	    #if __MINGW32__ || __WIN32__ || __CYGWIN__
@@ -1057,7 +1060,9 @@ int main(int argc, char *argv[])
 	    if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
 	    _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
 	    break;
-	case 'n': numSamples = atoi(optarg);
+	case 'n': nSampArg = atol(optarg);
+	    if(nSampArg < 0) Fatal("%s\nFatal Error: numSamples [%s] must be a non-negative integer", USAGE_SHORT, optarg);
+	    numSamples = nSampArg;
 	    char lastChar = optarg[strlen(optarg)-1];
 	    if(!isdigit(lastChar))
 		switch(lastChar) {
@@ -1067,7 +1072,6 @@ int main(int argc, char *argv[])
 		default: Fatal("%s\nERROR: numSamples can be appended by k, m, b, or g but not %c\n%s", USAGE_SHORT, lastChar);
 		break;
 	    }
-	    if(numSamples < 0) Fatal("%s\nFatal Error: numSamples [%d] must be non-negative", USAGE_SHORT, numSamples);
 	    //fprintf(stderr, "numSamples set to %d\n", numSamples);
 	    break;
 	case 'K': _KS_NUMSAMPLES = atoi(optarg);
