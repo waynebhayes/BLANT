@@ -7,7 +7,6 @@ EDGE_DENSITY_THRESHOLD=1.0
 USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
-    k1 k2...: value(s) of k to use. Multiple values of k can be put in quotes (eg '3 4 5').
     M is the mean number of times each *node* should be touched by a graphlet sample,
 	so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
     EDGE_DENSITY_THRESHOLD is optional and defaults to $EDGE_DENSITY_THRESHOLD.
@@ -63,7 +62,7 @@ Ks=(7 6 5 4 3) #(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowe
 sampleMultiplier=$2
 net=$3;
 if [ $# -eq 4 ]; then
-    EDGE_DENSITY_THRESHOLD=$5;
+    EDGE_DENSITY_THRESHOLD=$4;
 fi
 
 numNodes=`newlines < $net | sort -u | wc -l`
@@ -83,7 +82,7 @@ DEBUG=false # set to true to store BLANT output
 BLANT_EXIT_CODE=0
 for k in "${Ks[@]}"; do
     n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
-    minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
+    #minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
     # Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
     # DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
     # Possible values: MCMC NBE EBE RES
@@ -97,11 +96,11 @@ for k in "${Ks[@]}"; do
 done
 
 for k in "${Ks[@]}"; do
-    hawk 'BEGIN{}
+    hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;};minEdges=rounded_edC}
 	ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
 	ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2; canon2orbit[FNR-2][i]=$i}
 	ARGIND==3 && $3>0{ # ensure the actual count is nonzero
-	    orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<'$minEdges') next;
+	    orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<minEdges) next;
 	    Kc[$1]+=$3; # increment the near-clique count across all orbits
 	    for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
 		    ++neighbors[$1][$j];
