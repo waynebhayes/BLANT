@@ -125,7 +125,10 @@ for k in "${Ks[@]}"; do
 	sort -nr | # > $TMPDIR/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 	hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
-	    ARGIND==2 && !($2 in count){orbit=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR; for(i=4; i<=NF; i++){neighbors[$2][$i]=1;neighbors[$i][$2]=1;}}
+	    ARGIND==2 && !($2 in count){
+		orbit=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
+		for(i=4; i<=NF; i++) neighbors[$2][$i] = neighbors[$i][$2]=1;
+	    }
 	    function EdgeCount(v,       edgeHits,u) {
 		edgeHits=0;
 		for(u in S){if(edge[u][v]) ++edgeHits;}
@@ -133,6 +136,7 @@ for k in "${Ks[@]}"; do
 	    }
 	    function highRelCliqueCount(u, v){ # Heuristic
 		if(!(u in count) || count[u]==0) return 1;
+		if(!(v in count) || count[v]==0) return 0;
 		if (v in count){
 			return count[v]/count[u]>=0.5;
 		} else {
@@ -140,22 +144,25 @@ for k in "${Ks[@]}"; do
 		}
 	    }
 
-	    function expand(u, origin){
-		PROCINFO["sorted_in"]="randsort";
-		for (v in neighbors[u]){
-		    if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)){
-			QueueAdd("Q", v);
-			visited[v]=1;
+	    function expand(u, origin,    v,oldOrder){
+		if(u in neighbors) {
+		    oldOrder=PROCINFO["sorted_in"];
+		    PROCINFO["sorted_in"]="randsort";
+		    for (v in neighbors[u]){
+			if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)){
+			    QueueAdd("Q", v);
+			    visited[v]=1;
+			}
 		    }
+		    PROCINFO["sorted_in"]=oldOrder;
 		}
-		PROCINFO["sorted_in"]="@unsorted";
 		return;
 	    }
 	    END{n=length(degree); # number of nodes in the input network
-		clique[0]=1; delete clique[0]; # clique is now explicitly an array, but with zero elements
+		cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
 		numCliques=0;
 		QueueAlloc("Q");
-		for(start=1; start<=FNR; start++) { # look for a clique starting on line "start". 
+		for(start=1; start<=FNR; start++) { # look for a cluster starting on line "start". 
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 		    origin=node[start];
 		    if (origin in visited) continue;
@@ -179,7 +186,7 @@ for k in "${Ks[@]}"; do
 				    edgeCount -= newEdgeHits;
 				}
 				if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
-				# keep going until count decreases significantly; duplicate cliques removed in the next awk
+				# keep going until count decreases significantly; duplicate cluster removed in the next awk
 				#visited[u]=0;
 			    }else{
 				    expand(u, orign);
@@ -191,7 +198,7 @@ for k in "${Ks[@]}"; do
 		    if(length(S)>3) {
 			maxEdges=choose(length(S),2);
 			++numCliques; printf "%d %d", length(S), edgeCount
-			for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+			for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 			print ""
 			if('$ONLY_ONE') exit;
 		    }
@@ -207,14 +214,14 @@ for k in "${Ks[@]}"; do
 		ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
 		    for(i=1;i<=numCliques;i++) {
 			    same=0;
-			    for(u in S) if(u in clique[i])++same;
+			    for(u in S) if(u in cluster[i])++same;
 			    if(same == length(S)) break;
 		}
 		if(numCliques==0 || same < length(S)) {
 			    maxEdges=choose(length(S),2);
 			    ++numCliques; printf "%d nodes, %d of %d edges from k '$k' (%g%%):",
 			length(S), edgeHits, maxEdges, 100*edgeHits/maxEdges
-			    for(u in S) {clique[numCliques][u]=1; printf " %s", u}
+			    for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 			    print ""
 		}
 	    }' | sort -k 1nr -k 11n > $TMPDIR/final$k.out & # sort by number of nodes and then by the first node in the list
