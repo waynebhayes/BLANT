@@ -54,6 +54,8 @@ extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're
 #elif TINY_SET_SIZE == 8
 typedef unsigned Gint_type;
     #define MAX_BINTREE_K 8
+#else
+#error "unknwon TINY_SET_SIZE"
 #endif
 
 extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS];

@@ -326,7 +326,7 @@ void convertFrequencies(unsigned long numSamples)
 // threads that finished and we have nothing to do except output their accumulated results.
 int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 {
-    int i, j, windowRepInt, D;
+    int windowRepInt, D;
     unsigned char perm[MAX_K+1];
     assert(k <= G->n);
     SET *V = SetAlloc(G->n);
@@ -349,6 +349,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
     if (_sampleMethod == SAMPLE_INDEX) {
+	int i;
         unsigned prev_nodes_array[_k];
 
         // Get heuristic values based on orbit number, if ODV file provided
@@ -461,6 +462,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 
     // Sampling done. Now generate output for output modes that require it.
 
+    int i,j;
     if(_window) {
         for(i=0; i<_numWindowRepArrSize; i++)
             free(_windowReps[i]);
