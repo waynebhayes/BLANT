@@ -88,7 +88,11 @@ SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, int *canon_num_e
 	char buf[BUFSIZ], *tmp;
 	tmp = fgets(buf, sizeof(buf), fp_ord);
 	assert(tmp == buf);
+#if TINY_SET_SIZE==8
+	assert(3==sscanf(buf, "%u\t%d %d", &canon_list[i], &connected, &canon_num_edges[i]));
+#else
 	assert(3==sscanf(buf, "%llu\t%d %d", &canon_list[i], &connected, &canon_num_edges[i]));
+#endif
 	if(connected) SetAdd(connectedCanonicals, i);
     }
     fclose(fp_ord);

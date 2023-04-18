@@ -1,8 +1,8 @@
 #ifndef BLANT_H
 #define BLANT_H
 
-#include "tinygraph.h"
 #include "sets.h"
+#include "tinygraph.h"
 #include "blant-window.h"
 #include "graph.h"
 
