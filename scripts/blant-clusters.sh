@@ -14,6 +14,7 @@ OPTIONS (added BEFORE the blant.exe name)
     -1: exit after printing only one 1 cluster (the biggest one)
     -e: make all the clusters mutually exclusive.
     -o: use only the highest count orbit for neighbors
+    -w: cluster count sorted with weights
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
     An optional leading integer (with no dash) 'tryHard' [default 0] should not be changed [experimental].
 "
@@ -41,6 +42,7 @@ case "$1" in
 [0-9]*) tryHard=$1; shift;;
 esac
 
+WEIGHTED=0
 ONLY_ONE=0
 exclusive=0
 SAMPLE_METHOD=-sMCMC #-sNBE
@@ -49,6 +51,7 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
     -o) ONLY_BEST_ORBIT=1; shift;;
+    -w) WEIGHTED=1; shift;;
     -e) exclusive=1; die "exclusive not yet supported"; shift;;
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
     -s*) SAMPLE_METHOD="$1"; shift;;
@@ -108,6 +111,7 @@ for k in "${Ks[@]}"; do
 		orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<minEdges) next;
 		if(onlyBestOrbit) orbit=0;
 		Kc[$1][orbit]+=$3; # increment the cluster count for appropriate orbit
+		T[$1]+=$3; # keep total count of *all* orbits
 		for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
 		    ++neighbors[$1][orbit][$j];
 		}
@@ -115,14 +119,15 @@ for k in "${Ks[@]}"; do
 	    END{
 		for(u in Kc) for(orbit in Kc[u]) {
 		    ORS=" "
-		    print Kc[u][orbit], u, orbit # print the near-clique count and the node
+		    if('$WEIGHTED') print Kc[u][orbit]^2/T[u], u, orbit
+		    else            print Kc[u][orbit], u, orbit # print the near-clique count and the node
 		    for (v in neighbors[u][orbit]){
 			print v
 		    }
 		    ORS="\n"; print "";
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt - |
-	sort -nr | # > $TMPDIR/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
+	sort -gr | # > $TMPDIR/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 	hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	    ARGIND==2 && !($2 in count){
