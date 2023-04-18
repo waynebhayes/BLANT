@@ -87,7 +87,7 @@ void getGraph(long int base10, int adj[k][k+1]){
             adj[i][k]+=adj[i][j];
 }
 
-void orbits(long int Decimal,long orbit[]){
+void orbits(long int Decimal, long orbit[]){
     int permutation[k], i, j;
 
     //initially,the permutation is (0, 1, ..., numNodes_-1)
@@ -109,10 +109,7 @@ void orbits(long int Decimal,long orbit[]){
         if(!suitablePerm(permutation,adj)) continue;
         permuteNodes(permutation,adj,&d);
         //Check for automorphism
-        if(Decimal == d){
-
-              makeOrbit(permutation, orbit);
-        }
+        if(Decimal == d) makeOrbit(permutation, orbit);
     }
 }
 
@@ -197,6 +194,7 @@ int main(int argc, char* argv[]){
     }
 
     //output
+    //printf("k=%d\n", k);
     printf("%d\n", numOrbits);
     for(i=0; i<numCanon; i++){
 	for(j=0;j<k;j++) {
