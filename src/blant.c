@@ -617,6 +617,22 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     int i, j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
+    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
+	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
+    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++){
+	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
+	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+    }
+    if (_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
+	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
+	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
+    }
+    if(_outputMode == predict) Predict_Init(G);
+    if (_outputMode == graphletDistribution) {
+        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
+        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
+        for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
+    }
 
     if(_JOBS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
@@ -1222,28 +1238,11 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
-    // Initialize various things based on _outputMode
-    if(_outputMode==outputGDV) for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Calloc(G->n, sizeof(*_graphletDegreeVector));
-    if(_outputMode==outputODV) for(i=0;i<_numOrbits;i++) {
-	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(*_doubleOrbitDegreeVector));
-	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
-    }
     if(_outputMode == communityDetection) { // allocate sets for [node][orbit]
 	assert(_numOrbits>0);
 	_communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**));
 	// Only allocate when needed
 	//    _communityNeighbors[node] = (SET**) Calloc(_numOrbits, sizeof(SET*));
-    }
-
-    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++) {
-	    _orbitDegreeVector[i] = Calloc(G->n, sizeof(*_orbitDegreeVector));
-	    for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
-    }
-    if(_outputMode == predict) Predict_Init(G);
-    if (_outputMode == graphletDistribution) {
-        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
-        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
-        for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) {
