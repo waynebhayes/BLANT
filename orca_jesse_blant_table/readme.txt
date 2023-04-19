@@ -1,6 +1,5 @@
-orca_jesse_blant_table Readme
-This file explains whats in the UpperToLower(k).txt files resulting from running the orca-jesse-blant-table executable
-This directory stores both required files and results.
+This directory stores both required files and results from running the orca-jesse-blant-table executable,
+which generates the files UpperToLower(k).txt files.
 The program generates a table of information for all graphettes from k=3 to 7 and can be used to compare ORCA, Jesse, and BLANT.
 This table is sorted in upper row order. 
 
@@ -12,7 +11,7 @@ Columns:
 4: LOWER_ORDINAL:             The lower ordinal value of the graphette.
 5: NUM_ORBITS:                The number of distinct orbits in the graphette. (From orbit_map[u/l](k).txt)
 6: NUM_NODES_FIRST_ORBIT:     The number of nodes of the first orbit type in the graph. (From num_nodes_first_orbit(k).txt)
-7: ORCA:                      The ORCA number identifying the graphlet. Prsulj numbering(from GRAAL paper) for k<=5. After, uses lower numbering. Continues form previous k.
+7: ORCA:                      The ORCA number identifying the graphlet. Przulj numbering(from GRAAL paper) for k<=5. After, uses lower numbering. Continues from previous k.
 8: FIRST_ODV_ORBIT_CON:       The first orbit in a connected orbit degree vector in lower sorting. The sum of previous NUM_ORBITS for connected graphettes. 0 if disconnected
 9: FIRST_ODV_ORBIT_ALL:       The first orbit in an orbit degree vector in lower sorting. The sum of previous NUM_ORBITS.
 10: FIRST_ODV_ORBIT_CON_FAYE: The first orbit in a connected orbit degree vector in upper sorting. The sum of previous NUM_ORBITS for connected graphettes. 0 if disconnected
@@ -31,7 +30,7 @@ The table is then sorted in lower ordering.
 Column 5 is then verified from orbit_map(k).txt.
 Columns 8 and 9 are found the same way as 10 and 11 but using lower sorting.
 
-If k <=5, column 7 is filled from a manually generated mapping between upper decimal and Prsulj/GRAAL numbering.
+If k <=5, column 7 is filled from a manually generated mapping between upper decimal and Przulj/GRAAL numbering.
 If k > 5, the column 7 is filled with the previous total of connected graphettes(graphlets).
 If the graphette is disconnected, column 7 is 0.
 
