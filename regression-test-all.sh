@@ -85,6 +85,7 @@ WHAT=most
 if $MAKE ; then
     make pristine
     WHAT=all
+    #WHAT='"DEBUG=1" all'
 fi
 
 export EIGHT=8

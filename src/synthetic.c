@@ -27,7 +27,7 @@ static int _k[MAX_K]; // stores what values of k have to be considered e.g. [3,4
 static int _numCanon[MAX_K];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
 static SET *_connectedCanonicals[MAX_K];
 static int _maxNumCanon = -1;  // max number of canonicals
-static int _numSamples = -1;  // same number of samples in each blant index file
+static long _numSamples = -1;  // same number of samples in each blant index file
 static int _numNodes = -1;  // number of nodes in the target/synthetic network
 static int maxdegree = -1;  // equals _numNodes (a node can be connected to every other node)
 static Gint_type _canonList[MAX_K][MAX_CANONICALS];

@@ -1,8 +1,8 @@
 #ifndef BLANT_H
 #define BLANT_H
 
-#include "tinygraph.h"
 #include "sets.h"
+#include "tinygraph.h"
 #include "blant-window.h"
 #include "graph.h"
 
@@ -28,7 +28,8 @@ double RandomUniform(void) {
 #define GEN_SYN_GRAPH 0
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
-extern int _JOBS, _MAX_THREADS, _numSamples;
+extern int _JOBS, _MAX_THREADS;
+extern unsigned long _numSamples;
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
 // This is the maximum graphlet size that BLANT supports when using a fixed lookup table. (Cannot be bigger than 8.)
@@ -53,6 +54,8 @@ extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're
 #elif TINY_SET_SIZE == 8
 typedef unsigned Gint_type;
     #define MAX_BINTREE_K 8
+#else
+#error "unknwon TINY_SET_SIZE"
 #endif
 
 extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS];

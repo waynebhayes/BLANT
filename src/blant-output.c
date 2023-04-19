@@ -57,7 +57,13 @@ char *PrintCanonical(int GintOrdinal)
 	sprintf(buf, "%d", GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
+#if TINY_SET_SIZE <= 32
+	sprintf(buf, "%u", _canonList[GintOrdinal]);
+#elif TINY_SET_SIZE >= 64
 	sprintf(buf, "%llu", _canonList[GintOrdinal]);
+#else
+#error "unknown TINY_SET_SIZE"
+#endif
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
