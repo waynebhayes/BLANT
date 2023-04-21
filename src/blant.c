@@ -688,6 +688,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	    }
 	    char *nextChar = line, *pch;
 	    unsigned long int gcount;
+	    // EDWARD: printf("Line %d from thread %d is \"%s\"\n", lineNum, thread, tmp);
 	    int canon=-1, orbit=-1, numRead, nodeId;
 	    //fprintf(stderr, "Parent received the following line from the child: <%s>\n", line);
 	    switch(_outputMode)
