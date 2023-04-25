@@ -4,12 +4,13 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 EDGE_DENSITY_THRESHOLD=1.0
-USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M network.el [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
+USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M network.el t [ cluster edge density threshold, default $EDGE_DENSITY_THRESHOLD ]
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
     M is the mean number of times each *node* should be touched by a graphlet sample,
 	so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
-    EDGE_DENSITY_THRESHOLD is optional and defaults to $EDGE_DENSITY_THRESHOLD.
+	t similarity threshold of the output communities
+	EDGE_DENSITY_THRESHOLD is optional and defaults to $EDGE_DENSITY_THRESHOLD.
 OPTIONS (added BEFORE the blant.exe name)
     -1: exit after printing only one 1 cluster (the biggest one)
     -e: make all the clusters mutually exclusive.
@@ -67,8 +68,9 @@ Ks=(7 6 5 4 3) #(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowe
 
 sampleMultiplier=$2
 net=$3;
-if [ $# -eq 4 ]; then
-    EDGE_DENSITY_THRESHOLD=$4;
+t=$4
+if [ $# -eq 5 ]; then
+    EDGE_DENSITY_THRESHOLD=$5;
 fi
 
 numNodes=`newlines < $net | sort -u | wc -l`
@@ -170,7 +172,6 @@ for k in "${Ks[@]}"; do
 		for(start=1; start<=FNR; start++) { # look for a cluster starting on line "start". 
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 		    origin=node[start];
-		    if (origin in visited) continue;
 		    delete S; # this will contain the nodes in the current cluster
 		    delete visited;
 		    misses=0; # how many nodes have been skipped because they did not work?
@@ -212,7 +213,7 @@ for k in "${Ks[@]}"; do
 	sort -nr | # sort the above output by number of nodes in the near-clique
 	hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 	    {
-		delete S; seenColon=0;
+		delete S;
 		numNodes=$1
 		edgeHits=$2;
 		for(i=3;i<=NF;i++) ++S[$i]
@@ -220,23 +221,45 @@ for k in "${Ks[@]}"; do
 		    for(i=1;i<=numCliques;i++) {
 			    same=0;
 			    for(u in S) if(u in cluster[i])++same;
-			    if(same == length(S)) break;
+			    if(same >= length(S)*'$t') break;
 		}
-		if(numCliques==0 || same < length(S)) {
+		if(numCliques==0 || same < length(S)*'$t') {
 			    maxEdges=choose(length(S),2);
-			    ++numCliques; printf "%d nodes, %d of %d edges from k '$k' (%g%%):",
-			length(S), edgeHits, maxEdges, 100*edgeHits/maxEdges
+			    ++numCliques; 
+				printf "%d %d '$k'",length(S),edgeHits
 			    for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 			    print ""
 		}
-	    }' | sort -k 1nr -k 11n > $TMPDIR/final$k.out & # sort by number of nodes and then by the first node in the list
+	    }' | sort -k 1nr -k 4n > $TMPDIR/final$k.out & # sort by number of nodes and then by the first node in the list
 done
 
 for k in "${Ks[@]}"; do
     wait; (( BLANT_EXIT_CODE += $? ))
 done
 
-sort -k 1nr -k 11n $TMPDIR/final?.out
+sort -k 1nr -k 3n $TMPDIR/final?.out |
+hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+	    {
+		delete S; 
+		numNodes=$1
+		edgeHits=$2;
+		k=$3;
+		for(i=4;i<=NF;i++) ++S[$i]
+		ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+		for(i=1;i<=numCliques;i++) {
+			    same=0;
+			    for(u in S) if(u in cluster[i])++same;
+			    if(same >= length(S)*'$t') break;
+		}
+		if(numCliques==0 || same < length(S)*'$t') {
+			    maxEdges=choose(length(S),2);
+			    ++numCliques; 
+				printf "%d nodes, %d of %d edges from k %d (%g%%):",
+			length(S), edgeHits, maxEdges, k, 100*edgeHits/maxEdges
+			    for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+			    print ""
+		}
+	    }' - | sort -k 1nr -k 11n # sort by number of nodes and then by the first node in the list
 
 #set -x
 exit $BLANT_EXIT_CODE
