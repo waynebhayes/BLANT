@@ -93,17 +93,16 @@ char *PrintCanonical(int GintOrdinal)
 // Below is simply the largest number in the list at:
 // https://github.com/leventov/Koloboke/lib/impl/src/main/java/net/openhft/koloboke/collect/impl/hash/DHashCapacities.java
 #define MCMC_MAX_HASH 2136745621U // about 1% smaller than 2^31.
-
 // The following is > 2^32, and would requires a SET implementation allowing members with value > 32 bits.
 //#define MCMC_MAX_HASH 8589934591UL // 2^33-9, according to https://www.dcode.fr/closest-prime-number; about 1GB
 
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     static unsigned circBuf[MCMC_CIRC_BUF], bufPos;
-    static SET *seen;
+    static BITVEC *seen;
     static unsigned Vcopy[MAX_K];
     unsigned i;
-    if(!seen) seen=SetAlloc(MCMC_MAX_HASH);
+    if(!seen) seen=BitvecAlloc(MCMC_MAX_HASH);
     memcpy(Vcopy, Varray, k*sizeof(*Varray));
     VarraySort(Vcopy, k);
 
@@ -131,11 +130,11 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     unsigned hash=Vcopy[0];
     for(i=1;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will likely overflow. Shouldn't matter.
     hash = hash % MCMC_MAX_HASH;
-    if(SetInSafe(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
+    if(BitvecInSafe(seen, hash)) return true; // of course false positives are possible but we hope they are rare.
     //for(i=0;i<k;i++) printf("%d ", Vcopy[i]); printf("\thash %d\n",hash); // checking for rareness.
-    SetDelete(seen, circBuf[bufPos]); // this set hasn't been seen in at least the last MCMC_CIRC_BUF samples
+    BitvecDelete(seen, circBuf[bufPos]); // this set hasn't been seen in at least the last MCMC_CIRC_BUF samples
     circBuf[bufPos] = hash;
-    SetAdd(seen, hash);
+    BitvecAdd(seen, hash);
     if(++bufPos >= MCMC_CIRC_BUF) bufPos=0;
     return false;
 }

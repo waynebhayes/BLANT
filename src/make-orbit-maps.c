@@ -179,7 +179,7 @@ int main(int argc, char* argv[]){
     //reading data from canon_list file
     char BUF[BUFSIZ];
     SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
-    int numCanon = connectedCanonicals->n;
+    int numCanon = connectedCanonicals->maxSize;
     SetFree(connectedCanonicals);
     int numOrbits = 0, i, j;
     long orbit[numCanon][k];

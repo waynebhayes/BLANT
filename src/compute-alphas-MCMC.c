@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
     TINY_GRAPH *gk = TinyGraphAlloc(k);
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d);
     _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
-    int numCanon = _connectedCanonicals->n;
+    int numCanon = _connectedCanonicals->maxSize;
 
     _L = k - mcmc_d  + 1;
     unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
