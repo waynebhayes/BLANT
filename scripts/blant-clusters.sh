@@ -131,7 +131,7 @@ for k in "${Ks[@]}"; do
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt - |
 	sort -gr | # > $TMPDIR/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 	hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
-	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
+	    ARGIND==1{++totalEdges; ++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	    ARGIND==2 && !($2 in count){
 		orbit=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
 		for(i=4; i<=NF; i++) neighbors[$2][$i] = neighbors[$i][$2]=1;
@@ -166,6 +166,7 @@ for k in "${Ks[@]}"; do
 		return;
 	    }
 	    END{n=length(degree); # number of nodes in the input network
+		meanDegree = totalEdges/n; 
 		cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
 		numCliques=0;
 		QueueAlloc("Q");
@@ -178,20 +179,29 @@ for k in "${Ks[@]}"; do
 		    QueueAdd("Q", origin);
 		    visited[origin] = 1;
 		    edgeCount = 0;
+		    # "outEdges" counts the number of edges heading from a candidate note *outside* the current cluster,
+		    # and it is meant to be used only after the cluster gets big enough... so we initialize it to -1.
+		    # outEdgeFactor is the factor by which outEdges must exceed inEdges in order to disquality a node
+		    outEdges = -1; outEdgeFactor = 3;
 		    while(QueueLength("Q")>0){
 			u = QueueNext("Q");
 			newEdgeHits = EdgeCount(u);
+			# This is where we check if outEdges should start to count in our filter... the idea is that
+			# we *start* to use it only once its hypothetical value *starts* to satisfy its criterion,
+			# and once we start using it we never stop. However, it is commented out here because it does
+			# not seem to work very well... so for now we never use it.
+			#if(outEdges >= 0 || degree[u]-newEdgeHits < outEdgeFactor*newEdgeHits) outEdges = degree[u]-newEdgeHits;
 			edgeCount += newEdgeHits;
 			S[u]=1;
 			Slen = length(S);
 			if (Slen>1){
 			    maxEdges = choose(Slen,2);
-			    if(edgeCount/maxEdges < '$EDGE_DENSITY_THRESHOLD') {
+			    if(edgeCount/maxEdges < '$EDGE_DENSITY_THRESHOLD' || outEdges > outEdgeFactor*newEdgeHits) {
 				if(length(S)==Slen){
 				    delete S[u]; # no node was removed, so remove this one
 				    edgeCount -= newEdgeHits;
 				}
-				if(++misses > n/100) break; # 1% of number of nodes is a heuristic...
+				if(++misses > MAX(Slen/10,n/100)) break; # 10% of cluster + 1% of nodes is totally heuristic...
 				# keep going until count decreases significantly; duplicate cluster removed in the next awk
 				#visited[u]=0;
 			    }else{

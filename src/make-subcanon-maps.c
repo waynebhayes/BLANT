@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     //Create k canon list
     char BUF[BUFSIZ];
     SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
-    int numCanon = connectedCanonicals->n;
+    int numCanon = connectedCanonicals->maxSize;
     SetFree(connectedCanonicals);
 
     //Create canon map for k-1
