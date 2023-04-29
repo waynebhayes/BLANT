@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
     char BUF[BUFSIZ];
     TINY_GRAPH *g = TinyGraphAlloc(k);
     _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
-    int numCanon = _connectedCanonicals->maxSize;
+    int numCanon = _connectedCanonicals->maxElem;
     int i;
     for (i = 0; i < numCanon; i++) {
 	    Int2TinyGraph(g, _canonList[i]);

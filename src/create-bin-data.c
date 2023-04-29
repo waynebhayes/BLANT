@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
     int i;
     char buf[BUFSIZ];
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges);
-    int numCanon = connectedCanonicals->maxSize;
+    int numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);
     sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, CANON_DIR, kString);
     FILE *fp=fopen(buf,"r");
