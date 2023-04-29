@@ -2,14 +2,16 @@
 ################## SKELETON: DO NOT TOUCH THESE 2 LINES
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
+measure="EDN"
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME network.el M E t
+USAGE="USAGE: $BASENAME network.el M E t stopT [measure]
 PURPOSE: run blant-clusters for E edge densities in network.el, then generate a similarity graph for it.
     M sample multiplier for blant clusters.
     E number of edge densities. It will start in 1/E and increment 1/E each step. 
     t [0,1] similarity threshold of the output communities. Communities in which the percentage of neighbors is
     t will not be retrieved.
     stopT difference in EDN increase for which it is not worth to continue expanding. 
+    measure to optimize [EDN,OMOD]. Default $measure
 "
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -31,25 +33,21 @@ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 [ $# -lt 4 ] && die "not enough arguments"
 
-net=$1 
+net=$1
 M=$2
 E=$3
 t=$4
 stopT=$5
-edgeDensityStep=`hawk "BEGIN{print 1/$E}"`
-edgeDensity=$edgeDensityStep
+
+if [ $# -eq 6 ]; then
+    measure=$6;
+fi
 
 [ -f "$net" ] || die "network '$net' does not exist"
+[[ "$measure" == "EDN" || "$measure" == "OMOD" ]] || die "Measure $measure not in the list"
 
-while [ $E -gt 0 ]; do
-    ./scripts/blant-clusters.sh ./blant $M $net $t $edgeDensity > $TMPDIR/blant$edgeDensity.out
-    edgeDensity=`hawk "BEGIN{print $edgeDensity+$edgeDensityStep}"`
-    E=$((E-1))
-done
+./scripts/blant-clusters.sh ./blant $M $net $t $E 1> $TMPDIR/blant.out
 
-
-sort -k 1nr -k 11n $TMPDIR/blant*.out > $TMPDIR/blant.out
-numNodes=`newlines < $net | sort -u | wc -l`
 hawk 'BEGIN{delete intersection}
     {
     for(i=11;i<=NF;i++){comm[FNR][$i]=1}
@@ -62,79 +60,103 @@ hawk 'BEGIN{delete intersection}
         }
     }
     }' $TMPDIR/blant.out | 
-hawk 'BEGIN{delete comm; EDN=0; delete d; delete s; delete finalComm;}     #d current density added by node u. 
-      ARGIND==1{neighbors[$1][$2]=neighbors[$2][$1]=$3}  #s number of times node u appears
-      ARGIND==2{for(i=11;i<=NF;i++){comm[FNR][$i]=1}; edges[FNR]=$3; edgeDensity[FNR]=$3/$5; score[FNR]=edgeDensity[FNR]*$1}
-      function communityScore(c,    CS){
-        if (c in score) return score[c]
-        CS=0
-        for (u in comm[c]){CS+=1/(s[u]+1)}
-        CS*=edgeDensity[c]
+hawk 'BEGIN{delete comm; Q=0; delete s;srand()}
+      ARGIND==1{++degree[$1];++degree[$2];A[$1][$2]=A[$2][$1]=1}
+      ARGIND==2{neighbors[$1][$2]=neighbors[$2][$1]=$3}                                    #s number of times node u appears
+      ARGIND==3{
+        for(i=11;i<=NF;i++){comm[FNR][$i]=1}; 
+        edges[FNR]=$3; 
+        edgeDensity[FNR]=$3/$5;
+        nc[FNR]=length(comm[FNR])
+        for (u in comm[FNR]){
+          kinu=0;
+          for (v in A[u]){if(v in comm[FNR]) kinu++}
+          kin[FNR][u]=kinu
+        }
+      }
+      function scoreOfNodeInCommunity(c,u,ms){
+        if('$measure'=="OMOD"){
+          return ( (kin[c][u] - ( degree[u]-kin[c][u] ) ) / degree[u] ) * ( 1 / ms ) * edgeDensity[c] * ( 1 / nc[c] )
+        } else{
+          return ( 1 / ms ) * edgeDensity[c]
+        }
+      }
+      function communityScore(c,       CS){
+        if (c in score) return score[c];
+        CS=0;
+        for (u in comm[c]){
+          CS+=scoreOfNodeInCommunity(c, u, s[u]+1)
+        }
         score[c]=CS
         return CS
       }
       function potentialScore(c,       P){
-        P=EDN
+        P=Q
         for(u in comm[c]){
-            if (u in d) P= P - d[u] * 1/s[u] + d[u] * 1 / (s[u] + 1)
+            if(!(u in s)) continue
+            for (c2 in finalComm){
+              if(u in comm[c2]){
+                P=P-scoreOfNodeInCommunity(c2, u, s[u])+scoreOfNodeInCommunity(c2, u, s[u] + 1)   
+              }
+            }
         }
         P+=communityScore(c)
         return P
       }
       function addToResult(c){
         P=potentialScore(c)
-        visitedComm[c]=1
-        if ((P-EDN) < '$stopT') return
-        EDN=P
-        for (u in comm[c]){s[u]++; d[u]+=edgeDensity[c]}
+        diff=P-Q
+        if (diff < '$stopT') return;
+        Q=P
+        for (u in comm[c]){s[u]++}
         finalComm[c]=1
       }
-      function getMaximum(c,       score, best, m, n){
-        score=communityScore(c)
-        visitedComm[c]=1; best=c;
-        if (!(c in neighbors)) return best;
+      function markDFS(c){
+        visitedDFS[c]=1;
+        if (!(c in neighbors)) return;
         for(n in neighbors[c]){
-            if (n in visitedComm) continue
-            m=getMaximum(n)
-            if(communityScore(m)>score) best=m
+          if (n in visitedDFS) continue;
+          markDFS(n);
         }
-        return best
       }
       function expand(c){
-        if (length(s)>='$numNodes') return
+        if (length(s) >= N) return;
         if (!(c in neighbors)) return;
         for (n in neighbors[c]){
-            if (n in visitedComm) continue
-            P=potentialScore(c)
-            if (((P-EDN) > '$stopT') && neighbors[c][n]/MAX(length(comm[c]),length(comm[n]))  < '$t'){
-                QueueAdd("Q", n)
-            }
-            visitedComm[n]=1
+          if (n in visitedComm) continue;
+          P=potentialScore(c);
+          diff=P-Q
+          if ( (diff > '$stopT') && ( neighbors[c][n] / MAX( nc[c], nc[n] ) )  < '$t'){
+              PQpush("PQ",P,n)
+          }
+          visitedComm[n]=1  
         }
       }
-      END{ 
-        QueueAlloc("Q");
-        delete visitedComm
-        for(c in comm){
-            if(visitedComm[c]) continue
-            b=getMaximum(c) #DFS to get maximum of every disconnected relationship subgraph
-            QueueAdd("Q",b)
+      END{
+        N=length(degree); K=length(comm)
+        delete visitedComm; delete visitedDFS; 
+        for(c=1; c<=K; c++){
+          if(c in visitedDFS) continue;
+          markDFS(c)
+          PQpush("PQ", communityScore(c),c)
+          visitedComm[c]=1;
         }
-        delete visitedComm;
-        while (QueueLength("Q")>0){
-            delete score;
-            c=QueueNext("Q")
-            addToResult(c)
-            expand(c)
+        while (PQlength("PQ")>0){
+          delete score;
+          c=PQpop("PQ")
+          addToResult(c)
+          expand(c)          
         }
-        printf "EDN=%s",EDN
+        if('$measure'=="OMOD"){
+          printf "Qov=%s",Q/length(finalComm)
+        } else{
+          printf "EDN=%s",Q
+        }
         print ""
         for (c in finalComm){
-            maxEdges=choose(length(comm[c]),2)
-            printf "%d nodes, %d of %d edges (%g%%):", length(comm[c]), edges[c], maxEdges, 100*edgeDensity[c]
+            maxEdges=choose(nc[c],2)
+            printf "%d nodes, %d of %d edges (%g%%):", nc[c], edges[c], maxEdges, 100*edgeDensity[c]
             for(u in comm[c]) {printf " %s", u}
             print ""
         }
-      }
-      
-      ' - $TMPDIR/blant.out
+      }' $net - $TMPDIR/blant.out | sort -k 1nr -k 11n
