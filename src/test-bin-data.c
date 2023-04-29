@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 {
     char BUF[BUFSIZ];
     _connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
-    int numCanon = _connectedCanonicals->maxSize;
+    int numCanon = _connectedCanonicals->maxElem;
     SetFree(_connectedCanonicals);
 
     char perm[9];

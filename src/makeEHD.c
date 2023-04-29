@@ -22,7 +22,7 @@ void SetGlobalCanonMaps(int k){
     Gint_type _canonList[MAX_CANONICALS];
 	int _canonNumEdges[MAX_CANONICALS];
     SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
-    _numCanon = _connectedCanonicals->maxSize;
+    _numCanon = _connectedCanonicals->maxElem;
     _K = (short int*) mapCanonMap(BUF, _K, k);
 
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
