@@ -60,7 +60,7 @@ hawk 'BEGIN{delete intersection}
           }
       }
     }' $TMPDIR/blant.out | 
-hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
+hawk 'BEGIN{delete comm; Q=0; delete s;srand()}
       ARGIND==1{++degree[$1];++degree[$2];A[$1][$2]=A[$2][$1]=1}
       ARGIND==2{neighbors[$1][$2]=neighbors[$2][$1]=$3}                                    #s number of times node u appears
       ARGIND==3{
@@ -75,7 +75,7 @@ hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
         }
       }
       function scoreOfNodeInCommunity(c,u,ms){
-        if(measure=="OMOD"){
+        if('$measure'=="OMOD"){
           return ( (kin[c][u] - ( degree[u]-kin[c][u] ) ) / degree[u] ) * ( 1 / ms ) * edgeDensity[c] * ( 1 / nc[c] )
         } else{
           return ( 1 / ms ) * edgeDensity[c]
@@ -112,22 +112,15 @@ hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
         finalComm[c]=1
       }
       function markDFS(c){
-        visitedDFS[c]=1;connectedSet[c]=1;
+        visitedDFS[c]=1;
         if (!(c in neighbors)) return;
         for(n in neighbors[c]){
           if (n in visitedDFS) continue;
           markDFS(n);
         }
       }
-      function getRandom(set){
-        i=int(rand()*length(set))
-        count=0
-        for (c in set){
-          if (count==i) return c
-          count++
-        }
-      }
       function expand(c){
+        if (length(s) >= N) return;
         if (!(c in neighbors)) return;
         for (n in neighbors[c]){
           if (n in visitedComm) continue;
@@ -141,14 +134,12 @@ hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
       }
       END{
         N=length(degree); K=length(comm)
-        delete visitedComm; delete visitedDFS;
-        for (c in comm){
-          if(c in visitedDFS) continue
-          delete connectedSet;
+        delete visitedComm; delete visitedDFS; 
+        for(c=1; c<=K; c++){
+          if(c in visitedDFS) continue;
           markDFS(c)
-          cbest=getRandom(connectedSet)
-          PQpush("PQ", communityScore(cbest),cbest)
-          visitedComm[cbest]=1;
+          PQpush("PQ", communityScore(c),c)
+          visitedComm[c]=1;
         }
         while (PQlength("PQ")>0){
           delete score;
@@ -156,7 +147,7 @@ hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
           addToResult(c)
           expand(c)          
         }
-        if(measure=="OMOD"){
+        if('$measure'=="OMOD"){
           printf "Qov=%s",Q/length(finalComm)
         } else{
           printf "EDN=%s",Q

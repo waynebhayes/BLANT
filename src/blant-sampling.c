@@ -179,13 +179,13 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     static SET *outSet;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
-    else if(G->n > outSet->maxSize)
+    else if(G->n > outSet->maxElem)
 	SetResize(outSet, G->n);
     else
 	SetEmpty(outSet);
     int v1, v2, i;
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
-    assert(V && V->maxSize >= G->n);
+    assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     int edge;
     if(whichCC<0){
@@ -288,13 +288,13 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     static SET *outSet;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
-    else if(G->n > outSet->maxSize)
+    else if(G->n > outSet->maxElem)
 	SetResize(outSet, G->n);
     else
 	SetEmpty(outSet);
     int v1, v2, i;
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
-    assert(V && V->maxSize >= G->n);
+    assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     int edge;
     do {
@@ -467,7 +467,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
     int edge, v1, v2;
-    assert(V && V->maxSize >= G->n);
+    assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     if(whichCC<0){
 	edge = -(whichCC+1);
@@ -597,13 +597,13 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
     static SET *outSet;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
-    else if(G->n > outSet->maxSize)
+    else if(G->n > outSet->maxElem)
 	SetResize(outSet, G->n);
     else
 	SetEmpty(outSet);
     int v1, v2, i;
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
-    assert(V && V->maxSize >= G->n);
+    assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     int edge;
     do {
