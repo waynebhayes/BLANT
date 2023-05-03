@@ -187,7 +187,7 @@ for edgeDensity in $(seq -f "%.4f" 0.05 $stepSize 1.0) ; do
 			cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
 			numCliques=0;
 			QueueAlloc("Q");
-			for(start=1; start<=1000; start++) { # look for a cluster starting on line "start". 
+			for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start". 
 				if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 				origin=node[start];
 				delete S; # this will contain the nodes in the current cluster
