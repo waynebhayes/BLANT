@@ -115,9 +115,11 @@ print_progress () {
   exec 1>&3 2>&4
 }
 
-for i in $(seq 1 $E) ; do
-	edgeDensity=`hawk "BEGIN{print $i/$E}"`
+stepSize=$(hawk 'BEGIN{print (1-0.05)/('$E'-1)}')
+i=1;
+for edgeDensity in $(seq -f "%.4f" 0.05 $stepSize 1.0) ; do
 	print_progress $i $E $edgeDensity
+	i=$(( $i + 1 ))
 	for k in "${Ks[@]}"; do
 		hawk 'BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 			rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
@@ -185,7 +187,7 @@ for i in $(seq 1 $E) ; do
 			cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
 			numCliques=0;
 			QueueAlloc("Q");
-			for(start=1; start<=FNR; start++) { # look for a cluster starting on line "start". 
+			for(start=1; start<=1000; start++) { # look for a cluster starting on line "start". 
 				if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 				origin=node[start];
 				delete S; # this will contain the nodes in the current cluster
@@ -217,7 +219,7 @@ for i in $(seq 1 $E) ; do
 					expand(u, origin);
 				}
 				}
-				if(length(S)>3) {
+				if(length(S)>'$k') {
 				maxEdges=choose(length(S),2);
 				++numCliques; printf "%d %d", length(S), edgeCount
 				for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
@@ -233,27 +235,27 @@ for i in $(seq 1 $E) ; do
 			numNodes=$1
 			edgeHits=$2;
 			for(i=3;i<=NF;i++) ++S[$i]
-			ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			if(length(S)!=numNodes) next;#ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
 			add=1;
 			for(i=1;i<=numCliques;i++) {
 				same=0;
 				for(u in S) if(u in cluster[i])++same;
-				if(same >= length(cluster[i])*'$t'){add=0; break;}
+				if(same > length(cluster[i])*'$t'){add=0; break;}
 			}
-			if(numCliques==0 || add=1) {
+			if(numCliques==0 || add==1) {
 					maxEdges=choose(length(S),2);
 					++numCliques; 
 					printf "%d %d '$k'",length(S),edgeHits
 					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 					print ""
 			}
-			}' | sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes and then by the first node in the list
+			}' | sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out &  # sort by number of nodes and then by the first node in the list
 		done
 		for k in "${Ks[@]}"; do
     		wait; (( BLANT_EXIT_CODE += $? ))
 		done
 
-	sort -k 1nr -k 3n $TMPDIR/subfinal?$edgeDensity.out |
+	sort -k 1nr -k 4n $TMPDIR/subfinal?$edgeDensity.out |
 	hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 			{
 			delete S; 
@@ -261,12 +263,12 @@ for i in $(seq 1 $E) ; do
 			edgeHits=$2;
 			k=$3;
 			for(i=4;i<=NF;i++) ++S[$i]
-			ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			if(length(S)!=numNodes) next; #ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
 			add=1;
 			for(i=1;i<=numCliques;i++) {
 					same=0;
 					for(u in S) if(u in cluster[i])++same;
-					if(same >= length(cluster[i])*'$t'){ add=0; break;}
+					if(same > length(cluster[i])*'$t'){ add=0; break;}
 			}
 			if(numCliques==0 || add==1) {
 					maxEdges=choose(length(S),2);
@@ -276,11 +278,33 @@ for i in $(seq 1 $E) ; do
 					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 					print ""
 			}
-			}' - | sort -k 1nr -k 11n > $TMPDIR/final$edgeDensity.out # sort by number of nodes and then by the first node in the list
+			}' | sort -k 1nr -k 11n > $TMPDIR/final$edgeDensity.out # sort by number of nodes and then by the first node in the list
 done
 
 
-sort -k 1nr -k 11n $TMPDIR/final*.out
-
+sort -k 1nr -k 3nr -k 11n $TMPDIR/final*.out |
+hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+			{
+			delete S; 
+			numNodes=$1;
+			edgeHits=$3;
+			maxEdges=$5;
+			k=$9;
+			for(i=11;i<=NF;i++) ++S[$i]
+			ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			add=1;
+			for(i=1;i<=numCliques;i++) {
+					same=0;
+					for(u in S) if(u in cluster[i]) ++same;
+					if(same > length(cluster[i])*'$t'){ add=0; break;}
+			}
+			if(numCliques==0 || add==1) {
+					++numCliques; 
+					printf "%d nodes, %d of %d edges from k %d (%g%%):",
+				length(S), edgeHits, maxEdges, k, 100*edgeHits/maxEdges
+					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+					print ""
+			}
+			}'
 #set -x
 exit $BLANT_EXIT_CODE

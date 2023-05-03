@@ -127,13 +127,20 @@ hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
           count++
         }
       }
+      function getBiggest(set){
+        size=0; b=-1
+        for (c in set){
+          if (nc[c]>size){size=nc[c];b=c}
+        }
+        return b
+      }
       function expand(c){
         if (!(c in neighbors)) return;
         for (n in neighbors[c]){
           if (n in visitedComm) continue;
           P=potentialScore(c);
           diff=P-Q
-          if ( (diff > '$stopT') && ( neighbors[c][n] / MAX( nc[c], nc[n] ) )  < '$t'){
+          if ( (diff > '$stopT') ){
               PQpush("PQ",P,n)
           }
           visitedComm[n]=1  
