@@ -3,14 +3,14 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-E=10
-USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M network.el t [E: Edge densities we are running blant-c for, default $E]
-PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
+USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M Ks EDs t network.el
+PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large communities in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
     M is the mean number of times each *node* should be touched by a graphlet sample,
     so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
+	Ks is a list of graphlet sizes to do BLANT sampling in
+	EDs is a list of the edge density thresholds to explore
     t similarity threshold of the output communities
-    E is optional and defaults to $E.
 OPTIONS (added BEFORE the blant.exe name)
     -1: exit after printing only one 1 cluster (the biggest one)
     -e: make all the clusters mutually exclusive.
@@ -48,6 +48,7 @@ ONLY_ONE=0
 exclusive=0
 SAMPLE_METHOD=-sMCMC #-sNBE
 ONLY_BEST_ORBIT=0
+
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
@@ -59,19 +60,17 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     esac
 done
 
-[ $# -lt 3 ] && die "not enough arguments"
-#[ $# -gt 5 ] && die "too many arguments"
+[ $# -lt 6 ] && die "not enough arguments"
+[ $# -gt 6 ] && die "too many arguments"
 
 BLANT=$1;
-Ks=(7 6 5 4 3) #(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
+sampleMultiplier=$2;
+Ks=(`echo $3 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
+EDs=($4)
+t=$5;
+net=$6
 
-sampleMultiplier=$2
-net=$3;
-t=$4
-if [ $# -eq 5 ]; then
-    E=$5;
-fi
 
 numNodes=`newlines < $net | sort -u | wc -l`
 
@@ -103,21 +102,7 @@ for k in "${Ks[@]}"; do
     wait; (( BLANT_EXIT_CODE += $? ))
 done
 
-print_progress () {
-  exec 3>&1 4>&2
-  trap 'exec 2>&4 1>&3' 0 1 2 3
-  exec 1>&2 2>&1
-  local percentage=$(( $1 * 100 / $2 ))
-  printf "Running blant-c for d=$3["
-  for ((j=0; j<$percentage; j+=2)); do printf "#"; done
-  for ((j=$percentage; j<100; j+=2)); do printf " "; done
-  printf "] $percentage%%\r"
-  exec 1>&3 2>&4
-}
-
-for i in $(seq 1 $E) ; do
-	edgeDensity=`hawk "BEGIN{print $i/$E}"`
-	print_progress $i $E $edgeDensity
+for edgeDensity in "${EDs[@]}"; do
 	for k in "${Ks[@]}"; do
 		hawk 'BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 			rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
@@ -185,7 +170,7 @@ for i in $(seq 1 $E) ; do
 			cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
 			numCliques=0;
 			QueueAlloc("Q");
-			for(start=1; start<=FNR; start++) { # look for a cluster starting on line "start". 
+			for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start". 
 				if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 				origin=node[start];
 				delete S; # this will contain the nodes in the current cluster
@@ -217,7 +202,7 @@ for i in $(seq 1 $E) ; do
 					expand(u, origin);
 				}
 				}
-				if(length(S)>3) {
+				if(length(S)>'$k') {
 				maxEdges=choose(length(S),2);
 				++numCliques; printf "%d %d", length(S), edgeCount
 				for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
@@ -233,40 +218,41 @@ for i in $(seq 1 $E) ; do
 			numNodes=$1
 			edgeHits=$2;
 			for(i=3;i<=NF;i++) ++S[$i]
-			ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			if(length(S)!=numNodes) next;#ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
 			add=1;
 			for(i=1;i<=numCliques;i++) {
 				same=0;
 				for(u in S) if(u in cluster[i])++same;
-				if(same >= length(cluster[i])*'$t'){add=0; break;}
+				if(same > length(cluster[i])*'$t'){add=0; break;}
 			}
-			if(numCliques==0 || add=1) {
+			if(numCliques==0 || add==1) {
 					maxEdges=choose(length(S),2);
 					++numCliques; 
 					printf "%d %d '$k'",length(S),edgeHits
 					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 					print ""
 			}
-			}' | sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes and then by the first node in the list
+			}' | sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out &  # sort by number of nodes and then by the first node in the list
 		done
 		for k in "${Ks[@]}"; do
-    		wait; (( BLANT_EXIT_CODE += $? ))
+			wait; (( BLANT_EXIT_CODE += $? ))
 		done
+done
 
-	sort -k 1nr -k 3n $TMPDIR/subfinal?$edgeDensity.out |
-	hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
+		hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 			{
 			delete S; 
 			numNodes=$1
 			edgeHits=$2;
 			k=$3;
 			for(i=4;i<=NF;i++) ++S[$i]
-			ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			if(length(S)!=numNodes) next; #ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
 			add=1;
 			for(i=1;i<=numCliques;i++) {
 					same=0;
 					for(u in S) if(u in cluster[i])++same;
-					if(same >= length(cluster[i])*'$t'){ add=0; break;}
+					if(same > length(cluster[i])*'$t'){ add=0; break;}
 			}
 			if(numCliques==0 || add==1) {
 					maxEdges=choose(length(S),2);
@@ -276,11 +262,6 @@ for i in $(seq 1 $E) ; do
 					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 					print ""
 			}
-			}' - | sort -k 1nr -k 11n > $TMPDIR/final$edgeDensity.out # sort by number of nodes and then by the first node in the list
-done
-
-
-sort -k 1nr -k 11n $TMPDIR/final*.out
-
+			}' | sort -k 1nr -k 11n
 #set -x
 exit $BLANT_EXIT_CODE

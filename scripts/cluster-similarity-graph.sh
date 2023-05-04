@@ -4,14 +4,14 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 measure="EDN"
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME network.el M E t stopT [measure]
+USAGE="USAGE: $BASENAME M E t stopT measure network.el
 PURPOSE: run blant-clusters for E edge densities in network.el, then generate a similarity graph for it.
     M sample multiplier for blant clusters.
     E number of edge densities. It will start in 1/E and increment 1/E each step. 
     t [0,1] similarity threshold of the output communities. Communities in which the percentage of neighbors is
     t will not be retrieved.
     stopT difference in EDN increase for which it is not worth to continue expanding. 
-    measure to optimize [EDN,OMOD]. Default $measure
+    measure to optimize [EDN,OMOD]
 "
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -33,34 +33,68 @@ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 [ $# -lt 4 ] && die "not enough arguments"
 
-net=$1
-M=$2
-E=$3
-t=$4
-stopT=$5
 
-if [ $# -eq 6 ]; then
-    measure=$6;
-fi
+M=$1
+E=$2
+t=$3
+stopT=$4
+measure=$5;
+net=$6;
+
+PARALLEL=${PARALLEL:-"/bin/bash"}
 
 [ -f "$net" ] || die "network '$net' does not exist"
 [[ "$measure" == "EDN" || "$measure" == "OMOD" ]] || die "Measure $measure not in the list"
 
-./scripts/blant-clusters.sh ./blant $M $net $t $E 1> $TMPDIR/blant.out
+numNodes=`newlines < $net | sort -u | wc -l`
+edgeCount=`hawk '{delete line; line[$1]=1; line[$2]=1; for (edge in line) printf "%d ",edge; print ""}' $net | sort -k 1n -k 2n | uniq | wc -l`
+graphEd=`hawk 'BEGIN{print '$edgeCount'/(choose('$numNodes',2))}'`
+stepSize=$(hawk 'BEGIN{print (1-'$graphEd')/('$E'-1)}')
 
+commands=""
+for edgeDensity in $(seq -f "%.4f" $graphEd $stepSize 1.0) ; do
+    commands+="./scripts/blant-clusters.sh ./blant $M '3 4 5 6 7' '$edgeDensity' $t $net > $TMPDIR/blant-c$edgeDensity.out \n"
+done
+
+echo -e $commands | $PARALLEL
+
+sort -k 1nr -k 3nr -k 11n $TMPDIR/blant-c*.out | 
+hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+			{
+			delete S; 
+			numNodes=$1;
+			edgeHits=$3;
+			maxEdges=$5;
+			k=$9;
+			for(i=11;i<=NF;i++) ++S[$i]
+			ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			add=1;
+			for(i=1;i<=numCliques;i++) {
+					same=0;
+					for(u in S) if(u in cluster[i]) ++same;
+					if(same > length(cluster[i])*'$t'){ add=0; break;}
+			}
+			if(numCliques==0 || add==1) {
+					++numCliques; 
+					printf "%d nodes, %d of %d edges from k %d (%g%%):",
+				length(S), edgeHits, maxEdges, k, 100*edgeHits/maxEdges
+					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+					print ""
+			}
+			}' | tee $TMPDIR/blant.out |
 hawk 'BEGIN{delete intersection}
     {
-    for(i=11;i<=NF;i++){comm[FNR][$i]=1}
-    for (i=1; i<FNR; i++){
-        SetIntersect(intersection,comm[i], comm[FNR])
-        similarity=length(intersection)
-        if (similarity > 0){
-            printf "%d %d %d", i, FNR, similarity
-            print ""
-        }
-    }
-    }' $TMPDIR/blant.out | 
-hawk 'BEGIN{delete comm; Q=0; delete s;srand()}
+      for(i=11;i<=NF;i++){comm[FNR][$i]=1}
+      for (i=1; i<FNR; i++){
+          SetIntersect(intersection,comm[i], comm[FNR])
+          similarity=length(intersection)
+          if (similarity > 0){
+              printf "%d %d %d", i, FNR, similarity
+              print ""
+          }
+      }
+    }' | 
+hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
       ARGIND==1{++degree[$1];++degree[$2];A[$1][$2]=A[$2][$1]=1}
       ARGIND==2{neighbors[$1][$2]=neighbors[$2][$1]=$3}                                    #s number of times node u appears
       ARGIND==3{
@@ -75,7 +109,7 @@ hawk 'BEGIN{delete comm; Q=0; delete s;srand()}
         }
       }
       function scoreOfNodeInCommunity(c,u,ms){
-        if('$measure'=="OMOD"){
+        if(measure=="OMOD"){
           return ( (kin[c][u] - ( degree[u]-kin[c][u] ) ) / degree[u] ) * ( 1 / ms ) * edgeDensity[c] * ( 1 / nc[c] )
         } else{
           return ( 1 / ms ) * edgeDensity[c]
@@ -112,21 +146,35 @@ hawk 'BEGIN{delete comm; Q=0; delete s;srand()}
         finalComm[c]=1
       }
       function markDFS(c){
-        visitedDFS[c]=1;
+        visitedDFS[c]=1;connectedSet[c]=1;
         if (!(c in neighbors)) return;
         for(n in neighbors[c]){
           if (n in visitedDFS) continue;
           markDFS(n);
         }
       }
+      function getRandom(set){
+        i=int(rand()*length(set))
+        count=0
+        for (c in set){
+          if (count==i) return c
+          count++
+        }
+      }
+      function getBiggest(set){
+        size=0; b=-1
+        for (c in set){
+          if (nc[c]>size){size=nc[c];b=c}
+        }
+        return b
+      }
       function expand(c){
-        if (length(s) >= N) return;
         if (!(c in neighbors)) return;
         for (n in neighbors[c]){
           if (n in visitedComm) continue;
           P=potentialScore(c);
           diff=P-Q
-          if ( (diff > '$stopT') && ( neighbors[c][n] / MAX( nc[c], nc[n] ) )  < '$t'){
+          if ( (diff > '$stopT') ){
               PQpush("PQ",P,n)
           }
           visitedComm[n]=1  
@@ -134,12 +182,14 @@ hawk 'BEGIN{delete comm; Q=0; delete s;srand()}
       }
       END{
         N=length(degree); K=length(comm)
-        delete visitedComm; delete visitedDFS; 
-        for(c=1; c<=K; c++){
-          if(c in visitedDFS) continue;
+        delete visitedComm; delete visitedDFS;
+        for (c in comm){
+          if(c in visitedDFS) continue
+          delete connectedSet;
           markDFS(c)
-          PQpush("PQ", communityScore(c),c)
-          visitedComm[c]=1;
+          cbest=getRandom(connectedSet)
+          PQpush("PQ", communityScore(cbest),cbest)
+          visitedComm[cbest]=1;
         }
         while (PQlength("PQ")>0){
           delete score;
@@ -147,7 +197,7 @@ hawk 'BEGIN{delete comm; Q=0; delete s;srand()}
           addToResult(c)
           expand(c)          
         }
-        if('$measure'=="OMOD"){
+        if(measure=="OMOD"){
           printf "Qov=%s",Q/length(finalComm)
         } else{
           printf "EDN=%s",Q
