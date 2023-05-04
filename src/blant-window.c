@@ -127,7 +127,7 @@ void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numE
 	{
 		SET *NeighborNodes = SetAlloc(G->n);
 		for(i=0; i<_k; i++) for(j=0; j<G->degree[WArray[VArray[i]]]; j++) SetAdd(NeighborNodes, G->neighbor[WArray[VArray[i]]][j]);
-		GRAPH *GNeighbor = GraphInduced(NULL, G, NeighborNodes);
+		GRAPH *GNeighbor = GraphInduced(G, NeighborNodes);
 		updateWindowRepLimitHeap(WArray, VArray, perm, GNeighbor->numEdges - numEdges);
 
 	}
@@ -335,7 +335,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
     VArray = Calloc(_k, sizeof(int));
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
     {
-    	GRAPH *Gi = GraphInduced(NULL, G, W);
+    	GRAPH *Gi = GraphInduced(G, W);
     	FindWindowRepByDeg(Gi, WArray);
     	return;
     }
@@ -355,7 +355,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
     }
     else if (_windowIterationMethod == WINDOW_ITER_DFS)
     {
-        GRAPH *Gi = GraphInduced(NULL, G, W);
+        GRAPH *Gi = GraphInduced(G, W);
         int v, varraySize;
         SET *Vextension = SetAlloc(Gi->n);
         for(v=0; v<_windowSize; v++)
