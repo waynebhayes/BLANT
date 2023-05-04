@@ -104,14 +104,16 @@ static int InitializeConnectedComponents(GRAPH *G)
     assert(!Varray); // we only can be called once.
     assert(_numConnectedComponents == 0);
     SET *visited = SetAlloc(G->n);
-    Varray = Calloc(G->n, sizeof(int));
-    _whichComponent = Calloc(G->n, sizeof(int));
-    _componentSize = Calloc(G->n, sizeof(int)); // probably bigger than it needs to be but...
-    _componentList = Calloc(G->n, sizeof(int*)); // probably bigger...
-    _combinations = Calloc(G->n, sizeof(double*)); // probably bigger...
-    _probOfComponent = Calloc(G->n, sizeof(double*)); // probably bigger...
-    _cumulativeProb = Calloc(G->n, sizeof(double*)); // probably bigger...
-    _componentSet = Calloc(G->n, sizeof(SET*));
+
+    // Allocate these all with Oalloc since they never get freed
+    Varray = Ocalloc(G->n, sizeof(int));
+    _whichComponent = Ocalloc(G->n, sizeof(int));
+    _componentSize = Ocalloc(G->n, sizeof(int)); // probably bigger than it needs to be but...
+    _componentList = Ocalloc(G->n, sizeof(int*)); // probably bigger...
+    _combinations = Ocalloc(G->n, sizeof(double*)); // probably bigger...
+    _probOfComponent = Ocalloc(G->n, sizeof(double*)); // probably bigger...
+    _cumulativeProb = Ocalloc(G->n, sizeof(double*)); // probably bigger...
+    _componentSet = Ocalloc(G->n, sizeof(SET*));
 
     int nextStart = 0;
     _componentList[0] = Varray;
@@ -618,19 +620,19 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
     if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
-	_graphletDegreeVector[i] = Calloc(G->n, sizeof(**_graphletDegreeVector));
+	_graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
     if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++){
-	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
+	_orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
     }
     if (_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
-	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
+	_doubleOrbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode == predict) Predict_Init(G);
     if (_outputMode == graphletDistribution) {
-        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
-        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
+        _graphletDistributionTable = Ocalloc(_numCanon, sizeof(int*));
+        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Ocalloc(_numCanon, sizeof(int));
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
@@ -1176,8 +1178,8 @@ int main(int argc, char *argv[])
         if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
         _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
         _numWindowRepArrSize = _MAXnumWindowRep > 0 ? MIN(_numWindowRepArrSize, _MAXnumWindowRep) : _numWindowRepArrSize;
-        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
-        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        _windowReps = Ocalloc(_numWindowRepArrSize, sizeof(int*));
+        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Ocalloc(_k+1, sizeof(int));
         if (windowRep_edge_density < 0) windowRep_edge_density = 0;
 		if (windowRep_edge_density > 1) windowRep_edge_density = 1;
 		_windowRep_min_num_edge = (int) CombinChooseDouble(_k, 2) * windowRep_edge_density;
@@ -1249,7 +1251,7 @@ int main(int argc, char *argv[])
 
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) {
         FILE *fp;
-        _graphNodeImportance = Calloc(G->n, sizeof(float));
+        _graphNodeImportance = Ocalloc(G->n, sizeof(float));
         if((optind + 1) == argc) {
             _supportNodeImportance = true;
             fp = fopen(argv[optind++], "r");
