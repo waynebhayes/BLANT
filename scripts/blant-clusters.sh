@@ -115,9 +115,11 @@ print_progress () {
   exec 1>&3 2>&4
 }
 
-stepSize=$(hawk 'BEGIN{print (1-0.05)/('$E'-1)}')
+edgeCount=`hawk '{delete line; line[$1]=1; line[$2]=1; for (edge in line) printf "%d ",edge; print ""}' $net | sort -k 1n -k 2n | uniq | wc -l`
+graphEd=`hawk 'BEGIN{print '$edgeCount'/(choose('$numNodes',2))}'`
+stepSize=$(hawk 'BEGIN{print (1-'$graphEd')/('$E'-1)}')
 i=1;
-for edgeDensity in $(seq -f "%.4f" 0.05 $stepSize 1.0) ; do
+for edgeDensity in $(seq -f "%.4f" $graphEd $stepSize 1.0 | sort -nr) ; do
 	print_progress $i $E $edgeDensity
 	i=$(( $i + 1 ))
 	for k in "${Ks[@]}"; do
