@@ -202,7 +202,7 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 	_samplesPerEdge = (numSamples + (validEdgeCount / 2)) / validEdgeCount; // Division rounding up for samples per edge
 	if(_sampleSubmethod == SAMPLE_MCMC_EC) {
 	    //_samplesPerEdge = numSamples;
-	    _EDGE_COVER_G = GraphCopy(NULL, G);
+	    _EDGE_COVER_G = GraphCopy(G);
 	}
 
 	char BUF[BUFSIZ];
@@ -903,6 +903,7 @@ const char * const USAGE_LONG =
 // in the parent.
 int main(int argc, char *argv[])
 {
+    // ENABLE_MEMORY_TRACKING(); // requires including "mem-debug.h" in blant.h (NOT at the top of blant.c!)
     int i, j, opt, multiplicity=1;
     unsigned long numSamples=0;
     confidence = 0;
