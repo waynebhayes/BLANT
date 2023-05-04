@@ -3,14 +3,14 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-E=10
-USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M network.el t [E: Edge densities we are running blant-c for, default $E]
-PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large clusters in network.el.
+USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M Ks EDs t network.el
+PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large communities in network.el.
     blant.exe is the name of the executable BLANT to use (usually just './blant')
     M is the mean number of times each *node* should be touched by a graphlet sample,
     so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
+	Ks is a list of graphlet sizes to do BLANT sampling in
+	EDs is a list of the edge density thresholds to explore
     t similarity threshold of the output communities
-    E is optional and defaults to $E.
 OPTIONS (added BEFORE the blant.exe name)
     -1: exit after printing only one 1 cluster (the biggest one)
     -e: make all the clusters mutually exclusive.
@@ -48,7 +48,6 @@ ONLY_ONE=0
 exclusive=0
 SAMPLE_METHOD=-sMCMC #-sNBE
 ONLY_BEST_ORBIT=0
-PARALLEL=${PARALLEL:-"/bin/bash"}
 
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
@@ -61,19 +60,17 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     esac
 done
 
-[ $# -lt 3 ] && die "not enough arguments"
-#[ $# -gt 5 ] && die "too many arguments"
+[ $# -lt 6 ] && die "not enough arguments"
+[ $# -gt 6 ] && die "too many arguments"
 
 BLANT=$1;
-Ks=(7 6 5 4 3) #(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
+sampleMultiplier=$2;
+Ks=(`echo $3 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
+EDs=($4)
+t=$5;
+net=$6
 
-sampleMultiplier=$2
-net=$3;
-t=$4
-if [ $# -eq 5 ]; then
-    E=$5;
-fi
 
 numNodes=`newlines < $net | sort -u | wc -l`
 
@@ -105,39 +102,166 @@ for k in "${Ks[@]}"; do
     wait; (( BLANT_EXIT_CODE += $? ))
 done
 
-edgeCount=`hawk '{delete line; line[$1]=1; line[$2]=1; for (edge in line) printf "%d ",edge; print ""}' $net | sort -k 1n -k 2n | uniq | wc -l`
-graphEd=`hawk 'BEGIN{print '$edgeCount'/(choose('$numNodes',2))}'`
-stepSize=$(hawk 'BEGIN{print (1-'$graphEd')/('$E'-1)}')
-commands=""
-for edgeDensity in $(seq -f "%.4f" $graphEd $stepSize 1.0) ; do
-    commands+="./scripts/community-discovery.sh $edgeDensity $ONLY_BEST_ORBIT $WEIGHTED $ONLY_ONE $TMPDIR $net $t \n"
+for edgeDensity in "${EDs[@]}"; do
+	for k in "${Ks[@]}"; do
+		hawk 'BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
+			rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
+			minEdges=rounded_edC
+			}
+			ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
+			ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2; canon2orbit[FNR-2][i]=$i}
+			ARGIND==3 && $3>0{ # ensure the actual count is nonzero
+			orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<minEdges) next;
+			if(onlyBestOrbit) orbit=0;
+			Kc[$1][orbit]+=$3; # increment the cluster count for appropriate orbit
+			T[$1]+=$3; # keep total count of *all* orbits
+			for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
+				++neighbors[$1][orbit][$j];
+			}
+			}
+			END{
+			for(u in Kc) for(orbit in Kc[u]) {
+				ORS=" "
+				if('$WEIGHTED') print Kc[u][orbit]^2/T[u], u, orbit
+				else            print Kc[u][orbit], u, orbit # print the near-clique count and the node
+				for (v in neighbors[u][orbit]){
+				print v
+				}
+				ORS="\n"; print "";
+			}
+			}' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $TMPDIR/blant$k.out |
+		sort -gr | # > $TMPDIR/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
+		hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
+			ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
+			ARGIND==2 && !($2 in count){
+			orbit=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
+			for(i=4; i<=NF; i++) neighbors[$2][$i] = neighbors[$i][$2]=1;
+			}
+			function EdgeCount(v,       edgeHits,u) {
+			edgeHits=0;
+			for(u in S){if(edge[u][v]) ++edgeHits;}
+			return edgeHits;
+			}
+			function highRelCliqueCount(u, v){ # Heuristic
+			if(!(u in count) || count[u]==0) return 1;
+			if(!(v in count) || count[v]==0) return 0;
+			if (v in count){
+				return count[v]/count[u]>=0.5;
+			} else {
+				return 1/count[u]>=0.5;
+			}
+			}
+
+			function expand(u, origin,    v,oldOrder){
+			if(u in neighbors) {
+				oldOrder=PROCINFO["sorted_in"];
+				PROCINFO["sorted_in"]="randsort";
+				for (v in neighbors[u]){
+				if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)){
+					QueueAdd("Q", v);
+					visited[v]=1;
+				}
+				}
+				PROCINFO["sorted_in"]=oldOrder;
+			}
+			return;
+			}
+			END{n=length(degree); # number of nodes in the input network
+			cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
+			numCliques=0;
+			QueueAlloc("Q");
+			for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start". 
+				if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
+				origin=node[start];
+				delete S; # this will contain the nodes in the current cluster
+				delete visited;
+				misses=0; # how many nodes have been skipped because they did not work?
+				QueueAdd("Q", origin);
+				visited[origin] = 1;
+				edgeCount = 0;
+				while(QueueLength("Q")>0){
+				u = QueueNext("Q");
+				newEdgeHits = EdgeCount(u);
+				edgeCount += newEdgeHits;
+				S[u]=1;
+				Slen = length(S);
+				if (Slen>1){
+					maxEdges = choose(Slen,2);
+					if(edgeCount/maxEdges < '$edgeDensity') {
+					if(length(S)==Slen){
+						delete S[u]; # no node was removed, so remove this one
+						edgeCount -= newEdgeHits;
+					}
+					if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
+					# keep going until count decreases significantly; duplicate cluster removed in the next awk
+					#visited[u]=0;
+					}else{
+						expand(u, orign);
+					}
+				} else {
+					expand(u, origin);
+				}
+				}
+				if(length(S)>'$k') {
+				maxEdges=choose(length(S),2);
+				++numCliques; printf "%d %d", length(S), edgeCount
+				for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+				print ""
+				if('$ONLY_ONE') exit;
+				}
+			}
+			}' "$net" - | # $TMPDIR/cliqs$k.sorted | # dash is the output of the above pipe (sorted near-clique-counts)
+		sort -nr | # sort the above output by number of nodes in the near-clique
+		hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+			{
+			delete S;
+			numNodes=$1
+			edgeHits=$2;
+			for(i=3;i<=NF;i++) ++S[$i]
+			if(length(S)!=numNodes) next;#ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			add=1;
+			for(i=1;i<=numCliques;i++) {
+				same=0;
+				for(u in S) if(u in cluster[i])++same;
+				if(same > length(cluster[i])*'$t'){add=0; break;}
+			}
+			if(numCliques==0 || add==1) {
+					maxEdges=choose(length(S),2);
+					++numCliques; 
+					printf "%d %d '$k'",length(S),edgeHits
+					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+					print ""
+			}
+			}' | sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out &  # sort by number of nodes and then by the first node in the list
+		done
+		for k in "${Ks[@]}"; do
+			wait; (( BLANT_EXIT_CODE += $? ))
+		done
 done
 
-echo -e $commands | $PARALLEL
-
-sort -k 1nr -k 3nr -k 11n $TMPDIR/final*.out |
-hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
+		hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 			{
 			delete S; 
-			numNodes=$1;
-			edgeHits=$3;
-			maxEdges=$5;
-			k=$9;
-			for(i=11;i<=NF;i++) ++S[$i]
-			ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+			numNodes=$1
+			edgeHits=$2;
+			k=$3;
+			for(i=4;i<=NF;i++) ++S[$i]
+			if(length(S)!=numNodes) next; #ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
 			add=1;
 			for(i=1;i<=numCliques;i++) {
 					same=0;
-					for(u in S) if(u in cluster[i]) ++same;
+					for(u in S) if(u in cluster[i])++same;
 					if(same > length(cluster[i])*'$t'){ add=0; break;}
 			}
 			if(numCliques==0 || add==1) {
+					maxEdges=choose(length(S),2);
 					++numCliques; 
 					printf "%d nodes, %d of %d edges from k %d (%g%%):",
 				length(S), edgeHits, maxEdges, k, 100*edgeHits/maxEdges
 					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 					print ""
 			}
-			}'
+			}' | sort -k 1nr -k 11n
 #set -x
 exit $BLANT_EXIT_CODE
