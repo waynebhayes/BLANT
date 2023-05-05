@@ -215,6 +215,7 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
 #endif
     for(c=0;c<k;c++)
     {
+	// FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
 	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
 	++ODV(u, u_orbit);
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
@@ -222,6 +223,32 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
 	    if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
 	    if(!_communityNeighbors[u][u_orbit]) _communityNeighbors[u][u_orbit] = SetAlloc(G->n);
 	    SetAdd(_communityNeighbors[u][u_orbit], v);
+	}
+    }
+}
+
+void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+    assert(TinyGraphDFSConnected(g,0));
+    int c,d; // canonical nodes
+    unsigned char perm[MAX_K+1];
+#if SORT_INDEX_MODE
+    VarraySort(Varray, k);
+    for(c=0;c<k;c++) perm[c]=c;
+#else
+    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+    memset(perm, 0, k);
+    ExtractPerm(perm, Gint);
+#endif
+    for(c=0;c<k;c++)
+    {
+	// FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
+	int u=Varray[(int)perm[c]];
+	++GDV(u, GintOrdinal);
+	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
+	    int v=Varray[(int)perm[d]];
+	    if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
+	    if(!_communityNeighbors[u][GintOrdinal]) _communityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
+	    SetAdd(_communityNeighbors[u][GintOrdinal], v);
 	}
     }
 }
@@ -258,7 +285,9 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	break;
     case communityDetection:
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k);
+	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k);
+	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k);
+	else Fatal("unkwown _communityMode %c", _communityMode);
 	break;
     case outputGDV:
 	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
