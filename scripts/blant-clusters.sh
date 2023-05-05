@@ -106,8 +106,7 @@ for edgeDensity in "${EDs[@]}"; do
 	for k in "${Ks[@]}"; do
 		hawk 'BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 			rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
-			minEdges=rounded_edC
-			}
+			minEdges=MAX(rounded_edC, ('$k'-1)) }
 			ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
 			ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2; canon2orbit[FNR-2][i]=$i}
 			ARGIND==3 && $3>0{ # ensure the actual count is nonzero
