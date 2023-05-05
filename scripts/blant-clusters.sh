@@ -108,8 +108,7 @@ for edgeDensity in "${EDs[@]}"; do
 			    cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
 			    ASSERT(cMode=="g" || cMode=="o", "COMMUNITY_MODE must be o or g, not "cMode);
 			    rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
-			    minEdges=rounded_edC
-			}
+			    minEdges=MAX(rounded_edC, ('$k'-1)) }
 			ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
 			ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2}
 			ARGIND==3 && $3>0{ # ensure the actual count is nonzero
