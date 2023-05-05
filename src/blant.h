@@ -5,7 +5,8 @@
 #include "tinygraph.h"
 #include "blant-window.h"
 #include "graph.h"
-//#include "mem-debug.h" // need this if you use ENABLE_MEMORY_TRACKING() at the top of main().
+#include "Oalloc.h"
+// #include "mem-debug.h" // need this if you use ENABLE_MEMORY_TRACKING() at the top of main().
 
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
