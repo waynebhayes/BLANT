@@ -118,6 +118,7 @@ extern SET *_connectedCanonicals;
 
 // When in community mode: for each node, and for each orbit it is in, a set of its neigbors when it apppears at that orbit
 extern SET ***_communityNeighbors;
+extern char _communityMode; // 'g' for graphlet or 'o' for orbit; default ???
 
 enum OutputMode {undef, indexGraphlets, indexGraphletsRNO, indexOrbits, indexMotifs, communityDetection,
     indexMotifOrbits, predict, predict_merge, graphletFrequency, outputODV, outputGDV,

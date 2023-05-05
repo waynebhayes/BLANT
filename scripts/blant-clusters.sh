@@ -43,6 +43,7 @@ case "$1" in
 [0-9]*) tryHard=$1; shift;;
 esac
 
+COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit (which uses FAR more memory, like 10-100x)
 WEIGHTED=0
 ONLY_ONE=0
 exclusive=0
@@ -71,8 +72,7 @@ EDs=($4)
 t=$5;
 net=$6
 
-
-numNodes=`newlines < $net | sort -u | wc -l`
+numNodes=`awk '{++seen[$1];++seen[$2]}END{print length(seen)}' $net`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
 for k in "${Ks[@]}"; do
@@ -94,7 +94,7 @@ for k in "${Ks[@]}"; do
     # DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
     # Possible values: MCMC NBE EBE RES
     [ -f canon_maps/canon_list$k.txt ] || continue
-    CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc $net" #-e$minEdges
+    CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
     $CMD > $TMPDIR/blant$k.out &
 done
 
@@ -105,25 +105,33 @@ done
 for edgeDensity in "${EDs[@]}"; do
 	for k in "${Ks[@]}"; do
 		hawk 'BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
-			rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
-			minEdges=MAX(rounded_edC, ('$k'-1)) }
+			    cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
+			    ASSERT(cMode=="g" || cMode=="o", "COMMUNITY_MODE must be o or g, not "cMode);
+			    rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
+			    minEdges=MAX(rounded_edC, ('$k'-1)) }
 			ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
-			ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2; canon2orbit[FNR-2][i]=$i}
+			ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2}
 			ARGIND==3 && $3>0{ # ensure the actual count is nonzero
-			orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<minEdges) next;
-			if(onlyBestOrbit) orbit=0;
-			Kc[$1][orbit]+=$3; # increment the cluster count for appropriate orbit
-			T[$1]+=$3; # keep total count of *all* orbits
+			if(cMode=="o") {
+			    orbit=$2; canon=orbit2canon[orbit]; edges=canonEdges[canon]; if(edges<minEdges) next;
+			    item=orbit;
+			} else if(cMode=="g") {
+			    canon=$2; edges=canonEdges[canon]; if(edges<minEdges) next;
+			    item=canon;
+			}
+			if(onlyBestOrbit) item=0;
+			Kc[$1][item]+=$3; # increment the cluster count for appropriate item (canon/orbit)
+			T[$1]+=$3; # keep total count of *all* items
 			for(j=4;j<=NF;j++){ # saving the neighbors of those cliques that have high edge density for BFS
-				++neighbors[$1][orbit][$j];
+				++neighbors[$1][item][$j];
 			}
 			}
 			END{
-			for(u in Kc) for(orbit in Kc[u]) {
+			for(u in Kc) for(item in Kc[u]) {
 				ORS=" "
-				if('$WEIGHTED') print Kc[u][orbit]^2/T[u], u, orbit
-				else            print Kc[u][orbit], u, orbit # print the near-clique count and the node
-				for (v in neighbors[u][orbit]){
+				if('$WEIGHTED') print Kc[u][item]^2/T[u], u, item
+				else            print Kc[u][item], u, item # print the near-clique count and the node
+				for (v in neighbors[u][item]){
 				print v
 				}
 				ORS="\n"; print "";
@@ -133,7 +141,7 @@ for edgeDensity in "${EDs[@]}"; do
 		hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
 			ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 			ARGIND==2 && !($2 in count){
-			orbit=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
+			item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
 			for(i=4; i<=NF; i++) neighbors[$2][$i] = neighbors[$i][$2]=1;
 			}
 			function EdgeCount(v,       edgeHits,u) {
