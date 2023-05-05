@@ -72,8 +72,7 @@ EDs=($4)
 t=$5;
 net=$6
 
-
-numNodes=`newlines < $net | sort -u | wc -l`
+numNodes=`awk '{++seen[$1];++seen[$2]}END{print length(seen)}' $net`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
 for k in "${Ks[@]}"; do
