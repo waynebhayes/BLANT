@@ -1248,7 +1248,7 @@ int main(int argc, char *argv[]){
             }
         }
     }
-    free(scratchspace);
+    Free(scratchspace);
 
     // sanity check GDV bin size
     for (i=0; i<2; i++){

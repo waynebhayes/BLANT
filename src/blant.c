@@ -98,15 +98,16 @@ void SetBlantDir(void) {
 	_BLANT_DIR = strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
 }
 
+#define O_ALLOC 1
 static int InitializeConnectedComponents(GRAPH *G)
 {
     static unsigned v, *Varray, j, i;
     assert(!Varray); // we only can be called once.
+    Varray = Calloc(G->n, sizeof(int));
     assert(_numConnectedComponents == 0);
     SET *visited = SetAlloc(G->n);
 
-    // Allocate these all with Oalloc since they never get freed
-    Varray = Ocalloc(G->n, sizeof(int));
+    // Allocate these all with Ocalloc since they never get freed
     _whichComponent = Ocalloc(G->n, sizeof(int));
     _componentSize = Ocalloc(G->n, sizeof(int)); // probably bigger than it needs to be but...
     _componentList = Ocalloc(G->n, sizeof(int*)); // probably bigger...
@@ -173,6 +174,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
     }
     SetFree(visited);
+    Free(Varray); // but do NOT set it to NULL, as a flag not to run this again
     return _numConnectedComponents;
 }
 
@@ -466,9 +468,8 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 
     int i,j;
     if(_window) {
-        for(i=0; i<_numWindowRepArrSize; i++)
-            free(_windowReps[i]);
-        free(_windowReps);
+        for(i=0; i<_numWindowRepArrSize; i++) Free(_windowReps[i]);
+        Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
     if (_sampleMethod == SAMPLE_MCMC && !_window)
@@ -553,9 +554,9 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	break;
 	}
 
-#if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
-    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
-	Free(_graphletDegreeVector[i]);
+#if !O_ALLOC && PARANOID_ASSERTS
+    // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
+    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++) Free(_graphletDegreeVector[i]);
     if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
     if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
     TinyGraphFree(empty_g);
@@ -905,7 +906,7 @@ const char * const USAGE_LONG =
 // in the parent.
 int main(int argc, char *argv[])
 {
-    // ENABLE_MEMORY_TRACKING(); // requires including "mem-debug.h" in blant.h (NOT at the top of blant.c!)
+    // ENABLE_MEM_DEBUG(); // requires including "mem-debug.h" in blant.h (NOT at the top of blant.c!)
     int i, j, opt, multiplicity=1;
     unsigned long numSamples=0;
     confidence = 0;
@@ -1178,8 +1179,9 @@ int main(int argc, char *argv[])
         if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
         _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
         _numWindowRepArrSize = _MAXnumWindowRep > 0 ? MIN(_numWindowRepArrSize, _MAXnumWindowRep) : _numWindowRepArrSize;
-        _windowReps = Ocalloc(_numWindowRepArrSize, sizeof(int*));
-        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Ocalloc(_k+1, sizeof(int));
+	// _windowReps needs true Calloc/Free since they may be realloc'd on-the-fly.
+        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
+        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
         if (windowRep_edge_density < 0) windowRep_edge_density = 0;
 		if (windowRep_edge_density > 1) windowRep_edge_density = 1;
 		_windowRep_min_num_edge = (int) CombinChooseDouble(_k, 2) * windowRep_edge_density;
