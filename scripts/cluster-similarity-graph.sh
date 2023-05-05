@@ -60,10 +60,11 @@ for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize 1.0) ; do
     commands+="printf 'Done runninng blant-c for d=$edgeDensity[' >&2;"
     commands+="for ((j=0; j<\$percentage; j+=2)); do printf '#' >&2; done;"
     commands+="for ((j=\$percentage; j<100; j+=2)); do printf ' '>&2; done;"
-    commands+="printf \"] \$percentage %%\r\">&2;\n"
+    commands+="printf \"] \$percentage %%\r\">&2;\n"  
 done
 
-echo -e $commands  | $PARALLEL >&2
+echo -e $commands  | $PARALLEL >&2 &
+wait
 echo "" >&2
 sort -k 1nr -k 3nr -k 11n $TMPDIR/blant-c*.out | 
 hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
