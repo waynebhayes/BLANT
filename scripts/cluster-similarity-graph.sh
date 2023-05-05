@@ -42,22 +42,30 @@ measure=$5;
 net=$6;
 
 PARALLEL=${PARALLEL:-"/bin/bash"}
+START_AT=${START_AT:-"0.1"}
 
 [ -f "$net" ] || die "network '$net' does not exist"
 [[ "$measure" == "EDN" || "$measure" == "OMOD" ]] || die "Measure $measure not in the list"
 
 numNodes=`newlines < $net | sort -u | wc -l`
-edgeCount=`hawk '{delete line; line[$1]=1; line[$2]=1; for (edge in line) printf "%d ",edge; print ""}' $net | sort -k 1n -k 2n | uniq | wc -l`
-graphEd=`hawk 'BEGIN{print '$edgeCount'/(choose('$numNodes',2))}'`
-stepSize=$(hawk 'BEGIN{print (1-'$graphEd')/('$E'-1)}')
+stepSize=$(hawk 'BEGIN{print (1-'$START_AT')/('$E'-1)}')
 
 commands=""
-for edgeDensity in $(seq -f "%.4f" $graphEd $stepSize 1.0) ; do
-    commands+="./scripts/blant-clusters.sh ./blant $M '3 4 5 6 7' '$edgeDensity' $t $net > $TMPDIR/blant-c$edgeDensity.out \n"
+for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize 1.0) ; do
+    commands+="./scripts/blant-clusters.sh ./blant $M '3 4 5 6 7' '$edgeDensity' $t $net > $TMPDIR/blant-c$edgeDensity.out;"
+    #Printing progress so you know speed and that it is not stuck
+    commands+="i=\$(find $TMPDIR -name blant-c*.out -type f -not -empty | wc -l);"
+    commands+="i=\`expr 100 \"*\" \$i \`;"
+    commands+="percentage=\`expr \$i / $E \`;";
+    commands+="printf 'Done runninng blant-c for d=$edgeDensity[' >&2;"
+    commands+="for ((j=0; j<\$percentage; j+=2)); do printf '#' >&2; done;"
+    commands+="for ((j=\$percentage; j<100; j+=2)); do printf ' '>&2; done;"
+    commands+="printf \"] \$percentage %%\r\">&2;\n"  
 done
 
-echo -e $commands | $PARALLEL
-
+echo -e $commands  | $PARALLEL >&2 &
+wait
+echo "" >&2
 sort -k 1nr -k 3nr -k 11n $TMPDIR/blant-c*.out | 
 hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 			{
