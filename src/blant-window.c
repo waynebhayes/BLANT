@@ -245,7 +245,7 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, unsigned *WArray, unsigned *VArray, SET
             VArrayCopy[varrayCopySize++] = w;
             SetUnion(Vext, Vext, Vextension);
             ExtendSubGraph(G, Gi, WArray, VArrayCopy, Vext, v, &varrayCopySize, windowAdjList, windowRepInt, D, canonMSET, perm);
-            free(VArrayCopy);
+            Free(VArrayCopy);
         }
     }
     SetFree(Vext);
@@ -374,7 +374,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
     else {
     	Fatal("Undefined Window Iteration Methods.\nRefer to -P[COMB|DFS].\n");
     }
-    free(VArray);
+    Free(VArray);
     if(_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
         updateLeastFrequent(windowRepInt, canonMSET);
     MultisetFree(canonMSET);

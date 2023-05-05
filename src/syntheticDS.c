@@ -264,8 +264,8 @@ int getRandomNodeAtHops(GRAPH* G, int src, int d){
     // return random vertex b/w start&end
     int ans = start + (int)((end-start+1) * drand48());
     ans = queue[ans];
-    free(queue);
-    free(distance);
+    Free(queue);
+    Free(distance);
     return ans;
 }
 
@@ -393,9 +393,9 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
         assert(nodesBySp[i]<G->n);
     }
 
-    free(scratch);
-    free(queue);
-    free(distance);
+    Free(scratch);
+    Free(queue);
+    Free(distance);
 }
 
 // NORMALIZED by sum-of-values (let's say x nodes at 1 hop, y nodes at 2 hops, ...; then normalization constant = x+y+...)
