@@ -41,6 +41,7 @@ int _numCanon, _canonNumEdges[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
+char _communityMode; // 'g' for graphlet or 'o' for orbit
 int _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -525,22 +526,47 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	}
         break;
     case communityDetection:
-        for(u=0; u<G->n; u++) {
-	    for(c=0; c<_numConnectedOrbits; c++) {
-		orbit_index = _connectedOrbits[c];
-		unsigned long odv=ODV(u,orbit_index);
-		int numPrinted = 0;
-		if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
-		    for(j=0;j<G->degree[u]; j++) {
-			v = G->neighbor[u][j];
-			if(SetIn(_communityNeighbors[u][orbit_index],v)) {
-			    if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), orbit_index, odv);
-			    printf("%s", PrintNode(' ',v));
+	assert(_communityMode == 'o' || _communityMode == 'g');
+	switch(_communityMode)
+	{
+	case 'o':
+	    for(u=0; u<G->n; u++) {
+		for(c=0; c<_numConnectedOrbits; c++) {
+		    orbit_index = _connectedOrbits[c];
+		    unsigned long odv=ODV(u,orbit_index);
+		    int numPrinted = 0;
+		    if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
+			for(j=0;j<G->degree[u]; j++) {
+			    v = G->neighbor[u][j];
+			    if(SetIn(_communityNeighbors[u][orbit_index],v)) {
+				if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), orbit_index, odv);
+				printf("%s", PrintNode(' ',v));
+			    }
 			}
+			if(numPrinted) printf("\n");
 		    }
-		    if(numPrinted) printf("\n");
 		}
 	    }
+	    break;
+	case 'g':
+	    for(u=0; u<G->n; u++) {
+		for(c=0; c<_numCanon; c++) if(SetIn(_connectedCanonicals,c)) {
+		    unsigned long gdv=GDV(u,c);
+		    int numPrinted = 0;
+		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
+			for(j=0;j<G->degree[u]; j++) {
+			    v = G->neighbor[u][j];
+			    if(SetIn(_communityNeighbors[u][c],v)) {
+				if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), c, gdv);
+				printf("%s", PrintNode(' ',v));
+			    }
+			}
+			if(numPrinted) printf("\n");
+		    }
+		}
+	    }
+	    break;
+	default: Fatal("unknown _communityMode %c", _communityMode);
 	}
 	break;
     case graphletDistribution:
@@ -557,7 +583,8 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 #if !O_ALLOC && PARANOID_ASSERTS
     // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++) Free(_graphletDegreeVector[i]);
-    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
+    if(_outputMode == outputODV || (_outputMode == communityDetection && _communityMode=='o'))
+	for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
     if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
     TinyGraphFree(empty_g);
 #endif
@@ -620,11 +647,13 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     int i, j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
-    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++)
-	_graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
-    if(_outputMode == outputODV || _outputMode == communityDetection) for(i=0;i<_numOrbits;i++){
-	_orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
-	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+    if(_outputMode == outputGDV || (_outputMode == communityDetection && _communityMode=='g'))
+	for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
+    if(_outputMode == outputODV || (_outputMode == communityDetection && _communityMode=='o')) {
+	for(i=0;i<_numOrbits;i++) {
+	    _orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
+	    for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+	}
     }
     if (_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
 	_doubleOrbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleOrbitDegreeVector));
@@ -823,7 +852,7 @@ const char * const USAGE_SHORT =
 "USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
 "    -s samplingMethod (default MCMC; NBE, EBE, RES, AR, INDEX, EDGE_COVER)\n"\
-"    -m{outputMode} (default o=ODV; g=GDV, f=frequency, i=index, c=community, r=root, d=distribution of neighbors\n"\
+"    -m{outputMode} (default o=ODV; g=GDV, f=frequency, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, i=integerOrdinal)\n"\
 "    -r seed (integer)\n\n"\
 "    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the task up into N jobs (default 1) allowing\n"\
@@ -869,7 +898,8 @@ const char * const USAGE_LONG =
 "	g = GDV (Graphlet Degree Vector) Note this is NOT what is commonly called a GDV, which is actually an ODV (above).\n"\
 "	NOTE: the difference is that an ODV counts the number of nodes that touch all possible *orbits*, while a GDV lists\n"\
 "		only the smaller vector of how many nodes touch each possible *graphlet* (independent of orbit).\n"\
-"	c = Community detection: each line consists of: node orbit count [TAB] neighbors.\n"\
+"	cX = Community detection where X is g for graphlet (the default) or o for orbit (which uses FAR more memory!)\n"\
+"	    Each line consists of:   node (orbit|graphlet) count [TAB] neighbors.\n"\
 "	f = graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across our random samples.\n"\
 "	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
 "	i = {i}ndex: each line is a graphlet with columns: canonical ID, then k nodes in canonical order; useful since\n"\
@@ -943,7 +973,13 @@ int main(int argc, char *argv[])
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
 	    {
-	    case 'c': _outputMode = communityDetection; break;
+	    case 'c': _outputMode = communityDetection;
+		switch(*(optarg+1)) {
+		case 'o': _communityMode='o'; break;
+		case '\0': case 'g': _communityMode='g'; break;
+		default: Fatal("-mc%c: unknown community mode; valid values c or o\n", *(optarg+1)); break;
+		}
+		break;
 	    case 'm': _outputMode = indexMotifs; break;
 	    case 'M': _outputMode = indexMotifOrbits; break;
 	    case 'i': _outputMode = indexGraphlets; break;
@@ -1244,11 +1280,11 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
-    if(_outputMode == communityDetection) { // allocate sets for [node][orbit]
-	assert(_numOrbits>0);
-	_communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**));
-	// Only allocate when needed
-	//    _communityNeighbors[node] = (SET**) Calloc(_numOrbits, sizeof(SET*));
+    if(_outputMode == communityDetection) {
+	if(_communityMode == 'o' || _communityMode=='g') // allocate sets for [node][orbit], but 2nd dimension only when needed
+	    _communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**)); // elements are only allocated when needed
+	else
+	    Fatal("unknown _communityMode %c",_communityMode);
     }
 
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) {
