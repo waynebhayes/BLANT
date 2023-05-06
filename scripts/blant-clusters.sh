@@ -174,7 +174,6 @@ for edgeDensity in "${EDs[@]}"; do
 			return;
 			}
 			END{n=length(degree); # number of nodes in the input network
-			cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
 			numCliques=0;
 			QueueAlloc("Q");
 			for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start". 
@@ -212,7 +211,7 @@ for edgeDensity in "${EDs[@]}"; do
 				if(length(S)>'$k') {
 				maxEdges=choose(length(S),2);
 				++numCliques; printf "%d %d", length(S), edgeCount
-				for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+				for(u in S) { printf " %s", u}
 				print ""
 				if('$ONLY_ONE') exit;
 				}

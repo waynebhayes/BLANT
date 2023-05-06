@@ -89,7 +89,7 @@ hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 					for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
 					print ""
 			}
-			}' | tee $TMPDIR/blant.out |
+			}' > $TMPDIR/blant.out
 hawk 'BEGIN{delete intersection}
     {
       for(i=11;i<=NF;i++){comm[FNR][$i]=1}
@@ -97,11 +97,11 @@ hawk 'BEGIN{delete intersection}
           SetIntersect(intersection,comm[i], comm[FNR])
           similarity=length(intersection)
           if (similarity > 0){
-              printf "%d %d %d", i, FNR, similarity
+              printf "%d %d %d", i, FNR, similarity 
               print ""
           }
       }
-    }' | 
+    }' $TMPDIR/blant.out > $TMPDIR/graph.out
 hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
       ARGIND==1{++degree[$1];++degree[$2];A[$1][$2]=A[$2][$1]=1}
       ARGIND==2{neighbors[$1][$2]=neighbors[$2][$1]=$3}                                    #s number of times node u appears
@@ -217,4 +217,4 @@ hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
             for(u in comm[c]) {printf " %s", u}
             print ""
         }
-      }' $net - $TMPDIR/blant.out | sort -k 1nr -k 11n
+      }' $net $TMPDIR/graph.out $TMPDIR/blant.out | sort -k 1nr -k 11n
