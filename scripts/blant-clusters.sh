@@ -144,7 +144,10 @@ for edgeDensity in "${EDs[@]}"; do
 	    }
 	    function EdgeCount(v,       edgeHits,u) {
 		edgeHits=0;
-		for(u in S) if(v in edge[u]){ASSERT(edge[u][v],"edge error"); ++edgeHits;}
+		for(u in S) if(v in edge[u]){
+		    ASSERT(edge[u][v],"edge error");
+		    ++edgeHits;
+		}
 		return edgeHits;
 	    }
 	    function highRelCliqueCount(u, v) { # Heuristic
@@ -209,15 +212,14 @@ for edgeDensity in "${EDs[@]}"; do
 		    }
 		}
 	    }' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
-	sort -nr | # Pablo: Do we need this sort? Eliminating it would allow the below awk to start sooner
+	sort -nr |
 	hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 	    {
 		delete S;
 		numNodes=$1
 		edgeHits=$2;
 		for(i=3;i<=NF;i++) ++S[$i]
-		# Pablo: Why is the below line not an error?
-		if(length(S)!=numNodes) next;#ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+		WARN(length(S)==numNodes,"mismatch in numNodes and length(S)");
 		add=1;
 		for(i=1;i<=numCliques;i++) {
 		    same=0;
@@ -247,7 +249,7 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 	    edgeHits=$2;
 	    k=$3;
 	    for(i=4;i<=NF;i++) ++S[$i]
-	    if(length(S)!=numNodes) next; #ASSERT(length(S)==numNodes,"mismatch in numNodes and length(S)");
+	    WARN(length(S)==numNodes,"mismatch in numNodes and length(S)");
 	    add=1;
 	    for(i=1;i<=numCliques;i++) {
 		same=0;
