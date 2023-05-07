@@ -5,7 +5,8 @@
 #include "priority-queue.h"
 #include "rand48.h"
 
-unsigned _Gn; // number of nodes in the full input network
+unsigned _Gn; // number of nodes in the INPUT (user's) network
+#define MAX_CLUSTERS 1000000 // maximum number of clusters in the cluster similarity graph
 
 typedef struct _commType {
     unsigned n,m,nc2,k, index;
@@ -13,7 +14,7 @@ typedef struct _commType {
     SET *nodes;
 } CLUSTER;
 
-static int ClusterCompare(foint f1, foint f2)
+static int ClusterScoreCompare(foint f1, foint f2)
 {
     CLUSTER *c1 = (CLUSTER*)f1.v, *c2 = (CLUSTER*)f2.v;
     // abstract "smallest-at-top" wins, so reverse it for largest
@@ -38,12 +39,13 @@ CLUSTER *ReadCluster(FILE *fp)
     return c;
 }
 
-CLUSTER **_cluster; // gets dynamically bigger as necessary, starting at _Gn
-unsigned _numClus, _clusSize, *_finalMemberships; // array [_Gn] counting number of clusters each node in INPUT graph belongs to
+CLUSTER *_cluster[MAX_CLUSTERS]; // gets dynamically bigger as necessary, starting at _Gn
+unsigned _numClus, *_finalMemberships; // array [_Gn] counting number of clusters each node in INPUT graph belongs to
 double _overlapThresh = 0.5;
 GRAPH *_clusterSimGraph;
-SET *_finalComm;
-#define MAX_GRAPH 1000000
+SET *_finalComm, *_finalClusVisited;
+SET **_clusterMemberships; // _clusterMemberships[u] = set of clusters node u \in G (input network) is in
+
 
 enum Measure { undef, MEASURE_OMOD, MEASURE_EDN };
 static enum Measure measure = undef;
@@ -54,27 +56,23 @@ PRIORITY_QUEUE *_PQ;
 double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
 {
     assert(measure != undef);
-    if(measure==MEASURE_OMOD) {Apology("boo hoo, no OMOD"); return 0;}
-      // return ( (kin[c][u] - ( degree[u]-kin[c][u] ) ) / degree[u] ) * ( 1 / ms ) * edgeDensity[c] * ( 1 / nc[c] )
-    if(measure == MEASURE_EDN) return ( 1.0 / membershipCount ) * c->ED;
-    return 0;
+    switch(measure) {
+    case MEASURE_EDN: return ( 1.0 / membershipCount ) * c->ED;
+	break;
+    case MEASURE_OMOD: Apology("Need to load original graph to compute overlapping modularity");
+    default: Fatal("unknonw measure in scoreOfNodeInCommunity");
+	return (-1); break;
+    }
 }
 
-
-unsigned *sList(SET *s, unsigned *space)
-{
-    if(s->list) return s->list;
-    else SetToArray(space, s);
-    return space;
-}
 
 double communityScore(CLUSTER *c)
 {
-    int i;
     double CS = 0;
-    unsigned member[c->n], *list = sList(c->nodes, member);
     assert(c->n==SetCardinality(c->nodes));
-    for(i=0;i<c->n;i++) CS += scoreOfNodeInCommunity(c, list[i], _finalMemberships[list[i]]+1);
+    unsigned m; SET *s=c->nodes;
+    FOREACH(m,s)
+	CS += scoreOfNodeInCommunity(c, m, _finalMemberships[m]+1);
     return CS;
 }
 
@@ -83,15 +81,15 @@ double _currentScore;
 double potentialScore(CLUSTER *c)
 {
     double P = _currentScore;
-    unsigned clusNodes[c->n], *clist = sList(c->nodes, clusNodes), i,j;
-    unsigned currentClusters[SetCardinality(_finalComm)], *ccList = sList(_finalComm, currentClusters);
-    for(i=0;i<c->n;i++) {
-	unsigned u = clist[i];
+    SET *c_nodes=c->nodes;
+    unsigned u, m;
+    FOREACH_DECLARE(m,_finalComm);
+    FOREACH(u,c_nodes) {
 	if(_finalMemberships[u]!=0) {
-	    for(j=0; j<SetCardinality(_finalComm); j++) {
-	    CLUSTER *c2 = _cluster[ccList[j]];
-	    if(SetIn(c2->nodes, u))
-		P=P-scoreOfNodeInCommunity(c2, u, _finalMemberships[u])+scoreOfNodeInCommunity(c2, u, _finalMemberships[u] + 1);
+	    FOREACH_LOOP(m,_finalComm) {
+		CLUSTER *c2 = _cluster[m];
+		if(SetIn(c2->nodes, u))
+		    P=P-scoreOfNodeInCommunity(c2, u, _finalMemberships[u])+scoreOfNodeInCommunity(c2, u, _finalMemberships[u] + 1);
 	    }
 	}
     }
@@ -106,15 +104,10 @@ void addToResult(CLUSTER *c)
     double P=potentialScore(c), diff=P-_currentScore;
     if (diff < _stopT) return;
     _currentScore=P;
-    int array[c->n], *list = sList(c->nodes, array), i;
-    for(i=0;i<c->n;i++) {
-	unsigned u = list[i];
-	_finalMemberships[u]++;
-    }
+    unsigned u; SET *cn=c->nodes;
+    FOREACH(u,cn) _finalMemberships[u]++;
     SetAdd(_finalComm,c->index);
 }
-
-SET *_finalClusVisited; 
 
 void expand(CLUSTER *c)
 {
@@ -138,20 +131,20 @@ void expand(CLUSTER *c)
 
 int main(int argc, char *argv[])
 {
-    int i,j;
+    int i;
     assert(argc==3);
-    _clusSize = _Gn = atoi(argv[1]);
+    _Gn = atoi(argv[1]);
     _stopT = atof(argv[2]);
-    _cluster = Malloc(_clusSize*sizeof(CLUSTER));
     SET *intersect = SetAlloc(_Gn);
     _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
+    _clusterMemberships = Calloc(_Gn, sizeof(SET*));
 
     Boolean sparse = true, names=false;
-    _clusterSimGraph = GraphAlloc(MAX_GRAPH, sparse, names);
+    _clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
     GraphMakeWeighted(_clusterSimGraph);
-    unsigned sim[MAX_GRAPH];
+    unsigned sim[MAX_CLUSTERS];
 
-    while(!feof(stdin)) {
+    while(!feof(stdin) && _numClus < MAX_CLUSTERS) {
 	CLUSTER *c = ReadCluster(stdin);
 
 	// Either remember, or forget, this cluster based on overlap with previous ones
@@ -175,15 +168,13 @@ int main(int argc, char *argv[])
 	    GraphSetWeight(_clusterSimGraph,i,_numClus,sim[i]);
 	}
 
-	if(_numClus == _clusSize) {
-	    printf("Upgrading _clusSize from %d to %d\n", _clusSize, 2*_clusSize);
-	    _clusSize *=2;
-	    _cluster = Realloc(_cluster, _clusSize*sizeof(CLUSTER));
-	}
 	c->index = _numClus;
 	_cluster[_numClus++] = c;
 	fscanf(stdin, " ");
     }
+    if(!feof(stdin) && _numClus == MAX_CLUSTERS)
+	Warning("cluster reading stopped at MAX_CLUSTERS %d; processing cluster graph anyway\n", MAX_CLUSTERS);
+
 #if 0 // debugging just to check we read things correctly
     printf("Read %d clusters:\n", _numClus);
     for(i=0; i<_numClus; ++i) {
@@ -194,9 +185,8 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    Warning("May need to load original graph to compute overlapping modularity");
 
-    _PQ = PriorityQueueAlloc(_numClus, ClusterCompare, NULL);
+    _PQ = PriorityQueueAlloc(_numClus, ClusterScoreCompare, NULL);
     measure = MEASURE_EDN;
 
     // For each connected component, mark it off and pick one node at random to put in the PQ
@@ -224,19 +214,15 @@ int main(int argc, char *argv[])
 	expand(c);
     }
 
-    assert(measure!=MEASURE_OMOD); // printf "Qov=%s",Q/length(finalComm)
+    if(measure==MEASURE_OMOD) Apology("Need to load original graph to compute overlapping modularity");
     printf("EDN=%g\n",_currentScore);
 
-    unsigned community[_numClus], *list = sList(_finalComm, community);
-    for(i=0; i<SetCardinality(_finalComm);i++) {
-	unsigned index = list[i];
-	CLUSTER *c=_cluster[index];
+    unsigned m;
+    FOREACH(m,_finalComm) {
+	CLUSTER *c=_cluster[m];
 	printf("%d nodes, %d of %d edges from k %d (%g%%):", c->n, c->m, c->nc2, c->k, 100*c->ED);
-	unsigned nodes[c->n], *node = sList(c->nodes, nodes);
-	for(j=0;j<c->n;j++) {
-	    unsigned u = node[j];
-	    printf(" %d", u);
-	}
+	unsigned u; SET *cn=c->nodes;
+	FOREACH(u,cn) printf(" %d", u);
 	puts("");
     }
     return 0;
