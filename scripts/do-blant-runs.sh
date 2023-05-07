@@ -4,14 +4,13 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 measure="EDN"
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME M E t stopT measure network.el [blant.out files, or none to read stdin]
+USAGE="USAGE: $BASENAME M E t network.el outDir [blant.out files, or none to read stdin]
 PURPOSE: run blant-clusters for E edge densities in network.el, then generate a similarity graph for it.
     M sample multiplier for blant clusters.
     E number of edge densities. It will start in 1/E and increment 1/E each step. 
     t [0,1] similarity threshold of the output communities. Communities in which the percentage of neighbors is
     t will not be retrieved.
-    stopT difference in EDN increase for which it is not worth to continue expanding. 
-    measure to optimize [EDN,OMOD]
+    outDir an existing directory that will store the output filees 
 "
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -33,37 +32,40 @@ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 [ $# -lt 4 ] && die "not enough arguments"
 
-
 M=$1
 E=$2
 t=$3
-stopT=$4
-measure=$5;
-net=$6;
+net=$4;
+outDir=$5
 
 PARALLEL=${PARALLEL:-"/bin/bash"}
 START_AT=${START_AT:-"0.1"}
 
 [ -f "$net" ] || die "network '$net' does not exist"
 [[ "$measure" == "EDN" || "$measure" == "OMOD" ]] || die "Measure $measure not in the list"
-
+[ -d $outDir ] || die "Out directory does not exist"
 numNodes=`newlines < $net | sort -u | wc -l`
 stepSize=$(hawk 'BEGIN{print (1-'$START_AT')/('$E'-1)}')
 
+graph_name=$(basename "$net")
+
+OUTDIR=`mktemp -d $outDir/$BASENAME-$graph_name.XXXXX`
 commands=""
+E=`expr $E "*" 5`
 for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize 1.0) ; do
     for k in 3 4 5 6 7;
     do
-        commands+="./scripts/blant-clusters.sh ./blant $M '$k' '$edgeDensity' $t $net > $TMPDIR/blant-c-$k-$edgeDensity.out;"
+        commands+="./scripts/blant-clusters.sh ./blant $M '$k' '$edgeDensity' $t $net > $OUTDIR/blant-c-$k-$edgeDensity.out;"
         #Printing progress so you know speed and that it is not stuck
-        commands+="i=\$(find $TMPDIR -name blant-c*.out -type f -not -empty | wc -l);"
+        commands+="i=\$(find $OUTDIR -name blant-c*.out -type f -not -empty | wc -l);"
         commands+="i=\`expr 100 \"*\" \$i \`;"
         commands+="percentage=\`expr \$i / $E \`;";
-        commands+="printf 'Done runninng blant-c for d=$edgeDensity[' >&2;"
+        commands+="printf 'Done runninng blant-c for d=$edgeDensity , k=$k[' >&2;"
         commands+="for ((j=0; j<\$percentage; j+=2)); do printf '#' >&2; done;"
         commands+="for ((j=\$percentage; j<100; j+=2)); do printf ' '>&2; done;"
         commands+="printf \"] \$percentage %%\r\">&2;\n"  
     done
 done
 
-echo -e $commands  | $PARALLEL >&2 &
+echo -e $commands   | $PARALLEL >&2 &
+wait
