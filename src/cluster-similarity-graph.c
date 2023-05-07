@@ -158,9 +158,10 @@ int main(int argc, char *argv[])
 	for(i=0;i<_numClus;i++)  {
 	    SetReset(intersect);
 	    SetIntersect(intersect, _cluster[i]->nodes, c->nodes);
-	    assert(SetCardinality(_cluster[i]->nodes) >= SetCardinality(c->nodes));
+	    //assert(SetCardinality(_cluster[i]->nodes) >= SetCardinality(c->nodes));
+	    int maxCard = MAX(SetCardinality(_cluster[i]->nodes) , SetCardinality(c->nodes));
 	    sim[i]=SetCardinality(intersect);
-	    if(sim[i] / (1.0*SetCardinality(_cluster[i]->nodes)) > _overlapThresh) {
+	    if(sim[i] / (1.0*maxCard) > _overlapThresh) {
 		//printf("Skipping cluster %d\n", _numClus);
 		SetFree(c->nodes);
 		Free(c);
