@@ -52,15 +52,18 @@ stepSize=$(hawk 'BEGIN{print (1-'$START_AT')/('$E'-1)}')
 
 commands=""
 for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize 1.0) ; do
-    commands+="./scripts/blant-clusters.sh ./blant $M '3 4 5 6 7' '$edgeDensity' $t $net > $TMPDIR/blant-c$edgeDensity.out;"
-    #Printing progress so you know speed and that it is not stuck
-    commands+="i=\$(find $TMPDIR -name blant-c*.out -type f -not -empty | wc -l);"
-    commands+="i=\`expr 100 \"*\" \$i \`;"
-    commands+="percentage=\`expr \$i / $E \`;";
-    commands+="printf 'Done runninng blant-c for d=$edgeDensity[' >&2;"
-    commands+="for ((j=0; j<\$percentage; j+=2)); do printf '#' >&2; done;"
-    commands+="for ((j=\$percentage; j<100; j+=2)); do printf ' '>&2; done;"
-    commands+="printf \"] \$percentage %%\r\">&2;\n"  
+    for k in 3 4 5 6 7;
+    do
+        commands+="./scripts/blant-clusters.sh ./blant $M '$k' '$edgeDensity' $t $net > $TMPDIR/blant-c-$k-$edgeDensity.out;"
+        #Printing progress so you know speed and that it is not stuck
+        commands+="i=\$(find $TMPDIR -name blant-c*.out -type f -not -empty | wc -l);"
+        commands+="i=\`expr 100 \"*\" \$i \`;"
+        commands+="percentage=\`expr \$i / $E \`;";
+        commands+="printf 'Done runninng blant-c for d=$edgeDensity[' >&2;"
+        commands+="for ((j=0; j<\$percentage; j+=2)); do printf '#' >&2; done;"
+        commands+="for ((j=\$percentage; j<100; j+=2)); do printf ' '>&2; done;"
+        commands+="printf \"] \$percentage %%\r\">&2;\n"  
+    done
 done
 
 echo -e $commands  | $PARALLEL >&2 &
