@@ -4,10 +4,8 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 measure="EDN"
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME M E t stopT measure network.el
+USAGE="USAGE: $BASENAME t stopT measure network.el [blant.out files, or none to read stdin]
 PURPOSE: run blant-clusters for E edge densities in network.el, then generate a similarity graph for it.
-    M sample multiplier for blant clusters.
-    E number of edge densities. It will start in 1/E and increment 1/E each step. 
     t [0,1] similarity threshold of the output communities. Communities in which the percentage of neighbors is
     t will not be retrieved.
     stopT difference in EDN increase for which it is not worth to continue expanding. 
@@ -34,39 +32,18 @@ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap 
 [ $# -lt 4 ] && die "not enough arguments"
 
 
-M=$1
-E=$2
-t=$3
-stopT=$4
-measure=$5;
-net=$6;
-
-PARALLEL=${PARALLEL:-"/bin/bash"}
-START_AT=${START_AT:-"0.1"}
+t=$1
+stopT=$2
+measure=$3;
+net=$4;
+shift 4
 
 [ -f "$net" ] || die "network '$net' does not exist"
 [[ "$measure" == "EDN" || "$measure" == "OMOD" ]] || die "Measure $measure not in the list"
 
 numNodes=`newlines < $net | sort -u | wc -l`
-stepSize=$(hawk 'BEGIN{print (1-'$START_AT')/('$E'-1)}')
 
-commands=""
-for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize 1.0) ; do
-    commands+="./scripts/blant-clusters.sh ./blant $M '3 4 5 6 7' '$edgeDensity' $t $net > $TMPDIR/blant-c$edgeDensity.out;"
-    #Printing progress so you know speed and that it is not stuck
-    commands+="i=\$(find $TMPDIR -name blant-c*.out -type f -not -empty | wc -l);"
-    commands+="i=\`expr 100 \"*\" \$i \`;"
-    commands+="percentage=\`expr \$i / $E \`;";
-    commands+="printf 'Done runninng blant-c for d=$edgeDensity[' >&2;"
-    commands+="for ((j=0; j<\$percentage; j+=2)); do printf '#' >&2; done;"
-    commands+="for ((j=\$percentage; j<100; j+=2)); do printf ' '>&2; done;"
-    commands+="printf \"] \$percentage %%\r\">&2;\n"  
-done
-
-echo -e $commands  | $PARALLEL >&2 &
-wait
-echo "" >&2
-sort -k 1nr -k 3nr -k 11n $TMPDIR/blant-c*.out | 
+sort -k 1nr -k 3nr -k 11n "$@" | # sed 's/[^0-9.]/ /g' | # for C version, remove everything not a number
 hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
 			{
 			delete S; 
@@ -102,7 +79,7 @@ hawk 'BEGIN{delete intersection}
           }
       }
     }' | 
-hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
+hawk 'BEGIN{ Q=0; delete s;Srand(); measure="'$measure'"}
       ARGIND==1{++degree[$1];++degree[$2];A[$1][$2]=A[$2][$1]=1}
       ARGIND==2{neighbors[$1][$2]=neighbors[$2][$1]=$3}                                    #s number of times node u appears
       ARGIND==3{
@@ -180,7 +157,7 @@ hawk 'BEGIN{ Q=0; delete s;srand(); measure="'$measure'"}
         if (!(c in neighbors)) return;
         for (n in neighbors[c]){
           if (n in visitedComm) continue;
-          P=potentialScore(c);
+          P=potentialScore(n);
           diff=P-Q
           if ( (diff > '$stopT') ){
               PQpush("PQ",P,n)
