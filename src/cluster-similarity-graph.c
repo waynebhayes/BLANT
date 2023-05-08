@@ -129,48 +129,81 @@ void expand(CLUSTER *c)
 
 
 
+// Compute the overlap amount (number of nodes of overlap) between this cluster and current list; result in globals below
+SET *_overlapMatches; // set of other clusters that match c after calling ComputeClusterOverlap
+static unsigned _overlap[MAX_CLUSTERS]; // the actual counts; only the members above are guaranteed valid
+void ComputeClusterOverlap(const CLUSTER *c)
+{
+    static SET *dirty; // for every cluster pc in _overlap[], is the _overlap[pc] value dirty, or valid?
+			// Use a bitvec since lots of deletions will occur and we don't want to keep qsorting it.
+    if(dirty == NULL) {
+	dirty = SetAlloc(MAX_CLUSTERS);
+	assert(!_overlapMatches);
+	_overlapMatches = SetAlloc(MAX_CLUSTERS);
+	assert(_Gn > 0);
+    } else
+	SetReset(_overlapMatches);
+
+    unsigned u; SET *cNodes=c->nodes;
+    FOREACH(u,cNodes) {
+	if(_clusterMemberships[u]) {
+	    unsigned prevCluster; SET *myClusters = _clusterMemberships[u];
+	    FOREACH(prevCluster, myClusters) {
+		if(SetIn(dirty, prevCluster)) { _overlap[prevCluster] = 0; SetDelete(dirty,prevCluster);}
+		++_overlap[prevCluster];
+		SetAdd(_overlapMatches, prevCluster);
+	    }
+	}
+    }
+    // unsigned pc; FOREACH(pc, _overlapMatches) SetAdd(dirty, pc);
+    SetCopy(dirty, _overlapMatches);
+}
+
+
+
 int main(int argc, char *argv[])
 {
-    int i;
+    unsigned i, line=0;
     assert(argc==3);
     _Gn = atoi(argv[1]);
     _stopT = atof(argv[2]);
-    SET *intersect = SetAlloc(_Gn);
     _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
     _clusterMemberships = Calloc(_Gn, sizeof(SET*));
 
     Boolean sparse = true, names=false;
     _clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
     GraphMakeWeighted(_clusterSimGraph);
-    unsigned sim[MAX_CLUSTERS];
 
     while(!feof(stdin) && _numClus < MAX_CLUSTERS) {
+	++line; // numbering from 1
 	CLUSTER *c = ReadCluster(stdin);
 
 	// Either remember, or forget, this cluster based on overlap with previous ones
-	for(i=0;i<_numClus;i++)  {
-	    SetReset(intersect);
-	    SetIntersect(intersect, _cluster[i]->nodes, c->nodes);
-	    //assert(SetCardinality(_cluster[i]->nodes) >= SetCardinality(c->nodes));
+	ComputeClusterOverlap(c);
+	FOREACH(i,_overlapMatches) {
 	    int maxCard = MAX(SetCardinality(_cluster[i]->nodes) , SetCardinality(c->nodes));
-	    sim[i]=SetCardinality(intersect);
-	    if(sim[i] / (1.0*maxCard) > _overlapThresh) {
+	    if(_overlap[i] / (1.0*maxCard) > _overlapThresh) {
 		//printf("Skipping cluster %d\n", _numClus);
 		SetFree(c->nodes);
 		Free(c);
+		c=NULL;
 		break;
 	    }
 	}
-	if(i<_numClus) continue; // loop above terminated early, meaning c had too much overlap with existing cluster
-
-	for(i=0;i<_numClus;i++) if(sim[i]>0) {
-	    //printf("sim %d %d = %d\n",i,_numClus,sim[i]);
-	    GraphSetWeight(_clusterSimGraph,i,_numClus,sim[i]);
+	if(c) { // it was NOT disqualified based on too much overlap with previous cluster
+	    c->index = _numClus;
+	    for(i=0;i<_numClus;i++) if(SetIn(_overlapMatches,i)) {
+		//printf("sim %d %d = %d\n",i,_numClus,_overlap[i]);
+		GraphSetWeight(_clusterSimGraph,i,_numClus,_overlap[i]);
+	    }
+	    unsigned u; SET *cNodes = c->nodes;
+	    FOREACH(u,cNodes) { // Record new membership across the nodes of this cluster
+		if(!_clusterMemberships[u]) _clusterMemberships[u] = SetAlloc(MAX_CLUSTERS);
+		SetAdd(_clusterMemberships[u], _numClus);
+	    }
+	    _cluster[_numClus++] = c;
+	    fscanf(stdin, " ");
 	}
-
-	c->index = _numClus;
-	_cluster[_numClus++] = c;
-	fscanf(stdin, " ");
     }
     if(!feof(stdin) && _numClus == MAX_CLUSTERS)
 	Warning("cluster reading stopped at MAX_CLUSTERS %d; processing cluster graph anyway\n", MAX_CLUSTERS);
@@ -184,7 +217,6 @@ int main(int argc, char *argv[])
 	puts("");
     }
 #endif
-
 
     _PQ = PriorityQueueAlloc(_numClus, ClusterScoreCompare, NULL);
     measure = MEASURE_EDN;
