@@ -218,7 +218,7 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
 	sort -nr |
-	hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+	hawk 'BEGIN{ numCliques=0 } # post-process to only EXACT duplicates (more general removal later)
 	    {
 		delete S;
 		numNodes=$1
@@ -229,7 +229,7 @@ for edgeDensity in "${EDs[@]}"; do
 		for(i=1;i<=numCliques;i++) {
 		    same=0;
 		    for(u in S) if(u in cluster[i])++same;
-		    if(same > length(cluster[i])*'$t'){add=0; break;}
+		    if(same == length(cluster[i])){add=0; break;}
 		}
 		if(add) {
 		    ++numCliques; edges[numCliques]=edgeHits;
@@ -253,7 +253,7 @@ for edgeDensity in "${EDs[@]}"; do
 done
 
 sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
-    hawk 'BEGIN{ numCliques=0 } # post-process to remove duplicates
+    hawk 'BEGIN{ numCliques=0 } # post-process to remove/merge duplicates
 	{
 	    delete S; 
 	    numNodes=$1
