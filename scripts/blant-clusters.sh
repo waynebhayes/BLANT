@@ -33,7 +33,7 @@ parse(){ awk "BEGIN{print $*}" </dev/null; }
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
-trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 #echo "TMPDIR is $TMPDIR"
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
@@ -226,14 +226,20 @@ for edgeDensity in "${EDs[@]}"; do
 		    for(u in S) if(u in cluster[i])++same;
 		    if(same > length(cluster[i])*'$t'){add=0; break;}
 		}
-		if(numCliques==0 || add==1) {
-		    maxEdges=choose(length(S),2);
-		    ++numCliques; 
-		    printf "%d %d '$k'",length(S),edgeHits
-		    for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+		if(add) {
+		    ++numCliques; edges[numCliques]=edgeHits;
+		    for(u in S) ++cluster[numCliques][u]
+		}
+	    }
+	    END{
+		for(i=1;i<=numCliques;i++) {
+		    maxEdges=choose(length(cluster[i]),2);
+		    printf "%d %d '$k'",length(cluster[i]),edges[i]
+		    for(u in cluster[i]) printf " %s", u
 		    print ""
 		}
-	    }' |
+	    }
+	    ' |
 	sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
     done
     for k in "${Ks[@]}"; do
@@ -256,11 +262,16 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 		for(u in S) if(u in cluster[i])++same;
 		if(same > length(cluster[i])*'$t'){ add=0; break;}
 	    }
-	    if(numCliques==0 || add==1) {
-		maxEdges=choose(length(S),2);
-		++numCliques; 
-		printf "%d nodes, %d of %d edges from k %d (%g%%):", length(S), edgeHits, maxEdges, k, 100*edgeHits/maxEdges
-		for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+	    if(add) {
+		++numCliques; edges[numCliques]=edgeHits; kk[numCliques]=k;
+		for(u in S) ++cluster[numCliques][u];
+	    }
+	}
+	END {
+	    for(i=1;i<=numCliques;i++) {
+		maxEdges=choose(length(cluster[i]),2);
+		printf "%d nodes, %d of %d edges from k %d (%g%%):", length(cluster[i]), edges[i], maxEdges, kk[i], 100*edges[i]/maxEdges
+		for(u in cluster[i]) printf " %s", u
 		print ""
 	    }
 	}' | sort -k 1nr -k 11n
