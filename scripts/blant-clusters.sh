@@ -12,12 +12,13 @@ PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large c
 	EDs is a list of the edge density thresholds to explore
     t similarity threshold of the output communities
 OPTIONS (added BEFORE the blant.exe name)
+    -D DIR: use existing blant output files in directory DIR
     -1: exit after printing only one 1 cluster (the biggest one)
     -e: make all the clusters mutually exclusive.
     -o: use only the highest count orbit for neighbors
     -w: cluster count sorted with weights
+    -r INT: use the integer INT as the random seed
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
-    An optional leading integer (with no dash) 'tryHard' [default 0] should not be changed [experimental].
 "
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -38,11 +39,8 @@ TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
-tryHard=0
-case "$1" in
-[0-9]*) tryHard=$1; shift;;
-esac
-
+RANDOM_SEED=
+BLANT_FILES="$TMPDIR"
 COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit (which uses FAR more memory, like 10-100x)
 WEIGHTED=0
 ONLY_ONE=0
@@ -57,6 +55,9 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -w) WEIGHTED=1; shift;;
     -e) exclusive=1; die "exclusive not yet supported"; shift;;
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
+    -D) BLANT_FILES="$2"; shift 2;;
+    -r) RANDOM_SEED="-r $2"; shift 2;;
+    -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
     -s*) SAMPLE_METHOD="$1"; shift;;
     esac
 done
@@ -87,16 +88,20 @@ esac
 DEBUG=false # set to true to store BLANT output
 
 BLANT_EXIT_CODE=0
-for k in "${Ks[@]}"; do
-    n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
-    #minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
-    # Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
-    # DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
-    # Possible values: MCMC NBE EBE RES
-    [ -f canon_maps/canon_list$k.txt ] || continue
-    CMD="$BLANT -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
-    $CMD > $TMPDIR/blant$k.out &
-done
+if [ "$BLANT_FILES" = "$TMPDIR" ]; then
+    for k in "${Ks[@]}"; do
+	n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
+	#minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
+	# Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
+	# DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
+	# Possible values: MCMC NBE EBE RES
+	[ -f canon_maps/canon_list$k.txt ] || continue
+	CMD="$BLANT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
+	$CMD > $TMPDIR/blant$k.out &
+    done
+fi
+
+RANDOM_SEED=`echo $RANDOM_SEED | sed 's/^-r *//'` # the "-r" is needed in CMD above but remove it for awk below.
 
 for k in "${Ks[@]}"; do
     wait; (( BLANT_EXIT_CODE += $? ))
@@ -127,16 +132,16 @@ for edgeDensity in "${EDs[@]}"; do
 		for(j=4;j<=NF;j++) ++neighbors[$1][item][$j];
 	    }
 	    END {
-		for(u in Kc) for(item in Kc[u]) {
+		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
 		    ORS=" "
 		    if('$WEIGHTED') print Kc[u][item]^2/T[u], u, item
 		    else            print Kc[u][item], u, item # print the near-clique count and the node
 		    for(v in neighbors[u][item]) print v
 		    ORS="\n"; print "";
 		}
-	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $TMPDIR/blant$k.out |
-	sort -gr | # > $TMPDIR/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
-	hawk 'BEGIN{Srand();OFS="\t"; ID=0;}
+	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
+	sort -gr | # > $BLANT_FILES/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
+	hawk 'BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0;}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	    ARGIND==2 && !($2 in count){
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
