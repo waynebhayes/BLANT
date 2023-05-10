@@ -280,6 +280,15 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 		for(u in S) if(u in cluster[i])++same;
 		if(same > length(cluster[i])*'$OVERLAP'){ add=0; break;}
 	    }
+	    # Skipping an entire cluster with overlap sucks, but merging does not work either. Here is a better way:
+	    # The idea is to provide ALTERNATES.  So for example if 2 clusters of size k overlap in all but one node,
+	    # and have the same total number of edges, then the 2 nodes that are OUTSIDE the overlap form "alternate"
+	    # forms of an identical cluster, at least in quality. (It is likely that they effectively form identical
+	    # graphlets with a large k, and the 2 nodes occupy the same orbit in the graphlet). So if node A can be
+	    # swapped out with node B to get an identical quality cluster, then that could be listed as "one" node
+	    # A#B in the output, meaning A and B can we swapped and you still get the same number of nodes and edges,
+	    # while adding both does not work. Doing this correctly requires some thought, so it will have to wait.
+
 	    if(add) {
 		++numCliques; edges[numCliques]=edgeHits; kk[numCliques]=k;
 		for(u in S) ++cluster[numCliques][u];
