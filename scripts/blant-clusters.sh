@@ -3,27 +3,30 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M Ks EDs t network.el
+USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M Ks EDs network.el
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large communities in network.el.
+REQUIRED ARGUMENTS:
     blant.exe is the name of the executable BLANT to use (usually just './blant')
     M is the mean number of times each *node* should be touched by a graphlet sample,
     so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
-	Ks is a list of graphlet sizes to do BLANT sampling in
-	EDs is a list of the edge density thresholds to explore
-    t similarity threshold of the output communities
+    Ks is a list of graphlet sizes to do BLANT sampling in
+    EDs is a list of the edge density thresholds to explore
 OPTIONS (added BEFORE the blant.exe name)
     -D DIR: use existing blant output files in directory DIR
     -1: exit after printing only one 1 cluster (the biggest one)
-    -e: make all the clusters mutually exclusive.
-    -o: use only the highest count orbit for neighbors
+    -h: use only the highest count graphlet/orbit for neighbors
     -w: cluster count sorted with weights
-    -r INT: use the integer INT as the random seed
+    -r SEED: use the integer SEED as the random seed
+    -m smallest: ignore clusters/cliques/communities with fewer than this number of nodes (default 9)
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
-"
+    -o OVERLAP: (default 0.5); the amount of overlap between two cluster that causes either: (a) the second one to be
+	skipped entirely, or (b) nodes of the second one to be listed as 'nearby' those in the first."
+
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
 USAGE=${USAGE:?"$0 should have a USAGE message before sourcing skel.sh"}
-die(){ echo "$USAGE${NL}FATAL ERROR in $BASENAME:" "$@" >&2; exit 1; }
+die(){ echo "FATAL ERROR in $BASENAME:" "$@" "${NL}type $BASENAME with no arguments for help" >&2; exit 1; }
+usage(){ echo "$USAGE" >&2; exit 1; }
 [ "$BASENAME" == skel ] && die "$0 is a skeleton Bourne Shell script; your scripts should source it, not run it"
 echo "$BASENAME" | grep "[ $TAB]" && die "Shell script names really REALLY shouldn't contain spaces or tabs"
 [ $BASENAME == "$BASENAME" ] || die "something weird with filename in '$BASENAME'"
@@ -39,6 +42,9 @@ TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
+[ $# = 0 ] && usage
+
+minClus=9
 RANDOM_SEED=
 BLANT_FILES="$TMPDIR"
 COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit (which uses FAR more memory, like 10-100x)
@@ -47,33 +53,39 @@ ONLY_ONE=0
 exclusive=0
 SAMPLE_METHOD=-sMCMC #-sNBE
 ONLY_BEST_ORBIT=0
+OVERLAP=0.5
 
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
-    -o) ONLY_BEST_ORBIT=1; shift;;
+    -h) ONLY_BEST_ORBIT=1; shift;;
     -w) WEIGHTED=1; shift;;
-    -e) exclusive=1; die "exclusive not yet supported"; shift;;
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
+    -s*) SAMPLE_METHOD="$1"; shift;;
     -D) BLANT_FILES="$2"; shift 2;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
-    -s*) SAMPLE_METHOD="$1"; shift;;
+    -m) minClus="$2"; shift 2;;
+    -m[0-9]*) minClus="`echo $1|sed 's/^-m//'`"; shift 1;;
+    -o) OVERLAP="$2"; shift 2;;
+    -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
+    -*) die "unknown option '$1'";;
     esac
 done
 
-[ $# -lt 6 ] && die "not enough arguments"
-[ $# -gt 6 ] && die "too many arguments"
+[ $# -ne 5 ] && die "expecting exactly 5 mandatory arguments, but you supplied $#"
 
 BLANT=$1;
 sampleMultiplier=$2;
 Ks=(`echo $3 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
 EDs=($4)
-t=$5;
-net=$6
+net=$5
 
-numNodes=`awk '{++seen[$1];++seen[$2]}END{print length(seen)}' $net`
+netCounts=`hawk '{++seen[$1];++seen[$2]}END{n=length(seen);m=NR;printf "%d\t%d\t%g\n", n, m, m/choose(n,2)}' $net`
+numNodes=`echo "$netCounts" | cut -f1`
+numEdges=`echo "$netCounts" | cut -f2`
+meanED=`echo "$netCounts" | cut -f3`
 
 [ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
 for k in "${Ks[@]}"; do
@@ -87,6 +99,7 @@ case "$net" in
 esac
 DEBUG=false # set to true to store BLANT output
 
+# Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0
 if [ "$BLANT_FILES" = "$TMPDIR" ]; then
     for k in "${Ks[@]}"; do
@@ -176,7 +189,7 @@ for edgeDensity in "${EDs[@]}"; do
 	    }
 	    END{n=length(degree); # number of nodes in the input network
 		cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
-		numCliques=0;
+		numClus=0;
 		QueueAlloc("Q");
 		for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start". 
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
@@ -208,17 +221,17 @@ for edgeDensity in "${EDs[@]}"; do
 			} else
 			    expand(u, origin);
 		    }
-		    if(length(S)>'$k') {
+		    if(length(S)>='$minClus') {
 			maxEdges=choose(length(S),2);
-			++numCliques; printf "%d %d", length(S), edgeCount
-			for(u in S) {cluster[numCliques][u]=1; printf " %s", u}
+			++numClus; printf "%d %d", length(S), edgeCount
+			for(u in S) {cluster[numClus][u]=1; printf " %s", u}
 			print ""
 			if('$ONLY_ONE') exit;
 		    }
 		}
 	    }' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
 	sort -nr |
-	hawk 'BEGIN{ numCliques=0 } # post-process to only EXACT duplicates (more general removal later)
+	hawk 'BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
 	    {
 		delete S;
 		numNodes=$1
@@ -226,25 +239,25 @@ for edgeDensity in "${EDs[@]}"; do
 		for(i=3;i<=NF;i++) ++S[$i]
 		WARN(length(S)==numNodes,"mismatch in numNodes and length(S)");
 		add=1;
-		for(i=1;i<=numCliques;i++) {
+		for(i=1;i<=numClus;i++) {
 		    same=0;
 		    for(u in S) if(u in cluster[i])++same;
-		    if(same == length(cluster[i])){add=0; break;}
+		    if(same == length(cluster[i])){add=0; break;} # only eliminate EXACT duplicates at this stage
 		}
 		if(add) {
-		    ++numCliques; edges[numCliques]=edgeHits;
-		    for(u in S) ++cluster[numCliques][u]
+		    ++numClus; edges[numClus]=edgeHits;
+		    for(u in S) ++cluster[numClus][u]
 		}
 	    }
 	    END{
-		for(i=1;i<=numCliques;i++) {
+		for(i=1;i<=numClus;i++) {
 		    maxEdges=choose(length(cluster[i]),2);
 		    printf "%d %d '$k'",length(cluster[i]),edges[i]
 		    for(u in cluster[i]) printf " %s", u
 		    print ""
 		}
 	    }
-	    ' |
+	    ' | # sort by number of nodes, then by first node in the list:
 	sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
     done
     for k in "${Ks[@]}"; do
@@ -265,7 +278,7 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 	    for(i=1;i<=numCliques;i++) {
 		same=0;
 		for(u in S) if(u in cluster[i])++same;
-		if(same > length(cluster[i])*'$t'){ add=0; break;}
+		if(same > length(cluster[i])*'$OVERLAP'){ add=0; break;}
 	    }
 	    if(add) {
 		++numCliques; edges[numCliques]=edgeHits; kk[numCliques]=k;
