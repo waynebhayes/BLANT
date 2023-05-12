@@ -188,15 +188,19 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }
 	    END{n=length(degree); # number of nodes in the input network
-		cluster[0]=1; delete cluster[0]; # cluster is now explicitly an array, but with zero elements
+		# make cluster and started empty sets; started is a list of nodes we should NOT start a new BFS on
+		delete cluster; cluster[0]=1; delete cluster[0];
+		delete started; started[0]=1; delete started[0];
 		numClus=0;
 		QueueAlloc("Q");
 		for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start". 
-		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 		    origin=node[start];
+		    if(started[origin]) continue;
+		    started[origin]=1;
 		    delete S; # this will contain the nodes in the current cluster
 		    delete visited;
 		    misses=0; # how many nodes have been skipped because they did not work?
+		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 		    QueueAdd("Q", origin);
 		    visited[origin] = 1;
 		    edgeCount = 0;
@@ -206,27 +210,31 @@ for edgeDensity in "${EDs[@]}"; do
 			edgeCount += newEdgeHits;
 			S[u]=1;
 			Slen = length(S);
+			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
 			if (Slen>1){
 			    maxEdges = choose(Slen,2);
 			    if(edgeCount/maxEdges < '$edgeDensity') {
-				if(length(S)==Slen){
-				    delete S[u]; # no node was removed, so remove this one
-				    edgeCount -= newEdgeHits;
-				}
+				delete S[u]; # u drops the edge density too low, so nuke it
+				edgeCount -= newEdgeHits;
 				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
-				# keep going until count decreases significantly; duplicate cluster removed in the next awk
-				#visited[u]=0;
+				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else
 				expand(u, orign);
 			} else
 			    expand(u, origin);
 		    }
-		    if(length(S)>='$minClus') {
-			maxEdges=choose(length(S),2);
-			++numClus; printf "%d %d", length(S), edgeCount
+		    Slen=length(S);
+		    if(Slen>='$minClus') {
+			maxEdges=choose(Slen,2);
+			++numClus; printf "%d %d", Slen, edgeCount
 			for(u in S) {cluster[numClus][u]=1; printf " %s", u}
 			print ""
 			if('$ONLY_ONE') exit;
+			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
+			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be more stringent as it approaches
+			# 1, which in the case of THIS loop means that if OVERLAP is close to 1, we want to eliminate a
+			# SMALLER proportion of future BFS starts, so if OVERLAP=1 we eliminate NOTHING in this loop.
+			for(i=1;i<Slen*(1-'$OVERLAP');i++) started[Sorder[i]]=1;
 		    }
 		}
 	    }' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
