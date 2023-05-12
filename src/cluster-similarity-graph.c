@@ -33,9 +33,9 @@ CLUSTER *ReadCluster(FILE *fp)
     unsigned i,v;
     CLUSTER *c = (CLUSTER*) Calloc(1,sizeof(CLUSTER));
     c->nodes = SetAlloc(_Gn);
-    fscanf(fp, "%u%u%u%u%lf", &c->n, &c->m, &c->nc2, &c->k, &c->ED);
+    assert(fscanf(fp, "%u%u%u%u%lf", &c->n, &c->m, &c->nc2, &c->k, &c->ED)==5);;
     c->ED /= 100; // blant outputs a percentage, we want a fraction
-    for(i=0; i<c->n;i++) {fscanf(fp, "%u", &v); SetAdd(c->nodes,v);}
+    for(i=0; i<c->n;i++) {assert(fscanf(fp, "%u", &v)==1); SetAdd(c->nodes,v);}
     return c;
 }
 
@@ -164,9 +164,9 @@ void ComputeClusterOverlap(const CLUSTER *c)
 int main(int argc, char *argv[])
 {
     unsigned i, line=0;
-    assert(argc==3);
-    _Gn = atoi(argv[1]);
-    _stopT = atof(argv[2]);
+    if(argc!=3) Fatal("USAGE: Gn stopThresh");
+    _Gn = atoi(argv[1]); assert(_Gn>0);
+    _stopT = atof(argv[2]); assert(_stopT>=0);
     _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
     _clusterMemberships = Calloc(_Gn, sizeof(SET*));
 
@@ -178,6 +178,7 @@ int main(int argc, char *argv[])
 	++line; // numbering from 1
 	CLUSTER *c = ReadCluster(stdin);
 
+	fprintf(stderr, " %d(%d)", line, c->n);
 	// Either remember, or forget, this cluster based on overlap with previous ones
 	ComputeClusterOverlap(c);
 	FOREACH(i,_overlapMatches) {
@@ -191,6 +192,7 @@ int main(int argc, char *argv[])
 	    }
 	}
 	if(c) { // it was NOT disqualified based on too much overlap with previous cluster
+	    fprintf(stderr, "A");
 	    c->index = _numClus;
 	    for(i=0;i<_numClus;i++) if(SetIn(_overlapMatches,i)) {
 		//printf("sim %d %d = %d\n",i,_numClus,_overlap[i]);
@@ -203,8 +205,10 @@ int main(int argc, char *argv[])
 	    }
 	    _cluster[_numClus++] = c;
 	    fscanf(stdin, " ");
-	}
+	} else
+	    fprintf(stderr, "R");
     }
+    fprintf(stderr, "\n");
     if(!feof(stdin) && _numClus == MAX_CLUSTERS)
 	Warning("cluster reading stopped at MAX_CLUSTERS %d; processing cluster graph anyway\n", MAX_CLUSTERS);
 
