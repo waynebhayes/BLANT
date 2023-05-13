@@ -34,6 +34,7 @@ CLUSTER *ReadCluster(FILE *fp)
     CLUSTER *c = (CLUSTER*) Calloc(1,sizeof(CLUSTER));
     c->nodes = SetAlloc(_Gn);
     assert(fscanf(fp, "%u%u%u%u%lf", &c->n, &c->m, &c->nc2, &c->k, &c->ED)==5);;
+    assert(c->nc2 == c->n*(c->n-1)/2); // assert we are in sync with the lines, because nc2 is "n choose 2"
     c->ED /= 100; // blant outputs a percentage, we want a fraction
     for(i=0; i<c->n;i++) {assert(fscanf(fp, "%u", &v)==1); SetAdd(c->nodes,v);}
     return c;
