@@ -39,12 +39,12 @@ do
             fi
 
             cmd="./blant -k$k -w$w -p$m -M0 -s$s -mf -n$n networks/$f"
-            `$cmd 1>$TEST_DIR/.regression_test_out.txt 2>$TEST_DIR/.regression_test_error.txt`
+            $cmd 1>$TEST_DIR/.regression_test_out.txt 2>$TEST_DIR/.regression_test_error.txt
 
             depth_attempt=0
             while [ `grep 'Assertion \`depth++ < \| Assertion \`++numTries <' $TEST_DIR/.regression_test_error.txt | wc -l` -gt 0 ] && [ $depth_attempt -lt $max_depth_attempt ]
             do
-                `$cmd 1>$TEST_DIR/.regression_test_out.txt 2>$TEST_DIR/.regression_test_error.txt`
+                $cmd 1>$TEST_DIR/.regression_test_out.txt 2>$TEST_DIR/.regression_test_error.txt
                 depth_attempt=$((depth_attempt + 1))
             done
 
