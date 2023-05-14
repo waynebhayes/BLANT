@@ -24,6 +24,7 @@ static int ClusterScoreCompare(foint f1, foint f2)
 }
 
 
+static unsigned _line; // current line number
 // read the output of blant-clusters.sh, looks like this (after it's put through sed to remove non-digits)
 // n  m   nc2 k ED%     list
 // 19 154 171 5 90.0585 241 44 129 184 227 168 178 112 256 197 293 189 633 106 14 636 171 15 190
@@ -33,7 +34,12 @@ CLUSTER *ReadCluster(FILE *fp)
     unsigned i,v;
     CLUSTER *c = (CLUSTER*) Calloc(1,sizeof(CLUSTER));
     c->nodes = SetAlloc(_Gn);
-    assert(fscanf(fp, "%u%u%u%u%lf", &c->n, &c->m, &c->nc2, &c->k, &c->ED)==5);;
+    c->n = c->m = c->nc2 = c->k = c->ED = 0;
+    int numRead = fscanf(fp, "%u%u%u%u%lf", &c->n, &c->m, &c->nc2, &c->k, &c->ED);
+    if(numRead < 0) {
+	SetFree(c->nodes); Free(c); return NULL;
+    }
+    if(numRead!=5) Fatal("cluster %d: fscanf only read %d values: n %d m %d nc2 %d k %d ED %g\n", _line, numRead,c->n,c->m,c->nc2,c->k,c->ED);
     assert(c->nc2 == c->n*(c->n-1)/2); // assert we are in sync with the lines, because nc2 is "n choose 2"
     c->ED /= 100; // blant outputs a percentage, we want a fraction
     for(i=0; i<c->n;i++) {assert(fscanf(fp, "%u", &v)==1); SetAdd(c->nodes,v);}
@@ -164,7 +170,7 @@ void ComputeClusterOverlap(const CLUSTER *c)
 
 int main(int argc, char *argv[])
 {
-    unsigned i, line=0;
+    unsigned i;
     if(argc!=3) Fatal("USAGE: Gn stopThresh");
     _Gn = atoi(argv[1]); assert(_Gn>0);
     _stopT = atof(argv[2]); assert(_stopT>=0);
@@ -176,10 +182,11 @@ int main(int argc, char *argv[])
     GraphMakeWeighted(_clusterSimGraph);
 
     while(!feof(stdin) && _numClus < MAX_CLUSTERS) {
-	++line; // numbering from 1
+	++_line; // numbering from 1
 	CLUSTER *c = ReadCluster(stdin);
+	if(!c) break;
 
-	fprintf(stderr, " %d(%d)", line, c->n);
+	fprintf(stderr, " %d(%d)", _line, c->n);
 	// Either remember, or forget, this cluster based on overlap with previous ones
 	ComputeClusterOverlap(c);
 	FOREACH(i,_overlapMatches) {
