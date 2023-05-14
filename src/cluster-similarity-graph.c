@@ -294,7 +294,7 @@ int main(int argc, char *argv[])
     }
 
     if(measure==MEASURE_OMOD) printf("Qov=%g\n",_currentScore/SetCardinality(_finalComm));
-    else if(measure==MEASURE_EDN) printf("EDN=%g\n",_currentScore/SetCardinality(_finalComm));
+    else if(measure==MEASURE_EDN) printf("EDN=%g\n",_currentScore);
 
 
     unsigned m;
