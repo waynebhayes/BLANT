@@ -12,6 +12,7 @@ typedef struct _commType {
     unsigned n,m,nc2,k, index;
     double ED, score;
     SET *nodes;
+	hashmap_t *kin;
 } CLUSTER;
 
 static int ClusterScoreCompare(foint f1, foint f2)
@@ -43,12 +44,13 @@ CLUSTER *ReadCluster(FILE *fp)
     assert(c->nc2 == c->n*(c->n-1)/2); // assert we are in sync with the lines, because nc2 is "n choose 2"
     c->ED /= 100; // blant outputs a percentage, we want a fraction
     for(i=0; i<c->n;i++) {assert(fscanf(fp, "%u", &v)==1); SetAdd(c->nodes,v);}
+	c->kin=hashmap_new();
     return c;
 }
 
 CLUSTER *_cluster[MAX_CLUSTERS]; // gets dynamically bigger as necessary, starting at _Gn
 unsigned _numClus, *_finalMemberships; // array [_Gn] counting number of clusters each node in INPUT graph belongs to
-double _overlapThresh = 0.5;
+double _overlapThresh;
 GRAPH *_clusterSimGraph;
 SET *_finalComm, *_finalClusVisited;
 SET **_clusterMemberships; // _clusterMemberships[u] = set of clusters node u \in G (input network) is in
@@ -59,14 +61,35 @@ static enum Measure measure = undef;
 double _stopT = 0; // stop threshold
 
 PRIORITY_QUEUE *_PQ;
+GRAPH *_inputNet;
 
+unsigned kin(CLUSTER *c, unsigned u){
+	unsigned *kinu;
+	if (hashmap_get(c->kin, u, (any_t*)&kinu) == MAP_MISSING){
+		kinu=(unsigned*)malloc(sizeof(unsigned));
+		*kinu=0;
+		SET *c_nodes=c->nodes;
+		unsigned v, m;
+		FOREACH(v,c_nodes){
+			if(GraphAreConnected(_inputNet,u,v)){
+				(*kinu)++;
+			}
+		}
+		hashmap_put(c->kin,u, kinu);
+	}
+	return *kinu;
+}
 double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
 {
     assert(measure != undef);
     switch(measure) {
     case MEASURE_EDN: return ( 1.0 / membershipCount ) * c->ED;
 	break;
-    case MEASURE_OMOD: Apology("Need to load original graph to compute overlapping modularity");
+    case MEASURE_OMOD:
+		int kinu = (int)kin(c,u);
+		int ku= (int)_inputNet->degree[u];
+		return ( 1.0*(kinu - ( ku - kinu ) ) / ku ) * ( 1.0 / membershipCount ) * c->ED * ( 1.0 / c->n );
+	break;
     default: Fatal("unknonw measure in scoreOfNodeInCommunity");
 	return (-1); break;
     }
@@ -80,7 +103,7 @@ double communityScore(CLUSTER *c)
     unsigned m; SET *s=c->nodes;
     FOREACH(m,s)
 	CS += scoreOfNodeInCommunity(c, m, _finalMemberships[m]+1);
-    return CS;
+	return CS;
 }
 
 double _currentScore;
@@ -88,7 +111,7 @@ double _currentScore;
 double potentialScore(CLUSTER *c)
 {
     double P = _currentScore;
-    SET *c_nodes=c->nodes;
+	SET *c_nodes=c->nodes;
     unsigned u, m;
     FOREACH_DECLARE(m,_finalComm);
     FOREACH(u,c_nodes) {
@@ -139,6 +162,7 @@ void expand(CLUSTER *c)
 // Compute the overlap amount (number of nodes of overlap) between this cluster and current list; result in globals below
 SET *_overlapMatches; // set of other clusters that match c after calling ComputeClusterOverlap
 static unsigned _overlap[MAX_CLUSTERS]; // the actual counts; only the members above are guaranteed valid
+
 void ComputeClusterOverlap(const CLUSTER *c)
 {
     static SET *dirty; // for every cluster pc in _overlap[], is the _overlap[pc] value dirty, or valid?
@@ -166,21 +190,33 @@ void ComputeClusterOverlap(const CLUSTER *c)
     SetCopy(dirty, _overlapMatches);
 }
 
+void init(int argc, char *argv[]){
+	if(argc!=5) Fatal("USAGE: overlapThresh stopThresh measure inputNetwork.el");
+    _overlapThresh = atof(argv[1]); assert(_overlapThresh>=0);
+	_stopT = atof(argv[2]); assert(_stopT>=0);
+	if(strcmp(argv[3], "OMOD") == 0) measure=MEASURE_OMOD;
+	else if(strcmp(argv[3], "EDN") == 0) measure=MEASURE_EDN;
+	assert(measure!=undef);
+	Boolean sparse = true, names=false;
+
+	FILE* netFile = fopen(argv[4],"r");
+	_inputNet = GraphReadEdgeList(netFile,sparse,false);
+	_Gn=_inputNet->n;
+	assert(_Gn>0);
+	_finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
+    _clusterMemberships = Calloc(_Gn, sizeof(SET*));
+	printf("Initialization done. Graph has %d nodes\n", _Gn);
+	
+	_clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
+    GraphMakeWeighted(_clusterSimGraph);	
+}
+
 
 
 int main(int argc, char *argv[])
 {
     unsigned i;
-    if(argc!=3) Fatal("USAGE: Gn stopThresh");
-    _Gn = atoi(argv[1]); assert(_Gn>0);
-    _stopT = atof(argv[2]); assert(_stopT>=0);
-    _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
-    _clusterMemberships = Calloc(_Gn, sizeof(SET*));
-
-    Boolean sparse = true, names=false;
-    _clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
-    GraphMakeWeighted(_clusterSimGraph);
-
+    init(argc,argv);
     while(!feof(stdin) && _numClus < MAX_CLUSTERS) {
 	++_line; // numbering from 1
 	CLUSTER *c = ReadCluster(stdin);
@@ -231,7 +267,6 @@ int main(int argc, char *argv[])
 #endif
 
     _PQ = PriorityQueueAlloc(_numClus, ClusterScoreCompare, NULL);
-    measure = MEASURE_EDN;
 
     // For each connected component, mark it off and pick one node at random to put in the PQ
     int numVisited = 0, Varray[_numClus], rootNode=0;
@@ -258,8 +293,9 @@ int main(int argc, char *argv[])
 	expand(c);
     }
 
-    if(measure==MEASURE_OMOD) Apology("Need to load original graph to compute overlapping modularity");
-    printf("EDN=%g\n",_currentScore);
+    if(measure==MEASURE_OMOD) printf("Qov=%g\n",_currentScore/SetCardinality(_finalComm));
+    else if(measure==MEASURE_EDN) printf("EDN=%g\n",_currentScore/SetCardinality(_finalComm));
+
 
     unsigned m;
     FOREACH(m,_finalComm) {
