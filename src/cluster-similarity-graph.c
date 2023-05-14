@@ -191,20 +191,18 @@ void ComputeClusterOverlap(const CLUSTER *c)
 void init(int argc, char *argv[]){
 	if(argc!=4) Fatal("USAGE: stopThresh measure inputNetwork.el");
     _stopT = atof(argv[1]); assert(_stopT>=0);
-	printf("1");
 	if(strcmp(argv[2], "OMOD") == 0) measure=MEASURE_OMOD;
 	else if(strcmp(argv[2], "EDN") == 0) measure=MEASURE_EDN;
 	assert(measure!=undef);
-    printf("2");
-	_finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
-    _clusterMemberships = Calloc(_Gn, sizeof(SET*));
 	Boolean sparse = true, names=false;
 
 	FILE* netFile = fopen(argv[3],"r");
 	_inputNet = GraphReadEdgeList(netFile,sparse,false);
 	_Gn=_inputNet->n;
 	assert(_Gn>0);
-	printf("Initialization done. Graph has %d nodes", _Gn);
+	_finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
+    _clusterMemberships = Calloc(_Gn, sizeof(SET*));
+	printf("Initialization done. Graph has %d nodes\n", _Gn);
 	
 	_clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
     GraphMakeWeighted(_clusterSimGraph);	
@@ -214,7 +212,6 @@ void init(int argc, char *argv[]){
 
 int main(int argc, char *argv[])
 {
-	printf("Hola?");
     unsigned i, line=0;
     init(argc,argv);
     while(!feof(stdin) && _numClus < MAX_CLUSTERS) {
