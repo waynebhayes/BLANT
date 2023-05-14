@@ -50,7 +50,7 @@ CLUSTER *ReadCluster(FILE *fp)
 
 CLUSTER *_cluster[MAX_CLUSTERS]; // gets dynamically bigger as necessary, starting at _Gn
 unsigned _numClus, *_finalMemberships; // array [_Gn] counting number of clusters each node in INPUT graph belongs to
-double _overlapThresh = 0.5;
+double _overlapThresh;
 GRAPH *_clusterSimGraph;
 SET *_finalComm, *_finalClusVisited;
 SET **_clusterMemberships; // _clusterMemberships[u] = set of clusters node u \in G (input network) is in
@@ -191,14 +191,15 @@ void ComputeClusterOverlap(const CLUSTER *c)
 }
 
 void init(int argc, char *argv[]){
-	if(argc!=4) Fatal("USAGE: stopThresh measure inputNetwork.el");
-    _stopT = atof(argv[1]); assert(_stopT>=0);
-	if(strcmp(argv[2], "OMOD") == 0) measure=MEASURE_OMOD;
-	else if(strcmp(argv[2], "EDN") == 0) measure=MEASURE_EDN;
+	if(argc!=5) Fatal("USAGE: overlapThresh stopThresh measure inputNetwork.el");
+    _overlapThresh = atof(argv[1]); assert(_overlapThresh>=0);
+	_stopT = atof(argv[2]); assert(_stopT>=0);
+	if(strcmp(argv[3], "OMOD") == 0) measure=MEASURE_OMOD;
+	else if(strcmp(argv[3], "EDN") == 0) measure=MEASURE_EDN;
 	assert(measure!=undef);
 	Boolean sparse = true, names=false;
 
-	FILE* netFile = fopen(argv[3],"r");
+	FILE* netFile = fopen(argv[4],"r");
 	_inputNet = GraphReadEdgeList(netFile,sparse,false);
 	_Gn=_inputNet->n;
 	assert(_Gn>0);
