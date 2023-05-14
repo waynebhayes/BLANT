@@ -12,7 +12,7 @@ typedef struct _commType {
     unsigned n,m,nc2,k, index;
     double ED, score;
     SET *nodes;
-	//hashmap_t *kin;
+	hashmap_t *kin;
 } CLUSTER;
 
 static int ClusterScoreCompare(foint f1, foint f2)
@@ -44,7 +44,7 @@ CLUSTER *ReadCluster(FILE *fp)
     assert(c->nc2 == c->n*(c->n-1)/2); // assert we are in sync with the lines, because nc2 is "n choose 2"
     c->ED /= 100; // blant outputs a percentage, we want a fraction
     for(i=0; i<c->n;i++) {assert(fscanf(fp, "%u", &v)==1); SetAdd(c->nodes,v);}
-	//c->kin=hashmap_new();
+	c->kin=hashmap_new();
     return c;
 }
 
@@ -63,35 +63,33 @@ double _stopT = 0; // stop threshold
 PRIORITY_QUEUE *_PQ;
 GRAPH *_inputNet;
 
-// unsigned kin(CLUSTER *c, unsigned u){
-// 	unsigned kinu;
-// 	if (hashmap_get(c->kin, u, &kinu) == MAP_MISSING){
-// 		kinu=0;
-// 		SET *c_nodes=c->nodes;
-// 		unsigned v, m;
-// 		FOREACH(v,c_nodes){
-// 			if(GraphAreConnected(_inputNet,u,v)){
-// 				kinu++;
-// 			}
-// 		}
-// 		hashmap_put(c->kin,u, kinu);
-// 		printf("Putting kin for %d: %d", u, kinu);
-// 	}
-// 	else{
-// 		printf("Getting kin for %d: %d", u, kinu);
-// 	}
-// 	return kinu;
-// }
+unsigned kin(CLUSTER *c, unsigned u){
+	unsigned *kinu;
+	if (hashmap_get(c->kin, u, (any_t*)&kinu) == MAP_MISSING){
+		kinu=(unsigned*)malloc(sizeof(unsigned));
+		*kinu=0;
+		SET *c_nodes=c->nodes;
+		unsigned v, m;
+		FOREACH(v,c_nodes){
+			if(GraphAreConnected(_inputNet,u,v)){
+				(*kinu)++;
+			}
+		}
+		hashmap_put(c->kin,u, kinu);
+	}
+	return *kinu;
+}
 double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
 {
     assert(measure != undef);
     switch(measure) {
     case MEASURE_EDN: return ( 1.0 / membershipCount ) * c->ED;
 	break;
-    case MEASURE_OMOD: Apology("Sorry"); 
-		// unsigned kinu = kin(c,u);
-		// unsigned ku= _inputNet->degree[u];
-		// return ( (kinu - ( ku - kinu ) ) / ku ) * ( 1.0 / membershipCount ) * c->ED * ( 1.0 / c->n );
+    case MEASURE_OMOD:
+		int kinu = (int)kin(c,u);
+		int ku= (int)_inputNet->degree[u];
+		double s=( 1.0*(kinu - ( ku - kinu ) ) / ku ) * ( 1.0 / membershipCount ) * c->ED * ( 1.0 / c->n );
+		return s;
 	break;
     default: Fatal("unknonw measure in scoreOfNodeInCommunity");
 	return (-1); break;
@@ -106,7 +104,7 @@ double communityScore(CLUSTER *c)
     unsigned m; SET *s=c->nodes;
     FOREACH(m,s)
 	CS += scoreOfNodeInCommunity(c, m, _finalMemberships[m]+1);
-    return CS;
+	return CS;
 }
 
 double _currentScore;
@@ -114,8 +112,7 @@ double _currentScore;
 double potentialScore(CLUSTER *c)
 {
     double P = _currentScore;
-	P*=SetCardinality(_finalComm);
-    SET *c_nodes=c->nodes;
+	SET *c_nodes=c->nodes;
     unsigned u, m;
     FOREACH_DECLARE(m,_finalComm);
     FOREACH(u,c_nodes) {
@@ -128,7 +125,6 @@ double potentialScore(CLUSTER *c)
 	}
     }
     P+=communityScore(c);
-	P/=(SetCardinality(_finalComm)+1);
     return P;
 }
 
@@ -297,8 +293,8 @@ int main(int argc, char *argv[])
 	expand(c);
     }
 
-    if(measure==MEASURE_OMOD) printf("Qov=%g\n",_currentScore);
-    else if(measure==MEASURE_EDN) printf("EDN=%g\n",_currentScore);
+    if(measure==MEASURE_OMOD) printf("Qov=%g\n",_currentScore/SetCardinality(_finalComm));
+    else if(measure==MEASURE_EDN) printf("EDN=%g\n",_currentScore/SetCardinality(_finalComm));
 
 
     unsigned m;
