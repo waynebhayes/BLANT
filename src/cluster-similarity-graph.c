@@ -88,8 +88,7 @@ double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
     case MEASURE_OMOD:
 		int kinu = (int)kin(c,u);
 		int ku= (int)_inputNet->degree[u];
-		double s=( 1.0*(kinu - ( ku - kinu ) ) / ku ) * ( 1.0 / membershipCount ) * c->ED * ( 1.0 / c->n );
-		return s;
+		return ( 1.0*(kinu - ( ku - kinu ) ) / ku ) * ( 1.0 / membershipCount ) * c->ED * ( 1.0 / c->n );
 	break;
     default: Fatal("unknonw measure in scoreOfNodeInCommunity");
 	return (-1); break;
