@@ -83,7 +83,7 @@ double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
 {
     assert(measure != undef);
     switch(measure) {
-    case MEASURE_EDN: return ( 1.0 / membershipCount ) * c->ED;
+    case MEASURE_EDN: return ( 1.0 / c->n )*( 1.0 / membershipCount ) * c->ED;
 	break;
     case MEASURE_OMOD:
 		int kinu = (int)kin(c,u);
