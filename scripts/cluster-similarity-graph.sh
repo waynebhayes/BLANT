@@ -42,8 +42,8 @@ shift 4
 [[ "$measure" == "EDN" || "$measure" == "OMOD" ]] || die "Measure $measure not in the list"
 
 numNodes=`newlines < $net | sort -u | wc -l`
-
-sort -k 1nr -k 3nr -k 11n "$@" |  sed 's/[^0-9.]/ /g' | ./cluster-similarity-graph $t $stopT $measure $net
+sed 's/[^0-9.]/ /g' "$@" | sort -k 5nr -k 1nr -k 2nr -k 6n | ./cluster-similarity-graph $t $stopT $measure $net
+#sort -k 1nr -k 3nr -k 11n "$@" |  sed 's/[^0-9.]/ /g' | ./cluster-similarity-graph $t $stopT $measure $net
 
 
 # for C version, remove everything not a number
