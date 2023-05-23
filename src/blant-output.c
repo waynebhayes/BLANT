@@ -227,6 +227,14 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
     }
 }
 
+#if 0	// FIXME: related to the above.... this was how I attempted to have ONLY the CONNECTED canonicals,
+	// but it seemed buggy and I can't figure out what's wrong. - WH
+	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c], u_connectedOrb=_orbit2connectedIndex[u_orbit];
+	assert(0 <= u_connectedOrb && u_connectedOrb < _numConnectedOrbits);
+	if(_communityMode=='o') ++ODV(u, u_orbit); else ++GDV(u, GintOrdinal);
+	int item = (_communityMode=='o' ? u_connectedOrb : _canon2connectedIndex[GintOrdinal]);
+#endif
+
 void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
