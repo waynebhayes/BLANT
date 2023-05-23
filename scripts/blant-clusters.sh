@@ -122,7 +122,8 @@ done
 
 for edgeDensity in "${EDs[@]}"; do
     for k in "${Ks[@]}"; do
-	hawk 'BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
+	hawk ' # This first awk runs quite quickly and does not use much RAM
+	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
 		ASSERT(cMode=="g" || cMode=="o", "COMMUNITY_MODE must be o or g, not "cMode);
 		rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
@@ -154,7 +155,8 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -gr | # > $BLANT_FILES/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
-	hawk 'BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0;}
+	hawk ' # This second awk can require large amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
+	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0;}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	    ARGIND==2 && !($2 in count){
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
@@ -239,7 +241,8 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
 	sort -nr |
-	hawk 'BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
+	hawk ' # This third awk... not sure how intensive it is in RAM and CPU (yet)
+	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
 	    {
 		delete S;
 		numNodes=$1
