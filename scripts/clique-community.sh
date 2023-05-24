@@ -29,7 +29,7 @@ TMPDIR=`mktemp -d $MYTMP/$BASENAME.XXXXXX`
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
-[ $# -eq 2 -o $# -eq 3 ] || die "expecting exactly 2 arguments"
+[ $# -eq 2 -o $# -eq 3 ] || die "expecting exactly 2 or 3 arguments"
 
 N="$1"
 k="$2"
