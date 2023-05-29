@@ -219,10 +219,16 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
 	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
 	++ODV(u, u_orbit);
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
-	    int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
-	    if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
-	    if(!_communityNeighbors[u][u_orbit]) _communityNeighbors[u][u_orbit] = SetAlloc(G->n);
-	    SetAdd(_communityNeighbors[u][u_orbit], v);
+	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
+	    // FIXME: this should be pre-computed ONCE
+	    static TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
+	    if(TinyGraphDFSConnected(&gg,d)) {
+		int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
+		if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
+		if(!_communityNeighbors[u][u_orbit]) _communityNeighbors[u][u_orbit] = SetAlloc(G->n);
+		SetAdd(_communityNeighbors[u][u_orbit], v);
+	    }
 	}
     }
 }
@@ -253,10 +259,16 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, uns
 	int u=Varray[(int)perm[c]];
 	++GDV(u, GintOrdinal);
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
-	    int v=Varray[(int)perm[d]];
-	    if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
-	    if(!_communityNeighbors[u][GintOrdinal]) _communityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
-	    SetAdd(_communityNeighbors[u][GintOrdinal], v);
+	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
+	    // FIXME: this should be pre-computed ONCE
+	    static TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
+	    if(TinyGraphDFSConnected(&gg,d)) {
+		int v=Varray[(int)perm[d]];
+		if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
+		if(!_communityNeighbors[u][GintOrdinal]) _communityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
+		SetAdd(_communityNeighbors[u][GintOrdinal], v);
+	    }
 	}
     }
 }
