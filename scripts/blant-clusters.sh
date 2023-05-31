@@ -306,6 +306,8 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 	    }
 	}
 	END {
+	    PROCINFO["sorted_in"]="@ind_num_asc"; # print nodes in numerical ascending order
+	    #PROCINFO["sorted_in"]="@ind_str_asc"; # print nodes in string ascending order
 	    for(i=1;i<=numCliques;i++) {
 		maxEdges=choose(length(cluster[i]),2);
 		printf "%d nodes, %d of %d edges from k %d (%g%%):", length(cluster[i]), edges[i], maxEdges, kk[i], 100*edges[i]/maxEdges
