@@ -163,14 +163,11 @@ for edgeDensity in "${EDs[@]}"; do
 		for(i=4; i<=NF; i++) neighbors[$2][$i]=neighbors[$i][$2]=1;
 	    }
 
-	    function InducedEdges(T,       u,v,m) {
-		m=0;
-		for(u in T) for(v in T) if(v in edge[u]) {
-		    #ASSERT((u in edge[v]), "edgeError");
-		    #ASSERT(edge[u][v]==1, "edge[u][v] in InducedEdges");
-		    #ASSERT(edge[v][u]==1, "edge[v][u] in InducedEdges");
-		    m++;
-		}
+	    function MakeEmptySet(S){delete S; S[0]=1; delete S[0]}
+	    function InducedEdges(T,D,       u,v,m) { # note you can skip passing in D
+		MakeEmptySet(D);
+		for(u in T) for(v in T) if((u in edge) && (v in edge[u])) { ++D[u]; ++D[v]; ++m; }
+		for(u in T) { ASSERT(D[u]%2==0, "InducedEdges: D["u"]="D[u]); D[u]/=2; }
 		ASSERT(m%2==0, "m is not even");
 		return m/2;
 	    }
@@ -201,7 +198,6 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 		PROCINFO["sorted_in"]=oldOrder;
 	    }
-	    function MakeEmptySet(S){delete S; S[0]=1; delete S[0]}
 	    END{n=length(degree); # number of nodes in the input network
 		# make cluster and started empty sets; started is a list of nodes we should NOT start a new BFS on
 		delete cluster; cluster[0]=1; delete cluster[0];
@@ -226,7 +222,9 @@ for edgeDensity in "${EDs[@]}"; do
 			edgeCount += newEdgeHits;
 			S[u]=1;
 			Slen = length(S);
-			WARN(edgeCount == InducedEdges(S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(S));
+			# CAREFUL: calling InducedEdges(S) every QueueNext() is VERY expensive; uncommenting the line below
+			# slows the program by more than 100x (NOT an exaggeration)
+			# WARN(edgeCount == InducedEdges(S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(S));
 			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
 			if (Slen>1){
 			    maxEdges = choose(Slen,2);
@@ -242,16 +240,17 @@ for edgeDensity in "${EDs[@]}"; do
 		    }
 
 		    # post-process to remove nodes that have too low degree compared to the norm
+		    # It would probably be more correct also to use the Student t-distribution rather than Gaussian...
 		    StatReset("");
-		    delete degreeInS;
-		    for(u in S) { degreeInS[u] = EdgesIntoS(u); StatAddSample("", degreeInS[u]); }
-		    printf "start %d |S|=%d mean %g stdDev %g:",start,_statN[""],StatMean(""),StatStdDev("")>"/dev/stderr"
+		    InducedEdges(S, degreeInS);
+		    for(u in S) StatAddSample("", degreeInS[u]);
+		    #printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
 		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("")) {
-			printf " %s(%d)", u, degreeInS[u] >"/dev/stderr";
+			#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
 			delete S[u];
 		    }
-		    print "" > "/dev/stderr";
 		    Slen=length(S);
+		    #printf " final |S|=%d\n",Slen > "/dev/stderr";
 		    if(Slen>='$minClus') {
 			maxEdges=choose(Slen,2);
 			++numClus; printf "%d %d", Slen, edgeCount
