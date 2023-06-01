@@ -55,6 +55,9 @@ SAMPLE_METHOD=-sMCMC #-sNBE
 ONLY_BEST_ORBIT=0
 OVERLAP=0.5
 
+# ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
+SUBFINAL_SORT="-k 1nr -k 4n"
+
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
@@ -142,19 +145,19 @@ for edgeDensity in "${EDs[@]}"; do
 		if(onlyBestOrbit) item=0;
 		Kc[$1][item]+=$3; # increment the cluster count for appropriate item (canon/orbit)
 		T[$1]+=$3; # keep total count of *all* items
-		# save the neighbors of those cliques that have high edge density for BFS:
+		# save the neighbors of those clusters that have high edge density for BFS:
 		for(j=4;j<=NF;j++) ++neighbors[$1][item][$j];
 	    }
 	    END {
 		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
 		    ORS=" "
 		    if('$WEIGHTED') print Kc[u][item]^2/T[u], u, item
-		    else            print Kc[u][item], u, item # print the near-clique count and the node
+		    else            print Kc[u][item], u, item # print the cluster membership count, and the node
 		    for(v in neighbors[u][item]) print v
 		    ORS="\n"; print "";
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
-	sort -gr | # > $BLANT_FILES/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
+	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # This second awk can require large amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
@@ -179,7 +182,7 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 		return edgeHits;
 	    }
-	    function highRelCliqueCount(u, v) { # Heuristic
+	    function highRelClusCount(u, v) { # Heuristic
 		if(!(u in count) || count[u]==0) return 1;
 		if(!(v in count) || count[v]==0) return 0;
 		if (v in count) return count[v]/count[u]>=0.5;
@@ -190,7 +193,7 @@ for edgeDensity in "${EDs[@]}"; do
 		PROCINFO["sorted_in"]="randsort";
 		if(u in neighbors) {
 		    for (v in neighbors[u]) {
-			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)) {
+			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelClusCount(u, v)) {
 			    QueueAdd("Q", v);
 			    visitedQ[v]=1;
 			}
@@ -264,7 +267,7 @@ for edgeDensity in "${EDs[@]}"; do
 			for(i=1;i<Slen*(1-'$OVERLAP');i++) started[Sorder[i]]=1;
 		    }
 		}
-	    }' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
+	    }' "$net" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -nr |
 	hawk ' # This third awk... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
@@ -294,15 +297,16 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }
 	    ' | # sort by number of nodes, then by first node in the list:
-	sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
+	sort $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
     done
     for k in "${Ks[@]}"; do
 	    wait; (( BLANT_EXIT_CODE += $? ))
     done
 done
 
-sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
-    hawk 'BEGIN{ numCliques=0 } # post-process to remove/merge duplicates
+# we can use the --merge option because the subfinal files are already sorted in SUBFINAL_SORT order
+sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
+    hawk 'BEGIN{ numClus=0 } # post-process to remove/merge duplicates
 	{
 	    delete S; 
 	    numNodes=$1
@@ -311,10 +315,10 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 	    for(i=4;i<=NF;i++) ++S[$i]
 	    WARN(length(S)==numNodes,"mismatch in numNodes and length(S)");
 	    add=1;
-	    for(i=1;i<=numCliques;i++) {
+	    for(i=1;i<=numClus;i++) {
 		same=0;
 		for(u in S) if(u in cluster[i])++same;
-		if(same > length(cluster[i])*'$OVERLAP'){ add=0; break;}
+		if(same > MIN(length(S), length(cluster[i]))*'$OVERLAP'){ add=0; break;}
 	    }
 	    # Skipping an entire cluster with overlap sucks, but merging does not work either. Here is a better way:
 	    # The idea is to provide ALTERNATES.  So for example if 2 clusters of size k overlap in all but one node,
@@ -326,14 +330,14 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 	    # while adding both does not work. Doing this correctly requires some thought, so it will have to wait.
 
 	    if(add) {
-		++numCliques; edges[numCliques]=edgeHits; kk[numCliques]=k;
-		for(u in S) ++cluster[numCliques][u];
+		++numClus; edges[numClus]=edgeHits; kk[numClus]=k;
+		for(u in S) ++cluster[numClus][u];
 	    }
 	}
 	END {
 	    PROCINFO["sorted_in"]="@ind_num_asc"; # print nodes in numerical ascending order
 	    #PROCINFO["sorted_in"]="@ind_str_asc"; # print nodes in string ascending order
-	    for(i=1;i<=numCliques;i++) {
+	    for(i=1;i<=numClus;i++) {
 		maxEdges=choose(length(cluster[i]),2);
 		printf "%d nodes, %d of %d edges from k %d (%g%%):", length(cluster[i]), edges[i], maxEdges, kk[i], 100*edges[i]/maxEdges
 		for(u in cluster[i]) printf " %s", u
