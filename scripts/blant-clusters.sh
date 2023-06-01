@@ -156,16 +156,28 @@ for edgeDensity in "${EDs[@]}"; do
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -gr | # > $BLANT_FILES/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
 	hawk ' # This second awk can require large amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
-	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0;}
+	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
-	    ARGIND==2 && !($2 in count){
+	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
 		for(i=4; i<=NF; i++) neighbors[$2][$i]=neighbors[$i][$2]=1;
 	    }
-	    function EdgeCount(v,       edgeHits,u) {
+
+	    function InducedEdges(T,       u,v,m) {
+		m=0;
+		for(u in T) for(v in T) if(v in edge[u]) {
+		    #ASSERT((u in edge[v]), "edgeError");
+		    #ASSERT(edge[u][v]==1, "edge[u][v] in InducedEdges");
+		    #ASSERT(edge[v][u]==1, "edge[v][u] in InducedEdges");
+		    m++;
+		}
+		ASSERT(m%2==0, "m is not even");
+		return m/2;
+	    }
+	    function EdgesIntoS(v,       edgeHits,u) { # count edges from v into S, not including v (which can be is S)
 		edgeHits=0;
-		for(u in S) if(v in edge[u]){
-		    ASSERT(edge[u][v],"edge error");
+		for(u in S) if(u!=v && (v in edge[u])){
+		    ASSERT(edge[v][u],"edge error");
 		    ++edgeHits;
 		}
 		return edgeHits;
@@ -176,19 +188,20 @@ for edgeDensity in "${EDs[@]}"; do
 		if (v in count) return count[v]/count[u]>=0.5;
 		else return 1/count[u]>=0.5;
 	    }
-	    function expand(u, origin,    v,oldOrder) {
+	    function AppendNeighbors(u, origin,    v,oldOrder) {
+		oldOrder=PROCINFO["sorted_in"];
+		PROCINFO["sorted_in"]="randsort";
 		if(u in neighbors) {
-		    oldOrder=PROCINFO["sorted_in"];
-		    PROCINFO["sorted_in"]="randsort";
 		    for (v in neighbors[u]) {
-			if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)) {
+			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)) {
 			    QueueAdd("Q", v);
-			    visited[v]=1;
+			    visitedQ[v]=1;
 			}
 		    }
-		    PROCINFO["sorted_in"]=oldOrder;
 		}
+		PROCINFO["sorted_in"]=oldOrder;
 	    }
+	    function MakeEmptySet(S){delete S; S[0]=1; delete S[0]}
 	    END{n=length(degree); # number of nodes in the input network
 		# make cluster and started empty sets; started is a list of nodes we should NOT start a new BFS on
 		delete cluster; cluster[0]=1; delete cluster[0];
@@ -199,19 +212,21 @@ for edgeDensity in "${EDs[@]}"; do
 		    origin=node[start];
 		    if(started[origin]) continue;
 		    started[origin]=1;
-		    delete S; # this will contain the nodes in the current cluster
-		    delete visited;
+		    MakeEmptySet(S);
+		    MakeEmptySet(visitedQ);
 		    misses=0; # how many nodes have been skipped because they did not work?
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 		    QueueAdd("Q", origin);
-		    visited[origin] = 1;
+		    visitedQ[origin] = 1;
 		    edgeCount = 0;
 		    while(QueueLength("Q")>0){
 			u = QueueNext("Q");
-			newEdgeHits = EdgeCount(u);
+			ASSERT(!(u in S),"u in S error");
+			newEdgeHits = EdgesIntoS(u);
 			edgeCount += newEdgeHits;
 			S[u]=1;
 			Slen = length(S);
+			WARN(edgeCount == InducedEdges(S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(S));
 			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
 			if (Slen>1){
 			    maxEdges = choose(Slen,2);
@@ -221,10 +236,21 @@ for edgeDensity in "${EDs[@]}"; do
 				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else
-				expand(u, orign);
+				AppendNeighbors(u, orign);
 			} else
-			    expand(u, origin);
+			    AppendNeighbors(u, origin);
 		    }
+
+		    # post-process to remove nodes that have too low degree compared to the norm
+		    StatReset("");
+		    delete degreeInS;
+		    for(u in S) { degreeInS[u] = EdgesIntoS(u); StatAddSample("", degreeInS[u]); }
+		    printf "start %d |S|=%d mean %g stdDev %g:",start,_statN[""],StatMean(""),StatStdDev("")>"/dev/stderr"
+		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("")) {
+			printf " %s(%d)", u, degreeInS[u] >"/dev/stderr";
+			delete S[u];
+		    }
+		    print "" > "/dev/stderr";
 		    Slen=length(S);
 		    if(Slen>='$minClus') {
 			maxEdges=choose(Slen,2);
