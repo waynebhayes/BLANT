@@ -111,8 +111,6 @@ double _currentScore;
 double potentialScore(CLUSTER *c)
 {
     double P = _currentScore;
-//	P*=SetCardinality(_finalComm);
-
 	SET *c_nodes=c->nodes;
     unsigned u, m;
     FOREACH_DECLARE(m,_finalComm);
@@ -126,7 +124,6 @@ double potentialScore(CLUSTER *c)
 	}
     }
     P+=communityScore(c);
-//	P/=(SetCardinality(_finalComm) + 1);
     return P;
 }
 
@@ -134,13 +131,12 @@ double potentialScore(CLUSTER *c)
 
 void addToResult(CLUSTER *c)
 {
-    double P=c->score, diff=P-_currentScore; //potentialScore(c), diff=P-_currentScore;
+    double P=potentialScore(c), diff=P-_currentScore;
     if (diff < _stopT) return;
     _currentScore=P;
     unsigned u; SET *cn=c->nodes;
     FOREACH(u,cn) _finalMemberships[u]++;
     SetAdd(_finalComm,c->index);
-	SetAdd(_finalClusVisited,c->index);
 }
 
 void expand(CLUSTER *c)
@@ -192,28 +188,6 @@ void ComputeClusterOverlap(const CLUSTER *c)
     }
     // unsigned pc; FOREACH(pc, _overlapMatches) SetAdd(dirty, pc);
     SetCopy(dirty, _overlapMatches);
-}
-
-CLUSTER *getNextMaxScoreCluster()
-{
-	double max=-1;
-	CLUSTER *maxCluster=NULL;
-	for(int rootNode=0;rootNode<_numClus;rootNode++) {
-		if (!SetIn(_finalClusVisited, rootNode)){
-			_cluster[rootNode]->score=potentialScore(_cluster[rootNode]);
-			double diff=_cluster[rootNode]->score-_currentScore;
-			if(diff>max) {
-				max=diff;
-				maxCluster=_cluster[rootNode];
-			} else if (diff==max && _cluster[rootNode]->ED > maxCluster->ED) {
-				maxCluster=_cluster[rootNode];
-			} else if(diff < _stopT){
-				SetAdd(_finalClusVisited,rootNode);
-			}
-
-		}
-	}
-	return maxCluster;
 }
 
 void init(int argc, char *argv[]){
@@ -292,46 +266,33 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    //_PQ = PriorityQueueAlloc(_numClus, ClusterScoreCompare, NULL);
+    _PQ = PriorityQueueAlloc(_numClus, ClusterScoreCompare, NULL);
 
     // For each connected component, mark it off and pick one node at random to put in the PQ
-    //int numVisited = 0, Varray[_numClus], rootNode=0;
-    //SET *visitedDFS = SetAlloc(_numClus);
+    int numVisited = 0, Varray[_numClus], rootNode=0;
+    SET *visitedDFS = SetAlloc(_numClus);
     _finalClusVisited = SetAlloc(_numClus);
-    // for(rootNode=0;rootNode<_numClus;rootNode++) {
-	// if(!SetIn(visitedDFS, rootNode)) {
-	//     int prevNum = numVisited;
-	//     GraphVisitCC(_clusterSimGraph, rootNode, visitedDFS, Varray, &numVisited);
-	//     assert(numVisited == SetCardinality(visitedDFS));
-	//     // pick a node at random from the most recent CC
-	//     int CCsize = numVisited-prevNum, randOffset=CCsize*drand48(), ccRandNode=Varray[prevNum+randOffset];
-	// 	for (int i=prevNum; i< numVisited; i++) {
-	// 		int ccNode = Varray[i];
-	// 		_cluster[ccNode]->score = communityScore(_cluster[ccNode]);
-	// 		PriorityQueueInsert(_PQ, (foint)(void*)_cluster[ccNode]);
-	// 		SetAdd(_finalClusVisited, ccNode);
-	// 	}
-	//     // _cluster[ccRandNode]->score = communityScore(_cluster[ccRandNode]
-	// 	//_cluster[ccRandNode]->score = communityScore(_cluster[ccRandNode]);
-	//     //PriorityQueueInsert(_PQ, (foint)(void*)_cluster[ccRandNode]);
-	//     //SetAdd(_finalClusVisited, ccRandNode);
-	// }
-    // }
-    //printf("Cluster graph has %d nodes; PQ size is %d\n", _numClus, PriorityQueueSize(_PQ));
+    for(rootNode=0;rootNode<_numClus;rootNode++) {
+	if(!SetIn(visitedDFS, rootNode)) {
+	    int prevNum = numVisited;
+	    GraphVisitCC(_clusterSimGraph, rootNode, visitedDFS, Varray, &numVisited);
+	    assert(numVisited == SetCardinality(visitedDFS));
+	    // pick a node at random from the most recent CC
+	    int CCsize = numVisited-prevNum, randOffset=CCsize*drand48(), ccRandNode=Varray[prevNum+randOffset];
+	    _cluster[ccRandNode]->score = communityScore(_cluster[ccRandNode]);
+	    PriorityQueueInsert(_PQ, (foint)(void*)_cluster[ccRandNode]);
+	    SetAdd(_finalClusVisited, ccRandNode);
+	}
+    }
+    printf("Cluster graph has %d nodes; PQ size is %d\n", _numClus, PriorityQueueSize(_PQ));
     _finalComm = SetAlloc(_numClus);
 
-    // while (PriorityQueueSize(_PQ)) {
-	// CLUSTER *c = PriorityQueueNext(_PQ).v;
-	// addToResult(c);
-	// expand(c);
-    // }
-	CLUSTER *c = getNextMaxScoreCluster();
-	double diff = c->score - _currentScore;
-	while (c && (diff > _stopT)) {
-		addToResult(c);
-		c = getNextMaxScoreCluster();
-		if(c) diff = c->score - _currentScore;
-	}
+    while (PriorityQueueSize(_PQ)) {
+	CLUSTER *c = PriorityQueueNext(_PQ).v;
+	addToResult(c);
+	expand(c);
+    }
+
     if(measure==MEASURE_OMOD) printf("OMOD=%g\n",_currentScore/SetCardinality(_finalComm));
     else if(measure==MEASURE_EDN) printf("EDN=%g\n",_currentScore/SetCardinality(_finalComm));
 
