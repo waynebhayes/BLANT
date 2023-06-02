@@ -318,7 +318,7 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    for(i=1;i<=numClus;i++) {
 		same=0;
 		for(u in S) if(u in cluster[i])++same;
-		if(same > MIN(length(S), length(cluster[i]))*'$OVERLAP'){ add=0; break;}
+		if(same > MAX(length(S), length(cluster[i]))*'$OVERLAP'){ add=0; break;}
 	    }
 	    # Skipping an entire cluster with overlap sucks, but merging does not work either. Here is a better way:
 	    # The idea is to provide ALTERNATES.  So for example if 2 clusters of size k overlap in all but one node,
