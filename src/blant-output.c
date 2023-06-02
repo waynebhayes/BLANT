@@ -219,13 +219,27 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
 	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
 	++ODV(u, u_orbit);
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
-	    int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
-	    if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
-	    if(!_communityNeighbors[u][u_orbit]) _communityNeighbors[u][u_orbit] = SetAlloc(G->n);
-	    SetAdd(_communityNeighbors[u][u_orbit], v);
+	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
+	    // FIXME: this should be pre-computed ONCE
+	    static TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
+	    if(TinyGraphDFSConnected(&gg,d)) {
+		int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
+		if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
+		if(!_communityNeighbors[u][u_orbit]) _communityNeighbors[u][u_orbit] = SetAlloc(G->n);
+		SetAdd(_communityNeighbors[u][u_orbit], v);
+	    }
 	}
     }
 }
+
+#if 0	// FIXME: related to the above.... this was how I attempted to have ONLY the CONNECTED canonicals,
+	// but it seemed buggy and I can't figure out what's wrong. - WH
+	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c], u_connectedOrb=_orbit2connectedIndex[u_orbit];
+	assert(0 <= u_connectedOrb && u_connectedOrb < _numConnectedOrbits);
+	if(_communityMode=='o') ++ODV(u, u_orbit); else ++GDV(u, GintOrdinal);
+	int item = (_communityMode=='o' ? u_connectedOrb : _canon2connectedIndex[GintOrdinal]);
+#endif
 
 void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
     assert(TinyGraphDFSConnected(g,0));
@@ -245,10 +259,16 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, uns
 	int u=Varray[(int)perm[c]];
 	++GDV(u, GintOrdinal);
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
-	    int v=Varray[(int)perm[d]];
-	    if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
-	    if(!_communityNeighbors[u][GintOrdinal]) _communityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
-	    SetAdd(_communityNeighbors[u][GintOrdinal], v);
+	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
+	    // FIXME: this should be pre-computed ONCE
+	    static TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
+	    if(TinyGraphDFSConnected(&gg,d)) {
+		int v=Varray[(int)perm[d]];
+		if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
+		if(!_communityNeighbors[u][GintOrdinal]) _communityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
+		SetAdd(_communityNeighbors[u][GintOrdinal], v);
+	    }
 	}
     }
 }

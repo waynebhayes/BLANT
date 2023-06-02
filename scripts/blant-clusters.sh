@@ -55,6 +55,9 @@ SAMPLE_METHOD=-sMCMC #-sNBE
 ONLY_BEST_ORBIT=0
 OVERLAP=0.5
 
+# ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
+SUBFINAL_SORT="-k 1nr -k 4n"
+
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
@@ -122,7 +125,8 @@ done
 
 for edgeDensity in "${EDs[@]}"; do
     for k in "${Ks[@]}"; do
-	hawk 'BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
+	hawk ' # This first awk runs quite quickly and does not use much RAM
+	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
 		ASSERT(cMode=="g" || cMode=="o", "COMMUNITY_MODE must be o or g, not "cMode);
 		rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
@@ -141,51 +145,61 @@ for edgeDensity in "${EDs[@]}"; do
 		if(onlyBestOrbit) item=0;
 		Kc[$1][item]+=$3; # increment the cluster count for appropriate item (canon/orbit)
 		T[$1]+=$3; # keep total count of *all* items
-		# save the neighbors of those cliques that have high edge density for BFS:
+		# save the neighbors of those clusters that have high edge density for BFS:
 		for(j=4;j<=NF;j++) ++neighbors[$1][item][$j];
 	    }
 	    END {
 		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
 		    ORS=" "
 		    if('$WEIGHTED') print Kc[u][item]^2/T[u], u, item
-		    else            print Kc[u][item], u, item # print the near-clique count and the node
+		    else            print Kc[u][item], u, item # print the cluster membership count, and the node
 		    for(v in neighbors[u][item]) print v
 		    ORS="\n"; print "";
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
-	sort -gr | # > $BLANT_FILES/cliqs$k.sorted  # sorted near-clique-counts of all the nodes, largest-to-smallest
-	hawk 'BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0;}
+	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted cluster-counts of all the nodes, largest-to-smallest
+	hawk ' # This second awk can require large amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
+	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
-	    ARGIND==2 && !($2 in count){
+	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
 		for(i=4; i<=NF; i++) neighbors[$2][$i]=neighbors[$i][$2]=1;
 	    }
-	    function EdgeCount(v,       edgeHits,u) {
+
+	    function MakeEmptySet(S){delete S; S[0]=1; delete S[0]}
+	    function InducedEdges(T,D,       u,v,m) { # note you can skip passing in D
+		MakeEmptySet(D);
+		for(u in T) for(v in T) if((u in edge) && (v in edge[u])) { ++D[u]; ++D[v]; ++m; }
+		for(u in T) { ASSERT(D[u]%2==0, "InducedEdges: D["u"]="D[u]); D[u]/=2; }
+		ASSERT(m%2==0, "m is not even");
+		return m/2;
+	    }
+	    function EdgesIntoS(v,       edgeHits,u) { # count edges from v into S, not including v (which can be is S)
 		edgeHits=0;
-		for(u in S) if(v in edge[u]){
-		    ASSERT(edge[u][v],"edge error");
+		for(u in S) if(u!=v && (v in edge[u])){
+		    ASSERT(edge[v][u],"edge error");
 		    ++edgeHits;
 		}
 		return edgeHits;
 	    }
-	    function highRelCliqueCount(u, v) { # Heuristic
+	    function highRelClusCount(u, v) { # Heuristic
 		if(!(u in count) || count[u]==0) return 1;
 		if(!(v in count) || count[v]==0) return 0;
 		if (v in count) return count[v]/count[u]>=0.5;
 		else return 1/count[u]>=0.5;
 	    }
-	    function expand(u, origin,    v,oldOrder) {
+	    function AppendNeighbors(u, origin,    v,oldOrder) {
+		oldOrder=PROCINFO["sorted_in"];
+		PROCINFO["sorted_in"]="randsort";
 		if(u in neighbors) {
-		    oldOrder=PROCINFO["sorted_in"];
-		    PROCINFO["sorted_in"]="randsort";
 		    for (v in neighbors[u]) {
-			if(!(v in visited) && (!(v in line) || line[v] > line[origin]) && highRelCliqueCount(u, v)) {
+			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelClusCount(u, v)) {
 			    QueueAdd("Q", v);
-			    visited[v]=1;
+			    visitedQ[v]=1;
 			}
 		    }
-		    PROCINFO["sorted_in"]=oldOrder;
 		}
+		PROCINFO["sorted_in"]=oldOrder;
 	    }
 	    END{n=length(degree); # number of nodes in the input network
 		# make cluster and started empty sets; started is a list of nodes we should NOT start a new BFS on
@@ -197,19 +211,23 @@ for edgeDensity in "${EDs[@]}"; do
 		    origin=node[start];
 		    if(started[origin]) continue;
 		    started[origin]=1;
-		    delete S; # this will contain the nodes in the current cluster
-		    delete visited;
+		    MakeEmptySet(S);
+		    MakeEmptySet(visitedQ);
 		    misses=0; # how many nodes have been skipped because they did not work?
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 		    QueueAdd("Q", origin);
-		    visited[origin] = 1;
+		    visitedQ[origin] = 1;
 		    edgeCount = 0;
 		    while(QueueLength("Q")>0){
 			u = QueueNext("Q");
-			newEdgeHits = EdgeCount(u);
+			ASSERT(!(u in S),"u in S error");
+			newEdgeHits = EdgesIntoS(u);
 			edgeCount += newEdgeHits;
 			S[u]=1;
 			Slen = length(S);
+			# CAREFUL: calling InducedEdges(S) every QueueNext() is VERY expensive; uncommenting the line below
+			# slows the program by more than 100x (NOT an exaggeration)
+			# WARN(edgeCount == InducedEdges(S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(S));
 			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
 			if (Slen>1){
 			    maxEdges = choose(Slen,2);
@@ -219,11 +237,23 @@ for edgeDensity in "${EDs[@]}"; do
 				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else
-				expand(u, orign);
+				AppendNeighbors(u, orign);
 			} else
-			    expand(u, origin);
+			    AppendNeighbors(u, origin);
+		    }
+
+		    # post-process to remove nodes that have too low degree compared to the norm
+		    # It would probably be more correct also to use the Student t-distribution rather than Gaussian...
+		    StatReset("");
+		    InducedEdges(S, degreeInS);
+		    for(u in S) StatAddSample("", degreeInS[u]);
+		    #printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
+		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("")) {
+			#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
+			delete S[u];
 		    }
 		    Slen=length(S);
+		    #printf " final |S|=%d\n",Slen > "/dev/stderr";
 		    if(Slen>='$minClus') {
 			maxEdges=choose(Slen,2);
 			++numClus; printf "%d %d", Slen, edgeCount
@@ -237,9 +267,10 @@ for edgeDensity in "${EDs[@]}"; do
 			for(i=1;i<Slen*(1-'$OVERLAP');i++) started[Sorder[i]]=1;
 		    }
 		}
-	    }' "$net" - | # dash is the output of the above pipe (sorted near-clique-counts)
+	    }' "$net" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -nr |
-	hawk 'BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
+	hawk ' # This third awk... not sure how intensive it is in RAM and CPU (yet)
+	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
 	    {
 		delete S;
 		numNodes=$1
@@ -266,15 +297,16 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }
 	    ' | # sort by number of nodes, then by first node in the list:
-	sort -k 1nr -k 4n > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
+	sort $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
     done
     for k in "${Ks[@]}"; do
 	    wait; (( BLANT_EXIT_CODE += $? ))
     done
 done
 
-sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
-    hawk 'BEGIN{ numCliques=0 } # post-process to remove/merge duplicates
+# we can use the --merge option because the subfinal files are already sorted in SUBFINAL_SORT order
+sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
+    hawk 'BEGIN{ numClus=0 } # post-process to remove/merge duplicates
 	{
 	    delete S; 
 	    numNodes=$1
@@ -283,10 +315,10 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 	    for(i=4;i<=NF;i++) ++S[$i]
 	    WARN(length(S)==numNodes,"mismatch in numNodes and length(S)");
 	    add=1;
-	    for(i=1;i<=numCliques;i++) {
+	    for(i=1;i<=numClus;i++) {
 		same=0;
 		for(u in S) if(u in cluster[i])++same;
-		if(same > length(cluster[i])*'$OVERLAP'){ add=0; break;}
+		if(same > MIN(length(S), length(cluster[i]))*'$OVERLAP'){ add=0; break;}
 	    }
 	    # Skipping an entire cluster with overlap sucks, but merging does not work either. Here is a better way:
 	    # The idea is to provide ALTERNATES.  So for example if 2 clusters of size k overlap in all but one node,
@@ -298,12 +330,14 @@ sort -k 1nr -k 4n $TMPDIR/subfinal*.out |
 	    # while adding both does not work. Doing this correctly requires some thought, so it will have to wait.
 
 	    if(add) {
-		++numCliques; edges[numCliques]=edgeHits; kk[numCliques]=k;
-		for(u in S) ++cluster[numCliques][u];
+		++numClus; edges[numClus]=edgeHits; kk[numClus]=k;
+		for(u in S) ++cluster[numClus][u];
 	    }
 	}
 	END {
-	    for(i=1;i<=numCliques;i++) {
+	    PROCINFO["sorted_in"]="@ind_num_asc"; # print nodes in numerical ascending order
+	    #PROCINFO["sorted_in"]="@ind_str_asc"; # print nodes in string ascending order
+	    for(i=1;i<=numClus;i++) {
 		maxEdges=choose(length(cluster[i]),2);
 		printf "%d nodes, %d of %d edges from k %d (%g%%):", length(cluster[i]), edges[i], maxEdges, kk[i], 100*edges[i]/maxEdges
 		for(u in cluster[i]) printf " %s", u
