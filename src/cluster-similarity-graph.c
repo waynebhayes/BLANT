@@ -69,7 +69,7 @@ unsigned kin(CLUSTER *c, unsigned u){
 		kinu=(unsigned*)malloc(sizeof(unsigned));
 		*kinu=0;
 		SET *c_nodes=c->nodes;
-		unsigned v, m;
+		unsigned v;
 		FOREACH(v,c_nodes){
 			if(GraphAreConnected(_inputNet,u,v)){
 				(*kinu)++;
@@ -83,7 +83,7 @@ double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
 {
     assert(measure != undef);
     switch(measure) {
-    case MEASURE_EDN: return ( 1.0 / membershipCount ) * c->ED;
+    case MEASURE_EDN: return ( 1.0 / c->n )*( 1.0 / membershipCount ) * c->ED;
 	break;
     case MEASURE_OMOD:
 		int kinu = (int)kin(c,u);
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 	expand(c);
     }
 
-    if(measure==MEASURE_OMOD) printf("Qov=%g\n",_currentScore/SetCardinality(_finalComm));
+    if(measure==MEASURE_OMOD) printf("OMOD=%g\n",_currentScore/SetCardinality(_finalComm));
     else if(measure==MEASURE_EDN) printf("EDN=%g\n",_currentScore/SetCardinality(_finalComm));
 
 

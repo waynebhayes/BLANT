@@ -40,22 +40,22 @@ outDir=$5
 
 PARALLEL=${PARALLEL:-"/bin/bash"}
 START_AT=${START_AT:-"0.1"}
-
+END_AT=${END_AT:-"1.0"}
 [ -f "$net" ] || die "network '$net' does not exist"
 [[ "$measure" == "EDN" || "$measure" == "OMOD" ]] || die "Measure $measure not in the list"
 [ -d $outDir ] || die "Out directory does not exist"
 numNodes=`newlines < $net | sort -u | wc -l`
-stepSize=$(hawk 'BEGIN{print (1-'$START_AT')/('$E'-1)}')
+stepSize=$(hawk 'BEGIN{print ('$END_AT'-'$START_AT')/('$E'-1)}')
 
 graph_name=$(basename "$net")
 
 OUTDIR=`mktemp -d $outDir/$BASENAME-$graph_name.XXXXX`
 commands=""
 E=`expr $E "*" 5`
-for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize 1.0) ; do
+for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize $END_AT) ; do
     for k in 3 4 5 6 7;
     do
-        commands+="./scripts/blant-clusters.sh ./blant $M '$k' '$edgeDensity' $t $net > $OUTDIR/blant-c-$k-$edgeDensity.out;"
+        commands+="{ /bin/time --verbose ./scripts/blant-clusters.sh ./blant $M '$k' '$edgeDensity' $net 1> $OUTDIR/blant-c-$k-$edgeDensity.out; } 2> $OUTDIR/blant-c-$k-$edgeDensity.time;"
         #Printing progress so you know speed and that it is not stuck
         commands+="i=\$(find $OUTDIR -name blant-c*.out -type f -not -empty | wc -l);"
         commands+="i=\`expr 100 \"*\" \$i \`;"
@@ -67,5 +67,5 @@ for edgeDensity in $(seq -f "%.4f" $START_AT $stepSize 1.0) ; do
     done
 done
 
-echo -e $commands   | $PARALLEL >&2 &
+echo -e $commands  | $PARALLEL >&2 &
 wait
