@@ -235,13 +235,22 @@ for edgeDensity in "${EDs[@]}"; do
 			    AppendNeighbors(u, origin);
 		    }
 
-		    # post-process to remove nodes that have too low degree compared to the norm
-		    # It would probably be more correct also to use the Student t-distribution rather than Gaussian...
-		    StatReset("");
+		    # post-process to remove nodes that have too low degree compared to the norm. We use two criteria:
+		    # 1) the in-cluster degree is more than 3 sigma below the mean, or
+		    # 2) the in-cluster degree is less than half the mode of the in-cluster degree distribution.
+		    # The latter was added in response to our performance on the LFR graphs, but it doesn't appear
+		    # to hurt performance anywhere else.
+		    StatReset(""); delete degFreq;
 		    InducedEdges(edge,S, degreeInS);
-		    for(u in S) StatAddSample("", degreeInS[u]);
+		    for(u in S) { StatAddSample("", degreeInS[u]); ++degFreq[degreeInS[u]];}
+		    maxFreq=degMode=0;
+		    for(d=StatMax("");d>=StatMin("");d--)
+			if(d in degFreq && degFreq[d] >= maxFreq) { # use >= to extract SMALLEST mode
+			    maxFreq=degFreq[d]; degMode=d
+		    }
+		    #printf "maxFreq %d mode %d\n", maxFreq, degMode > "/dev/stderr"
 		    #printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
-		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("")) {
+		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("") || degreeInS[u] < degMode/2) {
 			#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
 			delete S[u];
 		    }
