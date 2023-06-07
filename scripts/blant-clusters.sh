@@ -237,8 +237,8 @@ for edgeDensity in "${EDs[@]}"; do
 
 		    # post-process to remove nodes that have too low degree compared to the norm. We use two criteria:
 		    # 1) the in-cluster degree is more than 3 sigma below the mean, or
-		    # 2) the in-cluster degree is less than half the mode of the in-cluster degree distribution.
-		    # The latter was added in response to our performance on the LFR graphs, but it doesn't appear
+		    # 2) the in-cluster degree is less than 1/3 the mode of the in-cluster degree distribution.
+		    # The latter was added in response to our performance on the LFR graphs, but it does not appear
 		    # to hurt performance anywhere else.
 		    StatReset(""); delete degFreq;
 		    InducedEdges(edge,S, degreeInS);
@@ -250,7 +250,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    }
 		    #printf "maxFreq %d mode %d\n", maxFreq, degMode > "/dev/stderr"
 		    #printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
-		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("") || degreeInS[u] < degMode/2) {
+		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("") || degreeInS[u] < degMode/3) {
 			#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
 			delete S[u];
 		    }
