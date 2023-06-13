@@ -19,8 +19,9 @@ OPTIONS (added BEFORE the blant.exe name)
     -r SEED: use the integer SEED as the random seed
     -m smallest: ignore clusters/cliques/communities with fewer than this number of nodes (default 9)
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
-    -o OVERLAP: (default 0.5); the amount of overlap between two cluster that causes either: (a) the second one to be
-	skipped entirely, or (b) nodes of the second one to be listed as 'nearby' those in the first."
+    -o OVERLAP: (default 0.5); the maximum allowed fractional overlap between two clusters;
+	clusters that overlap more that this causes either (a) the second one to be discarded, or
+	(b) nodes of the second one to be listed as 'nearby' those in the first."
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -166,14 +167,6 @@ for edgeDensity in "${EDs[@]}"; do
 		for(i=4; i<=NF; i++) neighbors[$2][$i]=neighbors[$i][$2]=1;
 	    }
 
-	    function MakeEmptySet(S){delete S; S[0]=1; delete S[0]}
-	    function InducedEdges(T,D,       u,v,m) { # note you can skip passing in D
-		MakeEmptySet(D);
-		for(u in T) for(v in T) if((u in edge) && (v in edge[u])) { ++D[u]; ++D[v]; ++m; }
-		for(u in T) { ASSERT(D[u]%2==0, "InducedEdges: D["u"]="D[u]); D[u]/=2; }
-		ASSERT(m%2==0, "m is not even");
-		return m/2;
-	    }
 	    function EdgesIntoS(v,       edgeHits,u) { # count edges from v into S, not including v (which can be is S)
 		edgeHits=0;
 		for(u in S) if(u!=v && (v in edge[u])){
@@ -227,7 +220,7 @@ for edgeDensity in "${EDs[@]}"; do
 			Slen = length(S);
 			# CAREFUL: calling InducedEdges(S) every QueueNext() is VERY expensive; uncommenting the line below
 			# slows the program by more than 100x (NOT an exaggeration)
-			# WARN(edgeCount == InducedEdges(S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(S));
+			# WARN(edgeCount == InducedEdges(edge,S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(edge,S));
 			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
 			if (Slen>1){
 			    maxEdges = choose(Slen,2);
@@ -242,13 +235,22 @@ for edgeDensity in "${EDs[@]}"; do
 			    AppendNeighbors(u, origin);
 		    }
 
-		    # post-process to remove nodes that have too low degree compared to the norm
-		    # It would probably be more correct also to use the Student t-distribution rather than Gaussian...
-		    StatReset("");
-		    InducedEdges(S, degreeInS);
-		    for(u in S) StatAddSample("", degreeInS[u]);
+		    # post-process to remove nodes that have too low degree compared to the norm. We use two criteria:
+		    # 1) the in-cluster degree is more than 3 sigma below the mean, or
+		    # 2) the in-cluster degree is less than 1/3 the mode of the in-cluster degree distribution.
+		    # The latter was added in response to our performance on the LFR graphs, but it does not appear
+		    # to hurt performance anywhere else.
+		    StatReset(""); delete degFreq;
+		    InducedEdges(edge,S, degreeInS);
+		    for(u in S) { StatAddSample("", degreeInS[u]); ++degFreq[degreeInS[u]];}
+		    maxFreq=degMode=0;
+		    for(d=StatMax("");d>=StatMin("");d--)
+			if(d in degFreq && degFreq[d] >= maxFreq) { # use >= to extract SMALLEST mode
+			    maxFreq=degFreq[d]; degMode=d
+		    }
+		    #printf "maxFreq %d mode %d\n", maxFreq, degMode > "/dev/stderr"
 		    #printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
-		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("")) {
+		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("") || degreeInS[u] < degMode/3) {
 			#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
 			delete S[u];
 		    }
@@ -257,8 +259,11 @@ for edgeDensity in "${EDs[@]}"; do
 		    if(Slen>='$minClus') {
 			maxEdges=choose(Slen,2);
 			++numClus; printf "%d %d", Slen, edgeCount
-			for(u in S) {cluster[numClus][u]=1; printf " %s", u}
-			print ""
+			StatReset("");
+			InducedEdges(edge,S, degreeInS);
+			for(u in S) {cluster[numClus][u]=1; printf " %s", u; StatAddSample("", degreeInS[u]);}
+			#printf "final |S|=%d mean %g stdDev %g min %d max %d:\n", _statN[""], StatMean(""), StatStdDev(""), StatMin(""), StatMax("") > "/dev/stderr"
+			print "";
 			if('$ONLY_ONE') exit;
 			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
 			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be more stringent as it approaches
