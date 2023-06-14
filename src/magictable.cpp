@@ -7,6 +7,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
+#include "blant-fundamentals.h"
 
 /*
     This file assumes LOWER_TRIANGLE is defined in blant.h
@@ -35,8 +36,7 @@ using std::cerr;
 using std::ostream;
 using std::unordered_set;
 
-#define maxK 8
-#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map and canon_list
+#define maxBk (1 << (MAX_K*(MAX_K-1)/2)) // maximum number of entries in the canon_map and canon_list
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 
 //Column contents information. Order can be changed easily. 
@@ -56,7 +56,6 @@ const int FIRST_ODV_ORBIT_ALL_FAYE = 11;
 const int TABLE_WIDTH = 12;
 
 const int MIN_K = 3;
-int MAX_K;
 
 static int _numCanon, _canonList[MAX_CANONICALS]; //Lower Canon List
 static int _numCanonU, _canonListU[MAX_CANONICALS]; //Upper Canon List
@@ -147,17 +146,17 @@ ostream& operator<<(ostream& os, const vector<vector<uint64_t>> table) {
     return os;
 }
 
-//arv[1] = maxK
 int main(int argc, char* argv[]) {
+    int max_k;
     //Connected count starts at 1 because k=2 has a connected node
     if (argc == 2)
-        MAX_K = atoi(argv[1]);
+        max_k = atoi(argv[1]);
     else {
         cerr << "Please enter one argument: maxK. minK is 3. argc: " << argc << std::endl;
         exit(EXIT_FAILURE);
     }
     int connectedCount = 1;
-    for (int k = MIN_K; k <= MAX_K; k++) {
+    for (int k = MIN_K; k <= max_k; k++) {
         auto orbitTable = vector<vector<int>>();
         auto orbitTableUpper = vector<vector<int>>();
 

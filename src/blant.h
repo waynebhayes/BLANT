@@ -1,6 +1,8 @@
 #ifndef BLANT_H
 #define BLANT_H
 
+#include "blant-fundamentals.h" // defining k related constants, including SELF_LOOPS
+
 #include "sets.h"
 #include "tinygraph.h"
 #include "blant-window.h"
@@ -33,12 +35,6 @@ double RandomUniform(void) {
 extern int _JOBS, _MAX_THREADS;
 extern unsigned long _numSamples;
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
-
-// This is the maximum graphlet size that BLANT supports when using a fixed lookup table. (Cannot be bigger than 8.)
-// Currently only used to determine the amount of static memory to allocate.
-#define MAX_K 8
-
-#define maxBk (1 << (MAX_K*(MAX_K-1)/2)) // maximum number of entries in the canon_map
 
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 

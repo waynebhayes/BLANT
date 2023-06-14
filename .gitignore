@@ -3,7 +3,6 @@
 *~
 blant
 blant[a-z]*
-blant*
 create-bin-data*
 **/__pycache__/
 libcalci.so
