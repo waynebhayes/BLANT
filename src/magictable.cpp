@@ -36,7 +36,6 @@ using std::cerr;
 using std::ostream;
 using std::unordered_set;
 
-#define maxBk (1 << (MAX_K*(MAX_K-1)/2)) // maximum number of entries in the canon_map and canon_list
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 
 //Column contents information. Order can be changed easily. 
