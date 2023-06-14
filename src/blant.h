@@ -70,18 +70,6 @@ int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K],  int orb
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
 
-// BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
-// We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
-// (the graphlet / orbit generation code of Ine Melckenbeeck and friends Ghent university), and they published first.
-// NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
-#define LOWER_TRIANGLE	1
-
-// Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
-// two.  We default to the permutation from the canonical to the sampled non-canonical; thus, when we list the nodes
-// in the graphlet on BLANT's output, the ordering means that the columns of identical graphlets correspond to an exact
-// local alignment between the nodes listed.  Listing them in the other direction doesn't seem to have much use.
-#define PERMS_CAN2NON	1
-
 #define CANON_DIR "canon_maps"
 //#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
 

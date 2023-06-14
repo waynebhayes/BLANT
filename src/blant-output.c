@@ -73,6 +73,7 @@ char *PrintCanonical(int GintOrdinal)
 	break;
     case orca: // Prints the ORCA ID of the canonical. Jesse uses same number.
     case jesse:
+	if(SELF_LOOPS) Apology("sorry, orca and jesse output formats do not support self-loops");
 	sprintf(buf, "%d", _outputMapping[GintOrdinal]);
 	break;
     }
