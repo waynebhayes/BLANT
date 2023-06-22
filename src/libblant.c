@@ -42,9 +42,9 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
     Gint_type Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
     TinyGraphEdgesAllDelete(G);
 #if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
+    for(i=k-1;i>(0-SELF_LOOPS);i--)
     {
-	for(j=i-1;j>=0;j--)
+	for(j=i-SELF_LOOPS;j>=0;j--)
 #else	// UPPER_TRIANGLE
     for(i=k-2;i>=0;i--)
     {
@@ -67,7 +67,12 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 ** Mmap the canon_map binary file to the aligned array.
 */
 short int* mapCanonMap(char* BUF, short int *K, int k) {
+    if (k >= 7) return 0;
+    #if SELF_LOOPS
+    int Bk = (1 <<(k*(k+1)/2));
+    #else
     int Bk = (1 <<(k*(k-1)/2));
+    #endif
     sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
     assert(Kfd > 0);

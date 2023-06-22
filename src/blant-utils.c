@@ -29,7 +29,11 @@ void SetGlobalCanonMaps(void)
     int i;
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= 8);
+    #if SELF_LOOPS
+    _Bk = (1 <<(_k*(_k+1)/2));
+    #else
     _Bk = (1 <<(_k*(_k-1)/2));
+    #endif
     _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges);
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);

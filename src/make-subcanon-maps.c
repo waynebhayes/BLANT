@@ -17,7 +17,14 @@ static int canon_num_edges[MAX_CANONICALS];
 int main(int argc, char* argv[]) {
     int i, j, k;
     k=atoi(argv[1]);
+    
+    if (k==7) return 0;
+    
+    #if SELF_LOOPS
+    TINY_GRAPH* G = TinyGraphSelfAlloc(k);
+    #else
     TINY_GRAPH* G = TinyGraphAlloc(k);
+    #endif
 
     //Create k canon list
     char BUF[BUFSIZ];
