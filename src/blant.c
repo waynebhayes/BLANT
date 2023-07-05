@@ -185,7 +185,9 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numAlphas, i;
     assert(1==fscanf(fp_ord, "%d",&numAlphas));
+	#if !SELF_LOOPS
 	assert(numAlphas == _numCanon);
+	#endif
     for(i=0; i<numAlphas; i++) assert(1==fscanf(fp_ord, "%d", &alpha_list[i]));
     fclose(fp_ord);
     return numAlphas;
@@ -337,7 +339,11 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
+	#if SELF_LOOPS
+	TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
+	#else
     TINY_GRAPH *empty_g = TinyGraphAlloc(k); // allocate it here once, so functions below here don't need to do it repeatedly
+	#endif
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
@@ -364,7 +370,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
             getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
         } else {
             getDoubleDegreeArr(heuristicValues, G); // since heuristic values are doubles, we need to convert degree values to doubles
-        }
+		}
 
         int percentToPrint = 1;
         node_whn nwhn_arr[G->n]; // nodes sorted first by the heuristic function and then either alphabetically or reverse alphabetically
