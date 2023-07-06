@@ -686,10 +686,8 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 		// ensure it's connected before we do the replacement
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
-#if 0
-		printf("NRN = %d\n", NumReachableNodes(T, 0));
-		printf("BFS = %d\n", TinyGraphBFS(T, 0, k, graphetteArray, distArray));
-#endif
+		// printf("NRN = %d\n", NumReachableNodes(T, 0));
+		// printf("BFS = %d\n", TinyGraphBFS(T, 0, k, graphetteArray, distArray));
 		assert(NumReachableNodes(T, 0) == TinyGraphBFS(T, 0, k, graphetteArray, distArray));
 		assert(NumReachableNodes(T, 0) == k);
 #endif
@@ -970,10 +968,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
 
     // create and sort next step heur arr
     int next_step_count = SetCardinality(next_step);
-    unsigned next_step_arr[next_step_count];
-#if PARANOID_ASSERTS
-    assert(SetToArray(next_step_arr, next_step) == next_step_count);
-#endif
+    unsigned next_step_arr[next_step_count], tmp;
+    tmp = SetToArray(next_step_arr, next_step);
+    assert(tmp == next_step_count);
     SetFree(next_step); // now that we have the next_step_arr, we no longer need the SET next_step
 
     // populate next_step_nwhn_arr with all nodes in next_step_arr along with their heuristic values provided in heur_arr and their names
