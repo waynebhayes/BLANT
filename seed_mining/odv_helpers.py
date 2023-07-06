@@ -191,7 +191,7 @@ def get_odv_seeds(graph_path1, graph_path2, odv_path1, odv_path2, n, no1=False, 
 
         if proc_nodes * 10000 / tot_nodes > percent_printed:
             percent_printed += 1
-            print(f'{proc_nodes} / {tot_nodes}', file=sys.stderr)
+            # print(f'{proc_nodes} / {tot_nodes}', file=sys.stderr)
 
     return sorted(top_n, reverse=True)
 

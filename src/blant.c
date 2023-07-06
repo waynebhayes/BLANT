@@ -185,7 +185,9 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numAlphas, i;
     assert(1==fscanf(fp_ord, "%d",&numAlphas));
-	assert(numAlphas == _numCanon);
+#if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
+    assert(numAlphas == _numCanon);
+#endif
     for(i=0; i<numAlphas; i++) assert(1==fscanf(fp_ord, "%d", &alpha_list[i]));
     fclose(fp_ord);
     return numAlphas;
@@ -227,7 +229,7 @@ void finalizeMCMC(void) {
 	double totalConcentration = 0;
 	int i;
 	for (i = 0; i < _numCanon; i++) {
-	    if(_graphletConcentration[i] < 0.0) 
+	    if(_graphletConcentration[i] < 0.0)
 		Fatal("_graphletConcentration[%d] %g should be non-negative\n",i, _graphletConcentration[i]);
 	    totalConcentration += _graphletConcentration[i];
 	}
@@ -333,7 +335,11 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
+#if SELF_LOOPS
+    TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
+#else
     TINY_GRAPH *empty_g = TinyGraphAlloc(k); // allocate it here once, so functions below here don't need to do it repeatedly
+#endif
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);

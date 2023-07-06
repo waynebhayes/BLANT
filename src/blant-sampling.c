@@ -44,7 +44,9 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 	    }
 	}
 #if PARANOID_ASSERTS
+#if !SELF_LOOPS
 	assert(Xcurrent[0] != Xcurrent[1]);
+#endif
 	assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
 	assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
 #endif

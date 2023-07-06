@@ -64,7 +64,11 @@ int main(int argc, char* argv[]) {
     }
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
+#if SELF_LOOPS
+    TINY_GRAPH *g = TinyGraphSelfAlloc(k);
+#else
     TINY_GRAPH *g = TinyGraphAlloc(k);
+#endif
     _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     int numCanon = _connectedCanonicals->maxElem;
     int i;
