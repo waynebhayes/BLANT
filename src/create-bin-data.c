@@ -33,7 +33,7 @@
 #endif
 
 typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 24 bits
-#define Bk (1 <<(kk*(kk-1)/2 + kk*SELF_LOOPS))
+#define Bk (1 <<(kk*(kk-1)/2))
 short int K[Bk]; // does not NEED to be unsigned, so leave it signed, since for kk<=8 max_Bk is 12346 < 32657
 kperm Permutations[Bk];
 static Gint_type canon_list[MAX_CANONICALS];
@@ -71,7 +71,6 @@ int main(int argc, char *argv[])
 {
     int i;
     char buf[BUFSIZ];
-    if (kk>=7) return 0;
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges);
     int numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);
