@@ -227,12 +227,8 @@ void finalizeMCMC(void) {
 	double totalConcentration = 0;
 	int i;
 	for (i = 0; i < _numCanon; i++) {
-#if PARANOID_ASSERTS
-	    if(_graphletConcentration[i] < 0.0) {
-		Warning("_graphletConcentration[%d] is %g\n",i, _graphletConcentration[i]);
-		assert(false);
-	    }
-#endif
+	    if(_graphletConcentration[i] < 0.0) 
+		Fatal("_graphletConcentration[%d] %g should be non-negative\n",i, _graphletConcentration[i]);
 	    totalConcentration += _graphletConcentration[i];
 	}
 	for (i = 0; i < _numCanon; i++) {
