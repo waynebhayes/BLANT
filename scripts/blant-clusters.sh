@@ -241,7 +241,8 @@ for edgeDensity in "${EDs[@]}"; do
 		    # The latter was added in response to our performance on the LFR graphs, but it does not appear
 		    # to hurt performance anywhere else.
 		    StatReset(""); delete degFreq;
-		    InducedEdges(edge,S, degreeInS);
+		    tmpEdge = InducedEdges(edge,S, degreeInS);
+		    ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(1) with InducedEdges of "tmpEdge);
 		    for(u in S) { StatAddSample("", degreeInS[u]); ++degFreq[degreeInS[u]];}
 		    maxFreq=degMode=0;
 		    for(d=StatMax("");d>=StatMin("");d--)
@@ -253,6 +254,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("") || degreeInS[u] < degMode/3) {
 			#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
 			delete S[u];
+			edgeCount -= EdgesIntoS(u);
 		    }
 		    Slen=length(S);
 		    #printf " final |S|=%d\n",Slen > "/dev/stderr";
@@ -260,7 +262,8 @@ for edgeDensity in "${EDs[@]}"; do
 			maxEdges=choose(Slen,2);
 			++numClus; printf "%d %d", Slen, edgeCount
 			StatReset("");
-			InducedEdges(edge,S, degreeInS);
+			tmpEdge=InducedEdges(edge,S, degreeInS);
+			ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(2) with InducedEdges of "tmpEdge);
 			for(u in S) {cluster[numClus][u]=1; printf " %s", u; StatAddSample("", degreeInS[u]);}
 			#printf "final |S|=%d mean %g stdDev %g min %d max %d:\n", _statN[""], StatMean(""), StatStdDev(""), StatMin(""), StatMax("") > "/dev/stderr"
 			print "";
