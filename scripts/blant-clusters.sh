@@ -211,7 +211,33 @@ for edgeDensity in "${EDs[@]}"; do
 		    QueueAdd("Q", origin);
 		    visitedQ[origin] = 1;
 		    edgeCount = 0;
+		    checkpoint=0;
 		    while(QueueLength("Q")>0){
+			if(length(S)>20 && ++checkpoint>=10) {
+			    printf "checkpoint %d |S|=%d |Q|=%d\n", checkpoint, length(S), QueueLength("Q") > "/dev/stderr"
+			    checkpoint=0;
+			    # post-process to remove nodes that have too low degree compared to the norm. We use two criteria:
+			    # 1) the in-cluster degree is more than 3 sigma below the mean, or
+			    # 2) the in-cluster degree is less than 1/3 the mode of the in-cluster degree distribution.
+			    # The latter was added in response to our performance on the LFR graphs, but it does not appear
+			    # to hurt performance anywhere else.
+			    StatReset(""); delete degFreq;
+			    tmpEdge = InducedEdges(edge,S, degreeInS);
+			    ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(1) with InducedEdges of "tmpEdge);
+			    for(u in S) { StatAddSample("", degreeInS[u]); ++degFreq[degreeInS[u]];}
+			    maxFreq=degMode=0;
+			    for(d=StatMax("");d>=StatMin("");d--)
+				if(d in degFreq && degFreq[d] >= maxFreq) { # use >= to extract SMALLEST mode
+				    maxFreq=degFreq[d]; degMode=d
+			    }
+			    #printf "maxFreq %d mode %d\n", maxFreq, degMode > "/dev/stderr"
+			    #printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
+			    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("") || degreeInS[u] < degMode/3) {
+				#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
+				delete S[u];
+				edgeCount -= EdgesIntoS(u);
+			    }
+			}
 			u = QueueNext("Q");
 			ASSERT(!(u in S),"u in S error");
 			newEdgeHits = EdgesIntoS(u);
@@ -235,27 +261,6 @@ for edgeDensity in "${EDs[@]}"; do
 			    AppendNeighbors(u, origin);
 		    }
 
-		    # post-process to remove nodes that have too low degree compared to the norm. We use two criteria:
-		    # 1) the in-cluster degree is more than 3 sigma below the mean, or
-		    # 2) the in-cluster degree is less than 1/3 the mode of the in-cluster degree distribution.
-		    # The latter was added in response to our performance on the LFR graphs, but it does not appear
-		    # to hurt performance anywhere else.
-		    StatReset(""); delete degFreq;
-		    tmpEdge = InducedEdges(edge,S, degreeInS);
-		    ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(1) with InducedEdges of "tmpEdge);
-		    for(u in S) { StatAddSample("", degreeInS[u]); ++degFreq[degreeInS[u]];}
-		    maxFreq=degMode=0;
-		    for(d=StatMax("");d>=StatMin("");d--)
-			if(d in degFreq && degFreq[d] >= maxFreq) { # use >= to extract SMALLEST mode
-			    maxFreq=degFreq[d]; degMode=d
-		    }
-		    #printf "maxFreq %d mode %d\n", maxFreq, degMode > "/dev/stderr"
-		    #printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
-		    for(u in S) if(degreeInS[u] < StatMean("") - 3*StatStdDev("") || degreeInS[u] < degMode/3) {
-			#printf " %s(%d)", u, degreeInS[u] > "/dev/stderr";
-			delete S[u];
-			edgeCount -= EdgesIntoS(u);
-		    }
 		    Slen=length(S);
 		    #printf " final |S|=%d\n",Slen > "/dev/stderr";
 		    if(Slen>='$minClus') {
