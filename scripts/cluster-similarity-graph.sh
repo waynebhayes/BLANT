@@ -5,12 +5,12 @@ BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 measure="EDN"
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 USAGE="USAGE: $BASENAME t stopT measure network.el [blant.out files, or none to read stdin]
-PURPOSE: run blant-clusters for E edge densities in network.el, then generate a similarity graph for it.
-    t [0,1] similarity threshold of the output communities. Communities in which the percentage of neighbors is
-    t will not be retrieved.
+PURPOSE: use blant-clusters output files from network.el to generate cluster similarity graph.
+    t [0,1] similarity threshold of the output communities. Communities in which the percentage of neighbors
+	is >=t will not be retrieved.
     stopT difference in EDN increase for which it is not worth to continue expanding. 
-    measure to optimize [EDN,OMOD]
-"
+    measure to optimize [EDN,OMOD]"
+
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
 USAGE=${USAGE:?"$0 should have a USAGE message before sourcing skel.sh"}
