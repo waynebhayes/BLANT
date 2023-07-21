@@ -37,7 +37,7 @@ CLUSTER *ReadCluster(FILE *fp)
     c->nodes = SetAlloc(_Gn);
     c->n = c->m = c->nc2 = c->k = c->ED = 0;
     int numRead = fscanf(fp, "%u%u%u%u%lf", &c->n, &c->m, &c->nc2, &c->k, &c->ED);
-    if(numRead < 0) {
+    if(numRead <= 0) {
 	SetFree(c->nodes); Free(c); return NULL;
     }
     if(numRead!=5) Fatal("cluster %d: fscanf only read %d values: n %d m %d nc2 %d k %d ED %g\n", _line, numRead,c->n,c->m,c->nc2,c->k,c->ED);
@@ -81,14 +81,15 @@ unsigned kin(CLUSTER *c, unsigned u){
 }
 double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
 {
+    int kinu = (int)kin(c,u);
+    int ku= (int)_inputNet->degree[u];
     assert(measure != undef);
     switch(measure) {
-    case MEASURE_EDN: return ( 1.0 / c->n )*( 1.0 / membershipCount ) * c->ED;
+    case MEASURE_EDN:
+	return ( 1.0 / c->n )*( 1.0 / membershipCount ) * c->ED;
 	break;
     case MEASURE_OMOD:
-		int kinu = (int)kin(c,u);
-		int ku= (int)_inputNet->degree[u];
-		return ( 1.0*(kinu - ( ku - kinu ) ) / ku ) * ( 1.0 / membershipCount ) * c->ED * ( 1.0 / c->n );
+	return ( 1.0*(kinu - ( ku - kinu ) ) / ku ) * ( 1.0 / membershipCount ) * c->ED * ( 1.0 / c->n );
 	break;
     default: Fatal("unknonw measure in scoreOfNodeInCommunity");
 	return (-1); break;
@@ -191,23 +192,22 @@ void ComputeClusterOverlap(const CLUSTER *c)
 }
 
 void init(int argc, char *argv[]){
-	if(argc!=5) Fatal("USAGE: overlapThresh stopThresh measure inputNetwork.el");
+    if(argc!=5) Fatal("USAGE: overlapThresh stopThresh measure inputNetwork.el");
     _overlapThresh = atof(argv[1]); assert(_overlapThresh>=0);
-	_stopT = atof(argv[2]); assert(_stopT>=0);
-	if(strcmp(argv[3], "OMOD") == 0) measure=MEASURE_OMOD;
-	else if(strcmp(argv[3], "EDN") == 0) measure=MEASURE_EDN;
-	assert(measure!=undef);
-	Boolean sparse = true, names=false;
+    _stopT = atof(argv[2]); assert(_stopT>=0);
+    if(strcmp(argv[3], "OMOD") == 0) measure=MEASURE_OMOD;
+    else if(strcmp(argv[3], "EDN") == 0) measure=MEASURE_EDN;
+    assert(measure!=undef);
+    Boolean sparse = true, names=false;
 
-	FILE* netFile = fopen(argv[4],"r");
-	_inputNet = GraphReadEdgeList(netFile,sparse,false);
-	_Gn=_inputNet->n;
-	assert(_Gn>0);
-	_finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
+    FILE* netFile = fopen(argv[4],"r");
+    _inputNet = GraphReadEdgeList(netFile,sparse,false);
+    _Gn=_inputNet->n;
+    assert(_Gn>0);
+    _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
     _clusterMemberships = Calloc(_Gn, sizeof(SET*));
-	printf("Initialization done. Graph has %d nodes\n", _Gn);
-	
-	_clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
+    printf("Initialization done. Graph has %d nodes\n", _Gn);
+    _clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
     GraphMakeWeighted(_clusterSimGraph);	
 }
 
@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
 	CLUSTER *c = ReadCluster(stdin);
 	if(!c) break;
 
-	fprintf(stderr, " %d(%d)", _line, c->n);
+	//fprintf(stderr, " %d(%d)", _line, c->n);
 	// Either remember, or forget, this cluster based on overlap with previous ones
 	ComputeClusterOverlap(c);
 	FOREACH(i,_overlapMatches) {
@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
 	    }
 	}
 	if(c) { // it was NOT disqualified based on too much overlap with previous cluster
-	    fprintf(stderr, "A");
+	    //fprintf(stderr, "A");
 	    c->index = _numClus;
 	    for(i=0;i<_numClus;i++) if(SetIn(_overlapMatches,i)) {
 		//printf("sim %d %d = %d\n",i,_numClus,_overlap[i]);
@@ -249,8 +249,7 @@ int main(int argc, char *argv[])
 	    }
 	    _cluster[_numClus++] = c;
 	    fscanf(stdin, " ");
-	} else
-	    fprintf(stderr, "R");
+	} //else fprintf(stderr, "R");
     }
     fprintf(stderr, "\n");
     if(!feof(stdin) && _numClus == MAX_CLUSTERS)
