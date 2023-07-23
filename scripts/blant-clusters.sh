@@ -21,7 +21,15 @@ OPTIONS (added BEFORE the blant.exe name)
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
     -o OVERLAP: (default 0.5); the maximum allowed fractional overlap between two clusters;
 	clusters that overlap more that this causes either (a) the second one to be discarded, or
-	(b) nodes of the second one to be listed as 'nearby' those in the first."
+	(b) nodes of the second one to be listed as 'nearby' those in the first.
+PREDICTION
+    -pN: perform edge prediction of up to N edges for each node on the 'periphery' of a communty because it has
+	as many as N too few edges into the community to be added; prediction seems to work better with larger
+	k, with k=8 working best at high edge densities, though lower k works OK for lower edge densities;
+	significantly increasing M also appears to help (eg 10000 or even 100000).
+	NOTE: predicted edges are sent to the standard error stream (aka stderr, cerr, Unix file descriptor 2),
+	so they do not litter the pipeline. To view them, it's best to run $BASENAME with '2>&1 >/dev/null'
+	appended to its command line."
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -55,6 +63,7 @@ exclusive=0
 SAMPLE_METHOD=-sMCMC #-sNBE
 ONLY_BEST_ORBIT=0
 OVERLAP=0.5
+EDGE_PREDICT=0
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 4n"
@@ -73,6 +82,7 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -m[0-9]*) minClus="`echo $1|sed 's/^-m//'`"; shift 1;;
     -o) OVERLAP="$2"; shift 2;;
     -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
+    -p[0-9]*) EDGE_PREDICT="`echo $1|sed 's/^-p//'`"; shift 1;;
     -*) die "unknown option '$1'";;
     esac
 done
@@ -160,7 +170,7 @@ for edgeDensity in "${EDs[@]}"; do
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # This second awk can require large amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
-	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0}
+	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';}
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
@@ -226,6 +236,15 @@ for edgeDensity in "${EDs[@]}"; do
 			    maxEdges = choose(Slen,2);
 			    if(edgeCount/maxEdges < '$edgeDensity') {
 				delete S[u]; # u drops the edge density too low, so nuke it
+				if(edgePredict) {
+				    if((edgeCount+edgePredict)/maxEdges >= '$edgeDensity') {
+					# just ONE edge would put us over the threshold; predict it should exist
+					numPredict=0;
+					for(uu in S)if(!(u in edge[uu]))
+					    printf "predictEdge-%d\t%s\t%s\n",++numPredict, u,uu > "/dev/stderr"
+					WARN(numPredict<=edgePredict,"should only get "edgePredict" new edge predictions but got "numPredict);
+				    }
+				}
 				edgeCount -= newEdgeHits;
 				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
@@ -280,14 +299,14 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' "$net" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -nr |
-	hawk ' # This third awk... not sure how intensive it is in RAM and CPU (yet)
+	hawk ' # This third awk attempts to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
 	    {
 		delete S;
 		numNodes=$1
 		edgeHits=$2;
 		for(i=3;i<=NF;i++) ++S[$i]
-		WARN(length(S)==numNodes,"mismatch in numNodes and length(S)");
+		WARN(length(S)==numNodes,"mismatch(1) in numNodes and length(S)");
 		add=1;
 		for(i=1;i<=numClus;i++) {
 		    same=0;
@@ -324,7 +343,7 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    edgeHits=$2;
 	    k=$3;
 	    for(i=4;i<=NF;i++) ++S[$i]
-	    WARN(length(S)==numNodes,"mismatch in numNodes and length(S)");
+	    WARN(length(S)==numNodes,"mismatch(2) in numNodes and length(S)");
 	    add=1;
 	    for(i=1;i<=numClus;i++) {
 		same=0;
