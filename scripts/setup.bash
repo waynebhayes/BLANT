@@ -27,7 +27,7 @@ NL='
 ' # newline as a variable, for ease later
 
 # Source of following line: https://stackoverflow.com/questions/59895/how-to-get-the-source-directory-of-a-bash-script-from-within-the-script-itself
-MYDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+MYDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 case $# in
 1) export BLANT_HOME="$1";;
 *) export BLANT_HOME="$MYDIR" ;;
