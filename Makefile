@@ -34,8 +34,10 @@ else
     endif
 endif
 
-# Waywe needs gcc-6 on MacOS:
-GCC_VER=$(shell echo $(UNAME) $(HOME) | awk '/Darwin/&&/Users.wayne/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
+# Darwin needs gcc-6 ever since a commit on 22 May 2022:
+# Wayne needs gcc-6 on MacOS:
+#GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(UNAME).gcc"V; else exit 1}')
+#GCC_VER=$(shell echo $(UNAME) $(HOME) | awk '/Darwin/&&/Users.wayne/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
 GCC=gcc$(GCC_VER)
 CXX=g++
 
@@ -43,9 +45,7 @@ CXX=g++
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm64/)V="arm64";else V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
 
-# Darwin needs gcc-6 ever since a commit on 22 May 2022:
-#GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(UNAME).gcc"V; else exit 1}')
-STACKSIZE=$(shell ($(GCC) -v 2>&1; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
+STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 CC=$(GCC) $(SPEED) -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
@@ -89,13 +89,13 @@ subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),can
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
 #base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant test_maps test_sanity
-base: show-gcc-ver ./.notpristine libwayne $(canon_all) magic_table blant test_maps test_sanity
+base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_maps test_sanity
 
 show-gcc-ver:
 	$(GCC) -v
 
 ./.notpristine:
-	@echo '****************************************'
+	@echo '************ READ THIS. REALLY. WE MEAN IT. READ IT AT LEAST ONCE **************'
 	@echo "If you haven't already, you should read the README at"
 	@echo "	https://github.com/waynebhayes/BLANT#readme"
 	@echo "BLANT can sample graphlets of up to k=8 nodes. The lookup table for k=8 can take"
@@ -275,7 +275,7 @@ ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
 	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
-	#@echo "Finding all python crap and removing it... this may take awhile..."
+	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
 	@./scripts/delete-python-shit.sh $(UNAME)
 
 clean_canon_maps:

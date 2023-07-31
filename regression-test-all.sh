@@ -2,7 +2,7 @@
 
 if [ "$RUNNING_UNDER_TIME" != true ]; then
     export RUNNING_UNDER_TIME=true
-    echo "restarting with timing" >&2
+    #echo "restarting with timing" >&2
     exec time $0 "$@"
 fi
 
@@ -52,7 +52,7 @@ cpus() {
 
 BLANT_HOME=`/bin/pwd`
 LIBWAYNE_HOME="$BLANT_HOME/libwayne"
-PATH="$BLANT_HOME:$BLANT_HOME/scripts:$PATH"
+PATH="$BLANT_HOME:$BLANT_HOME/scripts:$BLANT_HOME/libwayne/bin:$PATH"
 export PATH BLANT_HOME LIBWAYNE_HOME
 
 if [ ! -f libwayne/Makefile ]; then
@@ -78,9 +78,6 @@ CORES=${CORES:=1} # cores =1 for now since I broke threading. :-(
 [ "$CORES" -gt 0 ] || die "can't figure out how many cores this machine has"
 MAKE_CORES=1 # for BLANT, we don't want or need paralellism during make
 
-echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
-export EXE CORES MAKE_CORES
-
 WHAT=most
 if $MAKE ; then
     make pristine
@@ -95,8 +92,11 @@ if [ "$CI" = true ]; then # continuous integration needs to run faster
     export NO8=1
     export PAUSE=0
 else
-    echo '$CI'" = '$CI'; NOT doing continuous integration" >&2
+    : #echo '$CI'" = '$CI'; NOT doing continuous integration" >&2
 fi
+
+echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
+export EXE CORES MAKE_CORES
 
 if [ "$NO8" != "" ]; then unset EIGHT; fi
 make -j$MAKE_CORES $WHAT || die "failed to make"
