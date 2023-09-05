@@ -3,12 +3,12 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME [OPTIONS] blant.exe M Ks EDs network.el
+USAGE="USAGE: $BASENAME [OPTIONS] blant_cmd M Ks EDs network.el
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large communities in network.el.
 REQUIRED ARGUMENTS:
-    blant.exe is the name of the executable BLANT to use (usually just './blant')
-    M is the mean number of times each *node* should be touched by a graphlet sample,
-    so BLANT will thus take M*(n/k) total samples of k-node graphlets. 
+    blant_cmd is the raw BLANT command; usually it's just './blant', but can include options (eg './blant -C')
+    M is the mean number of times each *node* should be touched by a graphlet sample, so BLANT will thus take
+	M*(n/k) total samples of k-node graphlets. 
     Ks is a list of graphlet sizes to do BLANT sampling in
     EDs is a list of the edge density thresholds to explore
 OPTIONS (added BEFORE the blant.exe name)
@@ -89,7 +89,8 @@ done
 
 [ $# -ne 5 ] && die "expecting exactly 5 mandatory arguments, but you supplied $#"
 
-BLANT=$1;
+BLANT_CMD="$1";
+BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
 sampleMultiplier=$2;
 Ks=(`echo $3 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
@@ -101,7 +102,7 @@ numNodes=`echo "$netCounts" | cut -f1`
 numEdges=`echo "$netCounts" | cut -f2`
 meanED=`echo "$netCounts" | cut -f3`
 
-[ -x "$BLANT" ] || die "'$BLANT' does not exist or is not an executable"
+[ -x $BLANT_EXE ] || die "'$BLANT_EXE' does not exist or is not an executable"
 for k in "${Ks[@]}"; do
     [ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
 done
@@ -123,7 +124,7 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	# DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
 	# Possible values: MCMC NBE EBE RES
 	[ -f canon_maps/canon_list$k.txt ] || continue
-	CMD="$BLANT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
+	CMD="$BLANT_CMD $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
 	$CMD > $TMPDIR/blant$k.out &
     done
 fi

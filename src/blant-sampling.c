@@ -26,15 +26,13 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 	while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
 	    double p = RandomUniform();
 	    // if 0 < p < 1, p < deg(u) + deg(v) then
-	    if (p < ((double)G->degree[Xcurrent[0]])/(G->degree[Xcurrent[0]] + G->degree[Xcurrent[1]])) {
+	    if (p < ((double)GraphDegree(G,Xcurrent[0])/(GraphDegree(G,Xcurrent[0]) + GraphDegree(G,Xcurrent[1])))) {
 		// select randomly from Neigh(u) and swap
-		int neighbor = (int) (G->degree[Xcurrent[0]] * RandomUniform());
-		Xcurrent[1] = G->neighbor[Xcurrent[0]][neighbor];
+		Xcurrent[1] = GraphRandomNeighbor(G, Xcurrent[0]);
 	    }
 	    else {
 		// select randomly from Neigh(v) and swap
-		int neighbor = (int) (G->degree[Xcurrent[1]] * RandomUniform());
-		Xcurrent[0] = G->neighbor[Xcurrent[1]][neighbor];
+		Xcurrent[0] = GraphRandomNeighbor(G,Xcurrent[1]);
 	    }
 	    if(_sampleSubmethod == SAMPLE_MCMC_EC) {
 		if(!GraphAreConnected(_EDGE_COVER_G, Xcurrent[0], Xcurrent[1]) && RandomUniform() < 0.9) { // undo the attempt
@@ -190,24 +188,29 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     int edge;
-    if(whichCC<0){
-	edge = -(whichCC+1);
-	v1 = G->edgeList[2*edge];
+    if(G->useComplement) {
+	v1 = G->n * RandomUniform();
+	v2 = GraphRandomNeighbor(G,v1);
+    } else {
+	if(whichCC<0){
+	    edge = -(whichCC+1);
+	    v1 = G->edgeList[2*edge];
+	}
+	else do {
+	    edge = G->numEdges * RandomUniform();
+	    v1 = G->edgeList[2*edge];
+	} while(!SetIn(_componentSet[whichCC], v1));
+	assert(edge < G->numEdges);
+	v2 = G->edgeList[2*edge+1];
     }
-    else do {
-	edge = G->numEdges * RandomUniform();
-	v1 = G->edgeList[2*edge];
-    } while(!SetIn(_componentSet[whichCC], v1));
-    assert(edge < G->numEdges);
-    v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
 
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
-    for(i=0; i < G->degree[v1]; i++)
+    int nBuf=0; for(i=0; i < GraphDegree(G,v1); i++)
     {
-	int nv1 =  G->neighbor[v1][i];
+	int nv1 = GraphNextNeighbor(G,v1,&nBuf); assert(nv1 != -1);
 	if(nv1 != v2)
 	{
 #if PARANOID_ASSERTS
@@ -216,9 +219,12 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv1));
 	}
     }
-    for(i=0; i < G->degree[v2]; i++)
+    assert(i==GraphDegree(G,v1));
+    assert(-1==GraphNextNeighbor(G,v1,&nBuf));
+
+    nBuf=0; for(i=0; i < GraphDegree(G,v2); i++)
     {
-	int nv2 =  G->neighbor[v2][i];
+	int nv2 = GraphNextNeighbor(G,v2,&nBuf); assert(nv2 != -1);
 	if(nv2 != v1 && !SetIn(outSet, nv2))
 	{
 #if PARANOID_ASSERTS
@@ -227,6 +233,8 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv2));
 	}
     }
+    assert(GraphNextNeighbor(G,v2,&nBuf) == -1);
+
     for(i=2; i<k; i++)
     {
 	int j;
@@ -263,12 +271,13 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	SetDelete(outSet, v1);
 	SetAdd(V, v1); Varray[i] = v1;
 	outbound[j] = outbound[--nOut];	// nuke v1 from the list of outbound by moving the last one to its place
-	for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
+	nBuf=0; for(j=0; j<GraphDegree(G,v1);j++) // another loop over neighbors that may take a long time...
 	{
-	    v2 = G->neighbor[v1][j];
+	    v2 = GraphNextNeighbor(G,v1,&nBuf); assert(v2!=-1);
 	    if(!SetIn(outSet, v2) && !SetIn(V, v2))
 		SetAdd(outSet, (outbound[nOut++] = v2));
 	}
+	assert(-1==GraphNextNeighbor(G,v1,&nBuf));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
@@ -313,33 +322,35 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
-    for(i=0; i < G->degree[v1]; i++)
+    int nBuf=0; for(i=0; i < GraphDegree(G,v1); i++)
     {
-	int nv1 =  G->neighbor[v1][i];
+	int nv1 =  GraphNextNeighbor(G,v1,&nBuf); assert(nv1!=-1);
 	if(nv1 != v2)
 	{
 #if PARANOID_ASSERTS
 	    assert(!SetIn(V, nv1)); // assertion to ensure we're in line with faye
 #endif
 	    if (!visited[nv1]) { /* Faye: Check if it's visited */
-            SetAdd(outSet, (outbound[nOut++] = nv1));
-            visited[nv1] = 1;
-        }
+		SetAdd(outSet, (outbound[nOut++] = nv1));
+		visited[nv1] = 1;
+	    }
 	}
     }
-    for(i=0; i < G->degree[v2]; i++)
+    assert(-1==GraphNextNeighbor(G,v1,&nBuf));
+    nBuf=0; for(i=0; i < GraphDegree(G,v2); i++)
     {
-	int nv2 =  G->neighbor[v2][i];
+	int nv2 =  GraphNextNeighbor(G,v2,&nBuf); assert(nv2!=-1);
 	if(nv2 != v1 && !SetIn(outSet, nv2))
 	{
 #if PARANOID_ASSERTS
 	    assert(!SetIn(V, nv2)); // assertion to ensure we're in line with faye
 #endif
 	    if (!visited[nv2]) { /* Faye: Check if it's visited */
-            SetAdd(outSet, (outbound[nOut++] = nv2));
-            visited[nv2] = 1;
-        }
+		SetAdd(outSet, (outbound[nOut++] = nv2));
+		visited[nv2] = 1;
+	    }
 	}
+	assert(-1==GraphNextNeighbor(G,v2,&nBuf));
     }
     for(i=2; i<k; i++)
     {
@@ -381,16 +392,17 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	SetDelete(outSet, v1);
 	SetAdd(V, v1); Varray[i] = v1;
 	outbound[j] = outbound[--nOut];	// nuke v1 from the list of outbound by moving the last one to its place
-	for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
+	nBuf=0; for(j=0; j<GraphDegree(G,v1);j++) // another loop over neighbors that may take a long time...
 	{
-	    v2 = G->neighbor[v1][j];
-        /* Faye: check if it's invisted instead
-        * if(!SetIn(outSet, v2) && !SetIn(V, v2)) */
-        if (!visited[v2]) {
-		    SetAdd(outSet, (outbound[nOut++] = v2));
-	        visited[v2] = 1;
-        }
-    }
+	    v2 = GraphNextNeighbor(G,v1,&nBuf);assert(v2!=-1);
+	    /* Faye: check if it's in visted instead
+	    * if(!SetIn(outSet, v2) && !SetIn(V, v2)) */
+	    if (!visited[v2]) {
+		SetAdd(outSet, (outbound[nOut++] = v2));
+		    visited[v2] = 1;
+	    }
+	}
+	assert(-1==GraphNextNeighbor(G,v1,&nBuf));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
@@ -468,6 +480,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 */
 double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
+    if(G->useComplement) Fatal("Sorry, EBE not implemented for complemented graphs");
     int edge, v1, v2;
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
@@ -485,10 +498,10 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     SetAdd(V, v2); Varray[1] = v2;
     int vCount = 2;
 
-    int outDegree = G->degree[v1] + G->degree[v2];
+    int outDegree = GraphDegree(G,v1) + GraphDegree(G,v2);
     static int cumulative[MAX_K];
-    cumulative[0] = G->degree[v1]; // where v1 = Varray[0]
-    cumulative[1] = G->degree[v2] + cumulative[0];
+    cumulative[0] = GraphDegree(G,v1); // where v1 = Varray[0]
+    cumulative[1] = GraphDegree(G,v2) + cumulative[0];
 
     static SET *internal;	// mark choices of whichNeigh that are discovered to be internal
     static int Gn;
@@ -501,7 +514,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     {
 	int i, whichNeigh, newNode = -1;
 	while(numTries < MAX_TRIES &&
-		(whichNeigh = outDegree * RandomUniform()) >= 0 && // always true, just setting whichNeigh
+	    (whichNeigh = outDegree * RandomUniform()) >= 0 && // always true, just setting whichNeigh
 		SetIn(internal, whichNeigh))
 	    ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
 	if(numTries >= MAX_TRIES) {
@@ -527,12 +540,12 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
 	for(i=0; cumulative[i] <= whichNeigh; i++)
 	    ; // figure out whose neighbor it is
-	int localNeigh = whichNeigh-(cumulative[i]-G->degree[Varray[i]]); // which neighbor of node i?
+	int localNeigh = whichNeigh-(cumulative[i]-GraphDegree(G,Varray[i])); // which neighbor of node i?
 	if(newNode < 0) newNode = G->neighbor[Varray[i]][localNeigh];
 #if PARANOID_ASSERTS
 	// really should check some of these a few lines higher but let's group all the paranoia in one place.
 	assert(i < vCount);
-	assert(0 <= localNeigh && localNeigh < G->degree[Varray[i]]);
+	assert(0 <= localNeigh && localNeigh < GraphDegree(G,Varray[i]));
 	assert(0 <= newNode && newNode < G->n);
 #endif
 	if(SetIn(V, newNode))
@@ -569,9 +582,9 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    }
 	}
 	SetAdd(V, newNode);
-	cumulative[vCount] = cumulative[vCount-1] + G->degree[newNode];
+	cumulative[vCount] = cumulative[vCount-1] + GraphDegree(G,newNode);
 	Varray[vCount++] = newNode;
-	outDegree += G->degree[newNode];
+	outDegree += GraphDegree(G,newNode);
 #if PARANOID_ASSERTS
 	assert(SetCardinality(V) == vCount);
 	assert(outDegree == cumulative[vCount-1]);
@@ -593,6 +606,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 // start with a better starting guess, which is node-based expansion.
 double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
+    if(G->useComplement) Fatal("Sorry, Reservior not implemented for complemented graphs");
     // Start by getting the first k nodes using a previous method. Once you figure out which is
     // better, it's probably best to share variables so you don't have to recompute the outset here.
 #if 1  // the following is copied almost verbatim from NodeEdgeExpansion, just changing for loop to while loop.
@@ -618,12 +632,12 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
-    for(i=0; i < G->degree[v1]; i++)
+    for(i=0; i < GraphDegree(G,v1); i++)
     {
 	int nv1 =  G->neighbor[v1][i];
 	if(nv1 != v2) SetAdd(outSet, (outbound[nOut++] = nv1));
     }
-    for(i=0; i < G->degree[v2]; i++)
+    for(i=0; i < GraphDegree(G,v2); i++)
     {
 	int nv2 =  G->neighbor[v2][i];
 	if(nv2 != v1 && !SetIn(outSet, nv2)) SetAdd(outSet, (outbound[nOut++] = nv2));
@@ -669,7 +683,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 	    Varray[i] = v1;
 	    SetAdd(V, v1);
 	    int j;
-	    for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
+	    for(j=0; j<GraphDegree(G,v1);j++) // another loop over neighbors that may take a long time...
 	    {
 		v2 = G->neighbor[v1][j];
 		if(!SetIn(outSet, v2) && !SetIn(V, v2))
@@ -714,7 +728,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 		    assert(SetCardinality(V) == k);
 #endif
 		    int j;
-		    for(j=0; j<G->degree[v1];j++) // another loop over neighbors that may take a long time...
+		    for(j=0; j<GraphDegree(G,v1);j++) // another loop over neighbors that may take a long time...
 		    {
 			v2 = G->neighbor[v1][j];
 			if(!SetIn(outSet, v2) && !SetIn(V, v2))
@@ -803,7 +817,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 		    SetAdd(V, node);
 		}
 
-		graphletDegree += G->degree[node];
+		graphletDegree += GraphDegree(G,node);
 	    }
 #if PARANOID_ASSERTS
 	    assert(graphletDegree > 0);
@@ -938,6 +952,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
  * @param heur_arr  the array containing the heuristic values for all nodes which is used to determine which nodes in next_step to expand to
  */
 void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr) {
+    if(G->useComplement) Fatal("Sorry, complemented graphs not supported in INDEX mode");
     // i, j, and neigh are just used in for loops in this function
     int i, j, neigh;
     // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
@@ -959,7 +974,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     // for all nodes in prev_nodes_array...
     for(i=0; i<prev_nodes_count; i++) {
         // loop through all of their neighbors and...
-        for(j=0; j<G->degree[prev_nodes_array[i]]; j++) {
+        for(j=0; j<GraphDegree(G,prev_nodes_array[i]); j++) {
             neigh = G->neighbor[prev_nodes_array[i]][j];
             // if the neighbor is not in prev_nodes_array add it to the set
             if(!arrayIn(prev_nodes_array, prev_nodes_count, neigh)) {

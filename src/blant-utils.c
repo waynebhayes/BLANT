@@ -165,14 +165,15 @@ int nwhn_asc_rev_comp_func(const void *a, const void *b) {
 }
 
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
-TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, unsigned *Varray)
+TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *g, GRAPH *G, unsigned *Varray)
 {
     unsigned i, j;
-    TinyGraphEdgesAllDelete(Gv);
-    for(i=0; i < Gv->n; i++) for(j=i+1; j < Gv->n; j++)
+    TinyGraphEdgesAllDelete(g);
+    assert(!G->selfAllowed);
+    for(i=0; i < g->n; i++) for(j=i+1; j < g->n; j++)
         if(GraphAreConnected(G, Varray[i], Varray[j]))
-            TinyGraphConnect(Gv, i, j);
-    return Gv;
+            TinyGraphConnect(g, i, j);
+    return g;
 }
 
 int getMaximumIntNumber(int K)
