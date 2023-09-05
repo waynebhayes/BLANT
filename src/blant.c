@@ -42,6 +42,8 @@ Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation 
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
+char _communityMode; // 'g' for graphlet or 'o' for orbit
+Boolean _useComplement; // true if -C option was specified
 int _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -538,13 +540,15 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    unsigned long odv=ODV(u,orbit_index);
 		    int numPrinted = 0;
 		    if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
-			for(j=0;j<G->degree[u]; j++) {
-			    v = G->neighbor[u][j];
+			int buf=0;
+			for(j=0;j<GraphDegree(G,u); j++) {
+			    v = GraphNextNeighbor(G,u,&buf); assert(v!=-1); // G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][orbit_index],v)) {
 				if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), orbit_index, odv);
 				printf("%s", PrintNode(' ',v));
 			    }
 			}
+			assert(-1==GraphNextNeighbor(G,u,&buf));
 			if(numPrinted) printf("\n");
 		    }
 		}
@@ -556,13 +560,15 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    unsigned long gdv=GDV(u,c);
 		    int numPrinted = 0;
 		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
-			for(j=0;j<G->degree[u]; j++) {
-			    v = G->neighbor[u][j];
+			int buf=0;
+			for(j=0;j<GraphDegree(G,u); j++) {
+			    v = GraphNextNeighbor(G,u,&buf); assert(v!=-1); //G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][c],v)) {
 				if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), c, gdv);
 				printf("%s", PrintNode(' ',v));
 			    }
 			}
+			assert(-1==GraphNextNeighbor(G,u,&buf));
 			if(numPrinted) printf("\n");
 		    }
 		}
@@ -857,6 +863,7 @@ const char * const USAGE_SHORT =
 "    -m{outputMode} (default o=ODV; g=GDV, f=frequency, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, i=integerOrdinal)\n"\
 "    -r seed (integer)\n\n"\
+"    -C once the graph is read in, use its complement (ie., cliques should be interpreted as independent sets, etc\n"\
 "    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the task up into N jobs (default 1) allowing\n"\
 "        at most M to run at one time; M can be anything from 1 to a compile-time-specified maximum possible value\n"\
 "        (MAX_POSSIBLE_THREADS in blant.h), but defaults to 4 to be conservative.";
@@ -958,7 +965,7 @@ int main(int argc, char *argv[])
 
     int odv_fname_len = 0;
 
-    while((opt = getopt(argc, argv, "hm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:a:")) != -1)
+    while((opt = getopt(argc, argv, "hCm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:a:")) != -1)
     {
 	switch(opt)
 	{
@@ -971,6 +978,8 @@ int main(int argc, char *argv[])
 	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
 	    #endif
 	    exit(1); break;
+	case 'C': _useComplement = true;
+	    break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
@@ -979,7 +988,7 @@ int main(int argc, char *argv[])
 		switch(*(optarg+1)) {
 		case 'o': _communityMode='o'; break;
 		case '\0': case 'g': _communityMode='g'; break;
-		default: Fatal("-mc%c: unknown community mode; valid values c or o\n", *(optarg+1)); break;
+		default: Fatal("-mc%c: unknown community mode; valid values g or o\n", *(optarg+1)); break;
 		}
 		break;
 	    case 'm': _outputMode = indexMotifs; break;
@@ -1275,6 +1284,8 @@ int main(int argc, char *argv[])
 
     // Read network using native Graph routine.
     GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames);
+    if(_useComplement) G->useComplement = true;
+
     if(_supportNodeNames)
     {
 	assert(G->name);

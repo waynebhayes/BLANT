@@ -247,6 +247,7 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, uns
     int c,d; // canonical nodes
     unsigned char perm[MAX_K+1];
 #if SORT_INDEX_MODE
+    assert(false);
     VarraySort(Varray, k);
     for(c=0;c<k;c++) perm[c]=c;
 #else
