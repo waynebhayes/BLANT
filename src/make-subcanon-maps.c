@@ -6,7 +6,7 @@
 #include "tinygraph.h"
 #include "blant.h"
 
-// A "sub-canononical" is the (k-1)-graphlet you get when you delete one of the k nodes of a k-graphlet.
+// A "sub-canononical" is the (k-1)-canonical graphlet you get when you delete one of the k nodes of a k-graphlet.
 // This program creates the list of k sub-canonicals, each of size (k-1), that result from deleting each node
 // of a k-graphlet, across all k-graphlet canonicals.
 
