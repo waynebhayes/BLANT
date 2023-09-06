@@ -13,6 +13,7 @@ REQUIRED ARGUMENTS:
     EDs is a list of the edge density thresholds to explore
 OPTIONS (added BEFORE the blant.exe name)
     -D DIR: use existing blant output files in directory DIR
+    -C: run on the complement graph, G'
     -1: exit after printing only one 1 cluster (the biggest one)
     -h: use only the highest count graphlet/orbit for neighbors
     -w: cluster count sorted with weights
@@ -64,6 +65,7 @@ SAMPLE_METHOD=-sMCMC #-sNBE
 ONLY_BEST_ORBIT=0
 OVERLAP=0.5
 EDGE_PREDICT=0
+COMPLEMENT=''
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 4n"
@@ -76,6 +78,7 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
     -s*) SAMPLE_METHOD="$1"; shift;;
     -D) BLANT_FILES="$2"; shift 2;;
+    -C) COMPLEMENT=-C; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
     -m) minClus="$2"; shift 2;;
@@ -97,7 +100,20 @@ Ks=(`echo $3 | newlines | sort -nr`); # sort the Ks highest to lowest so the bel
 EDs=($4)
 net=$5
 
-netCounts=`hawk '{++seen[$1];++seen[$2]}END{n=length(seen);m=NR;printf "%d\t%d\t%g\n", n, m, m/choose(n,2)}' $net`
+if [ "$COMPLEMENT" != "" ]; then
+    SAMPLE_METHOD=-sNBE # only method that works for now
+    hawk '{++D[$1];++D[$2];++edge[$1][$2];++edge[$2][$1]}
+	END{
+	    for(u in edge) for(v in edge) if(u<v)
+		if(!(v in edge[u])) {
+		    ASSERT(!(u in edge[v]),"oops");
+		    printf "%s\t%s\n", MIN(u,v),MAX(u,v)
+		}
+	}' $net | sort -u > $TMPDIR/net4awk.el
+else
+    cp -p $net $TMPDIR/net4awk.el
+fi
+netCounts=`hawk '{++seen[$1];++seen[$2]}END{n=length(seen);m=NR;printf "%d\t%d\t%g\n", n, m, m/choose(n,2)}' $TMPDIR/net4awk.el`
 numNodes=`echo "$netCounts" | cut -f1`
 numEdges=`echo "$netCounts" | cut -f2`
 meanED=`echo "$netCounts" | cut -f3`
@@ -124,7 +140,7 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	# DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
 	# Possible values: MCMC NBE EBE RES
 	[ -f canon_maps/canon_list$k.txt ] || continue
-	CMD="$BLANT_CMD $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
+	CMD="$BLANT_CMD $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
 	$CMD > $TMPDIR/blant$k.out &
     done
 fi
@@ -298,7 +314,7 @@ for edgeDensity in "${EDs[@]}"; do
 			for(i=1;i<Slen*(1-'$OVERLAP');i++) started[Sorder[i]]=1;
 		    }
 		}
-	    }' "$net" - | # dash is the output of the above pipe (sorted cluster counts)
+	    }' "$TMPDIR/net4awk.el" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -nr |
 	hawk ' # This third awk attempts to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)

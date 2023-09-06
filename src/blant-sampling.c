@@ -55,16 +55,16 @@ int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 
 // Crawls one step along the graph updating our sliding window
 void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
-	int v, i;
-	for (i = 0; i < mcmc_d; i++) { // Remove oldest d graphlet from sliding window
-		v = QueueGet(XLQ).i;
-		MultisetDelete(XLS, v);
-	}
-	MCMCGetNeighbor(X, G); // Gets a neighbor graphlet of the most recent d vertices and add to sliding window
-	for (i = 0; i < mcmc_d; i++) {
-		MultisetAdd(XLS, X[i]);
-		QueuePut(XLQ, (foint) X[i]);
-	}
+    int v, i;
+    for (i = 0; i < mcmc_d; i++) { // Remove oldest d graphlet from sliding window
+	v = QueueGet(XLQ).i;
+	MultisetDelete(XLS, v);
+    }
+    MCMCGetNeighbor(X, G); // Gets a neighbor graphlet of the most recent d vertices and add to sliding window
+    for (i = 0; i < mcmc_d; i++) {
+	MultisetAdd(XLS, X[i]);
+	QueuePut(XLQ, (foint) X[i]);
+    }
 }
 
 // Initialize a sliding window represented by a multiset and queue of vertices.
