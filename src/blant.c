@@ -306,6 +306,8 @@ static int StateDegree(GRAPH *G, SET *S)
 // This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
 void convertFrequencies(unsigned long numSamples)
 {
+    // I don't really understand this function, but I think inside the function index accessing might be out of bound
+    // which causes undefined behavior(get a very large interger value) so the output doesn't make sense.
     int i;
     if (_sampleMethod == SAMPLE_MCMC) {
 	if (_freqDisplayMode == count) {
@@ -479,8 +481,15 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     if (_sampleMethod == SAMPLE_MCMC && !_window)
 	finalizeMCMC();
-    if (_outputMode == graphletFrequency && !_window)
-	convertFrequencies(numSamples);
+    if (_outputMode == graphletFrequency && !_window){
+    // printf("graphlet Count_old: %lu/n", _graphletCount[2]);
+    // printf("numSamples: %lu\n", numSamples); at the point, the data were correct
+	convertFrequencies(numSamples); //after this function executed, the data were corrupted.
+    //printf("graphletCount_new: %lu\n", _graphletCount[2]);
+
+    // if the function convertFrequencies is commented, the blant command works. But I am not sure whether it
+    // will damager other functionalities since I don't understand what the function does.
+    }
 
     switch(_outputMode)
     {
