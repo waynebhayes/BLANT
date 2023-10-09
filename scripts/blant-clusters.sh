@@ -101,7 +101,7 @@ EDs=($4)
 net=$5
 
 if [ "$COMPLEMENT" != "" ]; then
-    SAMPLE_METHOD=-sNBE # only method that works for now
+    #SAMPLE_METHOD=-sNBE # only method that works for now
     hawk '{++D[$1];++D[$2];++edge[$1][$2];++edge[$2][$1]}
 	END{
 	    for(u in edge) for(v in edge) if(u<v)

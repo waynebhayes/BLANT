@@ -446,7 +446,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 ** This is a faster graphlet sampling routine, although it may produce a
 ** distribution of graphlets that is further from "ideal" than the above.
 ** The difference is that in the above method we explicitly build and maintain
-** the "outset" (the set of nodes one step outside V), but this can expensive
+** the "outset" (the set of nodes one step outside V), but this can be expensive
 ** when the mean degree of the graph G is high, since we have to add all the
 ** new edges emanating from each new node that we add to V.  Instead, here we
 ** are not going to explicitly maintain this outset.  Instead, we're simply
@@ -464,19 +464,22 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 ** as M gets large, and so we're very unlikely to "waste" samples.  Thus, unlike the
 ** above algorithm that gets *more* expensive with increasing density of G, this
 ** algorithm actually get cheaper with increasing density.
+**
 ** Another way of saying this is that we avoid actually building the outSet
-** as we do above, we instead simply keep a *estimated* count C[v] of separate
-** outSets of each node v in the accumulating graphlet. Then we pick
-** an integer in the range [0,..sum(C)), go find out what node that is,
-** and if it turns out to be a node already in V, then we simply try again.
-** It turns out that even if the mean degree is small, this method is *still*
-** faster.  In other words, it's *always* faster than the above method.  The
-** only reason we may prefer the above method is because it's theoretically cleaner
+** as we do above, we instead simply keep an *estimated* count C[v] of separate
+** outSets of each node v in the accumulating graphlet. Then we pick an integer
+** in the range [0,..sum(C)), go find out what node that is, and if it turns out
+** to be a node already in V, then we simply try again. It turns out that even
+** if the mean degree is small, this method is *still* faster.  In other words,
+** it's *always* faster than the above method (at least in theory).  The only
+** reason we may prefer the above method is because it's theoretically cleaner
 ** to describe the distribution of graphlets that comes from it---although
 ** empirically this one does reasonably well too.  However, if the only goal
 ** is blinding speed at graphlet sampling, eg for building a graphlet database
 ** index, then this is the preferred method.
-**   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
+**
+** If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0],
+** -2 means edgeList[1], etc.
 */
 double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
@@ -484,16 +487,14 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     int edge, v1, v2;
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
-    if(whichCC<0){
-	edge = -(whichCC+1);
-	v1 = G->edgeList[2*edge];
-    }
+    if(whichCC<0) edge = -(whichCC+1);
     else do {
 	edge = G->numEdges * RandomUniform();
 	v1 = G->edgeList[2*edge];
     } while(!SetIn(_componentSet[whichCC], v1));
-    assert(edge < G->numEdges);
+    v1 = G->edgeList[2*edge];
     v2 = G->edgeList[2*edge+1];
+    assert(edge < G->numEdges);
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
     int vCount = 2;

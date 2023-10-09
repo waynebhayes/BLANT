@@ -22,12 +22,12 @@ fi
 
 if ./Dijkstracmd; then
     echo "=====Comparing .log with past log file====="
-    for i in oldlog.log seed7/*.log; do echo `sed 's/time:[0-9.:]*//' $i | sort | md5sum` $i; done | 
+    for i in goodlog.log seed7/*.log; do echo `sed 's/time:[0-9.:]*//' $i | sort | md5sum` $i; done | 
 	if awk 'BEGIN{FAIL=1}{print NR, $0; md5[NR]=$1}END{exit( md5[1]!=md5[2] ? FAIL : !FAIL)}'; then
 	    /bin/rm -rf $TMPDIR
 	else
 	    echo "logs differ--see $TMPDIR:"
-	    diff -b <(sed 's/time:[0-9.:]*//' oldlog.log) <(sed 's/time:[0-9.:]*//' seed7/*.log)
+	    diff -b <(sed 's/time:[0-9.:]*//' goodlog.log) <(sed 's/time:[0-9.:]*//' seed7/*.log)
 	    exit 1
 	fi
 else
