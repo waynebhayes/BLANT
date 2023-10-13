@@ -200,10 +200,9 @@ $(LIBWAYNE_HOME)/Makefile:
 	git submodule update libwayne
 	(cd libwayne && git checkout master && git pull)
 
-libwayne: $(LIBWAYNE_HOME)/Makefile $(LIBWAYNE_HOME)/made
-
-$(LIBWAYNE_HOME)/made:
-	cd $(LIBWAYNE_HOME) && $(MAKE) all
+libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a
+libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
+	(cd libwayne && make all)
 
 ### Generated File Recipes ###
 
