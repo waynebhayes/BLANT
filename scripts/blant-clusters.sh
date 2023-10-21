@@ -141,9 +141,9 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	# Possible values: MCMC NBE EBE RES
 	[ -f canon_maps/canon_list$k.txt ] || continue
 	ABSOLUTE_CLIQUE_COUNT=""
-	./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null && ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`"
-	CMD="$BLANT_CMD $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
-	$CMD > $TMPDIR/blant$k.out &
+	CMD="./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null &&"'ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`"'
+	CMD="$CMD; $BLANT_CMD $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
+	eval $CMD > $TMPDIR/blant$k.out &
     done
 fi
 
