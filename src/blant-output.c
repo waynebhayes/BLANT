@@ -284,12 +284,13 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
+
+    ++_graphletCount[GintOrdinal]; // we ALWAYS count the frequencies so we can normalize the counts later if possible
+
     switch(_outputMode)
     {
 	unsigned char perm[MAX_K];
-    case graphletFrequency:
-	++_graphletCount[GintOrdinal];
-	break;
+    case graphletFrequency: break; // *always* count the frequencies, above the switch.
     case indexGraphlets: case indexGraphletsRNO:
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||

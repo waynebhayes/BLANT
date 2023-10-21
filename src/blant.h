@@ -80,7 +80,7 @@ extern const char* _BLANT_DIR;
 
 extern unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
 extern unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
-extern double _g_overcount, *_doubleOrbitDegreeVector[MAX_ORBITS];
+extern double _g_overcount, *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCliqueCount, _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
 #define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
