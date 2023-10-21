@@ -58,7 +58,7 @@ int *_whichComponent;
 enum OutputMode _outputMode = undef;
 unsigned long _numSamples, _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
-double _g_overcount, _graphletConcentration[MAX_CANONICALS];
+double _g_overcount, _graphletConcentration[MAX_CANONICALS], _absoluteCliqueCount, _absoluteCountMultiplier=1;
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -216,28 +216,22 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 
 	char BUF[BUFSIZ];
 	_numSamples = numSamples;
-	if(!_window)
-	{
-		alphaListPopulate(BUF, _alphaList, k);
-		for (i = 0; i < _numCanon; i++)
-		{
-			_graphletConcentration[i] = 0.0;
-		}
+	if(!_window) {
+	    alphaListPopulate(BUF, _alphaList, k);
+	    for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
 	}
 }
 
 // Convert the graphlet frequencies to concentrations
 void finalizeMCMC(void) {
-	double totalConcentration = 0;
-	int i;
-	for (i = 0; i < _numCanon; i++) {
-	    if(_graphletConcentration[i] < 0.0)
-		Fatal("_graphletConcentration[%d] %g should be non-negative\n",i, _graphletConcentration[i]);
-	    totalConcentration += _graphletConcentration[i];
-	}
-	for (i = 0; i < _numCanon; i++) {
-	    _graphletConcentration[i] /= totalConcentration;
-	}
+    double totalConcentration = 0;
+    int i;
+    for (i = 0; i < _numCanon; i++) {
+	if(_graphletConcentration[i] < 0.0)
+	    Fatal("_graphletConcentration[%d] %g should be non-negative\n",i, _graphletConcentration[i]);
+	totalConcentration += _graphletConcentration[i];
+    }
+    for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
 }
 
 #if 0 // unused code, commented out to shut up the compiler
@@ -400,7 +394,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
                 fprintf(stderr, "%d%% done\n", percentToPrint);
                 ++percentToPrint;
             }
-	    }
+	}
     }
     else if (_sampleMethod == SAMPLE_MCMC_EC) {
 	Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
@@ -482,6 +476,12 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
 
+    // If an absotuleCliqueCount was specified, compute the constant multiple for all our counts
+    if(_absoluteCliqueCount > 0) _absoluteCountMultiplier = _absoluteCliqueCount /
+	(_freqDisplayMode == concentration ? _graphletConcentration[_numCanon-1] : _graphletCount[_numCanon-1]);
+
+    // fprintf(stderr, "Multiplier %g\t", _absoluteCountMultiplier);
+
     switch(_outputMode)
     {
 	int canon, orbit_index, u,v,c;
@@ -489,18 +489,18 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	break; // already printed on-the-fly in the Sample/Process loop above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
-	if (_freqDisplayMode == concentration) {
-	    if (SetIn(_connectedCanonicals, canon)) {
-		printf("%lf ", _graphletConcentration[canon]);
-		puts(PrintCanonical(canon));
+	    if (_freqDisplayMode == concentration) {
+		if (SetIn(_connectedCanonicals, canon)) {
+		    printf("%lf ", _absoluteCountMultiplier*_graphletConcentration[canon]);
+		    puts(PrintCanonical(canon));
+		}
 	    }
-	}
-	else {
-	    if (SetIn(_connectedCanonicals, canon)) {
-		printf("%lu ", _graphletCount[canon]);
-		puts(PrintCanonical(canon));
+	    else {
+		if (SetIn(_connectedCanonicals, canon)) {
+		    printf("%lu ", (unsigned long)(_absoluteCountMultiplier*_graphletCount[canon]));
+		    puts(PrintCanonical(canon));
+		}
 	    }
-	}
 	}
 	break;
     case predict_merge:
@@ -965,7 +965,10 @@ int main(int argc, char *argv[])
 
     int odv_fname_len = 0;
 
-    while((opt = getopt(argc, argv, "hCm:d:t:r:s:c:k:K:o:f:e:g:w:p:P:l:n:M:T:a:")) != -1)
+    // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
+    // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only C and h)
+    // have no colon appended.
+    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:s:t:T:w:")) != -1)
     {
 	switch(opt)
 	{
@@ -1074,6 +1077,9 @@ int main(int argc, char *argv[])
 	case 'c': confidence = atof(optarg);
         if (confidence < 0 || confidence > 1) Fatal("Confidence level must be between 0 and 1");
 	    // Apology("confidence intervals not implemented yet");
+	    break;
+	case 'A': _absoluteCliqueCount=atof(optarg); assert(_absoluteCliqueCount>=0);
+	    if(_absoluteCliqueCount == 0) Fatal("absolute clique count (-A option) is zero but must be > 0 to normalize counts");
 	    break;
 	case 'k': _k = atoi(optarg);
 		if (_GRAPH_GEN && _k >= 33) {

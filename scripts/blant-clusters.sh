@@ -140,7 +140,8 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	# DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
 	# Possible values: MCMC NBE EBE RES
 	[ -f canon_maps/canon_list$k.txt ] || continue
-	CMD="$BLANT_CMD $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
+	ABSOLUTE_CLIQUE_COUNT=`./scripts/absolute-clique-count.sh $k $net || echo 1`
+	CMD="$BLANT_CMD -A $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net" #-e$minEdges
 	$CMD > $TMPDIR/blant$k.out &
     done
 fi
