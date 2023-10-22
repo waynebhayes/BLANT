@@ -13,6 +13,7 @@ REQUIRED ARGUMENTS:
     EDs is a list of the edge density thresholds to explore
 OPTIONS (added BEFORE the blant.exe name)
     -D DIR: use existing blant output files in directory DIR
+    -A: Use Sweta Jain's Turan's Shadow code to estimate absolute counts
     -C: run on the complement graph, G'
     -1: exit after printing only one 1 cluster (the biggest one)
     -h: use only the highest count graphlet/orbit for neighbors
@@ -66,6 +67,7 @@ ONLY_BEST_ORBIT=0
 OVERLAP=0.5
 EDGE_PREDICT=0
 COMPLEMENT=''
+TURAN=false
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 4n"
@@ -78,6 +80,7 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
     -s*) SAMPLE_METHOD="$1"; shift;;
     -D) BLANT_FILES="$2"; shift 2;;
+    -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
@@ -141,8 +144,9 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	# Possible values: MCMC NBE EBE RES
 	[ -f canon_maps/canon_list$k.txt ] || continue
 	ABSOLUTE_CLIQUE_COUNT=""
-	CMD="./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null &&"'ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`"'
-	CMD="$CMD; $BLANT_CMD $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
+	CMD=""
+	$TURAN && CMD="./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null &&"'ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`";'
+	CMD="$CMD $BLANT_CMD $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
 	eval $CMD > $TMPDIR/blant$k.out &
     done
 fi
