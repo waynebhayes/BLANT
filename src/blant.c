@@ -837,7 +837,7 @@ void BlantAddEdge(int v1, int v2)
 
 int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **nodeNames)
 {
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE);
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, NULL);
     Free(_pairs);
     _nodeNames = nodeNames;
     return RunBlantInThreads(k, numSamples, G);
@@ -850,7 +850,7 @@ int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **
 int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, int *pairs)
 {
     assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, NULL);
     Free(pairs);
     return RunBlantInThreads(k, numSamples, G);
 }
@@ -1289,7 +1289,7 @@ int main(int argc, char *argv[])
     }
 
     // Read network using native Graph routine.
-    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames);
+    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, false);
     if(_useComplement) G->useComplement = true;
 
     if(_supportNodeNames)

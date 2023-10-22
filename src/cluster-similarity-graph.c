@@ -201,7 +201,7 @@ void init(int argc, char *argv[]){
     Boolean sparse = true, names=false;
 
     FILE* netFile = fopen(argv[4],"r");
-    _inputNet = GraphReadEdgeList(netFile,sparse,false);
+    _inputNet = GraphReadEdgeList(netFile,sparse,false,false);
     _Gn=_inputNet->n;
     assert(_Gn>0);
     _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));

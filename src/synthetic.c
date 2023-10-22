@@ -1094,7 +1094,7 @@ int main(int argc, char *argv[]){
         FILE *fpGraph = fopen(argv[optind], "r");
         if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
         // Read it in using native Graph routine.
-        G[i] = GraphReadEdgeList(fpGraph, true, _supportNodeNames); // sparse=true
+        G[i] = GraphReadEdgeList(fpGraph, true, _supportNodeNames,false); // sparse=true
         if(_supportNodeNames)
             assert(G[i]->name);
         fclose(fpGraph);

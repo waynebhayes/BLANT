@@ -130,8 +130,8 @@ int main(int argc, char** argv) {
     FILE* g1_file = fopen(graph1_fname, "r");
     FILE* g2_file = fopen(graph2_fname, "r");
 
-    GRAPH* g1 = GraphReadEdgeList(g1_file, 1, 1);
-    GRAPH* g2 = GraphReadEdgeList(g2_file, 1, 1);
+    GRAPH* g1 = GraphReadEdgeList(g1_file, 1, 1,false);
+    GRAPH* g2 = GraphReadEdgeList(g2_file, 1, 1,false);
 
     // NOTE: just for testing
     GraphPrintConnections(stdout, g1);
