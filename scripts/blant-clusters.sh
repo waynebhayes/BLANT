@@ -22,7 +22,7 @@ OPTIONS (added BEFORE the blant.exe name)
     -r SEED: use the integer SEED as the random seed
     -m smallest: if m>=1, ignore clusters/cliques/communities with fewer than this number of nodes; otherwise if m<1, treat
        it as a p-value and set the smallest cluster to whatever size gives the number of edges a p-value less than this;
-       default behaviour is to demand a cluster whose number of edges has p-value < 1e-6.
+       default behaviour is to demand a cluster whose number of edges has p-value < 1/(n choose 2)^2 (heuristic).
     -M largest: stop building a community if it reaches this size (default: no limit)
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
     -o OVERLAP: (default 0.5); the maximum allowed fractional overlap between two clusters;
@@ -59,7 +59,7 @@ TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
 
 [ $# = 0 ] && usage
 
-minClus=0
+minClusArg=0
 maxClus=2147483647 # 2^31-1
 RANDOM_SEED=
 BLANT_FILES="$TMPDIR"
@@ -91,9 +91,9 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -C) COMPLEMENT=-C; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
-    -m) minClus="$2"; shift 2;;
+    -m) minClusArg="$2"; shift 2;;
     -M) maxClus="$2"; shift 2;;
-    -m[0-9]*) minClus="`echo $1|sed 's/^-m//'`"; shift 1;;
+    -m[0-9]*) minClusArg="`echo $1|sed 's/^-m//'`"; shift 1;;
     -M[0-9]*) maxClus="`echo $1|sed 's/^-m//'`"; shift 1;;
     -o) OVERLAP="$2"; shift 2;;
     -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
@@ -168,6 +168,15 @@ for k in "${Ks[@]}"; do
 done
 
 for edgeDensity in "${EDs[@]}"; do
+    minClus=`hawk 'BEGIN{M=1*'$minClusArg'; if(M>=1) minClus=M;
+	else {
+	    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
+	    if(M>0) pVal=M; else pVal=1/choose(n,2); # heuristic to make pVal small enough to get significant clusters
+	    for(e=1;e<m;e++)if(eps^e<pVal) break;
+	    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>e) break;
+	    printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
+	    print minClus
+	}}'`
     for k in "${Ks[@]}"; do
 	hawk ' # This first awk just sorts the BLANT output; it uses minimal RAM and CPU
 	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
@@ -204,14 +213,7 @@ for edgeDensity in "${EDs[@]}"; do
 	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
-		M=1*'$minClus'; if(M>=1) minClus=M;
-		else {
-		    if(M>0) pVal=M; else pVal=1e-6;
-		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
-		    for(e=1;e<m;e++)if(eps^e<pVal) break;
-		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>e) break;
-		    #printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
-		}
+		minClus='$minClus'; ASSERT(minClus>1,"minClus "minClus" must be >1");
 	    }
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
