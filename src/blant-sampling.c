@@ -15,6 +15,7 @@ int _samplesPerEdge = 0;
 unsigned _MCMC_L;
 unsigned long int _acceptRejectTotalTries;
 GRAPH *_EDGE_COVER_G;
+double _g_overcount; // MCMC overcount, needs to be global for simplicity
 
 // Update the most recent d-graphlet to a random neighbor of it
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
@@ -740,10 +741,10 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
 	i++;
     }
-#else
-    SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC);
-#endif
     return 1.0;
+#else
+    return SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC);
+#endif
 }
 
 /* SampleGraphletMCMC first starts with an edge in Walk L steps.
@@ -755,116 +756,118 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
    After the algorithm is run the frequencies are normalized into concentrations.
 */
 
-// foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]), which needs to be returned (but must be a parameter since there's already a return value on the function)
+// foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]),
+// which needs to be returned (but must be a parameter since there's already a return value on the function)
 double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC) {
-	static Boolean setup = false;
-	static int currSamples = 0; // Counts how many samples weve done at the current starting point
-	static int currEdge = 0; // Current edge we are starting at for uniform sampling
-	static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
-	static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
-	static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
-	static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
-	if (!XLQ || !XLS || !g) {
-		//NON REENTRANT CODE
-		XLQ = QueueAlloc(k*mcmc_d);
-		XLS = MultisetAlloc(G->n);
-		g = TinyGraphAlloc(k);
-	}
+    static Boolean setup = false;
+    static int currSamples = 0; // Counts how many samples weve done at the current starting point
+    static int currEdge = 0; // Current edge we are starting at for uniform sampling
+    static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
+    static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
+    static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
+    static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
+    if (!XLQ || !XLS || !g) {
+	//NON REENTRANT CODE
+	XLQ = QueueAlloc(k*mcmc_d);
+	XLS = MultisetAlloc(G->n);
+	g = TinyGraphAlloc(k);
+    }
 
-	// The first time we run this, or when we restart. We want to find our initial L d graphlets.
-	if (!setup && !_MCMC_EVERY_EDGE) {
-		setup = true;
-		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, -1);
-	}
-	else if (_MCMC_EVERY_EDGE && (!setup || currSamples >= _samplesPerEdge))
-	{
-		if(_sampleSubmethod == SAMPLE_MCMC_EC) printf("MCMC reset\n");
-		setup = true;
-		WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, currEdge);
-		do {
-			currEdge++;
-		} while (_componentSize[_whichComponent[G->edgeList[2*currEdge]]] < k);
-		currSamples = 0;
-	}
-	else {
-		// Keep crawling until we have k distinct vertices(can sample a graphlet). Crawl at least once
-		do  {
-			crawlOneStep(XLS, XLQ, Xcurrent, G);
-		} while (MultisetSupport(XLS) != k);
-		currSamples++;
-	}
+    // The first time we run this, or when we restart. We want to find our initial L d graphlets.
+    if (!setup && !_MCMC_EVERY_EDGE) {
+	setup = true;
+	WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, -1);
+    }
+    else if (_MCMC_EVERY_EDGE && (!setup || currSamples >= _samplesPerEdge))
+    {
+	if(_sampleSubmethod == SAMPLE_MCMC_EC) printf("MCMC reset\n");
+	setup = true;
+	WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, currEdge);
+	do {
+		currEdge++;
+	} while (_componentSize[_whichComponent[G->edgeList[2*currEdge]]] < k);
+	currSamples = 0;
+    }
+    else {
+	// Keep crawling until we have k distinct vertices(can sample a graphlet). Crawl at least once
+	do  {
+		crawlOneStep(XLS, XLQ, Xcurrent, G);
+	} while (MultisetSupport(XLS) != k);
+	currSamples++;
+    }
 #if PARANOID_ASSERTS
-		assert(MultisetSupport(XLS) == k); // very paranoid
-		assert(QueueSize(XLQ) == 2 *_MCMC_L); // very paranoid
+    assert(MultisetSupport(XLS) == k); // very paranoid
+    assert(QueueSize(XLQ) == 2 *_MCMC_L); // very paranoid
 #endif
 
-	/*
-	Our sliding window now contains k distinct nodes. Fill the set V and array Varray with them
-	The multiplier is a shorthand for d graphlet degree product, It is the product of the degrees
-	of all the graphlets in the sliding window except the first and last.
-	The degree of a graphlet is the sum of its outgoing edges.
-	The alpha value is the number of ways to do a d-walk over the graphlet
-	*/
-	int node, numNodes = 0, i, j;
-	double multiplier = 1;
-	SetEmpty(V);
+    /*
+    Our sliding window now contains k distinct nodes. Fill the set V and array Varray with them
+    The multiplier is a shorthand for d graphlet degree product, It is the product of the degrees
+    of all the graphlets in the sliding window except the first and last.
+    The degree of a graphlet is the sum of its outgoing edges.
+    The alpha value is the number of ways to do a d-walk over the graphlet
+    */
+    int node, numNodes = 0, i, j;
+    double multiplier = 1;
+    SetEmpty(V);
 
-	for (i = 0; i < _MCMC_L; i++) {
-	    int graphletDegree = -2; // The edge between the vertices in the graphlet isn't included and is double counted
-	    for (j = 0; j < mcmc_d; j++) {
-		node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
-		if (!SetIn(V, node)) {
-		    Varray[numNodes++] = node;
-		    SetAdd(V, node);
-		}
-
-		graphletDegree += GraphDegree(G,node);
+    for (i = 0; i < _MCMC_L; i++) {
+	int graphletDegree = -2; // The edge between the vertices in the graphlet isn't included and is double counted
+	for (j = 0; j < mcmc_d; j++) {
+	    node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
+	    if (!SetIn(V, node)) {
+		Varray[numNodes++] = node;
+		SetAdd(V, node);
 	    }
+
+	    graphletDegree += GraphDegree(G,node);
+	}
 #if PARANOID_ASSERTS
-	    assert(graphletDegree > 0);
+	assert(graphletDegree > 0);
 #endif
-	    // First and last graphlets in the window are skipped for multiplier product
-	    if (i != 0 && i != _MCMC_L-1) {
-		multiplier *= (graphletDegree);
-	    }
-	    assert(multiplier > 0.0);
+	// First and last graphlets in the window are skipped for multiplier product
+	if (i != 0 && i != _MCMC_L-1) {
+	    multiplier *= (graphletDegree);
 	}
-	TinyGraphInducedFromGraph(g, G, Varray);
-	Gint_type Gint = TinyGraph2Int(g, k);
-	int GintOrdinal = L_K(Gint);
+	assert(multiplier > 0.0);
+    }
+    TinyGraphInducedFromGraph(g, G, Varray);
+    Gint_type Gint = TinyGraph2Int(g, k);
+    int GintOrdinal = L_K(Gint);
 
-	assert(numNodes == k); // Ensure we are returning k nodes
+    assert(numNodes == k); // Ensure we are returning k nodes
 
-	if(_sampleSubmethod == SAMPLE_MCMC_EC) {
-	    int _i,_j;
-	    for(_i=0;_i<k;_i++) for(_j=_i+1;_j<k;_j++) {
-		unsigned u=Varray[_i], v=Varray[_j];
-		if(GraphAreConnected(G,u,v)) GraphDisconnect(_EDGE_COVER_G,u,v);
-	    }
+    if(_sampleSubmethod == SAMPLE_MCMC_EC) {
+	int _i,_j;
+	for(_i=0;_i<k;_i++) for(_j=_i+1;_j<k;_j++) {
+	    unsigned u=Varray[_i], v=Varray[_j];
+	    if(GraphAreConnected(G,u,v)) GraphDisconnect(_EDGE_COVER_G,u,v);
 	}
-	double ocount = 1.0;
-	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
-	    // The over counting ratio is the alpha value only.
-	    ocount = 1.0/(_alphaList[GintOrdinal]);
-	} else {
-	    // The over counting ratio is the alpha value divided by the multiplier
-	    ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
+    }
+    double ocount = 1.0;
+    if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
+	// The over counting ratio is the alpha value only.
+	ocount = 1.0/(_alphaList[GintOrdinal]);
+    } else {
+	// The over counting ratio is the alpha value divided by the multiplier
+	ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
+    }
+    if (_outputMode == outputODV) {
+	unsigned char perm[k];
+	memset(perm, 0, k);
+	ExtractPerm(perm, Gint);
+	for (j = 0; j < k; j++) {
+	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	}
-	if (_outputMode == outputODV) {
-	    unsigned char perm[k];
-	    memset(perm, 0, k);
-	    ExtractPerm(perm, Gint);
-	    for (j = 0; j < k; j++) {
-		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
-	    }
-	} else {
-	    if(ocount < 0) {
-		Warning("ocount (%g) is less than 0\n", ocount);
-	    }
-	    _graphletConcentration[GintOrdinal] += ocount;
+    } else {
+	if(ocount < 0) {
+	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
+	_graphletConcentration[GintOrdinal] += ocount;
+    }
 
-	return ocount; // return the expected overcount
+    _g_overcount = ocount;
+    return 1.0;
 }
 
 double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k) { return 1.0; } // slower
@@ -943,7 +946,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
 	return 1.0;
 }
 
-/**
+/*
  * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes,
  * it calls the ProcessGraphlet function to print the graphlet directly. It is called inside RunBlantFromGraph function to take
  * the given amount of samples (the amount is given with -n option) for each node in the graph as the start node
@@ -961,10 +964,11 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
 
     // base case for the recursion: a k-graphlet is found, print it and return
     if (prev_nodes_count == _k) {
-        // ProcessGraphlet creates the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of a low enough multiplicity (<= multiplicity)
-        // ProcessGraphlet will also check that the k nodes you passed it haven't already been printed (although, this system does not work 100% perfectly)
-        // ProcessGraphlet will also print the nodes as output if the graphlet passes all checks
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g);
+        // ProcessGraphlet creates the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of
+        // low enough multiplicity (<= multiplicity); it will also check that the k nodes you passed it haven't already been
+        // printed (although, this system does not work 100% perfectly); it will also print the nodes as output if
+	// the graphlet passes all checks
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0);
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 
@@ -1062,7 +1066,6 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
 // if cc == G->n, then we choose it randomly. Otherwise use cc given.
 double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
     double randomComponent = RandomUniform();
-    double overcount = 1.0; // this will be returned
     if(cc == G->n) for(cc=0; cc<_numConnectedComponents;cc++)
 	if(_cumulativeProb[cc] > randomComponent)
 	    break;
@@ -1085,7 +1088,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
 	break;
     case SAMPLE_MCMC:
         if(!_window) {
-	    overcount = SampleGraphletMCMC(G, V, Varray, k, cc);
+	    SampleGraphletMCMC(G, V, Varray, k, cc);
         } else {
             SampleWindowMCMC(G, V, Varray, k, cc);
         }
@@ -1101,5 +1104,13 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
 	break;
     }
 
-    return overcount;
+    if(G->weight) {
+	double total=0; int i,j;
+	for(i=0;i<k-1;i++) for(j=i+1;j<k;j++)
+	    if(GraphAreConnected(G,Varray[i],Varray[j]))
+		total+=GraphGetWeight(G,Varray[i],Varray[j]);
+	return total;
+    }
+    else
+	return 1.0;
 }

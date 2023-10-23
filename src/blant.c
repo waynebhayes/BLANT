@@ -26,7 +26,9 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're respons
 #include "importance.h"
 #include "odv.h"
 
-static int *_pairs, _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
+static int _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
+static unsigned *_pairs;
+static float *_weights;
 char **_nodeNames, _supportNodeNames = true;
 Boolean _child; // are we a child process?
 
@@ -44,6 +46,7 @@ SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // true if -C option was specified
+Boolean _weighted; // input network is weighted
 int _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -56,9 +59,10 @@ int *_whichComponent;
 // char* _BLANT_DIR;
 
 enum OutputMode _outputMode = undef;
-unsigned long _numSamples, _graphletCount[MAX_CANONICALS];
+unsigned long _numSamples;
+double _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
-double _g_overcount, _graphletConcentration[MAX_CANONICALS], _absoluteCliqueCount, _absoluteCountMultiplier=1;
+double _graphletConcentration[MAX_CANONICALS], _absoluteCliqueCount, _absoluteCountMultiplier=1;
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -74,8 +78,8 @@ int _numConnectedOrbits;
 // We do this simply because we know the length of MAX_CANONICALS so we pre-know the length of
 // the first dimension, otherwise we'd need to get more funky with the pointer allocation.
 // Only one of these actually get allocated, depending upon outputMode.
-unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
-unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
+double *_graphletDegreeVector[MAX_CANONICALS];
+double    *_orbitDegreeVector[MAX_ORBITS];
 double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
 double *_cumulativeProb;
@@ -387,9 +391,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 
         for(i=0; i<G->n; i++) {
             prev_nodes_array[0] = nwhn_arr[i].node;
-
             SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, heuristicValues);
-
             if (i * 100 / G->n >= percentToPrint) {
                 fprintf(stderr, "%d%% done\n", percentToPrint);
                 ++percentToPrint;
@@ -402,8 +404,8 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	int e;
 	for(e=0; e<G->numEdges; e++) if(SetIn(needEdge, e)) {
 	    int whichCC = -(e+1); // encoding edge number in whichCC
-	    SampleGraphlet(G, V, Varray, k, whichCC);
-	    ProcessGraphlet(G, V, Varray, k, empty_g);
+	    double weight = SampleGraphlet(G, V, Varray, k, whichCC);
+	    ProcessGraphlet(G, V, Varray, k, empty_g, weight);
 
 	    // Now remove all the edges in the graphlet from "needEdge" (SLOW AND DUMB but it's not really a problem)
 	    int i,j,f;
@@ -447,9 +449,8 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
                 ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
             else {
 		static unsigned long stuck;
-		// HACK: make the graphlet overcount global; it should really be PASSED into ProcessGraphlet
-                _g_overcount = SampleGraphlet(G, V, Varray, k, G->n); // weight will be 1.0 in most cases but if sample method is MCMC and it's not windowed it will be the count of the graphlet
-                if(ProcessGraphlet(G, V, Varray, k, empty_g)) stuck = 0;
+                double weight = SampleGraphlet(G, V, Varray, k, G->n);
+                if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) stuck = 0;
 		else {
 		    --i; // negate the sample count of duplicate graphlets
 		    ++stuck;
@@ -491,14 +492,12 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (_freqDisplayMode == concentration) {
 		if (SetIn(_connectedCanonicals, canon)) {
-		    printf("%lf ", _absoluteCountMultiplier*_graphletConcentration[canon]);
-		    puts(PrintCanonical(canon));
+		    printf("%lf %s\n", (double)_absoluteCountMultiplier*_graphletConcentration[canon], PrintCanonical(canon));
 		}
 	    }
 	    else {
 		if (SetIn(_connectedCanonicals, canon)) {
-		    printf("%lu ", (unsigned long)(_absoluteCountMultiplier*_graphletCount[canon]));
-		    puts(PrintCanonical(canon));
+		    printf("%lf %s\n", (double)(_absoluteCountMultiplier*_graphletCount[canon]), PrintCanonical(canon));
 		}
 	    }
 	}
@@ -513,7 +512,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	{
 	    printf("%s", PrintNode(0,i));
 	    for(canon=0; canon < _numCanon; canon++)
-		printf(" %lu", GDV(i,canon));
+		printf(" %g", GDV(i,canon));
 	    puts("");
 	}
 	break;
@@ -523,7 +522,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_EVERY_EDGE || _sampleMethod != SAMPLE_MCMC) printf(" %lu", ODV(i,orbit_index));
+		if (!_MCMC_EVERY_EDGE || _sampleMethod != SAMPLE_MCMC) printf(" %g", ODV(i,orbit_index));
 		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 	    }
 	    printf("\n");
@@ -537,14 +536,14 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(u=0; u<G->n; u++) {
 		for(c=0; c<_numConnectedOrbits; c++) {
 		    orbit_index = _connectedOrbits[c];
-		    unsigned long odv=ODV(u,orbit_index);
+		    double odv=ODV(u,orbit_index);
 		    int numPrinted = 0;
 		    if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
 			int buf=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
 			    v = GraphNextNeighbor(G,u,&buf); assert(v!=-1); // G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][orbit_index],v)) {
-				if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), orbit_index, odv);
+				if(!numPrinted++) printf("%s %d %g\t", PrintNode(0,u), orbit_index, odv);
 				printf("%s", PrintNode(' ',v));
 			    }
 			}
@@ -557,14 +556,14 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	case 'g':
 	    for(u=0; u<G->n; u++) {
 		for(c=0; c<_numCanon; c++) if(SetIn(_connectedCanonicals,c)) {
-		    unsigned long gdv=GDV(u,c);
+		    double gdv=GDV(u,c);
 		    int numPrinted = 0;
 		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
 			int buf=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
 			    v = GraphNextNeighbor(G,u,&buf); assert(v!=-1); //G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][c],v)) {
-				if(!numPrinted++) printf("%s %d %lu\t", PrintNode(0,u), c, gdv);
+				if(!numPrinted++) printf("%s %d %lg\t", PrintNode(0,u), c, gdv);
 				printf("%s", PrintNode(' ',v));
 			    }
 			}
@@ -727,14 +726,14 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		continue; // we'll ask for output next time around.
 	    }
 	    char *nextChar = line, *pch;
-	    unsigned long int gcount;
+	    double gcount;
 	    // EDWARD: printf("Line %d from thread %d is \"%s\"\n", lineNum, thread, tmp);
 	    int canon=-1, orbit=-1, numRead, nodeId;
 	    //fprintf(stderr, "Parent received the following line from the child: <%s>\n", line);
 	    switch(_outputMode)
 	    {
 	    case graphletFrequency:
-		numRead = sscanf(line, "%lu%d", &gcount, &canon);
+		numRead = sscanf(line, "%lf%d", &gcount, &canon);
 		assert(numRead == 2);
 		_graphletCount[canon] += gcount;
 		break;
@@ -759,7 +758,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		for(canon=0; canon < _numCanon; canon++)
 		{
 		    assert(isdigit(*nextChar));
-		    numRead = sscanf(nextChar, "%lu", &gcount);
+		    numRead = sscanf(nextChar, "%lf", &gcount);
 		    assert(numRead == 1);
 		    GDV(lineNum,canon) += gcount;
 		    while(isdigit(*nextChar)) nextChar++; // read past current integer
@@ -778,7 +777,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		for(orbit=0; orbit < _numOrbits; orbit++)
 		{
 		    assert(isdigit(*nextChar));
-		    numRead = sscanf(nextChar, "%lu", &gcount);
+		    numRead = sscanf(nextChar, "%lf", &gcount);
 		    assert(numRead == 1);
 		    ODV(lineNum,orbit) += gcount;
 		    while(isdigit(*nextChar)) nextChar++; // read past current integer
@@ -810,19 +809,23 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     return RunBlantFromGraph(_k, leftovers, G);
 }
 
-void BlantAddEdge(int v1, int v2)
+void BlantAddEdge(int v1, int v2, double weight)
 {
     if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
+    if(_weighted) {assert(weight); if(!_weights) _weights = Malloc(_maxEdges*sizeof(_weights[0]));}
+    else assert(weight==0.0);
     assert(_numEdges <= _maxEdges);
     if(_numEdges >= _maxEdges)
     {
 	_maxEdges *=2;
-	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(int));
+	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(_pairs[0]));
+	if(_weighted) _weights=Realloc(_weights, _maxEdges*sizeof(_weights[0]));
     }
     _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
     _numNodes = MAX(_numNodes, v2+1);
     _pairs[2*_numEdges] = v1;
     _pairs[2*_numEdges+1] = v2;
+    if(_weighted) _weights[_numEdges] = weight;
     if(_pairs[2*_numEdges] == _pairs[2*_numEdges+1])
 	Fatal("BlantAddEdge: edge %d (%d,%d) has equal nodes; cannot have self-loops\n", _numEdges, v1, v2);
     if(_pairs[2*_numEdges] > _pairs[2*_numEdges+1])
@@ -837,7 +840,7 @@ void BlantAddEdge(int v1, int v2)
 
 int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **nodeNames)
 {
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, NULL);
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, _weights);
     Free(_pairs);
     _nodeNames = nodeNames;
     return RunBlantInThreads(k, numSamples, G);
@@ -847,10 +850,10 @@ int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **
 // to have 2*numEdges elements (all integers), and each entry must be between 0 and
 // numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
 // we are going to free it right after creating G (ie., before returning to the caller.)
-int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, int *pairs)
+int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, unsigned *pairs, float *weights)
 {
     assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, NULL);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, weights);
     Free(pairs);
     return RunBlantInThreads(k, numSamples, G);
 }
@@ -860,7 +863,7 @@ const char * const USAGE_SHORT =
 "USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
 "    -s samplingMethod (default MCMC; NBE, EBE, RES, AR, INDEX, EDGE_COVER)\n"\
-"    -m{outputMode} (default o=ODV; g=GDV, f=frequency, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
+"    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, i=integerOrdinal)\n"\
 "    -r seed (integer)\n\n"\
 "    -C once the graph is read in, use its complement (ie., cliques should be interpreted as independent sets, etc\n"\
@@ -903,16 +906,16 @@ const char * const USAGE_LONG =
 "	Duplicate edges (either direction) and self-loops should be removed!\n"\
 "COMMON OPTIONS:\n"\
 "    -m{outputMode}, where {outputMode} is a single character, one of:\n"\
-"	o = the default, which is ODV (Orbit Degree Vector), identical to ORCA (commonly though incorrectly called a GDV)\n"\
+"	f = [default] graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across samples.\n"\
+"	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
+"	o = ODV (Orbit Degree Vector), identical to ORCA (commonly though incorrectly called a GDV)\n"\
 "	g = GDV (Graphlet Degree Vector) Note this is NOT what is commonly called a GDV, which is actually an ODV (above).\n"\
 "	NOTE: the difference is that an ODV counts the number of nodes that touch all possible *orbits*, while a GDV lists\n"\
 "		only the smaller vector of how many nodes touch each possible *graphlet* (independent of orbit).\n"\
-"	cX = Community detection where X is g for graphlet (the default) or o for orbit (which uses FAR more memory!)\n"\
-"	    Each line consists of:   node (orbit|graphlet) count [TAB] neighbors.\n"\
-"	f = graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across our random samples.\n"\
-"	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
 "	i = {i}ndex: each line is a graphlet with columns: canonical ID, then k nodes in canonical order; useful since\n"\
 "	    two lines with the same first column constitutes a PERFECT k-node local alignment between the two graphlets.\n"\
+"	cX = Community detection where X is g for graphlet (the default) or o for orbit (which uses FAR more memory!)\n"\
+"	    Each line consists of:   node (orbit|graphlet) count [TAB] neighbors.\n"\
 "	r = index with {r}oot node orbit: each line is a canonical ID + the orbit of the root node, then k nodes in canonical order; produces better seeds when the index is queried by the alignment algorithm\n"\
 "	d = graphlet neighbor {D}istribution\n"\
 "    -d{displayMode: single character controls how canonical IDs are displayed. (DEFAULT=-mi): \n"\
@@ -922,18 +925,20 @@ const char * const USAGE_LONG =
 "	d = decimal (base-10) integer representation of the above binary\n"\
 "	i = integer ordinal = sorting the above integers and numbering them 0, 1, 2, 3, etc.\n"\
 "Less Common OPTIONS:\n"\
+"    -w (EXPERIMENTAL) input network has edge weights in 3rd column; output currently not well-defined\n"\
 "    -t N[:M]: use threading (parallelism); break the task up into N jobs (default 1) allowing at most M to run at one time.\n"\
 "       M can be anything from 1 to a compile-time-specified maximum possible value (MAX_POSSIBLE_THREADS in blant.h),\n"\
 "       but defaults to 4 to be conservative.\n"\
 "    -r seed: pick your own random seed\n"\
-"    -w windowSize: DEPRECATED. (use '-h' option for more)\n"\
+"    -W windowSize: DEPRECATED. (use '-h' option for more)\n"\
 "	-p windowRepSamplingMethod: (DEPRECATED) one of the below\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
 "	    LFMIN (Least Frequent Minimizer); LFMAX (Least Frequent Maximizer)\n"\
 "	-P windowRepIterationMethods is one of: COMB (Combination) or DFS\n" \
 "	-l windowRepLimitMethod is one of: [suffix N: limit to Top N satisfied graphlets]\n"\
 "	    DEG (graphlet Total Degree); EDGE (1-step away numEdges)\n"\
-"   -M = multiplicity, meaning max allowed number of ambiguous permutations in found graphlets (M=0 is a special case and means no max)\n" \
+"\nOPTIONS specific to -sINDEX sampling mode:\n" \
+"   -M max multiplicity (INDEX sampling only: max allowed ambiguous permutations in indexed graphlets; M=0 means no max)\n" \
 "   -T = top percent to expand to in -sINDEX sampling method (default 0)\n" \
 "   -o = the orbit to use for the heuristic function\n" \
 "   -f = the .orca4 file for the network\n" \
@@ -966,9 +971,9 @@ int main(int argc, char *argv[])
     int odv_fname_len = 0;
 
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
-    // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only C and h)
+    // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:s:t:T:w:")) != -1)
+    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:s:t:T:wW:")) != -1)
     {
 	switch(opt)
 	{
@@ -1091,7 +1096,8 @@ int main(int argc, char *argv[])
 		} // First k indicates stamping size, second k indicates KS test size.
 	    if (!(3 <= _k && _k <= 8)) Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k);
 	    break;
-	case 'w': _window = true; _windowSize = atoi(optarg); break;
+	case 'W': _window = true; _windowSize = atoi(optarg); break;
+	case 'w': _weighted = true; break;
 	case 'p':
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
 	    else if (strncmp(optarg, "DMIN", 4) == 0)
@@ -1201,9 +1207,8 @@ int main(int argc, char *argv[])
     // exactly _THREADS-1 values from near the beginning of this main random stream.
     RandomSeed(_seed);
 
-    if(_outputMode == undef) _outputMode = outputODV; // default to the same thing ORCA and Jesse use
-	if (_freqDisplayMode == freq_display_mode_undef) // Default to integer(count)
-		_freqDisplayMode = count;
+    if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
+    if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = count; // Default to integer(count)
 
     if(numSamples!=0 && confidence>0 && !_GRAPH_GEN)
 	Fatal("cannot specify both -n (sample size) and -c (confidence)");
@@ -1289,7 +1294,7 @@ int main(int argc, char *argv[])
     }
 
     // Read network using native Graph routine.
-    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, false);
+    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, _weighted);
     if(_useComplement) G->useComplement = true;
 
     if(_supportNodeNames)

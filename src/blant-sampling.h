@@ -31,11 +31,13 @@ extern FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
 extern char _sampleFileEOF;
 extern unsigned long int _acceptRejectTotalTries;
 extern int _samplesPerEdge;
+extern double _g_overcount;
 
 extern unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
 extern Boolean _MCMC_EVERY_EDGE; // Should MCMC restart at each edge
 extern GRAPH *_EDGE_COVER_G;
 
+// Each of these samples a graphlet and return its weight (default 1 unless _weighted)
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
 double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
 double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k);
@@ -45,7 +47,7 @@ double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k);
 double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
 double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k);
 double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k);
-void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr); // returns void instead of double because this function isn't called in SampleGraphlet (note: all functions return double even though most don't need to; only SampleGraphletMCMC currently needs to so we made all of them return double for consistency)
+void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr); // returns void instead of double because this function isn't called in SampleGraphlet
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge);
 double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc); // call with cc=G->n to allow unbiased choice
 void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int windowSize, int edge);
