@@ -78,9 +78,9 @@ extern const char* _BLANT_DIR;
 
 #define PARANOID_ASSERTS 0	// turn on copious assert checking --- slows down execution by a factor of 2-3
 
-extern unsigned long int *_graphletDegreeVector[MAX_CANONICALS];
-extern unsigned long int    *_orbitDegreeVector[MAX_ORBITS];
-extern double _g_overcount, *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCliqueCount, _absoluteCountMultiplier;
+extern double *_graphletDegreeVector[MAX_CANONICALS];
+extern double    *_orbitDegreeVector[MAX_ORBITS];
+extern double *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCliqueCount, _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
 #define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
@@ -111,7 +111,7 @@ enum OutputMode {undef, indexGraphlets, indexGraphletsRNO, indexOrbits, indexMot
 extern enum OutputMode _outputMode;
 extern int _outputMapping[MAX_CANONICALS];
 
-extern unsigned long int _graphletCount[MAX_CANONICALS];
+extern double _graphletCount[MAX_CANONICALS];
 extern int **_graphletDistributionTable;
 extern double _graphletConcentration[MAX_CANONICALS];
 
@@ -133,7 +133,7 @@ extern int *_whichComponent; // will be an array of size G->n specifying which C
 extern SET **_componentSet;
 
 extern double *_cumulativeProb;
-extern Boolean _child;
+extern Boolean _child, _weighted;
 
 #define SPARSE true // do not try false at the moment, it's broken
 

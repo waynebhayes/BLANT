@@ -97,8 +97,11 @@ char *PrintCanonical(int GintOrdinal)
 // The following is > 2^32, and would requires a SET implementation allowing members with value > 32 bits.
 //#define MCMC_MAX_HASH 8589934591UL // 2^33-9, according to https://www.dcode.fr/closest-prime-number; about 1GB
 
+static GRAPH *_G; // local copy of GRAPH *G
+
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
+    _G=G;
     static unsigned circBuf[MCMC_CIRC_BUF], bufPos;
     static BITVEC *seen;
     static unsigned Vcopy[MAX_K];
@@ -140,7 +143,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k)
+char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double weight)
 {
     int j;
     unsigned char perm[MAX_K];
@@ -166,10 +169,14 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
 	sprintf(buf[1-which], "%s%s", buf[which], PrintNode(' ', Varray[(int)perm[j]]));
 	which=1-which;
     }
+    if(_G->weight) {
+	sprintf(buf[1-which], "%s %g", buf[which], weight);
+	which=1-which;
+    }
     return buf[which];
 }
 
-char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w) {
     assert(TinyGraphDFSConnected(g,0));
     int j;
     static SET* printed;
@@ -199,10 +206,16 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], 
 	    SetAdd(printed, j1);
 	}
     }
+    if(_G->weight) {
+	sprintf(buf[1-which], "%s %g", buf[which], w);
+	which=1-which;
+    }
     return buf[which];
 }
 
-void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w)
+{
+    _G=G;
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
     unsigned char perm[MAX_K+1];
@@ -218,7 +231,7 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
     {
 	// FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
 	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
-	++ODV(u, u_orbit);
+	ODV(u, u_orbit)+=w;
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
 	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
 	    // FIXME: this should be pre-computed ONCE
@@ -242,7 +255,9 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
 	int item = (_communityMode=='o' ? u_connectedOrb : _canon2connectedIndex[GintOrdinal]);
 #endif
 
-void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k) {
+void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w)
+{
+    _G=G;
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
     unsigned char perm[MAX_K+1];
@@ -259,7 +274,7 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, uns
     {
 	// FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
 	int u=Varray[(int)perm[c]];
-	++GDV(u, GintOrdinal);
+	GDV(u, GintOrdinal)+=w;
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
 	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
 	    // FIXME: this should be pre-computed ONCE
@@ -275,8 +290,9 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, uns
     }
 }
 
-Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g)
+Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight)
 {
+    _G=G;
     Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g,k), GintOrdinal=L_K(Gint), j;
@@ -285,7 +301,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
 
-    ++_graphletCount[GintOrdinal]; // we ALWAYS count the frequencies so we can normalize the counts later if possible
+    _graphletCount[GintOrdinal]+=weight; // we ALWAYS count the frequencies so we can normalize the counts later if possible
 
     switch(_outputMode)
     {
@@ -295,33 +311,34 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||
 	    _canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k));
+	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k, weight));
 	break;
     case predict:
+	assert(!G->weight);
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else Predict_AccumulateMotifs(G,Varray,g,Gint,GintOrdinal);
 	break;
     case indexOrbits:
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
-	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k));
+	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k, weight));
 	break;
     case communityDetection:
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k);
-	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k);
+	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight);
+	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight);
 	else Fatal("unkwown _communityMode %c", _communityMode);
 	break;
     case outputGDV:
-	for(j=0;j<k;j++) ++GDV(Varray[j], GintOrdinal);
+	for(j=0;j<k;j++) GDV(Varray[j], GintOrdinal)+=weight;
 	break;
     case outputODV:
 	memset(perm, 0, _k);
 	ExtractPerm(perm, Gint);
 #if PERMS_CAN2NON
-	for(j=0;j<k;j++) ++ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ]);
+	for(j=0;j<k;j++) ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ])+=weight;
 #else
-	for(j=0;j<k;j++) ++ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]]);
+	for(j=0;j<k;j++) ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]])+=weight;
 #endif
 	break;
 

@@ -38,7 +38,7 @@ do
                 exit 1
             fi
 
-            cmd="./blant -k$k -w$w -p$m -M0 -s$s -mf -n$n networks/$f"
+            cmd="./blant -k$k -W$w -p$m -M0 -s$s -mf -n$n networks/$f"
             $cmd 1>$TEST_DIR/.regression_test_out.txt 2>$TEST_DIR/.regression_test_error.txt
 
             depth_attempt=0
