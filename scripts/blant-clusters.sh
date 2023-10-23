@@ -17,7 +17,8 @@ OPTIONS (added BEFORE the blant.exe name)
     -C: run on the complement graph, G'
     -1: exit after printing only one 1 cluster (the biggest one)
     -h: use only the highest count graphlet/orbit for neighbors
-    -w: cluster count sorted with weights
+    -S: cluster count sorted by the normalized square
+    -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
     -r SEED: use the integer SEED as the random seed
     -m smallest: ignore clusters/cliques/communities with fewer than this number of nodes (default 9)
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
@@ -59,7 +60,8 @@ minClus=9
 RANDOM_SEED=
 BLANT_FILES="$TMPDIR"
 COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit (which uses FAR more memory, like 10-100x)
-WEIGHTED=0
+SQR_NORM=0
+WEIGHTED=''
 ONLY_ONE=0
 exclusive=0
 SAMPLE_METHOD=-sMCMC #-sNBE
@@ -76,7 +78,8 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
     -h) ONLY_BEST_ORBIT=1; shift;;
-    -w) WEIGHTED=1; shift;;
+    -S) SQR_NORM=1; shift;;
+    -w) WEIGHTED="$1"; shift;;
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
     -s*) SAMPLE_METHOD="$1"; shift;;
     -D) BLANT_FILES="$2"; shift 2;;
@@ -128,7 +131,8 @@ done
 
 [ -f "$net" ] || die "network '$net' does not exist"
 case "$net" in
-*.el) ;;
+*.el) [ "$WEIGHTED" = "" ] || die "non-weighted edgelist given with -w option";;
+*.elw) [ "X$WEIGHTED" = "X-w" ] || die "weighted edgelist given without -w option";;
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
 DEBUG=false # set to true to store BLANT output
@@ -146,7 +150,7 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	ABSOLUTE_CLIQUE_COUNT=""
 	CMD=""
 	$TURAN && CMD="./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null &&"'ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`";'
-	CMD="$CMD $BLANT_CMD $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
+	CMD="$CMD $BLANT_CMD $WEIGHTED $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
 	eval $CMD > $TMPDIR/blant$k.out &
     done
 fi
@@ -185,7 +189,7 @@ for edgeDensity in "${EDs[@]}"; do
 	    END {
 		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
 		    ORS=" "
-		    if('$WEIGHTED') print Kc[u][item]^2/T[u], u, item
+		    if('$SQR_NORM') print Kc[u][item]^2/T[u], u, item
 		    else            print Kc[u][item], u, item # print the cluster membership count, and the node
 		    for(v in neighbors[u][item]) print v
 		    ORS="\n"; print "";
