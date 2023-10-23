@@ -3,12 +3,12 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME [OPTIONS] blant_cmd M Ks EDs network.el
+USAGE="USAGE: $BASENAME [OPTIONS] blant_cmd mu Ks EDs network.el
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large communities in network.el.
 REQUIRED ARGUMENTS:
     blant_cmd is the raw BLANT command; usually it's just './blant', but can include options (eg './blant -C')
-    M is the mean number of times each *node* should be touched by a graphlet sample, so BLANT will thus take
-	M*(n/k) total samples of k-node graphlets. 
+    mu is the mean number of times each *node* should be touched by a graphlet sample, so BLANT will thus take
+	mu*(n/k) total samples of k-node graphlets.
     Ks is a list of graphlet sizes to do BLANT sampling in
     EDs is a list of the edge density thresholds to explore
 OPTIONS (added BEFORE the blant.exe name)
@@ -20,7 +20,10 @@ OPTIONS (added BEFORE the blant.exe name)
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
     -r SEED: use the integer SEED as the random seed
-    -m smallest: ignore clusters/cliques/communities with fewer than this number of nodes (default 9)
+    -m smallest: if m>=1, ignore clusters/cliques/communities with fewer than this number of nodes; otherwise if m<1, treat
+       it as a p-value and set the smallest cluster to whatever size gives the number of edges a p-value less than this;
+       default behaviour is to demand a cluster whose number of edges has p-value < 1e-6.
+    -M largest: stop building a community if it reaches this size (default: no limit)
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
     -o OVERLAP: (default 0.5); the maximum allowed fractional overlap between two clusters;
 	clusters that overlap more that this causes either (a) the second one to be discarded, or
@@ -29,7 +32,7 @@ PREDICTION
     -pN: perform edge prediction of up to N edges for each node on the 'periphery' of a communty because it has
 	as many as N too few edges into the community to be added; prediction seems to work better with larger
 	k, with k=8 working best at high edge densities, though lower k works OK for lower edge densities;
-	significantly increasing M also appears to help (eg 10000 or even 100000).
+	significantly increasing mu also appears to help (eg 10000 or even 100000).
 	NOTE: predicted edges are sent to the standard error stream (aka stderr, cerr, Unix file descriptor 2),
 	so they do not litter the pipeline. To view them, it's best to run $BASENAME with '2>&1 >/dev/null'
 	appended to its command line."
@@ -56,7 +59,8 @@ TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
 
 [ $# = 0 ] && usage
 
-minClus=9
+minClus=0
+maxClus=2147483647 # 2^31-1
 RANDOM_SEED=
 BLANT_FILES="$TMPDIR"
 COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit (which uses FAR more memory, like 10-100x)
@@ -88,7 +92,9 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
     -m) minClus="$2"; shift 2;;
+    -M) maxClus="$2"; shift 2;;
     -m[0-9]*) minClus="`echo $1|sed 's/^-m//'`"; shift 1;;
+    -M[0-9]*) maxClus="`echo $1|sed 's/^-m//'`"; shift 1;;
     -o) OVERLAP="$2"; shift 2;;
     -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
     -p[0-9]*) EDGE_PREDICT="`echo $1|sed 's/^-p//'`"; shift 1;;
@@ -100,7 +106,7 @@ done
 
 BLANT_CMD="$1";
 BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
-sampleMultiplier=$2;
+mu=$2;
 Ks=(`echo $3 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
 EDs=($4)
@@ -141,7 +147,7 @@ DEBUG=false # set to true to store BLANT output
 BLANT_EXIT_CODE=0
 if [ "$BLANT_FILES" = "$TMPDIR" ]; then
     for k in "${Ks[@]}"; do
-	n=`hawk "BEGIN{print int($sampleMultiplier * $numNodes / $k)}"`
+	n=`hawk "BEGIN{print int($mu * $numNodes / $k)}"`
 	#minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
 	# Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
 	# DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
@@ -163,7 +169,7 @@ done
 
 for edgeDensity in "${EDs[@]}"; do
     for k in "${Ks[@]}"; do
-	hawk ' # This first awk runs quite quickly and does not use much RAM
+	hawk ' # This first awk just sorts the BLANT output; it uses minimal RAM and CPU
 	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
 		ASSERT(cMode=="g" || cMode=="o", "COMMUNITY_MODE must be o or g, not "cMode);
@@ -196,8 +202,17 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted cluster-counts of all the nodes, largest-to-smallest
-	hawk ' # This second awk can require large amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
-	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';}
+	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
+	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
+		M=1*'$minClus'; if(M>=1) minClus=M;
+		else {
+		    if(M>0) pVal=M; else pVal=1e-6;
+		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
+		    for(e=1;e<m;e++)if(eps^e<pVal) break;
+		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>e) break;
+		    #printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
+		}
+	    }
 	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
 	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
@@ -237,7 +252,7 @@ for edgeDensity in "${EDs[@]}"; do
 		delete started; started[0]=1; delete started[0];
 		numClus=0;
 		QueueAlloc("Q");
-		for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start". 
+		for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start".
 		    origin=node[start];
 		    if(started[origin]) continue;
 		    started[origin]=1;
@@ -255,6 +270,7 @@ for edgeDensity in "${EDs[@]}"; do
 			edgeCount += newEdgeHits;
 			S[u]=1;
 			Slen = length(S);
+			if(Slen >= '$maxClus') break;
 			# CAREFUL: calling InducedEdges(S) every QueueNext() is VERY expensive; uncommenting the line below
 			# slows the program by more than 100x (NOT an exaggeration)
 			# WARN(edgeCount == InducedEdges(edge,S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(edge,S));
@@ -283,7 +299,10 @@ for edgeDensity in "${EDs[@]}"; do
 			    AppendNeighbors(u, origin);
 		    }
 		    if(QueueLength("Q")==0) {
-			# post-process to remove nodes that have too low degree compared to the norm. We use two criteria:
+			# post-process to remove nodes with too low in-cluster degree---irrelevant for cliques, but
+			# quite relevant for lower density communities where a node may be added because it does not
+			# reduce the *mean* degree of the cluster, but it does not really have sufficiently strong
+			# connections to the actual members of the community. We use two criteria:
 			# 1) the in-cluster degree is more than 3 sigma below the mean, or
 			# 2) the in-cluster degree is less than 1/3 the mode of the in-cluster degree distribution.
 			# The latter was added in response to our performance on the LFR graphs, but it does not appear
@@ -307,7 +326,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    }
 		    Slen=length(S);
 		    #printf " final |S|=%d\n",Slen > "/dev/stderr";
-		    if(Slen>='$minClus') {
+		    if(Slen>=minClus) {
 			maxEdges=choose(Slen,2);
 			++numClus; printf "%d %d", Slen, edgeCount
 			StatReset("");
@@ -326,7 +345,7 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' "$TMPDIR/net4awk.el" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -nr |
-	hawk ' # This third awk attempts to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
+	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
 	    {
 		delete S;
@@ -365,7 +384,7 @@ done
 sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
     hawk 'BEGIN{ numClus=0 } # post-process to remove/merge duplicates
 	{
-	    delete S; 
+	    delete S;
 	    numNodes=$1
 	    edgeHits=$2;
 	    k=$3;
