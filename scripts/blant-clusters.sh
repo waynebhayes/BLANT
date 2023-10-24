@@ -20,14 +20,15 @@ OPTIONS (added BEFORE the blant.exe name)
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
     -r SEED: use the integer SEED as the random seed
+    -mem value: minimum edge mean: the smallest average-over-edgeWeights for a cluster to be included [default 0.5]
     -m smallest: if m>=1, ignore clusters/cliques/communities with fewer than this number of nodes; otherwise if m<1, treat
        it as a p-value and set the smallest cluster to whatever size gives the number of edges a p-value less than this;
        default behaviour is to demand a cluster whose number of edges has p-value < 1/(n choose 2)^2 (heuristic).
     -M largest: stop building a community if it reaches this size (default: no limit)
     -sSAMPLE_METHOD: BLANT's sampling method (reasonable choices are MCMC, NBE, EBE, or RES)
-    -o OVERLAP: (default 0.5); the maximum allowed fractional overlap between two clusters;
-	clusters that overlap more that this causes either (a) the second one to be discarded, or
-	(b) nodes of the second one to be listed as 'nearby' those in the first.
+    -o OVERLAP: (default 0.5); the maximum allowed fractional overlap between a new cluster and any one previously discovered
+	cluster (though it can overlap by more than this with MULTIPLE previous clusters). If it overlaps more than this with
+	any ONE previous cluster, it is discarded.
 PREDICTION
     -pN: perform edge prediction of up to N edges for each node on the 'periphery' of a communty because it has
 	as many as N too few edges into the community to be added; prediction seems to work better with larger
@@ -61,11 +62,13 @@ TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
 
 minClusArg=0
 maxClus=2147483647 # 2^31-1
+minEdgeMean=0.5
 RANDOM_SEED=
 BLANT_FILES="$TMPDIR"
 COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit (which uses FAR more memory, like 10-100x)
 SQR_NORM=0
 WEIGHTED=''
+W=''
 ONLY_ONE=0
 exclusive=0
 SAMPLE_METHOD=-sMCMC #-sNBE
@@ -76,20 +79,21 @@ COMPLEMENT=''
 TURAN=false
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
-SUBFINAL_SORT="-k 1nr -k 4n"
+SUBFINAL_SORT="-k 1nr -k 5n"
 
 while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
     -h) ONLY_BEST_ORBIT=1; shift;;
     -S) SQR_NORM=1; shift;;
-    -w) WEIGHTED="$1"; shift;;
+    -w) WEIGHTED="$1"; W=w; shift;;
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
     -s*) SAMPLE_METHOD="$1"; shift;;
     -D) BLANT_FILES="$2"; shift 2;;
     -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
+    -mem) minEdgeMean="$2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
     -m) minClusArg="$2"; shift 2;;
     -M) maxClus="$2"; shift 2;;
@@ -114,18 +118,20 @@ net=$5
 
 if [ "$COMPLEMENT" != "" ]; then
     #SAMPLE_METHOD=-sNBE # only method that works for now
-    hawk '{++D[$1];++D[$2];++edge[$1][$2];++edge[$2][$1]}
+    hawk 'NF==2{++D[$1];++D[$2];++edge[$1][$2];++edge[$2][$1]}
+	  NF==3{D[$1]+=$3;D[$2]+=$3;edge[$1][$2]=$3;edge[$2][$1]=$3}
 	END{
 	    for(u in edge) for(v in edge) if(u<v)
 		if(!(v in edge[u])) {
 		    ASSERT(!(u in edge[v]),"oops");
-		    printf "%s\t%s\n", MIN(u,v),MAX(u,v)
+		    if(NF==2) printf "%s\t%s\n", MIN(u,v),MAX(u,v)
+		    if(NF==3) printf "%s\t%s\t%g\n", MIN(u,v),MAX(u,v),edge[u][v]
 		}
-	}' $net | sort -u > $TMPDIR/net4awk.el
+	}' $net | sort -u > $TMPDIR/net4awk.el$W
 else
-    cp -p $net $TMPDIR/net4awk.el
+    cp -p $net $TMPDIR/net4awk.el$W
 fi
-netCounts=`hawk '{++seen[$1];++seen[$2]}END{n=length(seen);m=NR;printf "%d\t%d\t%g\n", n, m, m/choose(n,2)}' $TMPDIR/net4awk.el`
+netCounts=`hawk '{++seen[$1];++seen[$2]}END{n=length(seen);m=NR;printf "%d\t%d\t%g\n", n, m, m/choose(n,2)}' $TMPDIR/net4awk.el$W`
 numNodes=`echo "$netCounts" | cut -f1`
 numEdges=`echo "$netCounts" | cut -f2`
 meanED=`echo "$netCounts" | cut -f3`
@@ -168,15 +174,6 @@ for k in "${Ks[@]}"; do
 done
 
 for edgeDensity in "${EDs[@]}"; do
-    minClus=`hawk 'BEGIN{M=1*'$minClusArg'; if(M>=1) minClus=M;
-	else {
-	    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
-	    if(M>0) pVal=M; else pVal=1/choose(n,2); # heuristic to make pVal small enough to get significant clusters
-	    for(e=1;e<m;e++)if(eps^e<pVal) break;
-	    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>e) break;
-	    printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
-	    print minClus
-	}}'`
     for k in "${Ks[@]}"; do
 	hawk ' # This first awk just sorts the BLANT output; it uses minimal RAM and CPU
 	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
@@ -210,12 +207,23 @@ for edgeDensity in "${EDs[@]}"; do
 		    ORS="\n"; print "";
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
-	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted cluster-counts of all the nodes, largest-to-smallest
+	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
-		minClus='$minClus'; ASSERT(minClus>1,"minClus "minClus" must be >1");
+		M=1*'$minClusArg'; if(M>=1) minClus=M;
+		else {
+		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
+		    if(M>0) pVal=M; else pVal=1/choose(n,2)^2; # heuristic to make pVal small enough to get significant clusters
+		    for(e=1;e<m;e++)if(eps^e<pVal) break;
+		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>e) break;
+		    printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
+		}
+		ASSERT(minClus>=1,"minClus "minClus" must be >=1");
 	    }
-	    ARGIND==1{++degree[$1];++degree[$2];edge[$1][$2]=edge[$2][$1]=1} # get the edge list
+	    ARGIND==1{ # get the edge list [and weights if present]
+		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns");
+		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
+	    }
 	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
 		for(i=4; i<=NF; i++) neighbors[$2][$i]=neighbors[$i][$2]=1;
@@ -228,6 +236,14 @@ for edgeDensity in "${EDs[@]}"; do
 		    ++edgeHits;
 		}
 		return edgeHits;
+	    }
+	    function WgtEdgesIntoS(v,       edgeWgts,u) { # WEIGHT of edges from v into S, not including v (which can be is S)
+		edgeWgts=0;
+		for(u in S) if(u!=v && (v in edge[u])){
+		    ASSERT(edge[v][u],"edge error");
+		    edgeWgts+=edge[u][v];
+		}
+		return edgeWgts;
 	    }
 	    function highRelClusCount(u, v) { # Heuristic
 		if(!(u in count) || count[u]==0) return 1;
@@ -264,12 +280,14 @@ for edgeDensity in "${EDs[@]}"; do
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");} #Ensure the queue is empty
 		    QueueAdd("Q", origin);
 		    visitedQ[origin] = 1;
-		    edgeCount = 0;
+		    wgtEdgeCount = edgeCount = 0;
 		    while(QueueLength("Q")>0){
 			u = QueueNext("Q");
 			ASSERT(!(u in S),"u in S error");
 			newEdgeHits = EdgesIntoS(u);
+			wgtEdgeHits = WgtEdgesIntoS(u);
 			edgeCount += newEdgeHits;
+			wgtEdgeCount += wgtEdgeHits;
 			S[u]=1;
 			Slen = length(S);
 			if(Slen >= '$maxClus') break;
@@ -291,6 +309,7 @@ for edgeDensity in "${EDs[@]}"; do
 				    }
 				}
 				edgeCount -= newEdgeHits;
+				wgtEdgeCount -= wgtEdgeHits;
 				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else {
@@ -324,13 +343,14 @@ for edgeDensity in "${EDs[@]}"; do
 			    #printf " %s(%d)", v, degreeInS[v] > "/dev/stderr";
 			    delete S[v];
 			    edgeCount -= EdgesIntoS(v);
+			    wgtEdgeCount -= WgtEdgesIntoS(v);
 			}
 		    }
 		    Slen=length(S);
 		    #printf " final |S|=%d\n",Slen > "/dev/stderr";
-		    if(Slen>=minClus) {
+		    if(Slen>=minClus && wgtEdgeCount/edgeCount>='$minEdgeMean') {
 			maxEdges=choose(Slen,2);
-			++numClus; printf "%d %d", Slen, edgeCount
+			++numClus; printf "%d %d %g", Slen, edgeCount, wgtEdgeCount
 			StatReset("");
 			tmpEdge=InducedEdges(edge,S, degreeInS);
 			ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(2) with InducedEdges of "tmpEdge);
@@ -339,13 +359,14 @@ for edgeDensity in "${EDs[@]}"; do
 			print "";
 			if('$ONLY_ONE') exit;
 			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
-			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be more stringent as it approaches
-			# 1, which in the case of THIS loop means that if OVERLAP is close to 1, we want to eliminate a
-			# SMALLER proportion of future BFS starts, so if OVERLAP=1 we eliminate NOTHING in this loop.
+			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be less stringent as it
+			# approaches 1, which in the case of THIS loop means that if OVERLAP is close to 1, we want
+			# to eliminate a SMALLER proportion (ie., allow more) of future BFS starts, so if OVERLAP=1,
+			# we eliminate NOTHING in this loop.
 			for(i=1;i<Slen*(1-'$OVERLAP');i++) started[Sorder[i]]=1;
 		    }
 		}
-	    }' "$TMPDIR/net4awk.el" - | # dash is the output of the above pipe (sorted cluster counts)
+	    }' "$TMPDIR/net4awk.el$W" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -nr |
 	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
@@ -353,7 +374,8 @@ for edgeDensity in "${EDs[@]}"; do
 		delete S;
 		numNodes=$1
 		edgeHits=$2;
-		for(i=3;i<=NF;i++) ++S[$i]
+		edgeWgts=$3;
+		for(i=4;i<=NF;i++) ++S[$i]
 		WARN(length(S)==numNodes,"mismatch(1) in numNodes and length(S)");
 		add=1;
 		for(i=1;i<=numClus;i++) {
@@ -362,14 +384,14 @@ for edgeDensity in "${EDs[@]}"; do
 		    if(same == length(cluster[i])){add=0; break;} # only eliminate EXACT duplicates at this stage
 		}
 		if(add) {
-		    ++numClus; edges[numClus]=edgeHits;
+		    ++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
 		    for(u in S) ++cluster[numClus][u]
 		}
 	    }
 	    END{
 		for(i=1;i<=numClus;i++) {
 		    maxEdges=choose(length(cluster[i]),2);
-		    printf "%d %d '$k'",length(cluster[i]),edges[i]
+		    printf "%d %d %g '$k'",length(cluster[i]),edges[i],edgeSum[i]
 		    for(u in cluster[i]) printf " %s", u
 		    print ""
 		}
@@ -389,14 +411,18 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    delete S;
 	    numNodes=$1
 	    edgeHits=$2;
-	    k=$3;
-	    for(i=4;i<=NF;i++) ++S[$i]
+	    edgeWgts=$3;
+	    k=$4;
+	    for(i=5;i<=NF;i++) ++S[$i]
 	    WARN(length(S)==numNodes,"mismatch(2) in numNodes and length(S)");
 	    add=1;
 	    for(i=1;i<=numClus;i++) {
 		same=0;
 		for(u in S) if(u in cluster[i])++same;
-		if(same > MAX(length(S), length(cluster[i]))*'$OVERLAP'){ add=0; break;}
+		if(same > length(S)*'$OVERLAP'){ add=0; break;} # we check ONLY if $OVERLAP fraction of the NEW cluster
+		# overlaps any one old cluster... it is TOTALLY ALLOWED to completely overlap the old cluster if it is
+		# lower density, for example, so the below check is incorrect.
+		#if(same > MAX(length(S), length(cluster[i]))*'$OVERLAP'){ add=0; break;}
 	    }
 	    # Skipping an entire cluster with overlap sucks, but merging does not work either. Here is a better way:
 	    # The idea is to provide ALTERNATES.  So for example if 2 clusters of size k overlap in all but one node,
@@ -408,7 +434,7 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    # while adding both does not work. Doing this correctly requires some thought, so it will have to wait.
 
 	    if(add) {
-		++numClus; edges[numClus]=edgeHits; kk[numClus]=k;
+		++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts; kk[numClus]=k;
 		for(u in S) ++cluster[numClus][u];
 	    }
 	}
@@ -417,10 +443,14 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    #PROCINFO["sorted_in"]="@ind_str_asc"; # print nodes in string ascending order
 	    for(i=1;i<=numClus;i++) {
 		maxEdges=choose(length(cluster[i]),2);
-		printf "%d nodes, %d of %d edges from k %d (%g%%):", length(cluster[i]), edges[i], maxEdges, kk[i], 100*edges[i]/maxEdges
+		edgeMean = edgeSum[i]/edges[i];
+		ASSERT(edgeMean>='$minEdgeMean', "oops, should not get this far with an edgeMean of "edgeMean);
+		printf "%g clusterWeight, %g edgeSum, %g edgeMean, %d nodes, %d of %d edges from k %d %g%%:",
+		    edgeSum[i]/length(cluster[i]), edgeSum[i], edgeMean,
+		    length(cluster[i]), edges[i], maxEdges, kk[i], 100*edges[i]/maxEdges
 		for(u in cluster[i]) printf " %s", u
 		print ""
 	    }
-	}' | sort -k 1nr -k 11n
+	}' | sort -k 5gr -k 1gr -k 7nr -k 16n # sort order: edgeMean, clusterWeight, number of nodes, nodeList
 #set -x
 exit $BLANT_EXIT_CODE
