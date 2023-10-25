@@ -20,7 +20,7 @@ OPTIONS (added BEFORE the blant.exe name)
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
     -r SEED: use the integer SEED as the random seed
-    -mem value: minimum edge mean: the smallest average-over-edgeWeights for a cluster to be included [default 0.5]
+    -emt value: minimum edge mean threshold: the smallest average-over-edgeWeights for a cluster to be included [default 0.5]
     -m smallest: if m>=1, ignore clusters/cliques/communities with fewer than this number of nodes; otherwise if m<1, treat
        it as a p-value and set the smallest cluster to whatever size gives the number of edges a p-value less than this;
        default behaviour is to demand a cluster whose number of edges has p-value < 1/(n choose 2)^2 (heuristic).
@@ -93,7 +93,7 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
-    -mem) minEdgeMean="$2"; shift 2;;
+    -emt) minEdgeMean="$2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
     -m) minClusArg="$2"; shift 2;;
     -M) maxClus="$2"; shift 2;;
@@ -195,15 +195,15 @@ for edgeDensity in "${EDs[@]}"; do
 		if(onlyBestOrbit) item=0;
 		Kc[$1][item]+=$3; # increment the cluster count for appropriate item (canon/orbit)
 		T[$1]+=$3; # keep total count of *all* items
-		# save the neighbors of those clusters that have high edge density for BFS:
-		for(j=4;j<=NF;j++) ++neighbors[$1][item][$j];
+		# save the neighbors of those clusters that have high edge density for BFS
+		for(j=4;j<=NF;j++) ++graphletNeighbors[$1][item][$j];
 	    }
 	    END {
 		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
 		    ORS=" "
 		    if('$SQR_NORM') print Kc[u][item]^2/T[u], u, item
 		    else            print Kc[u][item], u, item # print the cluster membership count, and the node
-		    for(v in neighbors[u][item]) print v
+		    for(v in graphletNeighbors[u][item]) print v
 		    ORS="\n"; print "";
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
@@ -226,7 +226,8 @@ for edgeDensity in "${EDs[@]}"; do
 	    }
 	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
-		for(i=4; i<=NF; i++) neighbors[$2][$i]=neighbors[$i][$2]=1;
+		for(i=4; i<=NF; i++) if(edge[$2][$i] > '$minEdgeMean'/2) # heuristing: avoid too-weak edges
+		    graphletNeighbors[$2][$i]=graphletNeighbors[$i][$2]=1;
 	    }
 
 	    function EdgesIntoS(v,       edgeHits,u) { # count edges from v into S, not including v (which can be is S)
@@ -251,11 +252,11 @@ for edgeDensity in "${EDs[@]}"; do
 		if (v in count) return count[v]/count[u]>=0.5;
 		else return 1/count[u]>=0.5;
 	    }
-	    function AppendNeighbors(u, origin,    v,oldOrder) {
+	    function AppendNeighbors(u,origin,    v,oldOrder) {
 		oldOrder=PROCINFO["sorted_in"];
 		PROCINFO["sorted_in"]="randsort";
-		if(u in neighbors) {
-		    for (v in neighbors[u]) {
+		if(u in graphletNeighbors) {
+		    for (v in graphletNeighbors[u]) {
 			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelClusCount(u, v)) {
 			    QueueAdd("Q", v);
 			    visitedQ[v]=1;
@@ -273,6 +274,7 @@ for edgeDensity in "${EDs[@]}"; do
 		for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start".
 		    origin=node[start];
 		    if(started[origin]) continue;
+		    #printf "line %d origin %s;", start, origin > "/dev/stderr"
 		    started[origin]=1;
 		    MakeEmptySet(S);
 		    MakeEmptySet(visitedQ);
@@ -304,7 +306,7 @@ for edgeDensity in "${EDs[@]}"; do
 					# just ONE edge would put us over the threshold; predict it should exist
 					numPredict=0;
 					for(uu in S)if(!(u in edge[uu]))
-					    printf "predictEdge-%d\t%s\t%s\n",++numPredict, u,uu > "/dev/stderr"
+					    #printf "predictEdge-%d\t%s\t%s\n",++numPredict, u,uu > "/dev/stderr"
 					WARN(numPredict<=edgePredict,"should only get "edgePredict" new edge predictions but got "numPredict);
 				    }
 				}
@@ -319,9 +321,10 @@ for edgeDensity in "${EDs[@]}"; do
 			} else
 			    AppendNeighbors(u, origin);
 		    }
-		    if(QueueLength("Q")==0) {
-			# post-process to remove nodes with too low in-cluster degree---irrelevant for cliques, but
-			# quite relevant for lower density communities where a node may be added because it does not
+		    #printf " |S|=%d edgeMean %g", length(S), wgtEdgeCount/(edgeCount?edgeCount:1) > "/dev/stderr"
+		    if(QueueLength("Q")==0 && length(S) > 1 && '$edgeDensity' < 1) { # irrelevant for cliques
+			# post-process to remove nodes with too low in-cluster degree---quite relevant for lower density
+			# communities where a node may be added because it does not
 			# reduce the *mean* degree of the cluster, but it does not really have sufficiently strong
 			# connections to the actual members of the community. We use two criteria:
 			# 1) the in-cluster degree is more than 3 sigma below the mean, or
@@ -337,19 +340,19 @@ for edgeDensity in "${EDs[@]}"; do
 			    if(d in degFreq && degFreq[d] >= maxFreq) { # use >= to extract SMALLEST mode
 				maxFreq=degFreq[d]; degMode=d
 			}
-			#printf "maxFreq %d mode %d\n", maxFreq, degMode > "/dev/stderr"
-			#printf "start %d |S|=%d mean %g stdDev %g:", start, _statN[""], StatMean(""), StatStdDev("") > "/dev/stderr"
+			#printf " deg mean %g stdDev %g maxFreq %d degMode %d; pruning...", StatMean(""), StatStdDev(""), maxFreq, degMode > "/dev/stderr"
 			for(v in S) if(degreeInS[v] < StatMean("") - 3*StatStdDev("") || degreeInS[v] < degMode/3) {
 			    #printf " %s(%d)", v, degreeInS[v] > "/dev/stderr";
 			    delete S[v];
 			    edgeCount -= EdgesIntoS(v);
 			    wgtEdgeCount -= WgtEdgesIntoS(v);
 			}
+			#printf " |S|=%d", _statN[""] > "/dev/stderr"
 		    }
 		    Slen=length(S);
-		    #printf " final |S|=%d\n",Slen > "/dev/stderr";
 		    if(Slen>=minClus && wgtEdgeCount/edgeCount>='$minEdgeMean') {
 			maxEdges=choose(Slen,2);
+			#print " ACCEPTED" > "/dev/stderr";
 			++numClus; printf "%d %d %g", Slen, edgeCount, wgtEdgeCount
 			StatReset("");
 			tmpEdge=InducedEdges(edge,S, degreeInS);
@@ -365,6 +368,7 @@ for edgeDensity in "${EDs[@]}"; do
 			# we eliminate NOTHING in this loop.
 			for(i=1;i<Slen*(1-'$OVERLAP');i++) started[Sorder[i]]=1;
 		    }
+		    #else print " REJECTED" > "/dev/stderr";
 		}
 	    }' "$TMPDIR/net4awk.el$W" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -nr |
