@@ -5,7 +5,7 @@ void Predict_Init(GRAPH *G);
 void Predict_FlushMotifs(GRAPH *G);
 void Predict_ProcessLine(GRAPH *G, char line[]);
 
-void Predict_AccumulateMotifs(GRAPH *G, unsigned Varray[], TINY_GRAPH *g, Gint_type Gint, int GintOrdinal);
+void Predict_AccumulateMotifs(GRAPH *G, unsigned Varray[], TINY_GRAPH *g, Gint_type Gint, Gordinal_type GintOrdinal);
 int  Predict_Merge(GRAPH *G);
 
 #endif

@@ -10,7 +10,7 @@
 // This program creates the list of k sub-canonicals, each of size (k-1), that result from deleting each node
 // of a k-graphlet, across all k-graphlet canonicals.
 
-static short int *K; // The (k-1)-graphlet canonmap.
+static Gordinal_type *K; // The (k-1)-graphlet canonmap.
 static Gint_type canon_list[MAX_CANONICALS];
 static int canon_num_edges[MAX_CANONICALS];
 

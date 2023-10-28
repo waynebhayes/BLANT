@@ -82,7 +82,7 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
-static short int* _K[MAX_K];
+static Gordinal_type* _K[MAX_K];
 
 // Assuming the global variable _k[] is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
@@ -98,7 +98,7 @@ void SetGlobalCanonMaps(void){
         _connectedCanonicals[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _k[i]);
         _numCanon[_k[i]-1] = _connectedCanonicals[_k[i]-1]->maxElem;
         _maxNumCanon = MAX(_maxNumCanon, _numCanon[_k[i]-1]);  // set max number of canonicals for a k
-        _K[_k[i]-1] = (short int*) aligned_alloc(8192, MAX(_Bk * sizeof(short int), 8192));
+        _K[_k[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
         assert(_K[_k[i]-1] != NULL);
         mapCanonMap(BUF, _K[_k[i]-1], _k[i]);
         sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k[i]);

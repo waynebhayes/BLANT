@@ -101,7 +101,7 @@ void updateWindowRepLimitHeap(unsigned *WArray, unsigned *VArray, unsigned char 
     assert(HeapSize(_windowRep_limit_heap) <= _numWindowRepLimit);
 }
 
-void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numEdges, int GintOrdinal, unsigned char perm[])
+void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numEdges, Gordinal_type GintOrdinal, unsigned char perm[])
 {
     int i, j;
     // dynamic windowRep Arr step
@@ -138,7 +138,7 @@ void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numE
 void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int numEdges, unsigned *WArray, unsigned *VArray, MULTISET *canonMSET, unsigned char perm[])
 {
     int pending_D;
-    int GintOrdinal = L_K(Gint);
+    Gordinal_type GintOrdinal = L_K(Gint);
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);
     if (_windowRep_limit_neglect_trivial && GintOrdinal == _k - 1) return;
@@ -270,7 +270,8 @@ int FindHighestDegNeighbor(GRAPH *Gi, SET *foundNode, SET *searchNodeSet, unsign
 
 void FindWindowRepByDeg(GRAPH *Gi, unsigned *WArray)
 {
-    int i, j, neigh, num_k_saved, NodeFound, GintOrdinal, numInitialSeed=0;
+    int i, j, neigh, num_k_saved, NodeFound, numInitialSeed=0;
+    Gordinal_type GintOrdinal;
     float curr_deg, prev_deg = -1;
     unsigned SeedArray[_windowSize], NodeAddedArr[_k];
     SET *savedNodesSET = SetAlloc(Gi->n), *neighborNodeSet = SetAlloc(Gi->n);
@@ -314,7 +315,8 @@ void FindWindowRepByDeg(GRAPH *Gi, unsigned *WArray)
 // Right now use least frequent windowRep canonicals
 void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char unsigned perm[])
 {
-    unsigned WArray[_windowSize], *VArray, ca[_k], i, j, GintOrdinal, numEdges=0;   // Window node array, pending_window node array
+    unsigned WArray[_windowSize], *VArray, ca[_k], i, j, numEdges=0;   // Window node array, pending_window node array
+    Gordinal_type GintOrdinal;
     Gint_type Gint;
     assert(SetToArray(WArray, W) == _windowSize);
     MULTISET *canonMSET = MultisetAlloc(getMaximumIntNumber(_k));

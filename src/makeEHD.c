@@ -13,7 +13,7 @@
 #include "sets.h"
 
 int _numCanon;
-short int* _K;
+Gordinal_type* _K;
 
 void SetGlobalCanonMaps(int k){
     assert(3 <= k && k <= 8);
@@ -23,7 +23,7 @@ void SetGlobalCanonMaps(int k){
 	int _canonNumEdges[MAX_CANONICALS];
     SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     _numCanon = _connectedCanonicals->maxElem;
-    _K = (short int*) mapCanonMap(BUF, _K, k);
+    _K = (Gordinal_type*) mapCanonMap(BUF, _K, k);
 
     sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
 }
