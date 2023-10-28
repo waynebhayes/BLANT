@@ -91,7 +91,7 @@ int _JOBS, _MAX_THREADS;
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
 //static short int _K[maxBk] __attribute__ ((aligned (8192)));
-short *_K = NULL; // Allocating memory dynamically
+Gordinal_type *_K = NULL; // Allocating memory dynamically
 
 /* AND NOW THE CODE */
 
