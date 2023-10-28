@@ -21,7 +21,7 @@
 typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 24 bits
 #define Bk (1 <<(k*(k-1)/2))
 kperm Permutations[Bk] __attribute__ ((aligned (32768)));
-short int K[Bk] __attribute__ ((aligned (32768)));
+Gordinal_type K[Bk] __attribute__ ((aligned (32768)));
 static Gint_type canon_list[MAX_CANONICALS];
 static int canon_num_edges[MAX_CANONICALS];
 
@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     char perm[9];
     int Kfd = open(("data/canon_map" kString ".bin"), 0*O_RDONLY);
     int pfd = open(("data/perm_map" kString ".bin"), 0*O_RDONLY);
-    short int *Kf = mmap(K, Bk*sizeof(K[0]), PROT_READ, MAP_PRIVATE|MAP_FIXED, Kfd, 0);
+    Gordinal_type *Kf = mmap(K, Bk*sizeof(K[0]), PROT_READ, MAP_PRIVATE|MAP_FIXED, Kfd, 0);
     kperm *Pf = mmap(Permutations, Bk*sizeof(Permutations[0]), PROT_READ, MAP_PRIVATE|MAP_FIXED, pfd, 0);
     if(Kf == MAP_FAILED) perror("mmap Kf");
     if(Pf == MAP_FAILED) perror("mmap Pf");

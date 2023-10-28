@@ -67,7 +67,7 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 ** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array.
 */
-short int* mapCanonMap(char* BUF, short int *K, int k) {
+Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
 #if SELF_LOOPS
     if (k > 7) Fatal("cannot have k>7 when SELF_LOOPS");
     int Bk = (1 <<(k*(k+1)/2));
@@ -78,7 +78,7 @@ short int* mapCanonMap(char* BUF, short int *K, int k) {
     int Kfd = open(BUF, 0*O_RDONLY);
     assert(Kfd > 0);
     //short int *Kf = Mmap(K, Bk*sizeof(short int), Kfd); // Using Mmap will cause error due to MAP_FIXED flag
-    short int *Kf = (short int*) mmap(K, sizeof(short int)*Bk, PROT_READ, MAP_PRIVATE, Kfd, 0);
+    Gordinal_type *Kf = (Gordinal_type*) mmap(K, sizeof(Gordinal_type)*Bk, PROT_READ, MAP_PRIVATE, Kfd, 0);
     assert(Kf != MAP_FAILED);
     return Kf;
 }

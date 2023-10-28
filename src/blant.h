@@ -43,14 +43,17 @@ extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're
 // This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
 #if TINY_SET_SIZE == 16
 #if __GLIBCXX_TYPE_INT_N_0 == 128
-    typedef __uint128 Gint_type;
+    typedef __uint128 Gint_type; // need 120 bits for undirected adjacency matrix for k=16...
+    typedef __uint128 Gordinal_type; // ... and max numCanonicals = 64001015704527557894928 < 2^76... what type is that???
     #define MAX_BINTREE_K 16
 #else
-    typedef unsigned long long Gint_type;
+    typedef unsigned long long Gint_type; // for k=11, need 55 bits in undirected adjacency matrix, so 64 bits sufficient...
+    typedef unsigned Gordinal_type; // ... and max numCanonicals = 1018997864 < 2^30, so 32 bits are sufficient
     #define MAX_BINTREE_K 11
 #endif
 #elif TINY_SET_SIZE == 8
-typedef unsigned Gint_type;
+typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
+typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
     #define MAX_BINTREE_K 8
 #else
 #error "unknwon TINY_SET_SIZE"
@@ -63,7 +66,7 @@ extern Gint_type _canonList[MAX_CANONICALS];
 
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
-short int* mapCanonMap(char* BUF, short int *K, int k);
+Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k);
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, int *canon_num_edges); // returns a SET containing list of connected ordinals
 int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K],  int orbit_canon_mapping[MAX_ORBITS],
     int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k);
@@ -95,7 +98,7 @@ extern int _alphaList[MAX_CANONICALS];
 
 extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
-extern short int *_K;
+extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
 extern unsigned int L_K_Func(Gint_type Gint);
 #define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
 extern SET *_connectedCanonicals;
@@ -115,7 +118,7 @@ extern double _graphletCount[MAX_CANONICALS];
 extern int **_graphletDistributionTable;
 extern double _graphletConcentration[MAX_CANONICALS];
 
-enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse};
+enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse, noncanonical};
 extern enum CanonicalDisplayMode _displayMode;
 extern int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
 extern int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes

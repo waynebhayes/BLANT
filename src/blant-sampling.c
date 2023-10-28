@@ -833,7 +833,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     }
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g, k);
-    int GintOrdinal = L_K(Gint);
+    Gordinal_type GintOrdinal = L_K(Gint);
 
     assert(numNodes == k); // Ensure we are returning k nodes
 

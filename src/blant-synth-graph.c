@@ -156,7 +156,8 @@ Gint_type PickGraphletFromConcentration(int binaryNum[], double graphletCDF[], i
     int canonArray[_numConnectedCanon];
     SetToArray(canonArray, _connectedCanonicals);
     Gint_type Gint;
-    int i, mid, l, h, GintOrdinal, step = 0;
+    int i, mid, l, h, step = 0;
+    Gordinal_type GintOrdinal;
     do
     {
         double r = RandomUniform();
