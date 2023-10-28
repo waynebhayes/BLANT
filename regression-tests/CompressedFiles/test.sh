@@ -14,8 +14,8 @@ exitCode=0
 for i in "${arr[@]}"
 do
    echo "Testing compressed edglist $i"
-   lines=`./blant -k 3 $TEST_DIR/$i | wc -l | awk '{print $1}'`;
-   if [ $lines -lt 100 ]
+   lines=`./blant -k 3 -mi -n100 $TEST_DIR/$i | wc -l | awk '{print $1}'`;
+   if [ $lines -ne 100 ]
    then
        echo "Test 1: Failed to load network $i"
        exitCode=1
