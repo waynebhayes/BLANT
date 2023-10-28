@@ -492,12 +492,12 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (_freqDisplayMode == concentration) {
 		if (SetIn(_connectedCanonicals, canon)) {
-		    printf("%lf %s\n", (double)_absoluteCountMultiplier*_graphletConcentration[canon], PrintCanonical(canon));
+		    printf("%lf %s\n", (double)_absoluteCountMultiplier*_graphletConcentration[canon], PrintOrdinal(canon));
 		}
 	    }
 	    else {
 		if (SetIn(_connectedCanonicals, canon)) {
-		    printf("%lf %s\n", (double)(_absoluteCountMultiplier*_graphletCount[canon]), PrintCanonical(canon));
+		    printf("%lf %s\n", (double)(_absoluteCountMultiplier*_graphletCount[canon]), PrintOrdinal(canon));
 		}
 	    }
 	}
@@ -864,7 +864,7 @@ const char * const USAGE_SHORT =
 " Common options: (use -h for longer help)\n"\
 "    -s samplingMethod (default MCMC; NBE, EBE, RES, AR, INDEX, EDGE_COVER)\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
-"    -d{displayModeForCanonicalIDs} (o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, i=integerOrdinal)\n"\
+"    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, n=noncanonical)\n"\
 "    -r seed (integer)\n\n"\
 "    -C once the graph is read in, use its complement (ie., cliques should be interpreted as independent sets, etc\n"\
 "    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the task up into N jobs (default 1) allowing\n"\
@@ -1033,6 +1033,7 @@ int main(int argc, char *argv[])
 	    case 'i': _displayMode = ordinal; break;
 	    case 'j': _displayMode = jesse; break;
 	    case 'o': _displayMode = orca; break;
+	    case 'n': _displayMode = noncanonical; break;
 	    default: Fatal("-d%c: unknown canonical display mode:n"
 		    "\tmodes are i=integer ordinal, d=decimal, b=binary, o=orca, j=jesse", *optarg);
 	    break;

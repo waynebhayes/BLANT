@@ -46,21 +46,29 @@ void VarraySort(unsigned *Varray, int k)
 #endif
 }
 
-char *PrintCanonical(int GintOrdinal)
+static char _printBuf[BUFSIZ];
+
+char *PrintGraphletID(Gint_type Gint)
 {
-    static char buf[BUFSIZ];
+    if(_displayMode == noncanonical) sprintf(_printBuf, "%d", Gint);
+    else PrintOrdinal(L_K(Gint));
+    return _printBuf;
+}
+
+char *PrintOrdinal(Gordinal_type GintOrdinal)
+{
     int j, GintNumBits = _k*(_k-1)/2;
     char GintBinary[GintNumBits+1]; // Only used in -db output mode for indexing
     switch (_displayMode) {
     case undefined:
     case ordinal:
-	sprintf(buf, "%d", GintOrdinal);
+	sprintf(_printBuf, "%d", GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
 #if TINY_SET_SIZE <= 32
-	sprintf(buf, "%u", _canonList[GintOrdinal]);
+	sprintf(_printBuf, "%u", _canonList[GintOrdinal]);
 #elif TINY_SET_SIZE >= 64
-	sprintf(buf, "%llu", _canonList[GintOrdinal]);
+	sprintf(_printBuf, "%llu", _canonList[GintOrdinal]);
 #else
 #error "unknown TINY_SET_SIZE"
 #endif
@@ -69,15 +77,18 @@ char *PrintCanonical(int GintOrdinal)
 	for (j=0;j<GintNumBits;j++)
 	    {GintBinary[GintNumBits-j-1]=((_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';
-	strcpy(buf, GintBinary);
+	strcpy(_printBuf, GintBinary);
 	break;
     case orca: // Prints the ORCA ID of the canonical. Jesse uses same number.
     case jesse:
 	if(SELF_LOOPS) Apology("sorry, orca and jesse output formats do not support self-loops");
-	sprintf(buf, "%d", _outputMapping[GintOrdinal]);
+	sprintf(_printBuf, "%d", _outputMapping[GintOrdinal]);
+	break;
+    case noncanonical: break; // handled above
+    default: Fatal("Internal error: PrintGraphletID called with unknown _displayMode %d", _displayMode);
 	break;
     }
-    return buf;
+    return _printBuf;
 }
 
 // Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
@@ -143,7 +154,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double weight)
+char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double weight)
 {
     int j;
     unsigned char perm[MAX_K];
@@ -157,15 +168,18 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
 #endif
     static char buf[2][BUFSIZ];
     int which=0; // which should ALWAYS point to the one that HAS the data
-    strcpy(buf[which], PrintCanonical(GintOrdinal));
+    strcpy(buf[which], PrintGraphletID(Gint));
 
-    // IMPORTANT NOTE: this code prints the perm, not the orbit (ambiguous graphlets have repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code here (and code in a lot of other places)
+    // IMPORTANT NOTE for SAMPLE_INDEX (Patrick Mode): this code prints the perm, not the orbit (ambiguous graphlets have
+    // repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm
+    // will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code
+    // here (and code in a lot of other places)
     if (_outputMode == indexGraphletsRNO) {
         sprintf(buf[1-which], "%s+o%d", buf[which], perm[0]);
 	which=1-which;
     }
 
-    for(j=0;j<k;j++) {
+    for(j=0;j<k;j++) { // build the string using two alterating buffers
 	sprintf(buf[1-which], "%s%s", buf[which], PrintNode(' ', Varray[(int)perm[j]]));
 	which=1-which;
     }
@@ -176,7 +190,7 @@ char *PrintIndexEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_G
     return buf[which];
 }
 
-char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w) {
+char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w) {
     assert(TinyGraphDFSConnected(g,0));
     int j;
     static SET* printed;
@@ -193,7 +207,7 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], 
 #endif
     static char buf[2][BUFSIZ];
     int which=0;
-    strcpy(buf[which], PrintCanonical(GintOrdinal));
+    strcpy(buf[which], PrintGraphletID(Gint));
     for(j=0;j<k;j++) if(!SetIn(printed,j))
     {
 	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
@@ -213,7 +227,7 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, int GintOrdinal, unsigned Varray[], 
     return buf[which];
 }
 
-void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w)
+void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w)
 {
     _G=G;
     assert(TinyGraphDFSConnected(g,0));
@@ -255,7 +269,7 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsign
 	int item = (_communityMode=='o' ? u_connectedOrb : _canon2connectedIndex[GintOrdinal]);
 #endif
 
-void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, int GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w)
+void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w)
 {
     _G=G;
     assert(TinyGraphDFSConnected(g,0));
@@ -295,13 +309,15 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     _G=G;
     Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
-    Gint_type Gint = TinyGraph2Int(g,k), GintOrdinal=L_K(Gint), j;
+    Gint_type Gint = TinyGraph2Int(g,k);
+    Gordinal_type GintOrdinal=L_K(Gint), j;
 
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
 
-    _graphletCount[GintOrdinal]+=weight; // we ALWAYS count the frequencies so we can normalize the counts later if possible
+    // ALWAYS count the frequencies; we may normalize the counts later using Sweta Jain's absolute clique count approximation
+    _graphletCount[GintOrdinal]+=weight;
 
     switch(_outputMode)
     {
