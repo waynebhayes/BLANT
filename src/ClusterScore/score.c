@@ -120,8 +120,11 @@ Boolean TryMerge(CLUSTERING *C){
 	C->clusters[who[keep]] = merged;
 	C->clusSize[who[keep]] = SetCardinality(merged);
 	merged = NULL;
-	C->clusters[who[1-keep]] = C->clusters[--C->nC];
+	C->nC--;
+	C->clusters[who[1-keep]] = C->clusters[C->nC];
+	C->clusSize[who[1-keep]] = C->clusSize[C->nC];
 	C->clusters[C->nC] = NULL;
+	C->clusSize[C->nC] = 0;
 	return true;
     }
 }
