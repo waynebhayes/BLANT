@@ -28,7 +28,14 @@ double ScoreOneCluster(GRAPH *G, SET *c) {
     unsigned nodes[G->n], n = SetToArray(nodes, c), m=0;
     assert(n>0);
     if(n==1) return 0;
-    for(int i=0; i<n; i++) for(int j=i+1;j<n;j++) if(GraphAreConnected(G,nodes[i],nodes[j])) ++m;
+    if(G->sparse) {
+	for(int i=0; i<n; i++) {
+	    int u = nodes[i];
+	    for(int j=0; j < G->degree[u]; j++) if(SetIn(c, G->neighbor[u][j])) ++m;
+	}
+    } else {
+	for(int i=0; i<n; i++) for(int j=i+1;j<n;j++) if(GraphAreConnected(G,nodes[i],nodes[j])) ++m;
+    }
     double ED= m/(n*(n-1)/2.0);
     return m*ED;
 }
@@ -153,8 +160,9 @@ int main(int argc, char *argv[])
     // At this point we have one big cluster consisting of the entire graph... split it once and get going....
     SplitCluster(C, 0);
 
-    while(true) {
-	double fullScore = ScoreClustering(C);
+    double fullScore=0;
+    while(fullScore>=0) {
+	fullScore = ScoreClustering(C);
 	if(TryMove(C)) printf("Status: %d clusters: full score %g\n", C->nC, fullScore);
     }
     return 0;
