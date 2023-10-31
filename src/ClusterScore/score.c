@@ -74,11 +74,11 @@ void SplitCluster(CLUSTERING *C, unsigned who) {
     assert(n == C->clusSize[who]);
     assert(C->clusters[C->nC]==NULL);
     C->clusters[C->nC]=SetAlloc(G->n);
-    int which;
     int num2move = n/2 - (n/2 - MIN_SIZE)*drand48();
     assert(num2move >= MIN_SIZE && n-num2move >= MIN_SIZE);
     for(int i=0; i<num2move; i++) {
-	until(SetIn(C->clusters[who], nodes[(which = drand48()*n)])) ;
+	int which=drand48()*n;
+	until(SetIn(C->clusters[who], nodes[which])) which = drand48()*n;
 	SetDelete(C->clusters[who], nodes[which]) ;
 	SetAdd(C->clusters[C->nC], nodes[which]);
     }
