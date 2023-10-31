@@ -1,5 +1,5 @@
-//#define NDEBUG 1
-//#define PARANOID_ASSERTS 0
+#define NDEBUG 1
+#define PARANOID_ASSERTS 0
 #include "misc.h"
 #include "graph.h"
 #include "sets.h"
@@ -34,7 +34,10 @@ double ScoreOneCluster(GRAPH *G, SET *c) {
     if(G->sparse) {
 	for(int i=0; i<n; i++) {
 	    int u = nodes[i];
-	    for(int j=0; j < G->degree[u]; j++) if(SetIn(c, G->neighbor[u][j])) ++m;
+	    for(int j=0; j < G->degree[u]; j++){
+		int v = G->neighbor[u][j];
+		if(v>u && SetIn(c, v)) ++m; // yes, I've checked that the v>u part is correct.
+	    }
 	}
     } else {
 	for(int i=0; i<n; i++) for(int j=i+1;j<n;j++) if(GraphAreConnected(G,nodes[i],nodes[j])) ++m;
@@ -59,16 +62,21 @@ double ScoreClustering(CLUSTERING *C) {
 }
 
 
-// Remove some random set of elements from C[who], put them in C->clusters[nC], and increment C->nC
+#define MIN_SIZE 3
+
+// Remove some random set of elements from C[who] (consistent with MIN_SIZE); put them in C->clusters[nC], and increment C->nC
 void SplitCluster(CLUSTERING *C, unsigned who) {
     GRAPH *G=C->G;
     assert(who < G->n);
+    assert(C->clusSize[who] >= 2*MIN_SIZE);
     unsigned nodes[G->n], n = SetToArray(nodes, C->clusters[who]);
     assert(n>1);
+    assert(n == C->clusSize[who]);
     assert(C->clusters[C->nC]==NULL);
     C->clusters[C->nC]=SetAlloc(G->n);
-    int which, num2move = 1+drand48()*(n-1)/2; // remove at least 1, and at most half FIXME: might this introduce a bias?
-    // int which, num2move = 1+drand48()*(n-1);   // remove at least 1, and at most (n-1) FIXME: might this introduce a bias?
+    int which;
+    int num2move = n/2 - (n/2 - MIN_SIZE)*drand48();
+    assert(num2move >= MIN_SIZE && n-num2move >= MIN_SIZE);
     for(int i=0; i<num2move; i++) {
 	until(SetIn(C->clusters[who], nodes[(which = drand48()*n)])) ;
 	SetDelete(C->clusters[who], nodes[which]) ;
@@ -87,7 +95,7 @@ Boolean TrySplit(CLUSTERING *C){
 
     int oldNC = C->nC, who=0, oldSize=0, tries = 0;
     // prefer to split larger clusters with the drand48()
-    while(oldSize < 2 || 1.0*C->clusSize[who]/_largestCluster < drand48()) {
+    while(oldSize < 2*MIN_SIZE || 1.0*C->clusSize[who]/_largestCluster < drand48()) {
 	who = oldNC * drand48();
 	oldSize = C->clusSize[who];
 	assert(++tries < G->n);
@@ -116,9 +124,9 @@ Boolean TryMerge(CLUSTERING *C){
     int who[2]={-1,-1}, oldSize[2]={G->n,G->n};
     for(int i=0;i<2;i++) {
 	int tries = 0;
-	while((who[i] = C->nC*drand48()) == who[1-i] ||
-	    // prefer to merge smaller clusters together instead of bigger ones
-	    C->clusSize[who[i]] > G->n*drand48()) assert(++tries < G->n);
+	// prefer to merge smaller clusters together instead of bigger ones
+	while((who[i] = C->nC*drand48()) == who[1-i] || C->clusSize[who[i]] > G->n*drand48())
+	    assert(++tries < G->n);
     }
     assert(who[0] != who[1]);
     assert(0 <= who[0] && who[0] < C->nC);
@@ -153,7 +161,7 @@ Boolean TryMove(CLUSTERING *C){
 
     // We want to bias towards a merge if there's "too many" clusters, and bias towards split if there's too few,
     // but but we need at least 2 before we can merge.
-    double mergeProb = (C->nC-1.0)/C->G->n;
+    double mergeProb = (C->nC-1.0*MIN_SIZE)/C->G->n;
     
     if(drand48() < mergeProb) return TryMerge(C);
     else return TrySplit(C);
@@ -182,15 +190,24 @@ int main(int argc, char *argv[])
     CLUSTERING *C = ClusteringAlloc(G);
     _C = C;
 
+    srand48(time(0));
     // At this point we have one big cluster consisting of the entire graph... split it once and get going....
     SplitCluster(C, 0);
 
     signal(SIGINT, OutputClustering);
     double fullScore=0;
+    unsigned fails=0;
+    unsigned long iter = 0;
     while(fullScore>=0) {
 	fullScore = ScoreClustering(C);
-	if(TryMove(C)) printf("Status: %u clusters, largest %d, full score %g\n", C->nC, _largestCluster, fullScore);
+	if(TryMove(C)) {
+	    fails=0;
+	    printf("Status: %lu iters, %u clusters, largest %d, full score %g\n", iter, C->nC, _largestCluster, fullScore);
+	}
+	else if(++fails>10000*G->n) break;
+	++iter;
     }
+    OutputClustering(0);
     return 0;
 }
 
