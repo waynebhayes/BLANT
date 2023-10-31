@@ -1,17 +1,4 @@
-#define NDEBUG 1
-#define PARANOID_ASSERTS 0
-#include "misc.h"
-#include "graph.h"
-#include "sets.h"
-#include "rand48.h"
-#include <math.h>
-#include <signal.h>
-
-typedef struct _clustering {
-    GRAPH *G;
-    SET **clusters;
-    unsigned nC, *clusSize;
-} CLUSTERING;
+#include "score.h"
 
 // Allocate a clustering and return it with the zero'th cluster assigned to all nodes in G.
 CLUSTERING *ClusteringAlloc(GRAPH *G) {
@@ -189,6 +176,24 @@ void OutputClustering(int sig) {
     exit(0);
 }
 
+static double _fullScore;
+static unsigned long _scoreIteration;
+
+// returns true if we should continue, false if we should stop
+Boolean ScoreIteration(void) {
+    static unsigned fails;
+    _fullScore = ScoreClustering(_C);
+    if(TryMove(_C)) {
+	fails=0;
+	printf("Status: %lu iters, %u clusters, largest %d, full score %g\n",
+	    _scoreIteration, _C->nC, _largestCluster, _fullScore);
+    }
+    else if(++fails>100*_C->G->n) return false;
+    ++_scoreIteration;
+    return true;
+}
+
+
 int main(int argc, char *argv[])
 {
     Boolean sparse=true, supportNodeNames=false, weighted=false;
@@ -203,18 +208,7 @@ int main(int argc, char *argv[])
     SplitCluster(C, 0);
 
     signal(SIGINT, OutputClustering);
-    double fullScore=0;
-    unsigned fails=0;
-    unsigned long iter = 0;
-    while(fullScore>=0) {
-	fullScore = ScoreClustering(C);
-	if(TryMove(C)) {
-	    fails=0;
-	    printf("Status: %lu iters, %u clusters, largest %d, full score %g\n", iter, C->nC, _largestCluster, fullScore);
-	}
-	else if(++fails>10000*G->n) break;
-	++iter;
-    }
+    while(ScoreIteration()) ; // Just keep going...
     OutputClustering(0);
     return 0;
 }
