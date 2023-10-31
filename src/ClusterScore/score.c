@@ -27,9 +27,12 @@ CLUSTERING *ClusteringAlloc(GRAPH *G) {
     return C;
 }
 
-double ScoreOneCluster(GRAPH *G, SET *c) {
+static CLUSTERING *_C;
+
+unsigned ClusterEdgeCount(GRAPH *G, SET *c, unsigned num) {
     unsigned nodes[G->n], n = SetToArray(nodes, c), m=0;
     assert(n>0);
+    assert(n==num);
     if(n==1) return 0;
     if(G->sparse) {
 	for(int i=0; i<n; i++) {
@@ -42,7 +45,12 @@ double ScoreOneCluster(GRAPH *G, SET *c) {
     } else {
 	for(int i=0; i<n; i++) for(int j=i+1;j<n;j++) if(GraphAreConnected(G,nodes[i],nodes[j])) ++m;
     }
-    double ED= m/(n*(n-1)/2.0);
+    return m;
+}
+
+double ScoreOneCluster(GRAPH *G, SET *c, unsigned n) {
+    unsigned m=ClusterEdgeCount(G,c,n);
+    double ED = m/(n*(n-1)/2.0);
     return m*ED;
 }
 
@@ -55,7 +63,7 @@ double ScoreClustering(CLUSTERING *C) {
 	assert(C->clusSize[c] > 0);
 	assert(C->clusSize[c] < C->G->n);
 	if(C->clusSize[c] > _largestCluster) _largestCluster = C->clusSize[c];
-	double CS = ScoreOneCluster(C->G, C->clusters[c]); // printf(" %g", CS);
+	double CS = ScoreOneCluster(C->G, C->clusters[c], C->clusSize[c]); // printf(" %g", CS);
 	score += CS;
     }
     return score;
@@ -100,10 +108,11 @@ Boolean TrySplit(CLUSTERING *C){
 	oldSize = C->clusSize[who];
 	assert(++tries < G->n);
     }
-    double oldScore = ScoreOneCluster(C->G, C->clusters[who]);
+    double oldScore = ScoreOneCluster(C->G, C->clusters[who], C->clusSize[who]);
     SplitCluster(C, who);
     assert(C->nC == oldNC+1);
-    double newScore = ScoreOneCluster(C->G, C->clusters[who]) + ScoreOneCluster(C->G, C->clusters[oldNC]);
+    double newScore = ScoreOneCluster(C->G, C->clusters[who], C->clusSize[who]) +
+	ScoreOneCluster(C->G, C->clusters[oldNC], C->clusSize[oldNC]);
     if(newScore > oldScore) return true;
     else {
 	SetUnion(C->clusters[who], C->clusters[who], C->clusters[oldNC]);
@@ -131,11 +140,12 @@ Boolean TryMerge(CLUSTERING *C){
     assert(who[0] != who[1]);
     assert(0 <= who[0] && who[0] < C->nC);
     assert(0 <= who[1] && who[1] < C->nC);
-    double oldScore = ScoreOneCluster(C->G, C->clusters[who[0]]) + ScoreOneCluster(C->G, C->clusters[who[1]]);
+    double oldScore = ScoreOneCluster(C->G, C->clusters[who[0]], C->clusSize[who[0]]) +
+	ScoreOneCluster(C->G, C->clusters[who[1]], C->clusSize[who[1]]);
     static SET *merged;
     if(merged) SetReset(merged); else merged = SetAlloc(C->G->n);
     SetUnion(merged, C->clusters[who[0]], C->clusters[who[1]]);
-    double newScore = ScoreOneCluster(C->G, merged);
+    double newScore = ScoreOneCluster(C->G, merged, SetCardinality(merged));
     if(newScore < oldScore) return false;
     else {
 	SetFree(C->clusters[who[0]]);
@@ -167,15 +177,13 @@ Boolean TryMove(CLUSTERING *C){
     else return TrySplit(C);
 }
 
-static CLUSTERING *_C;
-
 void OutputClustering(int sig) {
     double score=0;
     for(int c=0; _C->clusters[c]; c++) {
-	double CS = ScoreOneCluster(_C->G, _C->clusters[c]);
-	printf("C %d n %d score %g:",c, _C->clusSize[c], CS);
+	double CS = ScoreOneCluster(_C->G, _C->clusters[c], _C->clusSize[c]);
+	printf("C %d n %d m %d score %g:", c, _C->clusSize[c], ClusterEdgeCount(_C->G, _C->clusters[c], _C->clusSize[c]), CS);
 	unsigned nodes[_C->G->n], n = SetToArray(nodes, _C->clusters[c]);
-	for(int i=0; i<=n; i++) printf(" %d", nodes[i]);
+	for(int i=0; i<n; i++) printf(" %d", nodes[i]);
 	puts("");
     }
     exit(0);
@@ -210,4 +218,3 @@ int main(int argc, char *argv[])
     OutputClustering(0);
     return 0;
 }
-
