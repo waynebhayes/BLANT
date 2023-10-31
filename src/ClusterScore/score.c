@@ -1,8 +1,11 @@
+//#define NDEBUG 1
+//#define PARANOID_ASSERTS 0
 #include "misc.h"
 #include "graph.h"
 #include "sets.h"
 #include "rand48.h"
 #include <math.h>
+#include <signal.h>
 
 typedef struct _clustering {
     GRAPH *G;
@@ -40,9 +43,15 @@ double ScoreOneCluster(GRAPH *G, SET *c) {
     return m*ED;
 }
 
+static int _largestCluster;
+
 double ScoreClustering(CLUSTERING *C) {
     double score=0;
+    _largestCluster=0;
     for(int c=0; C->clusters[c]; c++) {
+	assert(C->clusSize[c] > 0);
+	assert(C->clusSize[c] < C->G->n);
+	if(C->clusSize[c] > _largestCluster) _largestCluster = C->clusSize[c];
 	double CS = ScoreOneCluster(C->G, C->clusters[c]); // printf(" %g", CS);
 	score += CS;
     }
@@ -76,8 +85,9 @@ Boolean TrySplit(CLUSTERING *C){
     assert(C->clusters[C->nC-1]);
     assert(C->clusters[C->nC]==NULL);
 
-    int oldNC = C->nC, who, oldSize=0, tries = 0;
-    while(oldSize < 2) {
+    int oldNC = C->nC, who=0, oldSize=0, tries = 0;
+    // prefer to split larger clusters with the drand48()
+    while(oldSize < 2 || 1.0*C->clusSize[who]/_largestCluster < drand48()) {
 	who = oldNC * drand48();
 	oldSize = C->clusSize[who];
 	assert(++tries < G->n);
@@ -149,21 +159,37 @@ Boolean TryMove(CLUSTERING *C){
     else return TrySplit(C);
 }
 
+static CLUSTERING *_C;
+
+void OutputClustering(int sig) {
+    double score=0;
+    for(int c=0; _C->clusters[c]; c++) {
+	double CS = ScoreOneCluster(_C->G, _C->clusters[c]);
+	printf("C %d n %d score %g:",c, _C->clusSize[c], CS);
+	unsigned nodes[_C->G->n], n = SetToArray(nodes, _C->clusters[c]);
+	for(int i=0; i<=n; i++) printf(" %d", nodes[i]);
+	puts("");
+    }
+    exit(0);
+}
+
 int main(int argc, char *argv[])
 {
-    Boolean sparse=true, supportNodeNames=true, weighted=false;
+    Boolean sparse=true, supportNodeNames=false, weighted=false;
     FILE *fp=Fopen(argv[1], "r");
     GRAPH *G = GraphReadEdgeList(fp, sparse, supportNodeNames, weighted);
 
     CLUSTERING *C = ClusteringAlloc(G);
+    _C = C;
 
     // At this point we have one big cluster consisting of the entire graph... split it once and get going....
     SplitCluster(C, 0);
 
+    signal(SIGINT, OutputClustering);
     double fullScore=0;
     while(fullScore>=0) {
 	fullScore = ScoreClustering(C);
-	if(TryMove(C)) printf("Status: %d clusters: full score %g\n", C->nC, fullScore);
+	if(TryMove(C)) printf("Status: %u clusters, largest %d, full score %g\n", C->nC, _largestCluster, fullScore);
     }
     return 0;
 }
