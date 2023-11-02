@@ -1,4 +1,5 @@
 #include "score.h"
+#include "anneal.h"
 
 // Allocate a clustering and return it with the zero'th cluster assigned to all nodes in G.
 CLUSTERING *ClusteringAlloc(GRAPH *G) {
@@ -14,7 +15,7 @@ CLUSTERING *ClusteringAlloc(GRAPH *G) {
     return C;
 }
 
-static CLUSTERING *_C;
+CLUSTERING *_C;
 
 unsigned ClusterEdgeCount(GRAPH *G, SET *c, unsigned num) {
     unsigned nodes[G->n], n = SetToArray(nodes, c), m=0;
@@ -41,7 +42,7 @@ double ScoreOneCluster(GRAPH *G, SET *c, unsigned n) {
     return m*ED;
 }
 
-static int _largestCluster;
+int _largestCluster;
 
 double ScoreClustering(CLUSTERING *C) {
     double score=0;
@@ -57,7 +58,7 @@ double ScoreClustering(CLUSTERING *C) {
 }
 
 
-#define MIN_SIZE 3
+#define MIN_SIZE 9
 
 // Remove some random set of elements from C[who] (consistent with MIN_SIZE); put them in C->clusters[nC], and increment C->nC
 void SplitCluster(CLUSTERING *C, unsigned who) {
@@ -79,6 +80,8 @@ void SplitCluster(CLUSTERING *C, unsigned who) {
     }
     C->clusSize[C->nC]= num2move;
     C->clusSize[who] -= num2move;
+    assert(C->clusSize[who] >= MIN_SIZE);
+    assert(C->clusSize[C->nC] >= MIN_SIZE);
     C->nC++;
 }
 
@@ -93,14 +96,16 @@ Boolean TrySplit(CLUSTERING *C){
     while(oldSize < 2*MIN_SIZE || 1.0*C->clusSize[who]/_largestCluster < drand48()) {
 	who = oldNC * drand48();
 	oldSize = C->clusSize[who];
-	assert(++tries < G->n);
+	if(++tries > 100*G->n) return false; // Fatal("too many tries in TrySplit");
     }
     double oldScore = ScoreOneCluster(C->G, C->clusters[who], C->clusSize[who]);
     SplitCluster(C, who);
     assert(C->nC == oldNC+1);
     double newScore = ScoreOneCluster(C->G, C->clusters[who], C->clusSize[who]) +
 	ScoreOneCluster(C->G, C->clusters[oldNC], C->clusSize[oldNC]);
-    if(newScore > oldScore) return true;
+    double p = AnnealAcceptProb(oldScore, newScore), r = drand48();
+    if(r < p) // if(newScore > oldScore)
+	return true;
     else {
 	SetUnion(C->clusters[who], C->clusters[who], C->clusters[oldNC]);
 	SetFree(C->clusters[oldNC]);
@@ -133,8 +138,8 @@ Boolean TryMerge(CLUSTERING *C){
     if(merged) SetReset(merged); else merged = SetAlloc(C->G->n);
     SetUnion(merged, C->clusters[who[0]], C->clusters[who[1]]);
     double newScore = ScoreOneCluster(C->G, merged, SetCardinality(merged));
-    if(newScore < oldScore) return false;
-    else {
+    double p = AnnealAcceptProb(oldScore, newScore), r = drand48();
+    if(r < p) { // accept the merge
 	SetFree(C->clusters[who[0]]);
 	SetFree(C->clusters[who[1]]);
 	int keep;
@@ -149,6 +154,7 @@ Boolean TryMerge(CLUSTERING *C){
 	C->clusSize[C->nC] = 0;
 	return true;
     }
+    else return false;
 }
 
 Boolean TryMove(CLUSTERING *C){
@@ -158,7 +164,9 @@ Boolean TryMove(CLUSTERING *C){
 
     // We want to bias towards a merge if there's "too many" clusters, and bias towards split if there's too few,
     // but but we need at least 2 before we can merge.
-    double mergeProb = (C->nC-1.0*MIN_SIZE)/C->G->n;
+    double mergeProb = 1.0*C->nC/C->G->n;
+    assert(0 < mergeProb && mergeProb < 1);
+    mergeProb = sqrt(mergeProb); // bias it more towards 1 since splitting is occurring too much.
     
     if(drand48() < mergeProb) return TryMerge(C);
     else return TrySplit(C);
@@ -176,39 +184,15 @@ void OutputClustering(int sig) {
     exit(0);
 }
 
-static double _fullScore;
-static unsigned long _scoreIteration;
-
-// returns true if we should continue, false if we should stop
-Boolean ScoreIteration(void) {
-    static unsigned fails;
-    _fullScore = ScoreClustering(_C);
-    if(TryMove(_C)) {
-	fails=0;
-	printf("Status: %lu iters, %u clusters, largest %d, full score %g\n",
-	    _scoreIteration, _C->nC, _largestCluster, _fullScore);
+// returns whether the iteration was successful (ie., move accepted)
+Boolean ScoreIteration(double pBad, Boolean running) {
+    static unsigned fails, delay;
+    Boolean success = TryMove(_C);
+    if(running && ++delay > 10000) {
+	double fullScore = ScoreClustering(_C);
+	delay=0;
+	printf("Status: pBad %g, %u clusters, largest %d, full score %g\n", PbadBufMean(), _C->nC, _largestCluster, fullScore);
     }
-    else if(++fails>100*_C->G->n) return false;
-    ++_scoreIteration;
-    return true;
+    return success;
 }
 
-
-int main(int argc, char *argv[])
-{
-    Boolean sparse=true, supportNodeNames=false, weighted=false;
-    FILE *fp=Fopen(argv[1], "r");
-    GRAPH *G = GraphReadEdgeList(fp, sparse, supportNodeNames, weighted);
-
-    CLUSTERING *C = ClusteringAlloc(G);
-    _C = C;
-
-    srand48(time(0));
-    // At this point we have one big cluster consisting of the entire graph... split it once and get going....
-    SplitCluster(C, 0);
-
-    signal(SIGINT, OutputClustering);
-    while(ScoreIteration()) ; // Just keep going...
-    OutputClustering(0);
-    return 0;
-}

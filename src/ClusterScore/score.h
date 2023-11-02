@@ -1,5 +1,7 @@
-#define NDEBUG 1
-#define PARANOID_ASSERTS 0
+#ifndef __SCORE_H
+#define __SCORE_H 1
+//#define NDEBUG 1
+//#define PARANOID_ASSERTS 0
 #include "misc.h"
 #include "graph.h"
 #include "sets.h"
@@ -17,10 +19,15 @@ typedef struct _clustering {
 CLUSTERING *ClusteringAlloc(GRAPH *G);
 unsigned ClusterEdgeCount(GRAPH *G, SET *c, unsigned num);
 double ScoreOneCluster(GRAPH *G, SET *c, unsigned n);
+Boolean ScoreIteration(double pBad, Boolean running);
 double ScoreClustering(CLUSTERING *C);
 void SplitCluster(CLUSTERING *C, unsigned who);
 Boolean TrySplit(CLUSTERING *C);
 Boolean TryMerge(CLUSTERING *C);
 Boolean TryMove(CLUSTERING *C);
 void OutputClustering(int sig);
-Boolean ScoreIteration();
+
+CLUSTERING *_C;
+double _fullScore;
+int _largestCluster;
+#endif
