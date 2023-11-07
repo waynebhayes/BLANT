@@ -12,9 +12,13 @@ Our new tool, called BLANT (*Basic local Aligment of Network Topology*), is inte
 
 ## USAGE
 ### Quick Start guide
-#### Stack Size, unxz, 7z
+#### Stack Size, unxz, 7z, and DOS/Windows CRLF
 You may need to install xz (a compression program) and 7z (another compression program).
 Before starting *anything* below, you need to ensure your OS allows your programs enough stack space. Some machines today still ship with a default limit of 8MB---a *ridiculously* small limit on any machine built after about 1999.  You do not require sudo privileges to change this. If you're running Linux or MacOS, type "ulimit -s unlimited" to your Bash shell; if you're running any other system, you're on your own.
+
+Also, if you edit any of the text files in the BLANT repo using a Windows-based text editor (eg., VSCode), then your editor might add a "carriage return" (CR) to the end of every line in a text file... which confuses the Unix programs like BASH, that expect only a "line feed" (LF). If that happens, you may need to checkout all the files again using "git checkout '*'", or use the "dos2unix" program to remove the CRs. Specifically, if you see an error message something like this the below, then that's almost certainly your problem:
+
+    /bin/bash^M: bad interpreter
 
 Also, some useful utilities are in the directory libwayne/bin; you may want to add that directory to your PATH because some scripts in BLANT depend on them. Some of the programs there are
 
