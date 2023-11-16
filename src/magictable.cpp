@@ -9,10 +9,8 @@
 #include <unordered_set>
 #include "blant-fundamentals.h"
 
-/*
-    This file assumes LOWER_TRIANGLE is defined in blant.h
-    Otherwise, the graph won't be built correctly in Int2TinyGraph
-*/
+// We assume LOWER_TRIANGLE is defined in blant-fundamentals.h; otherwise, Int2TinyGraph won't build a correct graph.
+// .... except the ORCA numbering assumes we're using UPPER!  (Thus the tables umap3, umap4, umap 5). We need lmaps...
 
 //Functions from libwayne and libblant.c
 extern "C" {
