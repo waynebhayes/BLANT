@@ -166,13 +166,11 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
-// The algorithm works by maintaining the exact set of edges that are
-// emanating out of the graphlet-in-construction. Then we pick one of
-// these edges uniformly at random, add the node at the endpoint of that
-// edge to the graphlet, and then add all the outbound edges from that
-// new node (ie., edges that are not going back inside the graphlet).
-// So the "outset" is the set of edges going to nodes exactly distance
-// one from the set V, as V is being built.
+// The algorithm works by maintaining the exact set of nodes that are
+// one step away from any node already in the graphlet-in-construction.
+// Then we pick one of these nodes uniformly at random to add to the
+// graphlet. We then add all the neighbors of THAT new node to the
+// "one step outside V" set.
 //   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
 
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
@@ -444,8 +442,9 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 
 
 /*
-** This is a faster graphlet sampling routine, although it may produce a
-** distribution of graphlets that is further from "ideal" than the above.
+** This is a faster graphlet sampling routine especially when the mean degree
+** of the graph is large... although it produces a distribution of graphlets
+** that is further from true than NodeBased Expansion.
 ** The difference is that in the above method we explicitly build and maintain
 ** the "outset" (the set of nodes one step outside V), but this can be expensive
 ** when the mean degree of the graph G is high, since we have to add all the

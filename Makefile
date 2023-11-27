@@ -88,6 +88,16 @@ subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),can
 #alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
+##################################################################################################################
+####### this is an attempt to create rules to make data files for just ONE value of k... but not working yet...
+k3: $(addsuffix 3.txt, $(canon_txt)) $(addsuffix 3.bin, $(canon_bin)) orca_jesse_blant_table/UpperToLower3.txt
+k4: $(addsuffix 4.txt, $(canon_txt)) $(addsuffix 4.bin, $(canon_bin)) canon_maps/subcanon_map4-3.txt orca_jesse_blant_table/UpperToLower4.txt
+k5: $(addsuffix 5.txt, $(canon_txt)) $(addsuffix 5.bin, $(canon_bin)) canon_maps/subcanon_map5-4.txt orca_jesse_blant_table/UpperToLower5.txt
+k6: $(addsuffix 6.txt, $(canon_txt)) $(addsuffix 6.bin, $(canon_bin)) canon_maps/subcanon_map6-5.txt orca_jesse_blant_table/UpperToLower6.txt
+k7: $(addsuffix 7.txt, $(canon_txt)) $(addsuffix 7.bin, $(canon_bin)) canon_maps/subcanon_map7-6.txt orca_jesse_blant_table/UpperToLower7.txt
+k8: $(addsuffix 8.txt, $(canon_txt)) $(addsuffix 8.bin, $(canon_bin)) canon_maps/subcanon_map8-7.txt orca_jesse_blant_table/UpperToLower8.txt
+##################################################################################################################
+
 #base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant test_maps test_sanity
 base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_maps test_sanity
 
