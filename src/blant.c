@@ -305,7 +305,7 @@ static int StateDegree(GRAPH *G, SET *S)
 void convertFrequencies(unsigned long numSamples)
 {
     int i;
-    if (_sampleMethod == SAMPLE_MCMC) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC) {
 	if (_freqDisplayMode == count) {
 	    for (i = 0; i < _numCanon; i++) {
 		_graphletCount[i] = _graphletConcentration[i] * numSamples;
@@ -343,7 +343,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
-    if (_sampleMethod == SAMPLE_MCMC)
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
     if (_outputMode == graphletDistribution) {
         SampleGraphlet(G, V, Varray, k, G->n);
@@ -472,7 +472,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if (_sampleMethod == SAMPLE_MCMC && !_window)
+    if ((_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC) && !_window)
 	finalizeMCMC();
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
@@ -522,7 +522,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_EVERY_EDGE || _sampleMethod != SAMPLE_MCMC) printf(" %g", ODV(i,orbit_index));
+		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC)) printf(" %g", ODV(i,orbit_index));
 		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 	    }
 	    printf("\n");
@@ -1053,6 +1053,8 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_FAYE;
 	    else if (strncmp(optarg, "EBE", 3) == 0)
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
+		else if (strncmp(optarg, "krMCMC", 6) == 0)
+		_sampleMethod = SAMPLE_KRMCMC;
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
 		_sampleMethod = SAMPLE_MCMC;
 		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
