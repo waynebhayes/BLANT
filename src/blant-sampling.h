@@ -25,6 +25,7 @@
 #define SAMPLE_FAYE 6
 #define SAMPLE_INDEX 7 // Use deterministic walk to find seeds which are used for extensions
 #define SAMPLE_MCMC_EC 8 // cover all edges in G at least once, then stop
+#define SAMPLE_KRMCMC 9 // MCMC Algorithm but it restarts each time it gets a graphlet
 
 extern int _sampleMethod, _sampleSubmethod;
 extern FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
