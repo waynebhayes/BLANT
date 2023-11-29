@@ -186,12 +186,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 }
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
-	
-	if(_sampleMethod == SAMPLE_NODE_EXPANSION) {
-		sprintf(BUF, "%s/%s/alpha_list_nbe%d.txt", _BLANT_DIR, CANON_DIR, k);
-	} else {
-		sprintf(BUF, "%s/%s/alpha_list_mcmc%d.txt", _BLANT_DIR, CANON_DIR, k);
-	}
+	sprintf(BUF, "%s/%s/alpha_list_mcmc%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     int numAlphas, i;
@@ -203,31 +198,6 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     fclose(fp_ord);
     return numAlphas;
 }
-
-// Loads alpha values(overcounting ratios) for NBE sampling from files
-// The alpha value represents the number of ways to get that graphlet
-// Concentrations are initialized to 0
-void initializeNBE(GRAPH* G, int k, unsigned long numSamples) {
-	int i;
-
-	char BUF[BUFSIZ];
-	_numSamples = numSamples;
-	alphaListPopulate(BUF, _alphaList, k);
-	for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
-}
-
-// Convert the graphlet frequencies to concentrations
-void finalizeNBE(void) {
-    double totalConcentration = 0;
-    int i;
-    for (i = 0; i < _numCanon; i++) {
-	if(_graphletConcentration[i] < 0.0)
-	    Fatal("_graphletConcentration[%d] %g should be non-negative\n",i, _graphletConcentration[i]);
-	totalConcentration += _graphletConcentration[i];
-    }
-    for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
-}
-
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
@@ -335,7 +305,7 @@ static int StateDegree(GRAPH *G, SET *S)
 void convertFrequencies(unsigned long numSamples)
 {
     int i;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC || _sampleMethod == SAMPLE_NODE_EXPANSION) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC) {
 	if (_freqDisplayMode == count) {
 	    for (i = 0; i < _numCanon; i++) {
 		_graphletCount[i] = _graphletConcentration[i] * numSamples;
@@ -375,8 +345,6 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     InitializeConnectedComponents(G);
     if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
-	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
-	initializeNBE(G, k, numSamples);
     if (_outputMode == graphletDistribution) {
         SampleGraphlet(G, V, Varray, k, G->n);
         SetCopy(prev_node_set, V);
@@ -506,8 +474,6 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     if ((_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC) && !_window)
 	finalizeMCMC();
-	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
-	finalizeNBE();
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
 
@@ -556,7 +522,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC && _sampleMethod != SAMPLE_NODE_EXPANSION)) printf(" %g", ODV(i,orbit_index));
+		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC)) printf(" %g", ODV(i,orbit_index));
 		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 	    }
 	    printf("\n");
