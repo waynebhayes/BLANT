@@ -253,18 +253,20 @@ blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
 
 test_sanity: blant blant-sanity $(canon_all) #$(canon_map_bins)
 	# First run blant-sanity for various values of k
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s NBE -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
+	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s MCMC -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
 test_freq: blant $(canon_all) #$(canon_map_bins)
-	# Test to see that the most frequent 10 graphlets in syeast appear in the expected order in
+	# Test to see that the most frequent 6 graphlets in syeast appear in the expected order in
 	# frequency; need 10 million samples to ensure with high probability we get the same graphlets.
-	# We then sort them because the top 10 are a pretty stable set but their order is not.
+	# We then sort them because the top 6 are a pretty stable set but their order is not.
+	# We use 6 because for all k, the difference between the count of the 6th and 13th graphlet is large
+	# enough to ensure (with high confidence) that the 6 is a fixed set.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s NBE -mf -t $(CORES) -n 10000000 -k $$k networks/syeast.el | sort -nr | awk '$$1{print $$2}' | head | sort -n | diff -b - testing/syeast.top10freq.k$$k.txt; fi; done
+	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s MCMC -mf -t $(CORES) -n 30000000 -k $$k networks/syeast.el | sort -gr | tee /tmp/syeast.top10freq.k$$k.txt | head -6 | awk '$$1{print $$2}' | sort -n | diff -c testing/syeast.top10freq.k$$k.txt -; fi; done
 
 test_GDV: blant $(canon_all) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'
-	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s NBE -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | awk 'function MIN(a,b){return (a<b)?a:b} function MAX(a,b){return (a>b)?a:b} {cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
+	for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -s MCMC -t $(CORES) -mg -n 10000000 -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- |bash -c "paste - <(unxz < testing/syeast.gdv.k$$k.txt.xz)" | awk 'function MIN(a,b){return (a<b)?a:b} function MAX(a,b){return (a>b)?a:b} {cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i))/MAX($$i,$$(cols+i))}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;exit(1);}else print $$0 }' || break; done
 
 test_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
