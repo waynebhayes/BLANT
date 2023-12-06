@@ -47,6 +47,7 @@ char _communityMode; // 'g' for graphlet or 'o' for orbit
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // true if -C option was specified
 Boolean _weighted; // input network is weighted
+Boolean _sanityTesting;
 int _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -186,15 +187,20 @@ static int InitializeConnectedComponents(GRAPH *G)
 }
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
-	
-	if(_sampleMethod == SAMPLE_NODE_EXPANSION) {
-		sprintf(BUF, "%s/%s/alpha_list_nbe%d.txt", _BLANT_DIR, CANON_DIR, k);
-	} else {
-		sprintf(BUF, "%s/%s/alpha_list_mcmc%d.txt", _BLANT_DIR, CANON_DIR, k);
-	}
+    int i;
+    if(_sanityTesting) { // turn off alphas by making them all 1.
+	for(i=0; i<_numCanon; i++) alpha_list[i] = 1;
+	return _numCanon;
+    }
+
+    if(_sampleMethod == SAMPLE_NODE_EXPANSION) {
+	    sprintf(BUF, "%s/%s/alpha_list_nbe%d.txt", _BLANT_DIR, CANON_DIR, k);
+    } else {
+	    sprintf(BUF, "%s/%s/alpha_list_mcmc%d.txt", _BLANT_DIR, CANON_DIR, k);
+    }
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    int numAlphas, i;
+    int numAlphas;
     assert(1==fscanf(fp_ord, "%d",&numAlphas));
 #if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
     assert(numAlphas == _numCanon);
@@ -964,6 +970,7 @@ const char * const USAGE_LONG =
 "       M can be anything from 1 to a compile-time-specified maximum possible value (MAX_POSSIBLE_THREADS in blant.h),\n"\
 "       but defaults to 4 to be conservative.\n"\
 "    -r seed: pick your own random seed\n"\
+"    -S is for SANITY TESTING ONLY! It turns off the de-biasing alpha multipliers and produces BIASED samples\n"\
 "    -W windowSize: DEPRECATED. (use '-h' option for more)\n"\
 "	-p windowRepSamplingMethod: (DEPRECATED) one of the below\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
@@ -1007,7 +1014,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:s:t:T:wW:")) != -1)
+    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:Ss:t:T:wW:")) != -1)
     {
 	switch(opt)
 	{
@@ -1078,6 +1085,8 @@ int main(int argc, char *argv[])
 	    assert(1 <= _JOBS && _MAX_THREADS <= MAX_POSSIBLE_THREADS);
 	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
+	    break;
+	case 'S': _sanityTesting=true;
 	    break;
 	case 's':
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
