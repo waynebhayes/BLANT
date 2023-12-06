@@ -228,7 +228,7 @@ void finalizeNBE(void) {
     int i;
     for (i = 0; i < _numCanon; i++) {
 	if(_graphletConcentration[i] < 0.0)
-	    Fatal("_graphletConcentration[%d] %g should be non-negative\n",i, _graphletConcentration[i]);
+	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
 	totalConcentration += _graphletConcentration[i];
     }
     for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
@@ -268,7 +268,7 @@ void finalizeMCMC(void) {
     int i;
     for (i = 0; i < _numCanon; i++) {
 	if(_graphletConcentration[i] < 0.0)
-	    Fatal("_graphletConcentration[%d] %g should be non-negative\n",i, _graphletConcentration[i]);
+	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
 	totalConcentration += _graphletConcentration[i];
     }
     for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
@@ -521,7 +521,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     if(_absoluteCliqueCount > 0) _absoluteCountMultiplier = _absoluteCliqueCount /
 	(_freqDisplayMode == concentration ? _graphletConcentration[_numCanon-1] : _graphletCount[_numCanon-1]);
 
-    // fprintf(stderr, "Multiplier %g\t", _absoluteCountMultiplier);
+    // fprintf(stderr, "Multiplier %.15g\t", _absoluteCountMultiplier);
 
     switch(_outputMode)
     {
@@ -552,7 +552,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	{
 	    printf("%s", PrintNode(0,i));
 	    for(canon=0; canon < _numCanon; canon++)
-		printf(" %g", GDV(i,canon));
+		printf(" %.15g", GDV(i,canon));
 	    puts("");
 	}
 	break;
@@ -562,7 +562,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC && _sampleMethod != SAMPLE_NODE_EXPANSION)) printf(" %g", ODV(i,orbit_index));
+		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC && _sampleMethod != SAMPLE_NODE_EXPANSION)) printf(" %.15g", ODV(i,orbit_index));
 		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 	    }
 	    printf("\n");
@@ -583,7 +583,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 			for(j=0;j<GraphDegree(G,u); j++) {
 			    v = GraphNextNeighbor(G,u,&buf); assert(v!=-1); // G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][orbit_index],v)) {
-				if(!numPrinted++) printf("%s %d %g\t", PrintNode(0,u), orbit_index, odv);
+				if(!numPrinted++) printf("%s %d %.15g\t", PrintNode(0,u), orbit_index, odv);
 				printf("%s", PrintNode(' ',v));
 			    }
 			}
@@ -636,7 +636,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     TinyGraphFree(empty_g);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
-    	fprintf(stderr,"Average number of tries per sample is %g\n", _acceptRejectTotalTries/(double)numSamples);
+    	fprintf(stderr,"Average number of tries per sample is %.15g\n", _acceptRejectTotalTries/(double)numSamples);
     SetFree(V);
     SetFree(prev_node_set);
     SetFree(intersect_node);

@@ -7,7 +7,7 @@
 #include "multisets.h"
 #include "blant-utils.h"
 
-#define MAX_TRIES 100		// max # of tries in cumulative sampling before giving up
+#define MAX_TRIES 1000		// max # of tries in cumulative sampling before giving up
 #define ALLOW_DISCONNECTED_GRAPHLETS 0
 
 #ifndef RESERVOIR_MULTIPLIER
