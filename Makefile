@@ -256,13 +256,10 @@ test_sanity: blant blant-sanity $(canon_all) #$(canon_map_bins)
 	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity check indexing for k=$$k; ./blant -s MCMC -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
 test_freq: blant $(canon_all) #$(canon_map_bins)
-	# Test to see that the most frequent 6 graphlets in syeast appear in the expected order in
-	# frequency; need 10 million samples to ensure with high probability we get the same graphlets.
-	# We then sort them because the top 6 are a pretty stable set but their order is not.
-	# We use 6 because for all k, the difference between the count of the 6th and 13th graphlet is large
-	# enough to ensure (with high confidence) that the 6 is a fixed set.
+	# Test to ensure the frequency of graphlets is within 6 sigma of the theoretical Poisson frequency based on a 3e9
+	# sample pre-generated "correct" frequency.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -s MCMC -mf -t $(CORES) -n 30000000 -k $$k networks/syeast.el | sort -gr | tee /tmp/syeast.top10freq.k$$k.txt | head -6 | awk '$$1{print $$2}' | sort -n | diff -c testing/syeast.top10freq.k$$k.txt -; fi; done
+	N=3000000; S=NBE; for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -S -s $$S -mf -n $$N -k $$k networks/syeast.el | paste testing/syeast.$$S.sanity.3B.k$$k.txt - | awk "BEGIN{N=$$N}"'function ABS(x){return x<0?-x:x}{p=$$1/3e9;l=N*p;c=$$3;d=ABS(l-c);if($$1>30 && $$3>20 && l && d/sqrt(l)>6){printf "%g\t%g %g %s\n", (l?d/sqrt(l):0), l, c, $$0; exit 1}}' || break; fi; done
 
 test_GDV: blant $(canon_all) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'

@@ -137,6 +137,7 @@ extern SET **_componentSet;
 
 extern double *_cumulativeProb;
 extern Boolean _child, _weighted;
+extern Boolean _sanityTesting;
 
 #define SPARSE true // do not try false at the moment, it's broken
 

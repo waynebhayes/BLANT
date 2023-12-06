@@ -190,7 +190,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	SetEmpty(outSet);
     int v1, v2, i, j;
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
-	double multiplier = 1;
+    double multiplier = 1;
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     int edge;
@@ -296,7 +296,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
 	else
 	    j = nOut * RandomUniform();
-	multiplier *= nOut;
+	if(!_sanityTesting) multiplier *= nOut;
 	assert(multiplier > 0.0);
 	v1 = outbound[j];
 	SetDelete(outSet, v1);
@@ -882,7 +882,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 #endif
 	// First and last graphlets in the window are skipped for multiplier product
 	if (i != 0 && i != _MCMC_L-1) {
-	    multiplier *= (graphletDegree);
+	    if(!_sanityTesting) multiplier *= (graphletDegree);
 	}
 	assert(multiplier > 0.0);
     }
@@ -979,7 +979,7 @@ double SampleGraphletKRestartMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int
 #endif
 	// last graphlets in the window is skipped for multiplier product
 	if (i != _MCMC_L-1) {
-	    multiplier *= (graphletDegree);
+	    if(!_sanityTesting) multiplier *= (graphletDegree);
 	}
 	assert(multiplier > 0.0);
     }
