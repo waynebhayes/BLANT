@@ -175,12 +175,6 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
-	static TINY_GRAPH *g = NULL;
-
-	if (!g) {
-		g = TinyGraphAlloc(k);
-    }
-
     static SET *outSet;
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
@@ -267,30 +261,27 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #if PARANOID_ASSERTS
 	    assert(NumReachableNodes(T,0) == k);
 #endif
+	    TinyGraphInducedFromGraph(T, G, Varray);
+	    Gint_type Gint = TinyGraph2Int(T, k);
 	    TinyGraphFree(T);
-		TinyGraphInducedFromGraph(g, G, Varray);
-		Gint_type Gint = TinyGraph2Int(g, k);
-		Gordinal_type GintOrdinal = L_K(Gint);
+	    Gordinal_type GintOrdinal = L_K(Gint);
 
-		double ocount = 1.0;
-
-		ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
-
-		if (_outputMode == outputODV) {
+	    double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
+	    if (_outputMode == outputODV) {
 		unsigned char perm[k];
 		memset(perm, 0, k);
 		ExtractPerm(perm, Gint);
 		for (j = 0; j < k; j++) {
 			_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 		}
-		} else {
+	    } else {
 		if(ocount < 0) {
-			Warning("ocount (%g) is less than 0\n", ocount);
+		    Warning("ocount (%g) is less than 0\n", ocount);
 		}
-		_graphletConcentration[GintOrdinal] += ocount;
-		}
+	    _graphletConcentration[GintOrdinal] += ocount;
+	    }
 
-		_g_overcount = ocount;
+	    _g_overcount = ocount;
 	    return 1.0;
 #endif
 	}
@@ -315,30 +306,28 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(SetCardinality(V) == k);
     assert(nOut == SetCardinality(outSet));
 #endif
+    if(!_window) {
+	TINY_GRAPH *g = TinyGraphAlloc(k);
 	TinyGraphInducedFromGraph(g, G, Varray);
-    Gint_type Gint = TinyGraph2Int(g, k);
-    Gordinal_type GintOrdinal = L_K(Gint);
-
-	double ocount = 1.0;
-
-	ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
-
+	Gint_type Gint = TinyGraph2Int(g, k);
+	Gordinal_type GintOrdinal = L_K(Gint);
+	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode == outputODV) {
-	unsigned char perm[k];
-	memset(perm, 0, k);
-	ExtractPerm(perm, Gint);
-	for (j = 0; j < k; j++) {
-	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    unsigned char perm[k];
+	    memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+	    for (j = 0; j < k; j++) {
+		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    }
+	} else {
+	    if(ocount < 0) {
+		Warning("ocount (%g) is less than 0\n", ocount);
+	    }
+	    _graphletConcentration[GintOrdinal] += ocount;
 	}
-    } else {
-	if(ocount < 0) {
-	    Warning("ocount (%g) is less than 0\n", ocount);
-	}
-	_graphletConcentration[GintOrdinal] += ocount;
+
+	_g_overcount = ocount;
     }
-
-    _g_overcount = ocount;
-
     return 1.0;
 }
 
