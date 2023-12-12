@@ -79,7 +79,7 @@ char** convertToEL(char* file); // from convert.cpp
 #define DEFAULT_BLANT_DIR "."
 extern const char* _BLANT_DIR;
 
-#define PARANOID_ASSERTS 0	// turn on copious assert checking --- slows down execution by a factor of 2-3
+#define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
 extern double    *_orbitDegreeVector[MAX_ORBITS];

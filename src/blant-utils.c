@@ -38,7 +38,7 @@ void SetGlobalCanonMaps(void)
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
-    _K = (short*) mapCanonMap(BUF, _K, _k);
+    _K = (unsigned short*) mapCanonMap(BUF, _K, _k);
 
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
