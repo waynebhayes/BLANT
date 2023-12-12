@@ -163,6 +163,11 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
     return 1+numVisited;
 }
 
+
+
+// Initialize NBE with either a node, or an edge.
+#define NBE_NUM_START_NODES 1  // 1 for a single node, 2 for an edge
+
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
 // Caller is responsible for allocating the set V and its array Varray.
@@ -172,46 +177,68 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 // graphlet. We then add all the neighbors of THAT new node to the
 // "one step outside V" set.
 //   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
-
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
+    int i, j;
+    assert(V && V->maxElem >= G->n);
+    SetEmpty(V);
+    int edge;
+    if(G->useComplement) {
+	Varray[0] = G->n * RandomUniform();
+	Varray[1] = GraphRandomNeighbor(G,Varray[0]);
+    } else {
+	if(whichCC<0){ // we are being TOLD to choose a specific edge to start, even if NUM_START_NODES is 1
+	    edge = -(whichCC+1);
+	    Varray[0] = G->edgeList[2*edge];
+	    Varray[1] = G->edgeList[2*edge+1];
+	}
+	else {
+#if NBE_NUM_START_NODES == 1 // start with a uniform random NODE and one of its neighbors
+	    do {
+		Varray[0] = G->n * RandomUniform();
+	    } while(!SetIn(_componentSet[whichCC], Varray[0]));
+	    Varray[1] = GraphRandomNeighbor(G,Varray[0]);
+#else
+	    do {
+		edge = G->numEdges * RandomUniform();
+		Varray[0] = G->edgeList[2*edge];
+	    } while(!SetIn(_componentSet[whichCC], Varray[0]));
+	    assert(edge < G->numEdges);
+	    Varray[1] = G->edgeList[2*edge+1];
+#endif
+	}
+    }
+    SetAdd(V, Varray[0]);
+    SetAdd(V, Varray[1]);
+
     static SET *outSet;
+    int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
     if(!outSet)
        outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
     else if(G->n > outSet->maxElem)
 	SetResize(outSet, G->n);
     else
 	SetEmpty(outSet);
-    int v1, v2, i, j;
-    int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
-    double multiplier = 1;
-    assert(V && V->maxElem >= G->n);
-    SetEmpty(V);
-    int edge;
-    if(G->useComplement) {
-	v1 = G->n * RandomUniform();
-	v2 = GraphRandomNeighbor(G,v1);
-    } else {
-	if(whichCC<0){
-	    edge = -(whichCC+1);
-	    v1 = G->edgeList[2*edge];
-	}
-	else do {
-	    edge = G->numEdges * RandomUniform();
-	    v1 = G->edgeList[2*edge];
-	} while(!SetIn(_componentSet[whichCC], v1));
-	assert(edge < G->numEdges);
-	v2 = G->edgeList[2*edge+1];
-    }
-    SetAdd(V, v1); Varray[0] = v1;
-    SetAdd(V, v2); Varray[1] = v2;
-
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
-    int nBuf=0; for(i=0; i < GraphDegree(G,v1); i++)
+    int nBuf=0; for(i=0; i < GraphDegree(G,Varray[0]); i++)
     {
-	int nv1 = GraphNextNeighbor(G,v1,&nBuf); assert(nv1 != -1);
-	if(nv1 != v2)
+	int nv0 = GraphNextNeighbor(G,Varray[0],&nBuf); assert(nv0 != -1);
+	if(nv0 != Varray[1])
+	{
+#if PARANOID_ASSERTS
+	    assert(!SetIn(V, nv0)); // assertion to ensure we're in line with faye
+#endif
+	    SetAdd(outSet, (outbound[nOut++] = nv0));
+	}
+    }
+    assert(i==GraphDegree(G,Varray[0]));
+    assert(-1==GraphNextNeighbor(G,Varray[0],&nBuf));
+
+    nBuf=0; for(i=0; i < GraphDegree(G,Varray[1]); i++)
+    {
+	int nv1 = GraphNextNeighbor(G,Varray[1],&nBuf); assert(nv1 != -1);
+	if(nv1 != Varray[0] && !SetIn(outSet, nv1))
 	{
 #if PARANOID_ASSERTS
 	    assert(!SetIn(V, nv1)); // assertion to ensure we're in line with faye
@@ -219,25 +246,11 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv1));
 	}
     }
-    assert(i==GraphDegree(G,v1));
-    assert(-1==GraphNextNeighbor(G,v1,&nBuf));
+    assert(GraphNextNeighbor(G,Varray[1],&nBuf) == -1);
 
-    nBuf=0; for(i=0; i < GraphDegree(G,v2); i++)
-    {
-	int nv2 = GraphNextNeighbor(G,v2,&nBuf); assert(nv2 != -1);
-	if(nv2 != v1 && !SetIn(outSet, nv2))
-	{
-#if PARANOID_ASSERTS
-	    assert(!SetIn(V, nv2)); // assertion to ensure we're in line with faye
-#endif
-	    SetAdd(outSet, (outbound[nOut++] = nv2));
-	}
-    }
-    assert(GraphNextNeighbor(G,v2,&nBuf) == -1);
-
+    double multiplier = 1;
     for(i=2; i<k; i++)
     {
-	int j;
 	if(nOut == 0) // the graphlet has saturated it's connected component
 	{
 #if PARANOID_ASSERTS
@@ -289,17 +302,17 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    j = nOut * RandomUniform();
 	if(!_sanityTesting) multiplier *= nOut;
 	assert(multiplier > 0.0);
-	v1 = outbound[j];
-	SetDelete(outSet, v1);
-	SetAdd(V, v1); Varray[i] = v1;
-	outbound[j] = outbound[--nOut];	// nuke v1 from the list of outbound by moving the last one to its place
-	nBuf=0; for(j=0; j<GraphDegree(G,v1);j++) // another loop over neighbors that may take a long time...
+	int v0 = outbound[j];
+	SetDelete(outSet, v0);
+	SetAdd(V, v0); Varray[i] = v0;
+	outbound[j] = outbound[--nOut];	// nuke v0 from the list of outbound by moving the last one to its place
+	nBuf=0; for(j=0; j<GraphDegree(G,v0);j++) // another loop over neighbors that may take a long time...
 	{
-	    v2 = GraphNextNeighbor(G,v1,&nBuf); assert(v2!=-1);
-	    if(!SetIn(outSet, v2) && !SetIn(V, v2))
-		SetAdd(outSet, (outbound[nOut++] = v2));
+	    int v1 = GraphNextNeighbor(G,v0,&nBuf); assert(v1!=-1);
+	    if(!SetIn(outSet, v1) && !SetIn(V, v1))
+		SetAdd(outSet, (outbound[nOut++] = v1));
 	}
-	assert(-1==GraphNextNeighbor(G,v1,&nBuf));
+	assert(-1==GraphNextNeighbor(G,v0,&nBuf));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
@@ -743,8 +756,8 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 	    {
 		static TINY_GRAPH *T;
 		if(!T) T = TinyGraphAlloc(k);
-		static int graphetteArray[MAX_K], distArray[MAX_K];
 #if PARANOID_ASSERTS
+		static int graphetteArray[MAX_K], distArray[MAX_K];
 		// ensure it's connected before we do the replacement
 		TinyGraphEdgesAllDelete(T);
 		TinyGraphInducedFromGraph(T, G, Varray);
@@ -1009,9 +1022,7 @@ double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Va
 */
 double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k)
 {
-    int distArray[G->n];
     TINY_GRAPH *g = TinyGraphAlloc(k);
-    int graphetteArray[k];
 
     int tries = 0;
     do
@@ -1029,6 +1040,7 @@ double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k)
 	TinyGraphEdgesAllDelete(g);
 	TinyGraphInducedFromGraph(g, G, Varray);
 #if PARANOID_ASSERTS
+	int distArray[G->n], graphetteArray[k];
 	assert(SetCardinality(V)==k);
 	assert(NumReachableNodes(g,0) == TinyGraphBFS(g, 0, k, graphetteArray, distArray));
 #endif
