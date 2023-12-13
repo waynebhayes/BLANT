@@ -9,7 +9,6 @@
 static int k; // number of bits required to store ints up to 2^(k choose 2)
 static unsigned long numBitValues; // the actual value 2^(k choose 2)
 
-static TINY_GRAPH *G;
 #if LOWER_TRIANGLE
 
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
@@ -194,18 +193,18 @@ void canon_map(void){
 
     //saving canonical decimal and permutation in the file
     long canonDec, canonPerm;
+    TINY_GRAPH *G = TinyGraphAlloc(k);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
 	canonDec=0;canonPerm=0;
 	decodeChar(data[i],&canonDec,&canonPerm);
 	assert(canonDec >= 0);
 	assert(canonPerm >= 0);
-	fprintf(fcanon,"%lu\t", canonicalDecimal[canonDec]);
 	for(int p=0;p<k;p++) printPerm[p] = '0' + Permutations[canonPerm][p];
 	printPerm[k]='\0';
-	fputs(printPerm, fcanon);
+	fprintf(fcanon,"%lu\t%s", canonicalDecimal[canonDec], printPerm);
 	if(canonPerm == 0) {
-	    G = TinyGraphAlloc(k);
+	    TinyGraphEdgesAllDelete(G);
 	    Int2TinyGraph(G, i);
 	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(G, 0, k, nodeArray, distArray) == k);
 	    fprintf(fcanon, "\t%c %d", '0'+connected, TinyGraphNumEdges(G));
