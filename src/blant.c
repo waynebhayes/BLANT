@@ -47,7 +47,7 @@ char _communityMode; // 'g' for graphlet or 'o' for orbit
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // true if -C option was specified
 Boolean _weighted; // input network is weighted
-Boolean _sanityTesting;
+Boolean _rawCounts;
 int _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -188,7 +188,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     int i;
-    if(_sanityTesting) { // turn off alphas by making them all 1.
+    if(_rawCounts) { // turn off alphas by making them all 1.
 	for(i=0; i<_numCanon; i++) alpha_list[i] = 1;
 	return _numCanon;
     }
@@ -1014,7 +1014,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:Ss:t:T:wW:")) != -1)
+    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:Rs:t:T:wW:")) != -1)
     {
 	switch(opt)
 	{
@@ -1086,7 +1086,7 @@ int main(int argc, char *argv[])
 	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
 	    break;
-	case 'S': _sanityTesting=true;
+	case 'R': _rawCounts=true;
 	    break;
 	case 's':
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");

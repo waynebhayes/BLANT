@@ -166,7 +166,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 
 
 // Initialize NBE with either a node, or an edge.
-#define NBE_NUM_START_NODES 1  // 1 for a single node, 2 for an edge
+#define NBE_NUM_START_NODES 2  // 1 for a single node, 2 for an edge
 
 // Given the big graph G and an integer k, return a k-graphlet from G
 // in the form of a SET of nodes called V. When complete, |V| = k.
@@ -300,7 +300,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
 	else
 	    j = nOut * RandomUniform();
-	if(!_sanityTesting) multiplier *= nOut;
+	if(!_rawCounts) multiplier *= nOut;
 	assert(multiplier > 0.0);
 	int v0 = outbound[j];
 	SetDelete(outSet, v0);
@@ -884,7 +884,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 #endif
 	// First and last graphlets in the window are skipped for multiplier product
 	if (i != 0 && i != _MCMC_L-1) {
-	    if(!_sanityTesting) multiplier *= (graphletDegree);
+	    if(!_rawCounts) multiplier *= (graphletDegree);
 	}
 	assert(multiplier > 0.0);
     }
@@ -981,7 +981,7 @@ double SampleGraphletKRestartMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int
 #endif
 	// last graphlets in the window is skipped for multiplier product
 	if (i != _MCMC_L-1) {
-	    if(!_sanityTesting) multiplier *= (graphletDegree);
+	    if(!_rawCounts) multiplier *= (graphletDegree);
 	}
 	assert(multiplier > 0.0);
     }
