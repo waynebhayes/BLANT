@@ -1097,8 +1097,10 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
 	    else if (strncmp(optarg, "FAYE", 4) == 0)
 		_sampleMethod = SAMPLE_FAYE;
-	    else if (strncmp(optarg, "EBE", 3) == 0)
+	    else if (strncmp(optarg, "EBE", 3) == 0) {
+		if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
+	    }
 	    else if (strncmp(optarg, "krMCMC", 6) == 0) {
 		if(strncmp(optarg, "krMCMC!", 7) != 0)
 		    Warning("krMCMC has buggy edge cases; suppress this warning by appending an exclamation mark");
