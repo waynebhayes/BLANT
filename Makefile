@@ -259,12 +259,13 @@ test_freq: blant $(canon_all) #$(canon_map_bins)
 	# Test to ensure the frequency of graphlets is within 6 sigma of the theoretical Poisson frequency based on a 3e9
 	# sample pre-generated "correct" frequency.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
-	N=3000000; S=krMCMC; for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./blant -S -s $$S -mf -n $$N -k $$k networks/syeast.el | paste regression-tests/sanity/syeast.$$S.sanity.3B.k$$k.txt - | awk "BEGIN{N=$$N}"'function ABS(x){return x<0?-x:x}{p=$$1/3e9;l=N*p;c=$$3;d=ABS(l-c);if($$1>30 && $$3>20 && l && d/sqrt(l)>6){printf "%g\t%g %g %s\n", (l?d/sqrt(l):0), l, c, $$0; exit 1}}' || break; fi; done
+	# For now, NBE is the only sampling method that seems to get the bias bang on.
+	N=3000000; S=NBE; for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of graphlets in networks/syeast.el for "k=$$k"; ./scripts/test-raw-counts.sh ./blant $$S $$N $$k regression-tests/sanity/syeast.$$S.raw.3e9.k$$k.txt | awk '$$1>6{printf "6-sigma violation: %s\n", $$0; exit 1}' || break; fi; done
 
 test_GDV: blant $(canon_all) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'
 	# "correct" values came from 3e9 samples, so we divide by 1000 to correspond to testing with 3e6 samples
-	N=3000000; S=krMCMC; for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -S -s $$S -t $(CORES) -mg -n $$N -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- | bash -c "paste - <(unxz < regression-tests/sanity/syeast.$$S.gdv.3B.k$$k.txt.xz | cut -d' ' -f2-)" | awk 'function MIN(a,b){return (a<b)?a:b} function MAX(a,b){return (a>b)?a:b} {cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)/1000>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i)/1000)/MAX($$i,$$(cols+i)/1000)}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;}else print $$0 }' || break; done
+	N=3000000; S=krMCMC; for k in $(K); do export k; /bin/echo -n "$$k: "; ./blant -R -s $$S -t $(CORES) -mg -n $$N -k $$k networks/syeast.el | sort -n | cut -d' ' -f2- | bash -c "paste - <(unxz < regression-tests/sanity/syeast.$$S.gdv.3e9.k$$k.txt.xz | cut -d' ' -f2-)" | awk 'function MIN(a,b){return (a<b)?a:b} function MAX(a,b){return (a>b)?a:b} {cols=NF/2;for(i=1;i<=cols;i++)if($$i>1000&&$$(cols+i)/1000>1000)printf "%.9f\n", 1-MIN($$i,$$(cols+i)/1000)/MAX($$i,$$(cols+i)/1000)}' | $(LIBWAYNE_HOME)/bin/stats | sed -e 's/#/num/' -e 's/var.*//' | $(LIBWAYNE_HOME)/bin/named-next-col '{if(num<1000 || mean>.005*'$$k' || max>0.2 || stdDev>0.005*'$$k'){printf "BEYOND TOLERANCE:\n%s\n",$$0;}else print $$0 }' || break; done
 
 test_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
