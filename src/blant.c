@@ -902,7 +902,9 @@ const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
 "USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
-"    -s samplingMethod (default MCMC; NBE, EBE, RES, AR, INDEX, EDGE_COVER)\n"\
+"    -s samplingMethod (default NBE; EBE!, MCMC!, krMCMC!, RES, AR, INDEX, EDGE_COVER)\n"\
+"       Note: although MCMC and krMCMC are *much* faster than NBE, they current have weird bugs and so are not recommended,\n"\
+"             which is why you are required to place an exclamation mark after the method name if you want to use it.\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, n=noncanonical)\n"\
 "    -r seed (integer)\n\n"\
@@ -922,12 +924,13 @@ const char * const USAGE_LONG =
 "	where it specifies the maximum number of samples to take from each node in the graph.\n"\
 "	(note: -c {confidence} option is mutually exclusive to -n but is pending implementation)\n"\
 "    samplingMethod is:\n"\
-"	MCMC (default): Markov Chain Monte Carlo: Build the first set S of k nodes using NBE; then randomly remove and add\n"\
+"	NBE (default; Node-Based Expansion): pick an edge at random and add it to the node set S; add new nodes by choosing\n"\
+"         uniformly at random from all nodes one step outside S. (slow, but correct)\n"\
+"	MCMC: Markov Chain Monte Carlo: Build the first set S of k nodes using NBE; then randomly remove and add\n"\
 "         nodes to S using an MCMC graph walking algorithm with restarts; gives asymptotically correct relative frequencies\n"\
 "         when using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
-"           duplicates in indexing modes.)\n"\
-"	NBE (Node-Based Expansion): pick a node at random and add it to the node set S; add new nodes by choosing uniformly\n"\
-"         at random from all nodes one step outside S. (Fast on sparse networks, slightly biased counts)\n"\
+"         duplicates in indexing modes.) NOTE: currently has very noisy clique counts\n"\
+"       krMCMC: like MCMC, but resart the walk after every graphlet. Very fast but also buggy on some edge cases.\n"\
 "	EBE (Edge-Based Expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
 "         uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
 "	RES (Lu Bressan's REServoir sampling): also asymptotically correct but much slower than MCMC.\n"\
@@ -1096,9 +1099,13 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_FAYE;
 	    else if (strncmp(optarg, "EBE", 3) == 0)
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
-		else if (strncmp(optarg, "krMCMC", 6) == 0)
+	    else if (strncmp(optarg, "krMCMC", 6) == 0) {
+		if(strncmp(optarg, "krMCMC!", 7) != 0)
+		    Warning("krMCMC has buggy edge cases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_KRMCMC;
+	    }
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
+		if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC currently has noisy clique counts; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_MCMC;
 		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
 		    _MCMC_EVERY_EDGE=true;
