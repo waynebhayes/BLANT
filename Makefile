@@ -260,7 +260,7 @@ test_freq: blant $(canon_all) #$(canon_map_bins)
 	# sample pre-generated "correct" frequency.
 	# The -t option tests parallelism, attemting to run multiple threads simultaneously.
 	# For now, NBE is the only sampling method that seems to get the bias bang on.
-	N=3000000; S=NBE; for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo sanity checking frequency of $$k-graphlets for $$N $$S-method samples from networks/syeast.el; ./scripts/test-raw-counts.sh ./blant $$S $$N $$k regression-tests/sanity/syeast.$$S.raw.3e9.k$$k.txt | awk '$$1>6{printf "6-sigma violation: %s\n", $$0; exit 1}' || break; fi; done
+	N=3000000; S=NBE; for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo "Checking $$S's raw frequency of $$k-graphlets is Poisson using $$N samples from networks/syeast.el"; ./scripts/test-raw-counts.sh ./blant $$S $$N $$k regression-tests/sanity/syeast.$$S.raw.3e9.k$$k.txt | awk '$$1>6{printf "6-sigma violation: %s\n", $$0; exit 1}' || break; fi; done
 
 test_GDV: blant $(canon_all) $(LIBWAYNE_HOME)/bin/hawk $(LIBWAYNE_HOME)/bin/stats
 	echo 'testing Graphlet (not orbit) Degree Vectors'
