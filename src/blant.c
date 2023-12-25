@@ -1103,11 +1103,11 @@ int main(int argc, char *argv[])
 	    }
 	    else if (strncmp(optarg, "krMCMC", 6) == 0) {
 		if(strncmp(optarg, "krMCMC!", 7) != 0)
-		    Warning("krMCMC has buggy edge cases; suppress this warning by appending an exclamation mark");
+		    Warning("krMCMC is generally reliable but has rare buggy edge cases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_KRMCMC;
 	    }
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
-		//if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC currently has noisy clique counts; suppress this warning by appending an exclamation mark");
+		if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC produces unbiased but high variance graphlet counts; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_MCMC;
 		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
 		    _MCMC_EVERY_EDGE=true;
