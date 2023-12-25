@@ -929,7 +929,7 @@ const char * const USAGE_LONG =
 "	MCMC: Markov Chain Monte Carlo: Build the first set S of k nodes using NBE; then randomly remove and add\n"\
 "         nodes to S using an MCMC graph walking algorithm with restarts; gives asymptotically correct relative frequencies\n"\
 "         when using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
-"         duplicates in indexing modes.) NOTE: currently has very noisy clique counts\n"\
+"         duplicates in indexing modes.)\n"\
 "       krMCMC: like MCMC, but resart the walk after every graphlet. Very fast but also buggy on some edge cases.\n"\
 "	EBE (Edge-Based Expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
 "         uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
@@ -1107,7 +1107,7 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_KRMCMC;
 	    }
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
-		if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC currently has noisy clique counts; suppress this warning by appending an exclamation mark");
+		//if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC currently has noisy clique counts; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_MCMC;
 		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
 		    _MCMC_EVERY_EDGE=true;
