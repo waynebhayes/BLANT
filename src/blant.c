@@ -235,6 +235,33 @@ void finalizeNBE(void) {
 }
 
 
+// Loads alpha values(overcounting ratios) for SEC sampling from files
+// The alpha value represents the number of ways to walk over that graphlet
+// Concentrations are initialized to 0
+void initializeSEC(GRAPH* G, int k, unsigned long numSamples) {
+	int i;
+
+	char BUF[BUFSIZ];
+	_numSamples = numSamples;
+	if(!_window) {
+	    alphaListPopulate(BUF, _alphaList, k);
+	    for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
+	}
+}
+
+// Convert the graphlet frequencies to concentrations
+void finalizeSEC(void) {
+    double totalConcentration = 0;
+    int i;
+    for (i = 0; i < _numCanon; i++) {
+	if(_graphletConcentration[i] < 0.0)
+	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
+	totalConcentration += _graphletConcentration[i];
+    }
+    for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
+}
+
+
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
 // Global variable _MCMC_L is needed by many functions
@@ -341,7 +368,7 @@ static int StateDegree(GRAPH *G, SET *S)
 void convertFrequencies(unsigned long numSamples)
 {
     int i;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC || _sampleMethod == SAMPLE_NODE_EXPANSION) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
 	if (_freqDisplayMode == count) {
 	    for (i = 0; i < _numCanon; i++) {
 		_graphletCount[i] = _graphletConcentration[i] * numSamples;
@@ -383,6 +410,8 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
 	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
 	initializeNBE(G, k, numSamples);
+	else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
+	initializeSEC(G, k, numSamples);
     if (_outputMode == graphletDistribution) {
         SampleGraphlet(G, V, Varray, k, G->n);
         SetCopy(prev_node_set, V);
@@ -514,6 +543,8 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	finalizeMCMC();
 	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
 	finalizeNBE();
+	else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
+	finalizeSEC();
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
 
@@ -562,7 +593,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC && _sampleMethod != SAMPLE_NODE_EXPANSION)) printf(" %.15g", ODV(i,orbit_index));
+		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", ODV(i,orbit_index));
 		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 	    }
 	    printf("\n");
@@ -1095,6 +1126,8 @@ int main(int argc, char *argv[])
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 	    else if (strncmp(optarg, "NBE", 3) == 0)
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
+		else if (strncmp(optarg, "SEC", 3) == 0)
+		_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
 	    else if (strncmp(optarg, "FAYE", 4) == 0)
 		_sampleMethod = SAMPLE_FAYE;
 	    else if (strncmp(optarg, "EBE", 3) == 0) {

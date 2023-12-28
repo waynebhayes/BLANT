@@ -1014,6 +1014,147 @@ double SampleGraphletKRestartMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int
     return 1.0;
 }
 
+
+// SampleGraphletSequentialEdgeChaining starts with a single edge and always chooses a new edge that shares one node
+// with the previous edge and has another new node. If it get's stuck having no edges with new node to choose, it restarts
+// After And after choosing k-1 edges it returns a graphlet
+double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC) {
+    static int Xcurrent[2]; // holds the most recent edge
+    static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
+    if (!g) {
+	//NON REENTRANT CODE
+		g = TinyGraphAlloc(k);
+    }
+
+	double multiplier = 1;
+	int edge;
+	bool foundGraphlet = false;
+
+	do {
+		foundGraphlet = true;
+		// Pick the first edge
+		if (whichCC == -1) { // Pick a random edge from anywhere in the graph that has at least k nodes
+			do {
+			edge = G->numEdges * RandomUniform();
+			} while(!(_componentSize[_whichComponent[G->edgeList[2*edge]]] < k));
+		} else { // Pick a random edge from within a chosen connected component
+			do {
+			edge = G->numEdges * RandomUniform();
+			} while(!SetIn(_componentSet[whichCC], G->edgeList[2*edge]));
+		}
+
+		#if PARANOID_ASSERTS
+			assert(edge >= 0 && edge < G->numEdges);
+		#endif
+
+		Xcurrent[0] = G->edgeList[2 * edge];
+		Xcurrent[1] = G->edgeList[2 * edge + 1];
+
+		Varray[0] = Xcurrent[0], Varray[1] = Xcurrent[1];
+
+
+		// Add _MCMC_L-1 d graphlets to our sliding window. The edge we added is the first d graphlet
+		int i, j;
+		for (i = 2; i < k; i++) {
+			int oldu = Xcurrent[0];
+			int oldv = Xcurrent[1];
+
+			double p = RandomUniform();
+			double uDegree = GraphDegree(G, oldu), vDegree = GraphDegree(G, oldv);
+
+			for(j = 0; j < i; j++) {
+				if(GraphAreConnected(G, Varray[j], oldu)) uDegree--;
+				if(GraphAreConnected(G, Varray[j], oldv)) vDegree--;
+			}
+
+			#if PARANOID_ASSERTS
+				assert(uDegree >= 0);
+				assert(vDegree >= 0);
+			#endif
+
+			if(uDegree + vDegree == 0) {
+				foundGraphlet = false; // We got stuck, restart
+				break;
+			}
+
+			if(!_rawCounts) multiplier *= (uDegree + vDegree);
+
+
+			// Select a new edge such that the other endpoint is a new node
+			if(p < uDegree/(uDegree + vDegree)) {
+				while (oldv == Xcurrent[1]) {
+					Xcurrent[1] = GraphRandomNeighbor(G, Xcurrent[0]);
+					for(j = 0; j < i; j++) {
+						if(Xcurrent[1] == Varray[j]) {
+							Xcurrent[1] = oldv;
+							break;
+						}
+					}
+				}
+				Varray[i] = Xcurrent[1];
+			} else {
+				while (oldu == Xcurrent[0]) {
+					Xcurrent[0] = GraphRandomNeighbor(G, Xcurrent[1]);
+					for(j = 0; j < i; j++) {
+						if(Xcurrent[0] == Varray[j]) {
+							Xcurrent[0] = oldu;
+							break;
+						}
+					}
+				}
+				Varray[i] = Xcurrent[0];
+			}
+			#if PARANOID_ASSERTS
+			#if !SELF_LOOPS
+				assert(Xcurrent[0] != Xcurrent[1]);
+			#endif
+				assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
+				assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
+			#endif
+		}
+
+	} while (!foundGraphlet); // foundGraphlet will be false if we get stuck somewhere with no new node and need to restart
+
+
+	assert(multiplier > 0.0);
+
+
+    int i, j;
+    SetEmpty(V);
+
+    for (i = 0; i < k; i++) {
+		SetAdd(V, Varray[i]);
+    }
+
+    TinyGraphInducedFromGraph(g, G, Varray);
+    Gint_type Gint = TinyGraph2Int(g, k);
+    Gordinal_type GintOrdinal = L_K(Gint);
+
+
+    double ocount = 1.0;
+
+	// The over counting ratio is the alpha value divided by the multiplier
+	ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
+
+    if (_outputMode == outputODV) {
+	unsigned char perm[k];
+	memset(perm, 0, k);
+	ExtractPerm(perm, Gint);
+	for (j = 0; j < k; j++) {
+	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	}
+    } else {
+	if(ocount < 0) {
+	    Warning("ocount (%g) is less than 0\n", ocount);
+	}
+	_graphletConcentration[GintOrdinal] += ocount;
+    }
+
+    _g_overcount = ocount;
+    return 1.0;
+}
+
+
 double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k) { return 1.0; } // slower
 double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k) { return 1.0; } // faster!
 
@@ -1219,6 +1360,9 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
 	break;
     case SAMPLE_NODE_EXPANSION:
 	SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc);
+	break;
+	case SAMPLE_SEQUENTIAL_CHAINING:
+	SampleGraphletSequentialEdgeChaining(G, V, Varray, k, cc);
 	break;
     case SAMPLE_FAYE:
 	SampleGraphletFaye(G, V, Varray, k, cc);
