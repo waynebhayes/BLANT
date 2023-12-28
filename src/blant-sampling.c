@@ -1052,8 +1052,6 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 
 		Varray[0] = Xcurrent[0], Varray[1] = Xcurrent[1];
 
-
-		// Add _MCMC_L-1 d graphlets to our sliding window. The edge we added is the first d graphlet
 		int i, j;
 		for (i = 2; i < k; i++) {
 			int oldu = Xcurrent[0];
