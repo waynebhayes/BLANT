@@ -368,7 +368,7 @@ static int StateDegree(GRAPH *G, SET *S)
 void convertFrequencies(unsigned long numSamples)
 {
     int i;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
 	if (_freqDisplayMode == count) {
 	    for (i = 0; i < _numCanon; i++) {
 		_graphletCount[i] = _graphletConcentration[i] * numSamples;
@@ -406,7 +406,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC)
+    if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
 	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
 	initializeNBE(G, k, numSamples);
@@ -539,7 +539,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if ((_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_KRMCMC) && !_window)
+    if ((_sampleMethod == SAMPLE_MCMC) && !_window)
 	finalizeMCMC();
 	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
 	finalizeNBE();
@@ -593,7 +593,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_KRMCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", ODV(i,orbit_index));
+		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", ODV(i,orbit_index));
 		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
 	    }
 	    printf("\n");
@@ -933,8 +933,8 @@ const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
 "USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
-"    -s samplingMethod (default NBE; EBE!, MCMC!, krMCMC!, RES, AR, INDEX, EDGE_COVER)\n"\
-"       Note: although MCMC and krMCMC are *much* faster than NBE, they current have weird bugs and so are not recommended,\n"\
+"    -s samplingMethod (default NBE; EBE!, MCMC!, RES, AR, INDEX, EDGE_COVER)\n"\
+"       Note: although MCMC is *much* faster than NBE, they current have weird bugs and so are not recommended,\n"\
 "             which is why you are required to place an exclamation mark after the method name if you want to use it.\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, n=noncanonical)\n"\
@@ -961,7 +961,6 @@ const char * const USAGE_LONG =
 "         nodes to S using an MCMC graph walking algorithm with restarts; gives asymptotically correct relative frequencies\n"\
 "         when using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
 "         duplicates in indexing modes.)\n"\
-"       krMCMC: like MCMC, but resart the walk after every graphlet. Very fast but also buggy on some edge cases.\n"\
 "	EBE (Edge-Based Expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
 "         uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
 "	RES (Lu Bressan's REServoir sampling): also asymptotically correct but much slower than MCMC.\n"\
@@ -1133,11 +1132,6 @@ int main(int argc, char *argv[])
 	    else if (strncmp(optarg, "EBE", 3) == 0) {
 		if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
-	    }
-	    else if (strncmp(optarg, "krMCMC", 6) == 0) {
-		if(strncmp(optarg, "krMCMC!", 7) != 0)
-		    Warning("krMCMC is generally reliable but has rare buggy edge cases; suppress this warning by appending an exclamation mark");
-		_sampleMethod = SAMPLE_KRMCMC;
 	    }
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
 		if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC produces unbiased but high variance graphlet counts; suppress this warning by appending an exclamation mark");

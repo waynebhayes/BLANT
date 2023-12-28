@@ -927,92 +927,6 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     return 1.0;
 }
 
-/* 
-	SampleGraphletKRestartMCMC is MCMC that restarts after getting a graphlet
-*/
-
-// foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]),
-// which needs to be returned (but must be a parameter since there's already a return value on the function)
-double SampleGraphletKRestartMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC) {
-    static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
-    static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
-    static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
-    static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
-    if (!XLQ || !XLS || !g) {
-	//NON REENTRANT CODE
-	XLQ = QueueAlloc(k*mcmc_d);
-	XLS = MultisetAlloc(G->n);
-	g = TinyGraphAlloc(k);
-    }
-
-	// The every time we run this, We want to find a new set of L d graphlets.
-	WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, -1);
-
-
-#if PARANOID_ASSERTS
-    assert(MultisetSupport(XLS) == k); // very paranoid
-    assert(QueueSize(XLQ) == 2 *_MCMC_L); // very paranoid
-#endif
-
-    /*
-    Our sliding window now contains k distinct nodes. Fill the set V and array Varray with them
-    The multiplier is a shorthand for d graphlet degree product, It is the product of the degrees
-    of all the graphlets in the sliding window except the first and last.
-    The degree of a graphlet is the sum of its outgoing edges.
-    The alpha value is the number of ways to do a d-walk over the graphlet
-    */
-    int node, numNodes = 0, i, j;
-    double multiplier = 1;
-    SetEmpty(V);
-
-    for (i = 0; i < _MCMC_L; i++) {
-	int graphletDegree = -2; // The edge between the vertices in the graphlet isn't included and is double counted
-	for (j = 0; j < mcmc_d; j++) {
-	    node = (XLQ->queue[(XLQ->front + (mcmc_d*i)+j) % XLQ->maxSize]).i;
-	    if (!SetIn(V, node)) {
-		Varray[numNodes++] = node;
-		SetAdd(V, node);
-	    }
-
-	    graphletDegree += GraphDegree(G,node);
-	}
-#if PARANOID_ASSERTS
-	assert(graphletDegree > 0);
-#endif
-	// last graphlets in the window is skipped for multiplier product
-	if (i != _MCMC_L-1) {
-	    if(!_rawCounts) multiplier *= (graphletDegree);
-	}
-	assert(multiplier > 0.0);
-    }
-    TinyGraphInducedFromGraph(g, G, Varray);
-    Gint_type Gint = TinyGraph2Int(g, k);
-    Gordinal_type GintOrdinal = L_K(Gint);
-
-    assert(numNodes == k); // Ensure we are returning k nodes
-
-    double ocount = 1.0;
-
-	// The over counting ratio is the alpha value divided by the multiplier
-	ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
-
-    if (_outputMode == outputODV) {
-	unsigned char perm[k];
-	memset(perm, 0, k);
-	ExtractPerm(perm, Gint);
-	for (j = 0; j < k; j++) {
-	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
-	}
-    } else {
-	if(ocount < 0) {
-	    Warning("ocount (%g) is less than 0\n", ocount);
-	}
-	_graphletConcentration[GintOrdinal] += ocount;
-    }
-
-    _g_overcount = ocount;
-    return 1.0;
-}
 
 
 // SampleGraphletSequentialEdgeChaining starts with a single edge and always chooses a new edge that shares one node
@@ -1377,9 +1291,6 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
         } else {
             SampleWindowMCMC(G, V, Varray, k, cc);
         }
-	break;
-	case SAMPLE_KRMCMC:
-		SampleGraphletKRestartMCMC(G, V, Varray, k, cc);
 	break;
     case SAMPLE_FROM_FILE:
 	SampleGraphletFromFile(G, V, Varray, k);
