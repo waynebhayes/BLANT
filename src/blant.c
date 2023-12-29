@@ -231,7 +231,7 @@ void finalizeNBE(void) {
 	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
 	totalConcentration += _graphletConcentration[i];
     }
-    for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
+    if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
 }
 
 
@@ -258,7 +258,7 @@ void finalizeSEC(void) {
 	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
 	totalConcentration += _graphletConcentration[i];
     }
-    for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
+    if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
 }
 
 
@@ -298,7 +298,7 @@ void finalizeMCMC(void) {
 	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
 	totalConcentration += _graphletConcentration[i];
     }
-    for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
+    if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
 }
 
 #if 0 // unused code, commented out to shut up the compiler
@@ -376,7 +376,7 @@ void convertFrequencies(unsigned long numSamples)
 	}
     }
     else {
-	if (_freqDisplayMode == concentration) {
+	if (_freqDisplayMode == concentration && numSamples) {
 	    for (i = 0; i < _numCanon; i++) {
 		_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
 	    }
@@ -666,7 +666,7 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
     TinyGraphFree(empty_g);
 #endif
-    if (_sampleMethod == SAMPLE_ACCEPT_REJECT)
+    if (_sampleMethod == SAMPLE_ACCEPT_REJECT && numSamples)
     	fprintf(stderr,"Average number of tries per sample is %.15g\n", _acceptRejectTotalTries/(double)numSamples);
     SetFree(V);
     SetFree(prev_node_set);
@@ -797,7 +797,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		continue; // we'll ask for output next time around.
 	    }
 	    char *nextChar = line, *pch;
-	    double gcount;
+	    double gcount = 0.0;
 	    // EDWARD: printf("Line %d from thread %d is \"%s\"\n", lineNum, thread, tmp);
 	    int canon=-1, orbit=-1, numRead, nodeId;
 	    //fprintf(stderr, "Parent received the following line from the child: <%s>\n", line);
@@ -931,7 +931,7 @@ int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numE
 
 const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
-"USAGE: blant [OPTIONS] -k numNodes -n numSamples graphInputFile\n"\
+"USAGE: blant [OPTIONS] -k graphletNodes -n numSamples graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
 "    -s samplingMethod (default NBE; EBE!, MCMC!, RES, AR, INDEX, EDGE_COVER)\n"\
 "       Note: although MCMC is *much* faster than NBE, they current have weird bugs and so are not recommended,\n"\
@@ -1125,7 +1125,7 @@ int main(int argc, char *argv[])
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 	    else if (strncmp(optarg, "NBE", 3) == 0)
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
-		else if (strncmp(optarg, "SEC", 3) == 0)
+	    else if (strncmp(optarg, "SEC", 3) == 0)
 		_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
 	    else if (strncmp(optarg, "FAYE", 4) == 0)
 		_sampleMethod = SAMPLE_FAYE;
@@ -1134,7 +1134,7 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
 	    }
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
-		if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC produces unbiased but high variance graphlet counts; suppress this warning by appending an exclamation mark");
+		//if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC produces unbiased but high variance graphlet counts; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_MCMC;
 		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
 		    _MCMC_EVERY_EDGE=true;
@@ -1143,10 +1143,14 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_MCMC;
 		_sampleSubmethod = SAMPLE_MCMC_EC;
 	    }
-	    else if (strncmp(optarg, "RES", 3) == 0)
+	    else if (strncmp(optarg, "RES", 3) == 0) {
+		if (strncmp(optarg, "RES!",4) != 0) Warning("Reservoir sampling (RES) is unbiased but VERY slow; append an exclamation mark to supress this warning");
 		_sampleMethod = SAMPLE_RESERVOIR;
-	    else if (strncmp(optarg, "AR", 2) == 0)
+	    }
+	    else if (strncmp(optarg, "AR", 2) == 0){
 		_sampleMethod = SAMPLE_ACCEPT_REJECT;
+		if (strncmp(optarg, "AR!",3) != 0) Warning("Accept/Reject sampling (AR) is unbiased but EXTREMELY slow; append an exclamation mark to supress this warning");
+	    }
 	    else if (strncmp(optarg, "INDEX", 5) == 0)
 		_sampleMethod = SAMPLE_INDEX;
 	    else
@@ -1155,15 +1159,13 @@ int main(int argc, char *argv[])
 		if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
 		else _sampleFile = fopen(_sampleFileName, "r");
 		if(!_sampleFile)
-		    Fatal("Unrecognized sampling method specified: '%s'. Options are: {NBE|EBE|MCMC|RES|FAYE|AR|{filename}}\n"
-			"If unrecognized, we try opening a file by the name '%s', but no such file exists",
-			_sampleFileName, _sampleFileName);
+		    Fatal("Unrecognized sampling method '%s'; recognized options are NBE, MCMC, SEC, EBE, RES, FAYE, AR, or a filename (that can be 'STDIN'), but file '%s' cannot be opened", optarg, _sampleFileName);
 		_sampleMethod = SAMPLE_FROM_FILE;
 	    }
 	    break;
 	case 'c': confidence = atof(optarg);
         if (confidence < 0 || confidence > 1) Fatal("Confidence level must be between 0 and 1");
-	    // Apology("confidence intervals not implemented yet");
+	    Apology("confidence intervals not implemented yet");
 	    break;
 	case 'A': _absoluteCliqueCount=atof(optarg); assert(_absoluteCliqueCount>=0);
 	    if(_absoluteCliqueCount == 0) Fatal("absolute clique count (-A option) is zero but must be > 0 to normalize counts");
@@ -1231,7 +1233,7 @@ int main(int argc, char *argv[])
 	    if(!isdigit(lastChar))
 		switch(lastChar) {
 		case 'b': case 'B': case 'g': case 'G': numSamples *= 1024; // do NOT break, fall through
-		case 'm': case 'M': numSamples *= 1024;
+		case 'm': case 'M': numSamples *= 1024; // do NOT break, fall through
 		case 'k': case 'K': numSamples *= 1024; break;
 		default: Fatal("%s\nERROR: numSamples can be appended by k, m, b, or g but not %c\n%s", USAGE_SHORT, lastChar);
 		break;
@@ -1272,7 +1274,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if (_sampleMethod == -1) _sampleMethod = SAMPLE_MCMC; // the default
+    if (_sampleMethod == -1) _sampleMethod = SAMPLE_NODE_EXPANSION; // the default
 
     if (_orbitNumber != -1) {
         if (_odvFile != NULL) {
@@ -1292,7 +1294,7 @@ int main(int argc, char *argv[])
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
     if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = count; // Default to integer(count)
 
-    if(numSamples!=0 && confidence>0 && !_GRAPH_GEN)
+    if(numSamples && confidence>0 && !_GRAPH_GEN)
 	Fatal("cannot specify both -n (sample size) and -c (confidence)");
 
     FILE *fpGraph;
