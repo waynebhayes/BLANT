@@ -59,7 +59,7 @@ typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^1
 #error "unknwon TINY_SET_SIZE"
 #endif
 
-extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS];
+extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
 extern Gint_type _canonList[MAX_CANONICALS];
 
 #define MAX_ORBITS	79264	// This is the number of orbits for k=8

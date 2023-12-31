@@ -1273,7 +1273,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
     case SAMPLE_NODE_EXPANSION:
 	SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc);
 	break;
-	case SAMPLE_SEQUENTIAL_CHAINING:
+    case SAMPLE_SEQUENTIAL_CHAINING:
 	SampleGraphletSequentialEdgeChaining(G, V, Varray, k, cc);
 	break;
     case SAMPLE_FAYE:

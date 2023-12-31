@@ -15,6 +15,7 @@
 #include "queue.h"
 #include "multisets.h"
 #include "sorts.h"
+#include "combin.h"
 #include "blant-window.h"
 #include "blant-output.h"
 #include "blant-utils.h"
@@ -40,6 +41,7 @@ unsigned int _Bk, _k_small;
 
 int _alphaList[MAX_CANONICALS];
 int _numCanon, _canonNumEdges[MAX_CANONICALS];
+int _canonNumStarMotifs[MAX_CANONICALS];
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
@@ -161,9 +163,9 @@ static int InitializeConnectedComponents(GRAPH *G)
 	pitmp = _componentList[i];
 	_componentList[i] = _componentList[biggest];
 	_componentList[biggest] = pitmp;
-    stmp = _componentSet[i];
-    _componentSet[i] = _componentSet[biggest];
-    _componentSet[biggest] = stmp;
+	stmp = _componentSet[i];
+	_componentSet[i] = _componentSet[biggest];
+	_componentSet[biggest] = stmp;
 	_combinations[i] = CombinChooseDouble(_componentSize[i], _k);
 	_totalCombinations += _combinations[i];
     }
@@ -184,6 +186,17 @@ static int InitializeConnectedComponents(GRAPH *G)
     SetFree(visited);
     Free(Varray); // but do NOT set it to NULL, as a flag not to run this again
     return _numConnectedComponents;
+}
+
+static double _totalStarMotifs;
+
+static void InitializeStarMotifs(GRAPH *G) {
+    int i;
+    _totalStarMotifs = 0.0;
+    for(i=0; i< G->n; i++) _totalStarMotifs += CombinChooseDouble(GraphDegree(G,i),_k-1);
+    Warning("(Nahian): _totalStarMotifs %g", _totalStarMotifs); // note this is a *double*, not an integer datatype
+    for(i=0; i<_numCanon; i++) // ... but the canonical values are int datatype...
+	_canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
 }
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
@@ -406,11 +419,12 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
+    InitializeStarMotifs(G);
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
-	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
+    else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
 	initializeNBE(G, k, numSamples);
-	else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
+    else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
 	initializeSEC(G, k, numSamples);
     if (_outputMode == graphletDistribution) {
         SampleGraphlet(G, V, Varray, k, G->n);
@@ -541,9 +555,9 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     if ((_sampleMethod == SAMPLE_MCMC) && !_window)
 	finalizeMCMC();
-	else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
+    else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
 	finalizeNBE();
-	else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
+    else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
 	finalizeSEC();
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
