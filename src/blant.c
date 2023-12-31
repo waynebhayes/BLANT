@@ -933,9 +933,8 @@ const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
 "USAGE: blant [OPTIONS] -k graphletNodes -n numSamples graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
-"    -s samplingMethod (default NBE; EBE!, MCMC!, RES, AR, INDEX, EDGE_COVER)\n"\
-"       Note: although MCMC is *much* faster than NBE, they current have weird bugs and so are not recommended,\n"\
-"             which is why you are required to place an exclamation mark after the method name if you want to use it.\n"\
+"    -s samplingMethod (default MCMC; SEC, NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
+"       Note: exclamation mark required after some method names to supress warnings about them.\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, n=noncanonical)\n"\
 "    -r seed (integer)\n\n"\
@@ -1127,8 +1126,10 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
 	    else if (strncmp(optarg, "SEC", 3) == 0)
 		_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
-	    else if (strncmp(optarg, "FAYE", 4) == 0)
+	    else if (strncmp(optarg, "FAYE", 4) == 0) {
+		if (strncmp(optarg, "FAYE!",5) != 0) Warning("FAYE is an ancient variant of NBE and produces counts with potentially large biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_FAYE;
+	    }
 	    else if (strncmp(optarg, "EBE", 3) == 0) {
 		if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
@@ -1274,7 +1275,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if (_sampleMethod == -1) _sampleMethod = SAMPLE_NODE_EXPANSION; // the default
+    if (_sampleMethod == -1) _sampleMethod = SAMPLE_MCMC; // the default
 
     if (_orbitNumber != -1) {
         if (_odvFile != NULL) {
