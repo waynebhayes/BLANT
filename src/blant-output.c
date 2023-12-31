@@ -4,6 +4,7 @@
 #include "blant-utils.h"
 #include "blant-sampling.h"
 #include "sorts.h"
+#include "combin.h"
 
 #define SORT_INDEX_MODE 0 // Note this destroys the columns-are-identical property, don't use by default.
 
@@ -316,8 +317,14 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
 
-    // ALWAYS count the frequencies; we may normalize the counts later using Sweta Jain's absolute clique count approximation
+    // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     _graphletCount[GintOrdinal]+=weight;
+    if(_canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
+	int i;
+	_canonNumStarMotifs[GintOrdinal] = 0;
+	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++_canonNumStarMotifs[GintOrdinal];
+	Warning("(Nahian) graphlet %d has %d star motifs", GintOrdinal, _canonNumStarMotifs[GintOrdinal]);
+    }
 
     switch(_outputMode)
     {
