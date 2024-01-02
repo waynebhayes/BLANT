@@ -100,7 +100,11 @@ extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
 extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
 extern unsigned int L_K_Func(Gint_type Gint);
+#if DYNAMIC_CANON_MAP
+#define L_K(Gint) L_K_Func(Gint)
+#else
 #define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
+#endif
 extern SET *_connectedCanonicals;
 
 // When in community mode: for each node, and for each orbit it is in, a set of its neigbors when it apppears at that orbit
