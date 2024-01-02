@@ -167,9 +167,14 @@ char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray
     ExtractPerm(perm, Gint);
     assert(PERMS_CAN2NON);
 #endif
-    static char buf[2][BUFSIZ];
-    int which=0; // which should ALWAYS point to the one that HAS the data
+    static char buf[2][BUFSIZ]; // build the string using two alterating buffers
+    int which=0; // which should ALWAYS point to the one that HAS the data, and you print the next string into buf[1-which]
     strcpy(buf[which], PrintGraphletID(Gint));
+#define PRINT_NON_CANONICAL 0
+#if PRINT_NON_CANONICAL
+        sprintf(buf[1-which], "%s [%d]", buf[which], Gint);
+	which=1-which;
+#endif
 
     // IMPORTANT NOTE for SAMPLE_INDEX (Patrick Mode): this code prints the perm, not the orbit (ambiguous graphlets have
     // repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm
@@ -180,7 +185,7 @@ char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray
 	which=1-which;
     }
 
-    for(j=0;j<k;j++) { // build the string using two alterating buffers
+    for(j=0;j<k;j++) {
 	sprintf(buf[1-which], "%s%s", buf[which], PrintNode(' ', Varray[(int)perm[j]]));
 	which=1-which;
     }
