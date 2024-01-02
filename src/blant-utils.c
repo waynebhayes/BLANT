@@ -3,6 +3,7 @@
 #include <math.h>
 #include "blant.h"
 #include "blant-utils.h"
+#include "bintree.h"
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -20,7 +21,32 @@ kperm *Permutations = NULL; // Allocating memory dynamically
 
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
 
+#if DYNAMIC_CANON_MAP
+static int CmpInt(foint a, foint b) {
+    return a.i - b.i;
+}
+
+// Surprisingly, BinTree works MUCH faster than a HASH map.
+unsigned int L_K_Func(Gint_type Gint) {
+    static BINTREE *B;
+    if(!B) B = BinTreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
+    foint f;
+    if(BinTreeLookup(B,(foint)(unsigned int)Gint,&f)) {
+	assert(_K && f.ui == _K[Gint]);
+	return f.ui;
+    }
+    else {
+	// For now, just cheat and use the pre-computed lookup table
+	assert(_K);
+	BinTreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
+	Warning("BinTreeSize %d", B->n);
+	assert(BinTreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
+	return _K[Gint];
+    }
+}
+#else
 unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented"); return -1;}
+#endif
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.

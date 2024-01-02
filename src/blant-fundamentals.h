@@ -27,6 +27,6 @@
 // This compile-time constant defines whether or not we perform dynamic on-the-fly construction of the canon_map lookup
 // table (stored in _K) rather than reading in canon_map/* files. The default (for now) is 0, meaning read in the files.
 // It would be nice to get this working with the value 1 rather than 0.
-#define DYNAMIC_CANON_MAP 0
+#define DYNAMIC_CANON_MAP 1
 
 #endif // _BLANT_FUNDAMENTALS_H
