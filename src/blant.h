@@ -60,6 +60,7 @@ typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^1
 #endif
 
 extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
+extern double _totalStarMotifs;
 extern Gint_type _canonList[MAX_CANONICALS];
 
 #define MAX_ORBITS	79264	// This is the number of orbits for k=8
@@ -127,7 +128,7 @@ extern enum CanonicalDisplayMode _displayMode;
 extern int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
 extern int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
 
-enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration};
+enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration, estimate_absolute};
 extern enum FrequencyDisplayMode _freqDisplayMode;
 
 extern int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_ordering to our orbits
