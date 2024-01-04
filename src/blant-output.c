@@ -322,19 +322,18 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
 
-    // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
-    _graphletCount[GintOrdinal]+=weight;
     if(_canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
 	int i;
 	_canonNumStarMotifs[GintOrdinal] = 0;
 	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++_canonNumStarMotifs[GintOrdinal];
-	Warning("(Nahian) graphlet %d has %d star motifs", GintOrdinal, _canonNumStarMotifs[GintOrdinal]);
     }
+    // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
+    _graphletCount[GintOrdinal]+=weight;
 
     switch(_outputMode)
     {
 	unsigned char perm[MAX_K];
-    case graphletFrequency: break; // *always* count the frequencies, above the switch.
+    case graphletFrequency: break; // already counted above
     case indexGraphlets: case indexGraphletsRNO:
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||

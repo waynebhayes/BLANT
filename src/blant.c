@@ -41,7 +41,8 @@ unsigned int _Bk, _k_small;
 
 int _alphaList[MAX_CANONICALS];
 int _numCanon, _canonNumEdges[MAX_CANONICALS];
-int _canonNumStarMotifs[MAX_CANONICALS];
+double _totalStarMotifs; // note this is a double rather than int because the value can *way* overflow any integer
+int _canonNumStarMotifs[MAX_CANONICALS]; // However, the per-canonical values are integers
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
@@ -65,7 +66,7 @@ enum OutputMode _outputMode = undef;
 unsigned long _numSamples;
 double _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
-double _graphletConcentration[MAX_CANONICALS], _absoluteCliqueCount, _absoluteCountMultiplier=1;
+double _graphletConcentration[MAX_CANONICALS], _absoluteCountMultiplier=1;
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -188,15 +189,11 @@ static int InitializeConnectedComponents(GRAPH *G)
     return _numConnectedComponents;
 }
 
-static double _totalStarMotifs;
-
 static void InitializeStarMotifs(GRAPH *G) {
     int i;
     _totalStarMotifs = 0.0;
     for(i=0; i< G->n; i++) _totalStarMotifs += CombinChooseDouble(GraphDegree(G,i),_k-1);
-    Warning("(Nahian): _totalStarMotifs %g", _totalStarMotifs); // note this is a *double*, not an integer datatype
-    for(i=0; i<_numCanon; i++) // ... but the canonical values are int datatype...
-	_canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
+    for(i=0; i<_numCanon; i++) _canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
 }
 
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
@@ -386,6 +383,11 @@ void convertFrequencies(unsigned long numSamples)
 	    for (i = 0; i < _numCanon; i++) {
 		_graphletCount[i] = _graphletConcentration[i] * numSamples;
 	    }
+	} else if (_freqDisplayMode == estimate_absolute) {
+	    unsigned long long foundStars = 0;
+	    for (i = 0; i < _numCanon; i++) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
+	    if(!foundStars) Fatal("can't estimate absolute count of graphlets because foundStars is %d", foundStars);
+	    _absoluteCountMultiplier = _totalStarMotifs / foundStars;
 	}
     }
     else {
@@ -403,7 +405,7 @@ void convertFrequencies(unsigned long numSamples)
 // graph is finished being input---all the ways of reading input call RunBlantInThreads.
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
-int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
+static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 {
     int windowRepInt, D;
     unsigned char perm[MAX_K+1];
@@ -561,12 +563,6 @@ int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	finalizeSEC();
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
-
-    // If an absotuleCliqueCount was specified, compute the constant multiple for all our counts
-    if(_absoluteCliqueCount > 0) _absoluteCountMultiplier = _absoluteCliqueCount /
-	(_freqDisplayMode == concentration ? _graphletConcentration[_numCanon-1] : _graphletCount[_numCanon-1]);
-
-    // fprintf(stderr, "Multiplier %.15g\t", _absoluteCountMultiplier);
 
     switch(_outputMode)
     {
@@ -781,7 +777,8 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	Warning("Started job %d of %d samples; %d threads running, %ld samples remaining to take",
 	    job++, samples, ++threadsRunning, numSamples);
     }
-    do
+
+    do // this loop reads lines from the parallel child threads, one line read per thread per loop iteration
     {
 	char line[MAX_ORBITS * BUFSIZ];
 	for(thread=0;thread<_MAX_THREADS;thread++)	// process one line from each thread
@@ -887,6 +884,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	    }
 	}
 	lineNum++;
+	if(threadsRunning > 0) Fatal("Need a way to pass StarMotifCounts from children");
     } while(threadsRunning > 0);
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
@@ -1060,7 +1058,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "A:a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:Rs:t:T:wW:")) != -1)
+    while((opt = getopt(argc, argv, "a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:Rs:t:T:wW:")) != -1)
     {
 	switch(opt)
 	{
@@ -1096,6 +1094,7 @@ int main(int argc, char *argv[])
 		{
 		    case 'i': _freqDisplayMode = count; break;
 		    case 'd': _freqDisplayMode = concentration; break;
+		    case 'e': _freqDisplayMode = estimate_absolute; break;
 		    case '\0': _freqDisplayMode = freq_display_mode_undef; break;
 		    default: Fatal("-mf%c: unknown frequency display mode;\n"
 		    "\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
@@ -1181,9 +1180,6 @@ int main(int argc, char *argv[])
 	case 'c': confidence = atof(optarg);
         if (confidence < 0 || confidence > 1) Fatal("Confidence level must be between 0 and 1");
 	    Apology("confidence intervals not implemented yet");
-	    break;
-	case 'A': _absoluteCliqueCount=atof(optarg); assert(_absoluteCliqueCount>=0);
-	    if(_absoluteCliqueCount == 0) Fatal("absolute clique count (-A option) is zero but must be > 0 to normalize counts");
 	    break;
 	case 'k': _k = atoi(optarg);
 		if (_GRAPH_GEN && _k >= 33) {

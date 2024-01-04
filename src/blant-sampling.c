@@ -291,7 +291,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		if(ocount < 0) {
 		    Warning("ocount (%g) is less than 0\n", ocount);
 		}
-	    _graphletConcentration[GintOrdinal] += ocount;
+		_graphletConcentration[GintOrdinal] += ocount;
 	    }
 
 	    _g_overcount = ocount;

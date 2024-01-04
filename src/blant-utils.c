@@ -39,7 +39,7 @@ unsigned int L_K_Func(Gint_type Gint) {
 	// For now, just cheat and use the pre-computed lookup table
 	assert(_K);
 	BinTreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
-	Warning("BinTreeSize %d", B->n);
+	//Warning("BinTreeSize %d", B->n);
 	assert(BinTreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
 	return _K[Gint];
     }
