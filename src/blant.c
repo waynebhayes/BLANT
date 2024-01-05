@@ -384,8 +384,12 @@ void convertFrequencies(unsigned long numSamples)
 		_graphletCount[i] = _graphletConcentration[i] * numSamples;
 	    }
 	} else if (_freqDisplayMode == estimate_absolute) {
-	    unsigned long long foundStars = 0;
-	    for (i = 0; i < _numCanon; i++) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
+		for (i = 0; i < _numCanon; i++) {
+		_graphletCount[i] = _graphletConcentration[i] * numSamples;
+	    }
+	    long double foundStars = 0;
+	    for (i = 0; i < _numCanon; i++) 
+			if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
 	    if(!foundStars) Fatal("can't estimate absolute count of graphlets because foundStars is %d", foundStars);
 	    _absoluteCountMultiplier = _totalStarMotifs / foundStars;
 	}
