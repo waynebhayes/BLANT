@@ -513,7 +513,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	}
 #endif
     }
-    else // sample numSamples graphlets for the entire graph
+    else // sample graphlets from entire graph using either numSamples or confidence
     {
 	unsigned long i;
         for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF)) && !_earlyAbort; i++)
@@ -768,7 +768,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     assert(_JOBS>1);
     unsigned long totalSamples = numSamples;
     double meanSamplesPerJob = totalSamples/(double)_JOBS;
-    Warning("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
+    Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
 
     int threadsRunning = 0, jobsDone = 0;
     int thread, lineNum = 0, job=0;
@@ -778,7 +778,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	if(samples > numSamples) samples = numSamples;
 	numSamples -= samples;
 	fpThreads[i] = ForkBlant(_k, samples, G);
-	Warning("Started job %d of %d samples; %d threads running, %ld samples remaining to take",
+	Note("Started job %d of %d samples; %d threads running, %ld samples remaining to take",
 	    job++, samples, ++threadsRunning, numSamples);
     }
 
@@ -797,7 +797,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		fclose(fpThreads[thread]);
 		fpThreads[thread] = NULL;
 		++jobsDone; --threadsRunning;
-		Warning("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
+		Note("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
 		if(numSamples == 0) fpThreads[thread] = NULL; // signify this pointer is finished.
 		else {
 		    unsigned long samples = meanSamplesPerJob;
@@ -806,7 +806,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		    fpThreads[thread] = ForkBlant(_k, samples, G);
 		    assert(fpThreads[thread]);
 		    ++threadsRunning;
-		    Warning("Started job %d (thread %d) of %d samples, %d threads running, %ld samples remaining to take",
+		    Note("Started job %d (thread %d) of %d samples, %d threads running, %ld samples remaining to take",
 			job++, thread, samples, threadsRunning, numSamples);
 		}
 		continue; // we'll ask for output next time around.
@@ -1186,13 +1186,13 @@ int main(int argc, char *argv[])
 	    Apology("confidence intervals not implemented yet");
 	    break;
 	case 'k': _k = atoi(optarg);
-		if (_GRAPH_GEN && _k >= 33) {
-			_k_small = _k % 10;
-			if (!(3 <= _k_small && _k_small <= 8))
-			    Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k_small);
-			_k /= 10;
-			assert(_k_small <= _k);
-		} // First k indicates stamping size, second k indicates KS test size.
+	    if (_GRAPH_GEN && _k >= 33) {
+		_k_small = _k % 10;
+		if (!(3 <= _k_small && _k_small <= 8))
+		    Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k_small);
+		_k /= 10;
+		assert(_k_small <= _k);
+	    } // First k indicates stamping size, second k indicates KS test size.
 	    if (!(3 <= _k && _k <= 8)) Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k);
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
@@ -1218,11 +1218,11 @@ int main(int argc, char *argv[])
 	    break;
 	case 'P':
 	    if (strncmp(optarg, "COMB", 4) == 0)
-		    _windowIterationMethod = WINDOW_ITER_COMB;
+		_windowIterationMethod = WINDOW_ITER_COMB;
 	    else if (strncmp(optarg, "DFS", 3) == 0)
-		    _windowIterationMethod = WINDOW_ITER_DFS;
+		_windowIterationMethod = WINDOW_ITER_DFS;
 	    else
-		    Fatal("Unrecognized window Iteration method specified. Options are: -P{COMB|DFS}\n");
+		Fatal("Unrecognized window Iteration method specified. Options are: -P{COMB|DFS}\n");
 	    break;
 	case 'l':
 	    if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF) Fatal("Tried to define window limiting method twice");
