@@ -384,12 +384,10 @@ void convertFrequencies(unsigned long numSamples)
 		_graphletCount[i] = _graphletConcentration[i] * numSamples;
 	    }
 	} else if (_freqDisplayMode == estimate_absolute) {
-		for (i = 0; i < _numCanon; i++) {
-		_graphletCount[i] = _graphletConcentration[i] * numSamples;
-	    }
+	    for (i = 0; i < _numCanon; i++) _graphletCount[i] = _graphletConcentration[i] * numSamples;
 	    long double foundStars = 0;
-	    for (i = 0; i < _numCanon; i++) 
-			if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
+	    for (i = 0; i < _numCanon; i++)
+		if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
 	    if(!foundStars) Fatal("can't estimate absolute count of graphlets because foundStars is %d", foundStars);
 	    _absoluteCountMultiplier = _totalStarMotifs / foundStars;
 	}
@@ -428,7 +426,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     InitializeStarMotifs(G);
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
-    else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
+    else if (_sampleMethod == SAMPLE_NODE_EXPANSION)
 	initializeNBE(G, k, numSamples);
     else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
 	initializeSEC(G, k, numSamples);
@@ -561,7 +559,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     if ((_sampleMethod == SAMPLE_MCMC) && !_window)
 	finalizeMCMC();
-    else if (_sampleMethod == SAMPLE_NODE_EXPANSION) 
+    else if (_sampleMethod == SAMPLE_NODE_EXPANSION)
 	finalizeNBE();
     else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
 	finalizeSEC();
