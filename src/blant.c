@@ -64,9 +64,8 @@ int *_whichComponent;
 
 enum OutputMode _outputMode = undef;
 unsigned long _numSamples;
-double _graphletCount[MAX_CANONICALS];
 int **_graphletDistributionTable;
-double _graphletConcentration[MAX_CANONICALS], _absoluteCountMultiplier=1;
+double _graphletCount[MAX_CANONICALS], _graphletConcentration[MAX_CANONICALS], _absoluteCountMultiplier=1;
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
@@ -379,17 +378,15 @@ void convertFrequencies(unsigned long numSamples)
 {
     int i;
     if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
-	if (_freqDisplayMode == count) {
-	    for (i = 0; i < _numCanon; i++) {
-		_graphletCount[i] = _graphletConcentration[i] * numSamples;
-	    }
-	} else if (_freqDisplayMode == estimate_absolute) {
+	if (_freqDisplayMode == count || _freqDisplayMode == estimate_absolute)
 	    for (i = 0; i < _numCanon; i++) _graphletCount[i] = _graphletConcentration[i] * numSamples;
+	if (_freqDisplayMode == estimate_absolute) {
 	    long double foundStars = 0;
 	    for (i = 0; i < _numCanon; i++)
 		if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
-	    if(!foundStars) Fatal("can't estimate absolute count of graphlets because foundStars is %d", foundStars);
+	    if(!foundStars) Fatal("can't estimate absolute count of graphlets because foundStars is zero");
 	    _absoluteCountMultiplier = _totalStarMotifs / foundStars;
+	    Note("Absolute Count Multiplier %g", _absoluteCountMultiplier);
 	}
     }
     else {
@@ -573,15 +570,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	break; // already printed on-the-fly in the Sample/Process loop above
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
-	    if (_freqDisplayMode == concentration) {
-		if (SetIn(_connectedCanonicals, canon)) {
-		    printf("%lf %s\n", (double)_absoluteCountMultiplier*_graphletConcentration[canon], PrintOrdinal(canon));
-		}
-	    }
-	    else {
-		if (SetIn(_connectedCanonicals, canon)) {
-		    printf("%lf %s\n", (double)(_absoluteCountMultiplier*_graphletCount[canon]), PrintOrdinal(canon));
-		}
+	    if (SetIn(_connectedCanonicals, canon)) {
+		double *whichArray = (_freqDisplayMode == concentration ? _graphletConcentration : _graphletCount);
+		printf("%lf %s\n", (double) _absoluteCountMultiplier * whichArray[canon], PrintOrdinal(canon));
 	    }
 	}
 	break;
@@ -993,7 +984,7 @@ const char * const USAGE_LONG =
 "COMMON OPTIONS:\n"\
 "    -m{outputMode}, where {outputMode} is a single character, one of:\n"\
 "	f = [default] graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across samples.\n"\
-"	    sub-option -mf{freqDispMode} can be i(integer or count) or d(decimal or concentration)\n"\
+"	    sub-option -mf{freqDispMode} can be n(integer count) or c(concentration)\n"\
 "	o = ODV (Orbit Degree Vector), identical to ORCA (commonly though incorrectly called a GDV)\n"\
 "	g = GDV (Graphlet Degree Vector) Note this is NOT what is commonly called a GDV, which is actually an ODV (above).\n"\
 "	NOTE: the difference is that an ODV counts the number of nodes that touch all possible *orbits*, while a GDV lists\n"\
@@ -1094,8 +1085,8 @@ int main(int argc, char *argv[])
 	    case 'f': _outputMode = graphletFrequency;
 		switch (*(optarg + 1))
 		{
-		    case 'i': _freqDisplayMode = count; break;
-		    case 'd': _freqDisplayMode = concentration; break;
+		    case 'n': _freqDisplayMode = count; break;
+		    case 'c': _freqDisplayMode = concentration; break;
 		    case 'e': _freqDisplayMode = estimate_absolute; break;
 		    case '\0': _freqDisplayMode = freq_display_mode_undef; break;
 		    default: Fatal("-mf%c: unknown frequency display mode;\n"
