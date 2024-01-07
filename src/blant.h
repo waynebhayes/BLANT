@@ -34,6 +34,7 @@ double RandomUniform(void) {
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
 extern int _JOBS, _MAX_THREADS;
 extern unsigned long _numSamples;
+extern double _confidence; // for confidence intervals
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
@@ -83,8 +84,8 @@ extern const char* _BLANT_DIR;
 #define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
-extern double    *_orbitDegreeVector[MAX_ORBITS];
-extern double *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCliqueCount, _absoluteCountMultiplier;
+extern double       *_orbitDegreeVector[MAX_ORBITS];
+extern double *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
 #define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
