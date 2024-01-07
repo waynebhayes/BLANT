@@ -500,7 +500,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     else // sample graphlets from entire graph using either numSamples or confidence
     {
 	unsigned long i;
-	STAT *sTotal = StatAlloc(0,0,0, false, false);
+	STAT *sTotal[MAX_CANONICALS];
+	for(i=0; i<_numCanon; i++) sTotal[i] = StatAlloc(0,0,0, false, false);
 	Boolean confMet = false;
         for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_confidence && !confMet)) && !_earlyAbort; i++)
         {
@@ -529,21 +530,26 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 			static int batchSize = 300000;
 			if(i && i%batchSize==0) {
 			    static int batch;
-			    double interval, batchCount = convertFrequencies(batchSize);
-			    if(batchCount) {
-				StatAddSample(sTotal, batchCount);
+			    double worstInterval=0, batchTotal = convertFrequencies(batchSize);
+			    if(batchTotal) {
+				int j;
 				// Even though the samples may not be Normally distributed, the Law of Large Numbers
 				// guarantees that for sufficiently large batches, the batch means *are* Normally
 				// distributed, so we can compute confidence intervals.
-				interval = StatConfInterval(sTotal, _confidence);
-				_relativePrecision = interval / batchCount;
+				for(j=0;j<_numCanon;j++) {
+				    StatAddSample(sTotal[j], _graphletCount[j]);
+				    double interval = StatConfInterval(sTotal[j], _confidence);
+				    // under-sampled graphlets (<1000 count) don't count towards "worst"
+				    if(_graphletCount[j] > 1000 && interval > worstInterval) worstInterval = interval;
+				}
+				_relativePrecision = worstInterval / batchTotal;
 				if(batch++ && !_quiet)
-				    Note("batch %d, total samples %ld, interval %g (relative %g)",
-					batch, i, interval, _relativePrecision);
+				    Note("batch %d, total samples %ld, worstInterval %g (relative %g)",
+					batch, i, worstInterval, _relativePrecision);
 				if(batch >= 30 && _relativePrecision < 1-_confidence) confMet=true;
 			    }
 			    else
-				if(!_QUIET) Warning("invalid batch %d, batchCount is zero", ++batch);
+				if(!_QUIET) Warning("invalid batch %d, batchTotal is zero", ++batch);
 			}
 		    }
 		}
@@ -568,7 +574,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		if(!_quiet) Note("numSamples was %d", numSamples);
 	    }
 	    if(_confidence && confMet && !_QUIET)
-		Note("relative precision of total graphlet count is %g with confidence %g after %lu samples",
+		Note("worst relative precision of graphlet count is %g with confidence %g after %lu samples",
 		    _relativePrecision, _confidence, numSamples);
 	}
     }
