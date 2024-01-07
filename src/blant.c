@@ -26,12 +26,14 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're respons
 #include "blant-predict.h"
 #include "importance.h"
 #include "odv.h"
+#include "stats.h"
 
 static int _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
 static float *_weights;
 char **_nodeNames, _supportNodeNames = true;
 Boolean _child; // are we a child process?
+Boolean _quiet, _QUIET; // suppress notes and/or warnings
 
 char * _sampleFileName;
 
@@ -48,7 +50,7 @@ SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 char _communityMode; // 'g' for graphlet or 'o' for orbit
-Boolean _useComplement; // true if -C option was specified
+Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
 Boolean _rawCounts;
 int _numConnectedCanon;
@@ -85,7 +87,7 @@ double *_graphletDegreeVector[MAX_CANONICALS];
 double    *_orbitDegreeVector[MAX_ORBITS];
 double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
-double *_cumulativeProb;
+double *_cumulativeProb, _confidence, _relativePrecision;
 
 // number of parallel threads required, and the maximum allowed at one time.
 int _JOBS, _MAX_THREADS;
@@ -192,6 +194,8 @@ static void InitializeStarMotifs(GRAPH *G) {
     int i;
     _totalStarMotifs = 0.0;
     for(i=0; i< G->n; i++) _totalStarMotifs += CombinChooseDouble(GraphDegree(G,i),_k-1);
+    if(_totalStarMotifs==0) Fatal("cannot estimate absolute graphlet count because this network has no star motifs");
+    //Note("totStarMotifs is %g", _totalStarMotifs);
     for(i=0; i<_numCanon; i++) _canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
 }
 
@@ -223,26 +227,13 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
 // The alpha value represents the number of ways to get that graphlet
 // Concentrations are initialized to 0
 void initializeNBE(GRAPH* G, int k, unsigned long numSamples) {
-	int i;
-
-	char BUF[BUFSIZ];
-	_numSamples = numSamples;
-	alphaListPopulate(BUF, _alphaList, k);
-	for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
-}
-
-// Convert the graphlet frequencies to concentrations
-void finalizeNBE(void) {
-    double totalConcentration = 0;
     int i;
-    for (i = 0; i < _numCanon; i++) {
-	if(_graphletConcentration[i] < 0.0)
-	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
-	totalConcentration += _graphletConcentration[i];
-    }
-    if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
-}
 
+    char BUF[BUFSIZ];
+    _numSamples = numSamples;
+    alphaListPopulate(BUF, _alphaList, k);
+    for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
+}
 
 // Loads alpha values(overcounting ratios) for SEC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
@@ -257,19 +248,6 @@ void initializeSEC(GRAPH* G, int k, unsigned long numSamples) {
 	    for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
 	}
 }
-
-// Convert the graphlet frequencies to concentrations
-void finalizeSEC(void) {
-    double totalConcentration = 0;
-    int i;
-    for (i = 0; i < _numCanon; i++) {
-	if(_graphletConcentration[i] < 0.0)
-	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
-	totalConcentration += _graphletConcentration[i];
-    }
-    if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
-}
-
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
@@ -299,7 +277,7 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 }
 
 // Convert the graphlet frequencies to concentrations
-void finalizeMCMC(void) {
+void finalize(void) {
     double totalConcentration = 0;
     int i;
     for (i = 0; i < _numCanon; i++) {
@@ -374,19 +352,29 @@ static int StateDegree(GRAPH *G, SET *S)
 #endif
 
 // This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
-void convertFrequencies(unsigned long numSamples)
+// It returns an estimate of the total number of connected graphlets in the entire graph
+double convertFrequencies(unsigned long numSamples)
 {
     int i;
+    double total=0;
     if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
-	if (_freqDisplayMode == count || _freqDisplayMode == estimate_absolute)
-	    for (i = 0; i < _numCanon; i++) _graphletCount[i] = _graphletConcentration[i] * numSamples;
+	if (_freqDisplayMode == count || _freqDisplayMode == estimate_absolute) {
+	    double totalConcentration = 0;
+	    for (i = 0; i < _numCanon; i++) totalConcentration += _graphletConcentration[i];
+	    assert(totalConcentration);
+	    for (i = 0; i < _numCanon; i++) _graphletCount[i] = _graphletConcentration[i]/totalConcentration * numSamples;
+	}
 	if (_freqDisplayMode == estimate_absolute) {
 	    long double foundStars = 0;
 	    for (i = 0; i < _numCanon; i++)
 		if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
-	    if(!foundStars) Fatal("can't estimate absolute count of graphlets because foundStars is zero");
-	    _absoluteCountMultiplier = _totalStarMotifs / foundStars;
-	    Note("Absolute Count Multiplier %g", _absoluteCountMultiplier);
+	    if(foundStars) {
+		_absoluteCountMultiplier = _totalStarMotifs / foundStars;
+		total = _absoluteCountMultiplier * numSamples;
+		//Note("Absolute Count Multiplier %g; estimated total graphlets is %g", _absoluteCountMultiplier, total);
+	    }
+	    else
+		if(!_QUIET) Warning("can't estimate absolute count of graphlets because foundStars is zero");
 	}
     }
     else {
@@ -396,6 +384,7 @@ void convertFrequencies(unsigned long numSamples)
 	    }
 	}
     }
+    return total;
 }
 
 
@@ -511,7 +500,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     else // sample graphlets from entire graph using either numSamples or confidence
     {
 	unsigned long i;
-        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF)) && !_earlyAbort; i++)
+	STAT *sTotal = StatAlloc(0,0,0, false, false);
+	Boolean confMet = false;
+        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_confidence && !confMet)) && !_earlyAbort; i++)
         {
             if(_window) {
                 SampleGraphlet(G, V, Varray, _windowSize, G->n);
@@ -532,18 +523,54 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
             else {
 		static unsigned long stuck;
                 double weight = SampleGraphlet(G, V, Varray, k, G->n);
-                if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) stuck = 0;
-		else {
-		    --i; // negate the sample count of duplicate graphlets
+                if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) {
+		    stuck = 0;
+		    if(_confidence) {
+			static int batchSize = 300000;
+			if(i && i%batchSize==0) {
+			    static int batch;
+			    double interval, batchCount = convertFrequencies(batchSize);
+			    if(batchCount) {
+				StatAddSample(sTotal, batchCount);
+				// Even though the samples may not be Normally distributed, the Law of Large Numbers
+				// guarantees that for sufficiently large batches, the batch means *are* Normally
+				// distributed, so we can compute confidence intervals.
+				interval = StatConfInterval(sTotal, _confidence);
+				_relativePrecision = interval / batchCount;
+				if(batch++ && !_quiet)
+				    Note("batch %d, total samples %ld, interval %g (relative %g)",
+					batch, i, interval, _relativePrecision);
+				if(batch >= 30 && _relativePrecision < 1-_confidence) confMet=true;
+			    }
+			    else
+				if(!_QUIET) Warning("invalid batch %d, batchCount is zero", ++batch);
+			}
+		    }
+		}
+		else { // Processing failed--perhaps a duplicate
+		    if(numSamples) --i; // negate the sample count of duplicate graphlets
 		    ++stuck;
-		    if(stuck > numSamples) {
-			Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
+		    if(stuck > MAX(G->n,numSamples)) {
+			if(!_QUIET) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
 			_earlyAbort = true;
 		    }
 		}
             }
         }
-	if(i<numSamples) Warning("only took %d samples out of %d", i, numSamples);
+	assert(i);
+	if(i<numSamples) {
+	    if(!_QUIET) Warning("only took %d samples out of %d", i, numSamples);
+	}
+	else
+	{
+	    if((_sampleFile && _sampleFileEOF) || (_confidence && confMet) || _earlyAbort) {
+		_numSamples = numSamples = i-1; // lots of latr code assumes numSamples is set later on
+		if(!_quiet) Note("numSamples was %d", numSamples);
+	    }
+	    if(_confidence && confMet && !_QUIET)
+		Note("relative precision of total graphlet count is %g with confidence %g after %lu samples",
+		    _relativePrecision, _confidence, numSamples);
+	}
     }
 
     // Sampling done. Now generate output for output modes that require it.
@@ -554,12 +581,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if ((_sampleMethod == SAMPLE_MCMC) && !_window)
-	finalizeMCMC();
-    else if (_sampleMethod == SAMPLE_NODE_EXPANSION)
-	finalizeNBE();
-    else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
-	finalizeSEC();
+    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_SEQUENTIAL_CHAINING) &&
+	    !_window)
+	finalize();
     if (_outputMode == graphletFrequency && !_window)
 	convertFrequencies(numSamples);
 
@@ -571,11 +595,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (SetIn(_connectedCanonicals, canon)) {
-		double *whichArray = (_freqDisplayMode == concentration ? _graphletConcentration : _graphletCount);
 		if(_freqDisplayMode == concentration)
-		    printf("%.0lf %s\n", (double) _absoluteCountMultiplier * whichArray[canon], PrintOrdinal(canon));
+		    printf("%.0lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
 		else
-		    printf("%llu %s\n", (unsigned long long) (_absoluteCountMultiplier * whichArray[canon]), PrintOrdinal(canon));
+		    printf("%llu %s\n", (unsigned long long) (_absoluteCountMultiplier * _graphletCount[canon]),
+			PrintOrdinal(canon));
 	    }
 	}
 	break;
@@ -760,7 +784,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     assert(_JOBS>1);
     unsigned long totalSamples = numSamples;
     double meanSamplesPerJob = totalSamples/(double)_JOBS;
-    Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
+    if(!_quiet) Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
 
     int threadsRunning = 0, jobsDone = 0;
     int thread, lineNum = 0, job=0;
@@ -770,7 +794,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	if(samples > numSamples) samples = numSamples;
 	numSamples -= samples;
 	fpThreads[i] = ForkBlant(_k, samples, G);
-	Note("Started job %d of %d samples; %d threads running, %ld samples remaining to take",
+	if(!_quiet) Note("Started job %d of %d samples; %d threads running, %ld samples remaining to take",
 	    job++, samples, ++threadsRunning, numSamples);
     }
 
@@ -789,7 +813,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		fclose(fpThreads[thread]);
 		fpThreads[thread] = NULL;
 		++jobsDone; --threadsRunning;
-		Note("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
+		if(!_quiet) Note("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
 		if(numSamples == 0) fpThreads[thread] = NULL; // signify this pointer is finished.
 		else {
 		    unsigned long samples = meanSamplesPerJob;
@@ -798,8 +822,9 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		    fpThreads[thread] = ForkBlant(_k, samples, G);
 		    assert(fpThreads[thread]);
 		    ++threadsRunning;
-		    Note("Started job %d (thread %d) of %d samples, %d threads running, %ld samples remaining to take",
-			job++, thread, samples, threadsRunning, numSamples);
+		    if(!_quiet)
+			Note("Started job %d (thread %d) of %d samples, %d threads running, %ld samples remaining to take",
+			    job++, thread, samples, threadsRunning, numSamples);
 		}
 		continue; // we'll ask for output next time around.
 	    }
@@ -944,7 +969,7 @@ const char * const USAGE_SHORT =
 "    -s samplingMethod (default MCMC; SEC, NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
 "       Note: exclamation mark required after some method names to supress warnings about them.\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
-"    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binaryAdjMatrix, d=decimal, n=noncanonical)\n"\
+"    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binary, d=decimal, n=noncanonical)\n"\
 "    -r seed (integer)\n\n"\
 "    -C once the graph is read in, use its complement (ie., cliques should be interpreted as independent sets, etc\n"\
 "    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the task up into N jobs (default 1) allowing\n"\
@@ -960,7 +985,7 @@ const char * const USAGE_LONG =
 "    numNodes is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
 "    numSamples is the number of graphlet samples to take (large samples are recommended), except in INDEX sampling mode,\n"\
 "	where it specifies the maximum number of samples to take from each node in the graph.\n"\
-"	(note: -c {confidence} option is mutually exclusive to -n but is pending implementation)\n"\
+"	(note: the -c {confidence} option is mutually exclusive to -n)\n"\
 "    samplingMethod is:\n"\
 "	NBE (default; Node-Based Expansion): pick an edge at random and add it to the node set S; add new nodes by choosing\n"\
 "         uniformly at random from all nodes one step outside S. (slow, but correct)\n"\
@@ -986,8 +1011,8 @@ const char * const USAGE_LONG =
 "	Duplicate edges (either direction) and self-loops should be removed!\n"\
 "COMMON OPTIONS:\n"\
 "    -m{outputMode}, where {outputMode} is a single character, one of:\n"\
-"	f = [default] graphlet {f}requency, similar to Relative Graphlet Frequency, produces a raw count across samples.\n"\
-"	    sub-option -mf{freqDispMode} can be n(integer count) or c(concentration)\n"\
+"	f = [default] graphlet {f}requency, estimates the total count of each type of graphlet.\n"\
+"	    sub-option -mf{freqDispMode} can be e{default=estimate), n(integer count) or c(concentration)\n"\
 "	o = ODV (Orbit Degree Vector), identical to ORCA (commonly though incorrectly called a GDV)\n"\
 "	g = GDV (Graphlet Degree Vector) Note this is NOT what is commonly called a GDV, which is actually an ODV (above).\n"\
 "	NOTE: the difference is that an ODV counts the number of nodes that touch all possible *orbits*, while a GDV lists\n"\
@@ -1005,6 +1030,7 @@ const char * const USAGE_LONG =
 "	d = decimal (base-10) integer representation of the above binary\n"\
 "	i = integer ordinal = sorting the above integers and numbering them 0, 1, 2, 3, etc.\n"\
 "Less Common OPTIONS:\n"\
+"    -q quiet mode (suppress notes but not warnings); use -Q to also suppress warnings\n"\
 "    -w (EXPERIMENTAL) input network has edge weights in 3rd column; output currently not well-defined\n"\
 "    -t N[:M]: use threading (parallelism); break the task up into N jobs (default 1) allowing at most M to run at one time.\n"\
 "       M can be anything from 1 to a compile-time-specified maximum possible value (MAX_POSSIBLE_THREADS in blant.h),\n"\
@@ -1034,7 +1060,6 @@ int main(int argc, char *argv[])
     // ENABLE_MEM_DEBUG(); // requires including "mem-debug.h" in blant.h (NOT at the top of blant.c!)
     int i, j, opt, multiplicity=1;
     unsigned long numSamples=0;
-    confidence = 0;
     double windowRep_edge_density = 0.0;
     int exitStatus = 0;
 
@@ -1054,11 +1079,14 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:Cc:d:e:f:hg:k:K:l:M:m:n:o:p:P:r:Rs:t:T:wW:")) != -1)
+    while((opt = getopt(argc, argv, "a:C:c:d:e:f:hg:k:K:l:M:m:n:o:p:P:qQr:Rs:t:T:wW:")) != -1)
     {
 	switch(opt)
 	{
 	long nSampArg;
+	case 'Q': _QUIET=true; // fall through
+	case 'q': _quiet=true;
+	    break;
 	case 'h':
 	    printf("%s\n", USAGE_LONG);
 	    #if __MINGW32__ || __WIN32__ || __CYGWIN__
@@ -1067,7 +1095,15 @@ int main(int argc, char *argv[])
 	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
 	    #endif
 	    exit(1); break;
-	case 'C': _useComplement = true;
+	case 'C':
+	    if(_freqDisplayMode != freq_display_mode_undef) Fatal("-C option cannot appear more than once");
+	    switch (*optarg)
+	    {
+		case 'n': _freqDisplayMode = count; break;
+		case 'c': _freqDisplayMode = concentration; break;
+		case 'e': _freqDisplayMode = estimate_absolute; break;
+		default: Fatal("-C%c: unknown frequency display mode", *optarg); break;
+	    }
 	    break;
 	case 'm':
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
@@ -1085,18 +1121,7 @@ int main(int argc, char *argv[])
 	    case 'i': _outputMode = indexGraphlets; break;
 	    case 'r': _outputMode = indexGraphletsRNO; break;
 	    case 'j': _outputMode = indexOrbits; break;
-	    case 'f': _outputMode = graphletFrequency;
-		switch (*(optarg + 1))
-		{
-		    case 'n': _freqDisplayMode = count; break;
-		    case 'c': _freqDisplayMode = concentration; break;
-		    case 'e': _freqDisplayMode = estimate_absolute; break;
-		    case '\0': _freqDisplayMode = freq_display_mode_undef; break;
-		    default: Fatal("-mf%c: unknown frequency display mode;\n"
-		    "\tmodes are i=integer(count), d=decimal(concentration)", *(optarg + 1));
-		    break;
-		}
-	    break;
+	    case 'f': _outputMode = graphletFrequency; break;
 	    case 'g': _outputMode = outputGDV; break;
 	    case 'o': _outputMode = outputODV; break;
 	    case 'd': _outputMode = graphletDistribution; break;
@@ -1173,9 +1198,9 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_FROM_FILE;
 	    }
 	    break;
-	case 'c': confidence = atof(optarg);
-        if (confidence < 0 || confidence > 1) Fatal("Confidence level must be between 0 and 1");
-	    Apology("confidence intervals not implemented yet");
+	case 'c': _confidence = atof(optarg);
+        if (_confidence < 0 || _confidence > 1) Fatal("Confidence level must be between 0 and 1");
+	    //if(!_QUIET) Warning("confidence intervals are experimental");
 	    break;
 	case 'k': _k = atoi(optarg);
 	    if (_GRAPH_GEN && _k >= 33) {
@@ -1299,9 +1324,9 @@ int main(int argc, char *argv[])
     RandomSeed(_seed);
 
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
-    if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = count; // Default to integer(count)
+    if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = estimate_absolute; // Default to estimating count
 
-    if(numSamples && confidence>0 && !_GRAPH_GEN)
+    if(numSamples && _confidence && !_GRAPH_GEN)
 	Fatal("cannot specify both -n (sample size) and -c (confidence)");
 
     FILE *fpGraph;
@@ -1309,7 +1334,7 @@ int main(int argc, char *argv[])
     if(!argv[optind])
     {
 	fpGraph = stdin;
-	if(isatty(0)) Warning("reading graph input file from terminal, press ^D to finish");
+	if(isatty(0) && !_quiet) Warning("reading graph input file from terminal, press ^D to finish");
     }
     else {
 	char *graphFileName = argv[optind];
@@ -1429,7 +1454,7 @@ int main(int argc, char *argv[])
     if (_GRAPH_GEN) {
     	if (_k_small == 0) _k_small = _k;
         if (numSamples == 0) Fatal("Haven't specified sample size (-n sampled_size)");
-        if (confidence == 0) confidence = 0.05;
+        if (_confidence == 0) _confidence = 0.05;
         if (_KS_NUMSAMPLES == 0) _KS_NUMSAMPLES = 1000;
         if (_GRAPH_GEN_EDGES == 0) _GRAPH_GEN_EDGES = G->numEdges;
         if((optind + 1) == argc) {
