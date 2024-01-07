@@ -528,6 +528,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    stuck = 0;
 		    if(_confidence) {
 			static int batchSize = 300000;
+			int minNumBatches = 1+1/sqrt(1-_confidence); // heuristic
 			if(i && i%batchSize==0) {
 			    static int batch;
 			    double worstInterval=0, batchTotal = convertFrequencies(batchSize);
@@ -546,7 +547,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				if(batch++ && !_quiet)
 				    Note("batch %d, total samples %ld, worstInterval %g (relative %g)",
 					batch, i, worstInterval, _relativePrecision);
-				if(batch >= 30 && _relativePrecision < 1-_confidence) confMet=true;
+				if(batch > minNumBatches && _relativePrecision < 1-_confidence) confMet=true;
 			    }
 			    else
 				if(!_QUIET) Warning("invalid batch %d, batchTotal is zero", ++batch);
@@ -574,8 +575,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		if(!_quiet) Note("numSamples was %d", numSamples);
 	    }
 	    if(_confidence && confMet && !_QUIET)
-		Note("worst relative precision of graphlet count is %g with confidence %g after %lu samples",
-		    _relativePrecision, _confidence, numSamples);
+		Note("counts accurate to about %d digits with confidence %g after %lu samples",
+		    -(int)(log(_relativePrecision)/log(10)), _confidence, numSamples);
 	}
     }
 
