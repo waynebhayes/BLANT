@@ -87,7 +87,7 @@ double *_graphletDegreeVector[MAX_CANONICALS];
 double    *_orbitDegreeVector[MAX_ORBITS];
 double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
-double *_cumulativeProb, _confidence, _relativePrecision;
+double *_cumulativeProb, _confidence, _relativePrecision, _meanRelPrec;
 
 // number of parallel threads required, and the maximum allowed at one time.
 int _JOBS, _MAX_THREADS;
@@ -501,8 +501,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     {
 	unsigned long i;
 	STAT *sTotal[MAX_CANONICALS];
-	for(i=0; i<_numCanon; i++) sTotal[i] = StatAlloc(0,0,0, false, false);
+	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 	Boolean confMet = false;
+	static int batch;
         for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_confidence && !confMet)) && !_earlyAbort; i++)
         {
             if(_window) {
@@ -527,34 +528,46 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
                 if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) {
 		    stuck = 0;
 		    if(_confidence) {
-			static int batchSize = 300000;
-			int minNumBatches = 1+1/sqrt(1-_confidence); // heuristic
+			static int batchSize = 300000; //heuristic: batchSizes smaller than this lead to spurious early stops
+			int minNumBatches = 1+1/sqrt(1-_confidence)/k; //heuristic: comes to 30 for conf 0.999, smaller otherwise
+			int maxNumBatches = 100*minNumBatches; //heuristic: comes to 30 for conf 0.999, smaller otherwise
 			if(i && i%batchSize==0) {
-			    static int batch;
-			    double worstInterval=0, batchTotal = convertFrequencies(batchSize);
+			    double worstInterval=0, intervalSum=0, batchTotal = convertFrequencies(batchSize);
+			    int worstCanon = -1;
 			    if(batchTotal) {
 				int j;
 				// Even though the samples may not be Normally distributed, the Law of Large Numbers
 				// guarantees that for sufficiently large batches, the batch means *are* Normally
 				// distributed, so we can compute confidence intervals.
-				for(j=0;j<_numCanon;j++) {
+				for(j=0;j<_numCanon;j++) if(SetIn(_connectedCanonicals,j) && _graphletCount[j]) {
 				    StatAddSample(sTotal[j], _graphletCount[j]);
 				    double interval = StatConfInterval(sTotal[j], _confidence);
+				    intervalSum += interval;
 				    // under-sampled graphlets (<1000 count) don't count towards "worst"
-				    if(_graphletCount[j] > 1000 && interval > worstInterval) worstInterval = interval;
+				    if(_graphletCount[j] > 1000 && interval > worstInterval) {
+					worstInterval = interval;
+					worstCanon=j;
+				    }
 				}
-				_relativePrecision = worstInterval / batchTotal;
+				_meanRelPrec = intervalSum/batchTotal;
+				if(worstInterval) _relativePrecision = worstInterval/_graphletCount[worstCanon];
 				if(batch++ && !_quiet)
-				    Note("batch %d, total samples %ld, worstInterval %g (relative %g)",
-					batch, i, worstInterval, _relativePrecision);
-				if(batch > minNumBatches && _relativePrecision < 1-_confidence) confMet=true;
+				    Note("batch %d, total samples %ld, worstInterval %g (relative %g, mean %g))",
+					batch, i, worstInterval, _relativePrecision, _meanRelPrec);
+				if(batch>maxNumBatches || (batch > minNumBatches &&
+				    (_relativePrecision < 1-_confidence || _meanRelPrec < SQR(1-_confidence))))
+				    confMet=true; // don't reset the counts if we're done
+				else {
+				    for(j=0;j<_numCanon;j++) if(SetIn(_connectedCanonicals,j))
+					_graphletCount[j] = _graphletConcentration[j] = 0.0;
+				}
 			    }
 			    else
 				if(!_QUIET) Warning("invalid batch %d, batchTotal is zero", ++batch);
 			}
 		    }
 		}
-		else { // Processing failed--perhaps a duplicate
+		else { // Processing failed--likely a recent duplicate detected by NodeSetSeenRecently().
 		    if(numSamples) --i; // negate the sample count of duplicate graphlets
 		    ++stuck;
 		    if(stuck > MAX(G->n,numSamples)) {
@@ -575,8 +588,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		if(!_quiet) Note("numSamples was %d", numSamples);
 	    }
 	    if(_confidence && confMet && !_QUIET)
-		Note("counts accurate to about %d digits with confidence %g after %lu samples",
-		    -(int)(log(_relativePrecision)/log(10)), _confidence, numSamples);
+		Note("counts accurate to a mean of %d digits (%d at worst) with confidence %g after %lu samples in %d batches",
+		    -(int)(log(_meanRelPrec)/log(10)), -(int)(log(_relativePrecision)/log(10)),
+		    _confidence, numSamples, batch);
 	}
     }
 
@@ -977,8 +991,8 @@ const char * const USAGE_SHORT =
 "       Note: exclamation mark required after some method names to supress warnings about them.\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binary, d=decimal, n=noncanonical)\n"\
-"    -r seed (integer)\n\n"\
-"    -C once the graph is read in, use its complement (ie., cliques should be interpreted as independent sets, etc\n"\
+"    -r seed (integer)\n"\
+"    -C frequency display mode (default a=absolute count (estimated); c=concentration; n=raw count out of numSamples)\n"\
 "    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the task up into N jobs (default 1) allowing\n"\
 "        at most M to run at one time; M can be anything from 1 to a compile-time-specified maximum possible value\n"\
 "        (MAX_POSSIBLE_THREADS in blant.h), but defaults to 4 to be conservative.";
@@ -1108,7 +1122,7 @@ int main(int argc, char *argv[])
 	    {
 		case 'n': _freqDisplayMode = count; break;
 		case 'c': _freqDisplayMode = concentration; break;
-		case 'e': _freqDisplayMode = estimate_absolute; break;
+		case 'a': case 'e': _freqDisplayMode = estimate_absolute; break;
 		default: Fatal("-C%c: unknown frequency display mode", *optarg); break;
 	    }
 	    break;
@@ -1205,9 +1219,9 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_FROM_FILE;
 	    }
 	    break;
-	case 'c': _confidence = atof(optarg);
+	case 'c': _confidence = MIN(1, atof(optarg)+1e-6);
         if (_confidence < 0 || _confidence > 1) Fatal("Confidence level must be between 0 and 1");
-	    //if(!_QUIET) Warning("confidence intervals are experimental");
+	    //Note("Confidence is %g", _confidence);
 	    break;
 	case 'k': _k = atoi(optarg);
 	    if (_GRAPH_GEN && _k >= 33) {
