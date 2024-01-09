@@ -33,7 +33,7 @@ hawk '{
 	    graphlet_count[18] = orbit_count[44]
 	    graphlet_count[19] = orbit_count[47]
 	    graphlet_count[20] = orbit_count[50]/2
-	    graphlet_count[21] = orbit_count[51]
+	    graphlet_count[21] = orbit_count[52]
 	    graphlet_count[22] = orbit_count[55]/2
 	    graphlet_count[23] = orbit_count[58]
 	    graphlet_count[24] = orbit_count[61]
