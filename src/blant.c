@@ -653,7 +653,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		if(_freqDisplayMode == concentration)
 		    printf("%.0lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
 		else
-		    printf("%llu %s\n", (unsigned long long) (_absoluteCountMultiplier * _graphletCount[canon]),
+		    printf("%llu %s\n", (unsigned long long) llround(_absoluteCountMultiplier * _graphletCount[canon]),
 			PrintOrdinal(canon));
 	    }
 	}
@@ -669,7 +669,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    printf("%s", PrintNode(0,i));
 	    for(canon=0; canon < _numCanon; canon++)
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", GDV(i,canon));
-		else printf(" %.12f", _absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]);
+		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
 	    puts("");
 	}
 	break;
@@ -680,7 +680,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", ODV(i,orbit_index));
-		else printf(" %.12f", _absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]);
+		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]));
 	    }
 	    printf("\n");
 	}
