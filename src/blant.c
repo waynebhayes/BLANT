@@ -639,7 +639,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     if ((_outputMode == graphletFrequency || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
 	convertFrequencies(numSamples);
 
-	if((_freqDisplayMode == estimate_absolute || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
+	if(((_outputMode == graphletFrequency && _freqDisplayMode == estimate_absolute) || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
 	computeAbsoluteMultiplier(numSamples);
 
     switch(_outputMode)
