@@ -1374,7 +1374,6 @@ int main(int argc, char *argv[])
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
     if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = estimate_absolute; // Default to estimating count
 
-    if(!numSamples && !_confidence) Fatal("must specify either confidence (preferred) or number of samples (less preferred)");
     if(numSamples && _confidence && !_GRAPH_GEN)
 	Fatal("cannot specify both -n (sample size) and -c (confidence)");
     if(_confidence && _sampleMethod == SAMPLE_MCMC)
@@ -1458,6 +1457,9 @@ int main(int argc, char *argv[])
 	    }
 	}
 	SetFree(orbit_temp);
+    } else {
+	if(!numSamples && !_confidence)
+	    Fatal("must specify either confidence (preferred) or number of samples (less preferred)");
     }
 
     // Read network using native Graph routine.
