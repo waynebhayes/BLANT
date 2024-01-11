@@ -287,12 +287,19 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		for (j = 0; j < k; j++) {
 		    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 		}
-	    } else {
+	    }
+		if (_outputMode == outputGDV) {
+			unsigned char perm[k];
+			memset(perm, 0, k);
+			ExtractPerm(perm, Gint);
+			for (j = 0; j < k; j++) {
+				_doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+			}
+	    }
 		if(ocount < 0) {
 		    Warning("ocount (%g) is less than 0\n", ocount);
 		}
 		_graphletConcentration[GintOrdinal] += ocount;
-	    }
 
 	    _g_overcount = ocount;
 	    return 1.0;
@@ -332,12 +339,19 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    for (j = 0; j < k; j++) {
 		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
-	} else {
-	    if(ocount < 0) {
-		Warning("ocount (%g) is less than 0\n", ocount);
-	    }
-	    _graphletConcentration[GintOrdinal] += ocount;
 	}
+	if (_outputMode == outputGDV) {
+		unsigned char perm[k];
+		memset(perm, 0, k);
+		ExtractPerm(perm, Gint);
+		for (j = 0; j < k; j++) {
+		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+		}
+	}
+	if(ocount < 0) {
+	Warning("ocount (%g) is less than 0\n", ocount);
+	}
+	_graphletConcentration[GintOrdinal] += ocount;
 
 	_g_overcount = ocount;
     }
@@ -916,12 +930,19 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	for (j = 0; j < k; j++) {
 	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	}
-    } else {
+    }
+	if (_outputMode == outputGDV) {
+		unsigned char perm[k];
+		memset(perm, 0, k);
+		ExtractPerm(perm, Gint);
+		for (j = 0; j < k; j++) {
+		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+		}
+	}
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
 	_graphletConcentration[GintOrdinal] += ocount;
-    }
 
     _g_overcount = ocount;
     return 1.0;
@@ -1055,12 +1076,19 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 	for (j = 0; j < k; j++) {
 	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	}
-    } else {
+    }
+	if (_outputMode == outputGDV) {
+		unsigned char perm[k];
+		memset(perm, 0, k);
+		ExtractPerm(perm, Gint);
+		for (j = 0; j < k; j++) {
+		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+		}
+	}
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
 	_graphletConcentration[GintOrdinal] += ocount;
-    }
 
     _g_overcount = ocount;
     return 1.0;

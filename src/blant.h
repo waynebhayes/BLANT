@@ -85,6 +85,7 @@ extern const char* _BLANT_DIR;
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
 extern double       *_orbitDegreeVector[MAX_ORBITS];
+extern double *_doubleGraphletDegreeVector[MAX_CANONICALS];
 extern double *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
