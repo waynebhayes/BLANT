@@ -285,7 +285,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		memset(perm, 0, k);
 		ExtractPerm(perm, Gint);
 		for (j = 0; j < k; j++) {
-			_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+		    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 		}
 	    } else {
 		if(ocount < 0) {
