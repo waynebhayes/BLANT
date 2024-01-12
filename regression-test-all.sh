@@ -128,6 +128,7 @@ do
 	    echo ""
 	    echo "***********************************************************************************************"
 	    echo "****** This test really needs to work... stopping early... please contact whayes@uci.edu"
+	    echo "****** Please provide a screenshot of the above (or cut-and-paste into the message)"
 	    echo "***********************************************************************************************"
 	    echo ""
 	    break
