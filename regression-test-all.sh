@@ -124,6 +124,14 @@ do
     else
 	NEW_FAILS=$?
 	(( NUM_FAILS+=$NEW_FAILS ))
+	if echo "$r" | grep sanity; then
+	    echo ""
+	    echo "***********************************************************************************************"
+	    echo "****** This test really needs to work... stopping early... please contact whayes@uci.edu"
+	    echo "***********************************************************************************************"
+	    echo ""
+	    break
+	fi
     fi
     echo --- test $r incurred $NEW_FAILS failures, cumulative failures is $NUM_FAILS ---
 done
