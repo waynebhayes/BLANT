@@ -7,6 +7,7 @@ N=3000000
 S=SEC
 export k=1
 for k in 3 4 5 6 7 8; do
+    echo "trying $k..."
     if [ -f canon_maps/canon_map$k.bin ]; then
 	/bin/echo -n "$k: "
 	./blant -R -s $S -mg -n $N -k $k networks/syeast.el |
@@ -30,4 +31,4 @@ for k in 3 4 5 6 7 8; do
 		}' || break
     fi
 done
-[ $k -ne 8 ] # this will exit 1 if k is not 8
+[ $k -eq 8 ] || exit 1
