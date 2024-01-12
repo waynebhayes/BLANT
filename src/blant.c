@@ -518,6 +518,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     else // sample graphlets from entire graph using either numSamples or confidence
     {
+	int batchSize = 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+	if(_confidence) Note("batchSize %d", batchSize);
 	unsigned long i;
 	STAT *sTotal[MAX_CANONICALS];
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
@@ -547,7 +549,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
                 if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) {
 		    stuck = 0;
 		    if(_confidence) {
-			static int batchSize = 300000; //heuristic: batchSizes smaller than this lead to spurious early stops
 			if(i && i%batchSize==0) {
 			    int minNumBatches = 10+1/sqrt(1-_confidence)/k; //heuristic
 			    int maxNumBatches = 100*minNumBatches; //heuristic
