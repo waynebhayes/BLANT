@@ -86,6 +86,7 @@ int _numConnectedOrbits;
 // Only one of these actually get allocated, depending upon outputMode.
 double *_graphletDegreeVector[MAX_CANONICALS];
 double    *_orbitDegreeVector[MAX_ORBITS];
+double *_doubleGraphletDegreeVector[MAX_CANONICALS];
 double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
 double *_cumulativeProb, _confidence, _worstPrecision, _meanRelPrec;
@@ -281,15 +282,24 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 }
 
 // Convert the graphlet frequencies to concentrations
-void finalize(void) {
+void finalize(GRAPH *G, unsigned long numSamples) {
     double totalConcentration = 0;
-    int i;
+    int i, j;
     for (i = 0; i < _numCanon; i++) {
 	if(_graphletConcentration[i] < 0.0)
 	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
 	totalConcentration += _graphletConcentration[i];
     }
     if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
+
+	if(_outputMode == outputODV)
+		for(i=0;i<_numOrbits;i++) {
+			for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j] = _doubleOrbitDegreeVector[i][j]/totalConcentration * numSamples;
+		}
+	if(_outputMode == outputGDV)
+		for(i=0;i<_numCanon;i++) {
+			for(j=0;j<G->n;j++) _doubleGraphletDegreeVector[i][j] = _doubleGraphletDegreeVector[i][j]/totalConcentration * numSamples;
+		}
 }
 
 #if 0 // unused code, commented out to shut up the compiler
@@ -357,10 +367,9 @@ static int StateDegree(GRAPH *G, SET *S)
 
 // This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
 // It returns an estimate of the total number of connected graphlets in the entire graph
-double convertFrequencies(unsigned long numSamples)
+void convertFrequencies(unsigned long numSamples)
 {
     int i;
-    double total=0;
     if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
 	if (_freqDisplayMode == count || _freqDisplayMode == estimate_absolute) {
 	    double totalConcentration = 0;
@@ -368,8 +377,22 @@ double convertFrequencies(unsigned long numSamples)
 	    assert(totalConcentration);
 	    for (i = 0; i < _numCanon; i++) _graphletCount[i] = _graphletConcentration[i]/totalConcentration * numSamples;
 	}
-	if (_freqDisplayMode == estimate_absolute) {
-	    long double foundStars = 0;
+    }
+    else {
+	if (_freqDisplayMode == concentration && numSamples) {
+	    for (i = 0; i < _numCanon; i++) {
+		_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
+	    }
+	}
+    }
+}
+
+double computeAbsoluteMultiplier(unsigned long numSamples)
+{
+    int i;
+    double total=0;
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
+		long double foundStars = 0;
 	    for (i = 0; i < _numCanon; i++)
 		if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
 	    if(foundStars) {
@@ -379,14 +402,6 @@ double convertFrequencies(unsigned long numSamples)
 	    }
 	    else
 		if(!_QUIET) Warning("can't estimate absolute count of graphlets because foundStars is zero");
-	}
-    }
-    else {
-	if (_freqDisplayMode == concentration && numSamples) {
-	    for (i = 0; i < _numCanon; i++) {
-		_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
-	    }
-	}
     }
     return total;
 }
@@ -619,9 +634,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_SEQUENTIAL_CHAINING) &&
 	    !_window)
-	finalize();
-    if (_outputMode == graphletFrequency && !_window)
+	finalize(G, numSamples);
+
+    if ((_outputMode == graphletFrequency || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
 	convertFrequencies(numSamples);
+
+	if(((_outputMode == graphletFrequency && _freqDisplayMode == estimate_absolute) || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
+	computeAbsoluteMultiplier(numSamples);
 
     switch(_outputMode)
     {
@@ -634,7 +653,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		if(_freqDisplayMode == concentration)
 		    printf("%.0lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
 		else
-		    printf("%llu %s\n", (unsigned long long) (_absoluteCountMultiplier * _graphletCount[canon]),
+		    printf("%llu %s\n", (unsigned long long) llround(_absoluteCountMultiplier * _graphletCount[canon]),
 			PrintOrdinal(canon));
 	    }
 	}
@@ -649,7 +668,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	{
 	    printf("%s", PrintNode(0,i));
 	    for(canon=0; canon < _numCanon; canon++)
-		printf(" %.15g", GDV(i,canon));
+		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", GDV(i,canon));
+		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
 	    puts("");
 	}
 	break;
@@ -659,8 +679,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (!_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", ODV(i,orbit_index));
-		else printf(" %.12f", _doubleOrbitDegreeVector[orbit_index][i]);
+		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", ODV(i,orbit_index));
+		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]));
 	    }
 	    printf("\n");
 	}
@@ -791,8 +811,10 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     int i, j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
-    if(_outputMode == outputGDV || (_outputMode == communityDetection && _communityMode=='g'))
-	for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
+    if(_outputMode == outputGDV || (_outputMode == communityDetection && _communityMode=='g')) {
+		for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
+		for(i=0;i<_numCanon;i++) _doubleGraphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleGraphletDegreeVector));
+	}
     if(_outputMode == outputODV || (_outputMode == communityDetection && _communityMode=='o')) {
 	for(i=0;i<_numOrbits;i++) {
 	    _orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
