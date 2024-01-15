@@ -93,8 +93,7 @@ double *_cumulativeProb, _worstPrecision, _meanPrec;
 enum PrecisionMode _precisionMode = mean;
 int _worstCanon=-1;
 
-// These defaults need to be mutually consistent with 2 digits of precision (leave confidence 0)
-double _desiredDigits = 2, _desiredPrec = 0.01, _confidence;
+double _desiredDigits, _desiredPrec, _confidence;
 
 // number of parallel threads required, and the maximum allowed at one time.
 int _JOBS, _MAX_THREADS;
@@ -1419,12 +1418,15 @@ int main(int argc, char *argv[])
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
     if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = estimate_absolute; // Default to estimating count
 
-    if(numSamples && _desiredPrec && !_GRAPH_GEN)
-	Fatal("cannot specify both -n (sample size) and -[Pp] (desired precision)");
-    if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
-	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
+    if(numSamples && _desiredPrec) Fatal("cannot specify both -n (sample size) and -[Pp] (desired precision)");
+    if(!numSamples && !_desiredPrec) { // default to 2 digits of precision at 99.9% confidence
+	_desiredDigits = 2;
+	_desiredPrec = pow(10, -_desiredDigits);
+    }
     if(_desiredPrec && _confidence == 0)
 	_confidence = (1-_desiredPrec/10);
+    if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
+	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
 
     FILE *fpGraph;
     int piped = 0;
