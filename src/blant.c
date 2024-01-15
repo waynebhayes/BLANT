@@ -33,7 +33,7 @@ static unsigned *_pairs;
 static float *_weights;
 char **_nodeNames, _supportNodeNames = true;
 Boolean _child; // are we a child process?
-Boolean _quiet, _QUIET; // suppress notes and/or warnings
+int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 char * _sampleFileName;
 
@@ -89,10 +89,12 @@ double    *_orbitDegreeVector[MAX_ORBITS];
 double *_doubleGraphletDegreeVector[MAX_CANONICALS];
 double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
-double *_cumulativeProb, _confidence, _worstPrecision, _meanRelPrec;
-int _worstCanon=-1;
-static double _digitsPrecision;
+double *_cumulativeProb, _worstPrecision, _meanPrec;
 enum PrecisionMode _precisionMode = mean;
+int _worstCanon=-1;
+
+// These defaults need to be mutually consistent with 2 digits of precision (leave confidence 0)
+double _desiredDigits = 2, _desiredPrec = 0.01, _confidence;
 
 // number of parallel threads required, and the maximum allowed at one time.
 int _JOBS, _MAX_THREADS;
@@ -199,7 +201,7 @@ static void InitializeStarMotifs(GRAPH *G) {
     int i;
     _totalStarMotifs = 0.0;
     for(i=0; i< G->n; i++) _totalStarMotifs += CombinChooseDouble(GraphDegree(G,i),_k-1);
-    if(_totalStarMotifs==0) Fatal("cannot estimate absolute graphlet count because this network has no star motifs");
+    if(_totalStarMotifs==0) Warning("cannot estimate absolute graphlet count because this network has no star motifs");
     //Note("totStarMotifs is %g", _totalStarMotifs);
     for(i=0; i<_numCanon; i++) _canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
 }
@@ -392,16 +394,18 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
     int i;
     double total=0;
     if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
-		long double foundStars = 0;
-	    for (i = 0; i < _numCanon; i++)
-		if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
-	    if(foundStars) {
-		_absoluteCountMultiplier = _totalStarMotifs / foundStars;
-		total = _absoluteCountMultiplier * numSamples;
-		//Note("Absolute Count Multiplier %g; estimated total graphlets is %g", _absoluteCountMultiplier, total);
-	    }
-	    else
-		if(!_QUIET) Warning("can't estimate absolute count of graphlets because foundStars is zero");
+	long double foundStars = 0;
+	for (i = 0; i < _numCanon; i++)
+	    if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
+	if(foundStars) {
+	    assert(_totalStarMotifs);
+	    _absoluteCountMultiplier = _totalStarMotifs / foundStars;
+	    total = _absoluteCountMultiplier * numSamples;
+	    //Note("Absolute Count Multiplier %g; estimated total graphlets is %g", _absoluteCountMultiplier, total);
+	}
+	else
+	    if(_totalStarMotifs && _quiet<3) // only print warning if there WERE stars globally but not locally
+		Warning("can't estimate absolute count of graphlets because no stars were found among them");
     }
     return total;
 }
@@ -519,13 +523,15 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     else // sample graphlets from entire graph using either numSamples or confidence
     {
 	int batchSize = 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
-	if(_confidence) Note("batchSize %d", batchSize);
+	if(_desiredPrec && _quiet<2)
+	    Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+		batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
 	unsigned long i;
 	STAT *sTotal[MAX_CANONICALS];
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 	Boolean confMet = false;
 	static int batch;
-        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_confidence && !confMet)) && !_earlyAbort; i++)
+        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_desiredPrec && !confMet)) && !_earlyAbort; i++)
         {
             if(_window) {
                 SampleGraphlet(G, V, Varray, _windowSize, G->n);
@@ -548,10 +554,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
                 double weight = SampleGraphlet(G, V, Varray, k, G->n);
                 if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) {
 		    stuck = 0;
-		    if(_confidence) {
+		    if(_desiredPrec) {
 			if(i && i%batchSize==0) {
-			    int minNumBatches = 10+1/sqrt(1-_confidence)/k; //heuristic
-			    int maxNumBatches = 100*minNumBatches; //heuristic
+			    int minNumBatches = 3+1/sqrt(1-_confidence)/k; //heuristic
+			    int maxNumBatches = 1000*minNumBatches; // huge
 			    double worstInterval=0, intervalSum=0;
 			    _worstCanon = -1;
 			    if(_batchRawTotalSamples) {
@@ -571,22 +577,19 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 					}
 				    }
 				}
-				_meanRelPrec = intervalSum/_numConnectedCanon;
+				_meanPrec = intervalSum/_numConnectedCanon;
 				if(worstInterval) _worstPrecision = worstInterval;
 				double precision;
 				switch(_precisionMode) {
-				    case mean: precision = _meanRelPrec; break;
+				    case mean: precision = _meanPrec; break;
 				    case worst: precision = _worstPrecision; break;
-				    default: Fatal("unknown precision mode"); break;
+				    default: precision=0; Fatal("unknown precision mode"); break;
 				}
 
-				if(batch++ && !_quiet)
-				    Note("batch %d, total samples %ld, worstRelInterval %g (g%d, count %d) meanRelPrec %g))",
-					batch, i, worstInterval, _worstCanon, _batchRawCount[_worstCanon], _meanRelPrec);
-				double desiredPrecision = 1-_confidence;
-				if(_digitsPrecision) desiredPrecision = pow(10, -_digitsPrecision);
-				if(batch>=maxNumBatches || (batch >= minNumBatches &&
-				    precision < desiredPrecision))
+				if(batch++ && _quiet<1)
+				    Note("batch %d, total samples %ld, worstPrec %g (g%d, count %d) meanPrec %g))",
+					batch, i, worstInterval, _worstCanon, _batchRawCount[_worstCanon], _meanPrec);
+				if(batch>=maxNumBatches || (batch >= minNumBatches && precision < _desiredPrec))
 				    confMet=true; // don't reset the counts if we're done
 				else {
 				    _batchRawTotalSamples = 0;
@@ -594,7 +597,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				}
 			    }
 			    else
-				if(!_QUIET) Warning("invalid batch %d, batchTotal is zero", ++batch);
+				if(_quiet<3) Warning("invalid batch %d, batchTotal is zero", ++batch);
 			}
 		    }
 		}
@@ -602,7 +605,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    if(numSamples) --i; // negate the sample count of duplicate graphlets
 		    ++stuck;
 		    if(stuck > MAX(G->n,numSamples)) {
-			if(!_QUIET) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
+			if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
 			_earlyAbort = true;
 		    }
 		}
@@ -610,18 +613,18 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
         }
 	assert(i);
 	if(i<numSamples) {
-	    if(!_QUIET) Warning("only took %d samples out of %d", i, numSamples);
+	    if(_quiet<2) Warning("only took %d samples out of %d", i, numSamples);
 	}
 	else
 	{
-	    if((_sampleFile && _sampleFileEOF) || (_confidence && confMet) || _earlyAbort) {
-		_numSamples = numSamples = i-1; // lots of latr code assumes numSamples is set later on
+	    if((_sampleFile && _sampleFileEOF) || (_desiredPrec && confMet) || _earlyAbort) {
+		_numSamples = numSamples = i-1; // lots of code below assumes numSamples is set later on
 		if(!_quiet) Note("numSamples was %d", numSamples);
 	    }
-	    if(_confidence && confMet && !_QUIET)
-		Note("mean count precision %.1f digits (worst %.1f ID %d), confidence %g after %lu samples in %d batches",
-		    -(log(_meanRelPrec)/log(10)), -(log(_worstPrecision)/log(10)), _worstCanon,
-		    _confidence, numSamples, batch);
+	    if(_desiredPrec && confMet && _quiet<2)
+		Note("estimated precision %.1f digits (worst %.1f ID %d) at %g%% confidence after %lu samples in %d batches",
+		    -(log(_meanPrec)/log(10)), -(log(_worstPrecision)/log(10)), _worstCanon,
+		    100*_confidence, numSamples, batch);
 	}
     }
 
@@ -640,7 +643,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     if ((_outputMode == graphletFrequency || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
 	convertFrequencies(numSamples);
 
-	if(((_outputMode == graphletFrequency && _freqDisplayMode == estimate_absolute) || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
+    if(((_outputMode == graphletFrequency && _freqDisplayMode == estimate_absolute) || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
 	computeAbsoluteMultiplier(numSamples);
 
     switch(_outputMode)
@@ -1023,7 +1026,7 @@ int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numE
 
 const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
-"USAGE: blant [OPTIONS] -k graphletNodes {-[cC] confidence | -n numSamples} graphInputFile\n"\
+"USAGE: blant [OPTIONS] -k graphletNodes graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
 "    -s samplingMethod (default MCMC; SEC, NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
 "       Note: exclamation mark required after some method names to supress warnings about them.\n"\
@@ -1039,22 +1042,29 @@ const char * const USAGE_LONG =
 "BLANT: Basic Local Alignment of Network Topology (work in progress)\n"\
 "PURPOSE: sample graphlets of up to 8 nodes from a graph. Default output is similar to ORCA, though via stochastic sampling\n"\
 "    rather than exaustive enumeration. Our APPROXIMATE results come MUCH faster than ORCA on large or dense networks.\n"\
-"USAGE: blant [OPTIONS] -k numNodes {-[cC] confidence | -n numSamples} graphInputFile\n"\
+"USAGE: blant [OPTIONS] -k numNodes {-[pP] precision | -n numSamples} graphInputFile\n"\
 "where the following are REQUIRED:\n"\
 "    numNodes is an integer 3 through 8 inclusive, specifying the size (in nodes) of graphlets to sample;\n"\
-"    confidence is a real number in (0,1) that specifies your desired confidence in the result (higher is better)\n"\
-"        Note1: precision is set to (1-confidence), so eg. if you want 3 digits of precision, set confidence to 0.999\n"\
-"        Note2: -c (the default) limits the average precision across graphlets; -C limits the worst case (not recommended)\n"\
+"    precision: desired precision of graphlet frequencies; use p<1 for fractional precision, p>=1 for #digits (base 10).\n"\
+"        Note0: when p>=1, digits can be non-integer, eg 1.5 means fractional precision 10^(-1.5) or about 3% precision.\n"
+"        Note1: -p limits the MEAN precision across graphlets; -P limits the worst case precision (not recommended)\n"\
+"        Note2: technically we use confidence intervals. The relative interval width is set to the precision,\n"\
+"               and the default confidence is (1-precision/10). eg. if p=0.01 (2 digits), confidence is set to 99.9%;\n"\
+"               p=0.001 (3 digits) sets confidence to 99.99%. The confidence is applied to the mean if -p was specified,\n"\
+"               or the worst-case if -P was specified (not recommended). To change the default confidence, use the\n"\
+"               -c option (confidence >=1 is assumed to mean percentage\n"\
 "    numSamples is the number of graphlet samples to take (large samples are recommended), except in INDEX sampling mode,\n"\
 "	where it specifies the maximum number of samples to take from each node in the graph.\n"\
-"	(note: the -c {confidence} option is mutually exclusive to -n)\n"\
+"       Note: this option is mutually exclusive to -p or -P.\n"\
 "    samplingMethod is:\n"\
-"	NBE (default; Node-Based Expansion): pick an edge at random and add it to the node set S; add new nodes by choosing\n"\
-"         uniformly at random from all nodes one step outside S. (slow, but correct)\n"\
-"	MCMC: Markov Chain Monte Carlo: Build the first set S of k nodes using NBE; then randomly remove and add\n"\
+"	MCMC (Markov Chain Monte Carlo): Build the first set S of k nodes using NBE; then randomly remove and add\n"\
 "         nodes to S using an MCMC graph walking algorithm with restarts; gives asymptotically correct relative frequencies\n"\
 "         when using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
 "         duplicates in indexing modes.)\n"\
+"	SEC (Sequential Edge Chaining): like MCMC but instead of a walk, reset the walk for every sampled graphlet.\n"\
+"         Note: SEC is the default when using precision (-[Pp] on the command line), otherwise MCMC is the default.\n"\
+"	NBE (Node-Based Expansion): pick an edge at random and add it to the node set S; add new nodes by choosing\n"\
+"         uniformly at random from all nodes one step outside S. (slow, but correct)\n"\
 "	EBE (Edge-Based Expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
 "         uniformly at random from those emanating from S. (faster than NBE on dense networks, but more biased)\n"\
 "	RES (Lu Bressan's REServoir sampling): also asymptotically correct but much slower than MCMC.\n"\
@@ -1092,8 +1102,7 @@ const char * const USAGE_LONG =
 "	d = decimal (base-10) integer representation of the above binary\n"\
 "	i = integer ordinal = sorting the above integers and numbering them 0, 1, 2, 3, etc.\n"\
 "Less Common OPTIONS:\n"\
-"    -D n: when -c is specified, set desired precision to n digits (asking for more than 2-3 digits is not recommended)\n"\
-"    -q quiet mode (suppress notes but not warnings); use -Q to also suppress warnings\n"\
+"    -q quiet mode: suppress progress reports; -qq=supress all notes; -qqq=supress warnings (not recommended)\n"\
 "    -w (EXPERIMENTAL) input network has edge weights in 3rd column; output currently not well-defined\n"\
 "    -t N[:M]: use threading (parallelism); break the task up into N jobs (default 1) allowing at most M to run at one time.\n"\
 "       M can be anything from 1 to a compile-time-specified maximum possible value (MAX_POSSIBLE_THREADS in blant.h),\n"\
@@ -1142,13 +1151,12 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:C:c:d:D:e:f:F:hg:k:K:l:M:m:n:o:p:P:qQr:Rs:t:T:wW:")) != -1)
+    while((opt = getopt(argc, argv, "a:d:c:e:f:F:hg:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X:")) != -1)
     {
 	switch(opt)
 	{
 	long nSampArg;
-	case 'Q': _QUIET=true; // fall through
-	case 'q': _quiet=true;
+	case 'q': do ++_quiet; while(optarg && *optarg++);
 	    break;
 	case 'h':
 	    printf("%s\n", USAGE_LONG);
@@ -1261,12 +1269,26 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_FROM_FILE;
 	    }
 	    break;
-	case 'D': _digitsPrecision = atof(optarg); break;
-	case 'C': _precisionMode = worst; // fall through, do not break
-	case 'c':
-	    _confidence = MIN(1, atof(optarg)+1e-6);
-	    if (_confidence < 0 || _confidence > 1) Fatal("Confidence level must be between 0 and 1");
-	    //Note("Confidence is %g", _confidence);
+	case 'P': _precisionMode = worst; // fall through, do not break
+	case 'p':
+	    if(atof(optarg) < 1) { // user has asked for relative precision
+		_desiredPrec = atof(optarg);
+		if(_desiredPrec <= 0 || _desiredPrec >= 1)
+		    Fatal("invalid requested precision %g must be in (0,1)", _desiredPrec);
+		_desiredDigits = -log(_desiredPrec)/log(10);
+	    }
+	    else { // user has requested digits of precision
+		_desiredDigits = atof(optarg);
+		if(_desiredDigits <= 0) Fatal("invalid requested digits of precision %g must be > 0", _desiredDigits);
+		_desiredPrec = pow(10, -_desiredDigits);
+	    }
+	    if(_desiredDigits > 3)
+		Warning("requesting more than 3 digits of precision may be infeasible; you've requested %g", _desiredDigits);
+	    if(_confidence) Fatal("Please specify confidence (-c option) AFTER specifying precision with -p or -P");
+	    break;
+	case 'c': _confidence = atof(optarg);
+	    if(_confidence <= 0) Fatal("confidence must be in (0,1), not %g", _confidence);
+	    if(_confidence >= 1) _confidence /= 100; // user specified percent
 	    break;
 	case 'k': _k = atoi(optarg);
 	    if (_GRAPH_GEN && _k >= 33) {
@@ -1280,7 +1302,7 @@ int main(int argc, char *argv[])
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
 	case 'w': _weighted = true; break;
-	case 'p':
+	case 'x':
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
 	    else if (strncmp(optarg, "DMIN", 4) == 0)
 		_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
@@ -1299,7 +1321,7 @@ int main(int argc, char *argv[])
 	    else
 		Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
 	    break;
-	case 'P':
+	case 'X':
 	    if (strncmp(optarg, "COMB", 4) == 0)
 		_windowIterationMethod = WINDOW_ITER_COMB;
 	    else if (strncmp(optarg, "DFS", 3) == 0)
@@ -1367,13 +1389,13 @@ int main(int argc, char *argv[])
 	case 'a':
 	    _alphabeticTieBreaking = (atoi(optarg) != 0);
 	    break;
-	default: Fatal("%s\nERROR: unknown option %c", USAGE_SHORT, opt);
+	default: Fatal("Run without command arguments for short usage message, or with -h for longer one");
 	    break;
 	}
     }
 
     if (_sampleMethod == -1) {
-	if(_confidence)
+	if(_desiredPrec)
 	    _sampleMethod = SAMPLE_SEQUENTIAL_CHAINING; // MCMC samples are not independent, so use SEC for CI's
 	else
 	    _sampleMethod = SAMPLE_MCMC;
@@ -1397,10 +1419,12 @@ int main(int argc, char *argv[])
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
     if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = estimate_absolute; // Default to estimating count
 
-    if(numSamples && _confidence && !_GRAPH_GEN)
-	Fatal("cannot specify both -n (sample size) and -c (confidence)");
-    if(_confidence && _sampleMethod == SAMPLE_MCMC)
+    if(numSamples && _desiredPrec && !_GRAPH_GEN)
+	Fatal("cannot specify both -n (sample size) and -[Pp] (desired precision)");
+    if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
 	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
+    if(_desiredPrec && _confidence == 0)
+	_confidence = (1-_desiredPrec/10);
 
     FILE *fpGraph;
     int piped = 0;
@@ -1481,8 +1505,8 @@ int main(int argc, char *argv[])
 	}
 	SetFree(orbit_temp);
     } else {
-	if(!numSamples && !_confidence)
-	    Fatal("must specify either confidence (preferred) or number of samples (less preferred)");
+	if(!numSamples && !_desiredPrec)
+	    Fatal("must specify either desired precision using -[Pp] (preferred) or number of samples (less preferred)");
     }
 
     // Read network using native Graph routine.
