@@ -69,7 +69,7 @@ OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
 ### Generated File Lists ###
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
-canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map canon_maps/alpha_list_nbe canon_maps/alpha_list_mcmc
+canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map canon_maps/alpha_list_nbe canon_maps/alpha_list_ebe canon_maps/alpha_list_mcmc
 canon_bin := canon_maps/canon_map canon_maps/perm_map
 canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix $(k).bin, $(canon_bin)))
 subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt) canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map4-3.txt
@@ -85,6 +85,7 @@ subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),can
 # ehd takes up too much space and isn't used anywhere yet
 #ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
 #alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
+#alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_ebe$(k).txt)
 #alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
@@ -167,6 +168,9 @@ makeEHD: $(OBJDIR)/makeEHD.o
 compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
+compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-EBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+
 compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
@@ -235,6 +239,9 @@ canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_
 canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
 
+canon_maps/alpha_list_ebe%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
+	./compute-alphas-EBE $* > $@
+
 .INTERMEDIATE: .created-subcanon-maps
 subcanon_maps: $(subcanon_txts) ;
 $(subcanon_txts): .created-subcanon-maps
@@ -261,7 +268,7 @@ check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
+	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:

@@ -214,6 +214,8 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
 
     if(_sampleMethod == SAMPLE_NODE_EXPANSION) {
 	    sprintf(BUF, "%s/%s/alpha_list_nbe%d.txt", _BLANT_DIR, CANON_DIR, k);
+    } else if(_sampleMethod == SAMPLE_EDGE_EXPANSION) {
+	    sprintf(BUF, "%s/%s/alpha_list_ebe%d.txt", _BLANT_DIR, CANON_DIR, k);
     } else {
 	    sprintf(BUF, "%s/%s/alpha_list_mcmc%d.txt", _BLANT_DIR, CANON_DIR, k);
     }
@@ -229,10 +231,10 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     return numAlphas;
 }
 
-// Loads alpha values(overcounting ratios) for NBE sampling from files
+// Loads alpha values(overcounting ratios) for NBE/SEC/EBE/MCMC sampling from files
 // The alpha value represents the number of ways to get that graphlet
 // Concentrations are initialized to 0
-void initializeNBE(GRAPH* G, int k, unsigned long numSamples) {
+void initialize(GRAPH* G, int k, unsigned long numSamples) {
     int i;
 
     char BUF[BUFSIZ];
@@ -241,19 +243,6 @@ void initializeNBE(GRAPH* G, int k, unsigned long numSamples) {
     for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
 }
 
-// Loads alpha values(overcounting ratios) for SEC sampling from files
-// The alpha value represents the number of ways to walk over that graphlet
-// Concentrations are initialized to 0
-void initializeSEC(GRAPH* G, int k, unsigned long numSamples) {
-	int i;
-
-	char BUF[BUFSIZ];
-	_numSamples = numSamples;
-	if(!_window) {
-	    alphaListPopulate(BUF, _alphaList, k);
-	    for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
-	}
-}
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
 // The alpha value represents the number of ways to walk over that graphlet
@@ -277,8 +266,7 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 	char BUF[BUFSIZ];
 	_numSamples = numSamples;
 	if(!_window) {
-	    alphaListPopulate(BUF, _alphaList, k);
-	    for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
+		initialize(G, k, numSamples);
 	}
 }
 
@@ -371,7 +359,7 @@ static int StateDegree(GRAPH *G, SET *S)
 void convertFrequencies(unsigned long numSamples)
 {
     int i;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) {
 	if (_freqDisplayMode == count || _freqDisplayMode == estimate_absolute) {
 	    double totalConcentration = 0;
 	    for (i = 0; i < _numCanon; i++) totalConcentration += _graphletConcentration[i];
@@ -392,7 +380,7 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
 {
     int i;
     double total=0;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) {
 	long double foundStars = 0;
 	for (i = 0; i < _numCanon; i++)
 	    if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
@@ -434,10 +422,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     InitializeStarMotifs(G);
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
-    else if (_sampleMethod == SAMPLE_NODE_EXPANSION)
-	initializeNBE(G, k, numSamples);
-    else if (_sampleMethod == SAMPLE_SEQUENTIAL_CHAINING)
-	initializeSEC(G, k, numSamples);
+    else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
+	initialize(G, k, numSamples);
     if (_outputMode == graphletDistribution) {
         SampleGraphlet(G, V, Varray, k, G->n);
         SetCopy(prev_node_set, V);
@@ -635,7 +621,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_SEQUENTIAL_CHAINING) &&
+    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) &&
 	    !_window)
 	finalize(G, numSamples);
 
@@ -654,7 +640,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (SetIn(_connectedCanonicals, canon)) {
 		if(_freqDisplayMode == concentration)
-		    printf("%.0lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
+		    printf("%lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
 		else
 		    printf("%llu %s\n", (unsigned long long) llround(_absoluteCountMultiplier * _graphletCount[canon]),
 			PrintOrdinal(canon));
@@ -671,7 +657,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	{
 	    printf("%s", PrintNode(0,i));
 	    for(canon=0; canon < _numCanon; canon++)
-		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", GDV(i,canon));
+		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
+			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) printf(" %.15g", GDV(i,canon));
 		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
 	    puts("");
 	}
@@ -682,7 +669,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING)) printf(" %.15g", ODV(i,orbit_index));
+		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
+			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) printf(" %.15g", ODV(i,orbit_index));
 		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]));
 	    }
 	    printf("\n");
@@ -1235,7 +1223,7 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_FAYE;
 	    }
 	    else if (strncmp(optarg, "EBE", 3) == 0) {
-		if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
+		// if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
 	    }
 	    else if (strncmp(optarg, "MCMC",4) == 0) {

@@ -1,5 +1,5 @@
 #!/bin/bash
-for i in canon_maps/alpha_list_mcmc8.txt canon_maps/alpha_list_nbe8.txt canon_maps/canon_list8.txt canon_maps/canon_map8.bin canon_maps/canon-ordinal-to-signature8.txt canon_maps/orbit_map8.txt canon_maps/perm_map8.bin; do
+for i in canon_maps/alpha_list_mcmc8.txt canon_maps/alpha_list_nbe8.txt canon_maps/alpha_list_ebe8.txt canon_maps/canon_list8.txt canon_maps/canon_map8.bin canon_maps/canon-ordinal-to-signature8.txt canon_maps/orbit_map8.txt canon_maps/perm_map8.bin; do
     [ ! -f "$i" ] && echo "exiting since '$i' is missing" >&2 && exit 0
 done
 

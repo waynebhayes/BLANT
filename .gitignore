@@ -25,6 +25,7 @@ make-orbit-maps
 makeEHD
 compute-alphas-MCMC
 compute-alphas-NBE
+compute-alphas-EBE
 
 tmp/
 ignore/
