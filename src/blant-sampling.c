@@ -572,6 +572,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     int vCount = 2;
 
     int outDegree = GraphDegree(G,v1) + GraphDegree(G,v2);
+	int insideEdges = 1, j;
     static int cumulative[MAX_K];
     cumulative[0] = GraphDegree(G,v1); // where v1 = Varray[0]
     cumulative[1] = GraphDegree(G,v2) + cumulative[0];
@@ -583,6 +584,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     else SetEmpty(internal);
 
     int numTries = 0;
+	double multiplier = 1;
     while(vCount < k)
     {
 	int i, whichNeigh, newNode = -1;
@@ -654,10 +656,15 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #endif
 	    }
 	}
+	multiplier *= (outDegree - 2*insideEdges);
 	SetAdd(V, newNode);
 	cumulative[vCount] = cumulative[vCount-1] + GraphDegree(G,newNode);
 	Varray[vCount++] = newNode;
 	outDegree += GraphDegree(G,newNode);
+	if(vCount < k) {
+		for(j = 0; j < vCount-1; j++) 
+			if(GraphAreConnected(G, Varray[j], newNode)) insideEdges++;
+	}
 #if PARANOID_ASSERTS
 	assert(SetCardinality(V) == vCount);
 	assert(outDegree == cumulative[vCount-1]);
@@ -667,6 +674,35 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(SetCardinality(V) == k);
     assert(vCount == k);
 #endif
+	if(!_window) {
+	TINY_GRAPH *g = TinyGraphAlloc(k);
+	TinyGraphInducedFromGraph(g, G, Varray);
+	Gint_type Gint = TinyGraph2Int(g, k);
+	Gordinal_type GintOrdinal = L_K(Gint);
+	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
+	if (_outputMode == outputODV) {
+	    unsigned char perm[k];
+	    memset(perm, 0, k);
+	    ExtractPerm(perm, Gint);
+	    for (j = 0; j < k; j++) {
+		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    }
+	}
+	if (_outputMode == outputGDV) {
+		unsigned char perm[k];
+		memset(perm, 0, k);
+		ExtractPerm(perm, Gint);
+		for (j = 0; j < k; j++) {
+		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+		}
+	}
+	if(ocount < 0) {
+	Warning("ocount (%g) is less than 0\n", ocount);
+	}
+	_graphletConcentration[GintOrdinal] += ocount;
+
+	_g_overcount = ocount;
+    }
     return 1.0;
 }
 
