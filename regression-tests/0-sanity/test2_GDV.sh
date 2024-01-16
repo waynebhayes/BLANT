@@ -6,20 +6,21 @@ echo 'testing Graphlet (not orbit) Degree Vectors'
 N=3000000
 
 export k=1
-for S in MCMC SEC; do
+for S in MCMC SEC NBE; do
     case $S in
-    MCMC) TOL=0.002; exp=2;;
-    SEC)  TOL=7e-5; exp=3;;
-    NBE)  TOL=0.003;;
+    MCMC) TOL=0.0035; exp=2;;
+    SEC)  TOL=1.0e-4; exp=3;;
+    NBE)  TOL=1.1e-4; exp=3;;
     esac
 
     for k in 3 4 5 6 7 8
     do
-	if [ -f canon_maps/canon_map$k.bin ]; then
+	CORRECT=regression-tests/0-sanity/syeast.$S.gdv.abs.3e9.k$k.txt.xz
+	if [ -f canon_maps/canon_map$k.bin -a -f $CORRECT ]; then
 	    /bin/echo -n "$S:$k: "
 	    ./blant -R -s $S -mg -n $N -k $k networks/syeast.el |
 		sort -n | cut -d' ' -f2- |
-		paste - <(unxz < regression-tests/0-sanity/syeast.$S.gdv.abs.3e9.k$k.txt.xz) |
+		paste - <(unxz < $CORRECT) |
 		awk '{  cols=NF/2;
 			for(c1=1;c1<=cols;c1++){
 			    c2=cols+c1; if($c1&&$c2) print $c1/$c2
@@ -35,7 +36,7 @@ for S in MCMC SEC; do
 			    printf "BEYOND TOLERANCE: %g\n%s\n", diff, $0;
 			    exit 1
 			} else
-			    printf "diff %g\t%s\n", diff, $0;
+			    printf "diff %.4e\t%s\n", diff, $0;
 		    }' || exit 1
 	fi
     done || exit 1
