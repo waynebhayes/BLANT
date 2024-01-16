@@ -1223,7 +1223,7 @@ int main(int argc, char *argv[])
 		_sampleMethod = SAMPLE_FAYE;
 	    }
 	    else if (strncmp(optarg, "EBE", 3) == 0) {
-		if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
+		// if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_EDGE_EXPANSION;
 	    }
 	    else if (strncmp(optarg, "MCMC",4) == 0) {
