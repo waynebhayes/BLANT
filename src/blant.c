@@ -640,7 +640,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (SetIn(_connectedCanonicals, canon)) {
 		if(_freqDisplayMode == concentration)
-		    printf("%.0lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
+		    printf("%lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
 		else
 		    printf("%llu %s\n", (unsigned long long) llround(_absoluteCountMultiplier * _graphletCount[canon]),
 			PrintOrdinal(canon));
