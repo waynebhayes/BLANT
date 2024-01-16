@@ -10,29 +10,34 @@ int _canonNumEdges[MAX_CANONICALS];
 
 int CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
     seen = TSetUnion(seen, candidates);
-    TSET outset = 0;
-    int outbound[k], outsetSize = 0;
+
+    int outbound[((int)(k+1)/2)*((int)k/2)], outboundSize = 0;
     if (TSetCardinality(seen) == k) return 1;
 
-    //Fill outset for seen set
+    //Fill outbound for seen set
     int i, j;
     for (i = 0; i < k; i++) {
         if (!TSetIn(seen, i)) continue;
 
         for (j = 0; j < k; j++) {
-            if (i != j && !TSetIn(seen, j) && !TSetIn(outset, j) && TinyGraphAreConnected(g, i, j)) {
-                outbound[outsetSize++] = j;
-                TSetAdd(outset, j);
+            if (i != j && !TSetIn(seen, j) && TinyGraphAreConnected(g, i, j)) {
+                outbound[outboundSize++] = j;
             }
         }
     }
 
-    //Recurse through neighbors in outset
+    int calculatedValue[k];
+    for (i = 0; i < k; i++) calculatedValue[i] = 0;
+
+    //Recurse through neighbors in outbound
     int total = 0;
-    for (i = 0; i < outsetSize; i++) {
-        TSetEmpty(candidates);
-        TSetAdd(candidates, outbound[i]);
-        total += CountPath(g, seen, candidates, k);
+    for (i = 0; i < outboundSize; i++) {
+        if (!calculatedValue[outbound[i]]) {
+            TSetEmpty(candidates);
+            TSetAdd(candidates, outbound[i]);
+            calculatedValue[outbound[i]] = CountPath(g, seen, candidates, k);
+        }
+        total += calculatedValue[outbound[i]];
     }
     return total;
 }
