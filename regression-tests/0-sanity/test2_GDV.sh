@@ -18,7 +18,7 @@ for S in MCMC SEC NBE; do
 	CORRECT=regression-tests/0-sanity/syeast.$S.gdv.abs.3e9.k$k.txt.xz
 	if [ -f canon_maps/canon_map$k.bin -a -f $CORRECT ]; then
 	    /bin/echo -n "$S:$k: "
-	    ./blant -R -s $S -mg -n $N -k $k networks/syeast.el |
+	    ./blant -q -R -s $S -mg -n $N -k $k networks/syeast.el |
 		sort -n | cut -d' ' -f2- |
 		paste - <(unxz < $CORRECT) |
 		awk '{  cols=NF/2;
