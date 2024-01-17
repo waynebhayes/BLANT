@@ -205,6 +205,27 @@ static void InitializeStarMotifs(GRAPH *G) {
     for(i=0; i<_numCanon; i++) _canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
 }
 
+const char *SampleMethodStr(void) {
+    switch(_sampleMethod) {
+    case SAMPLE_NODE_EXPANSION: return "NBE"; break;
+    case SAMPLE_SEQUENTIAL_CHAINING: return "SEC"; break;
+    case SAMPLE_FAYE: return "FAYE"; break;
+    case SAMPLE_EDGE_EXPANSION: return "EBE"; break;
+    case SAMPLE_MCMC:
+	if(_sampleSubmethod == SAMPLE_MCMC_EC) return "EDGE_COVER";
+        else return (_MCMC_EVERY_EDGE ? "MCMC:E" : "MCMC");
+	break;
+    case SAMPLE_RESERVOIR: return "RES"; break;
+    case SAMPLE_ACCEPT_REJECT: return "AR"; break;
+    case SAMPLE_INDEX: return "INDEX"; break;
+    case SAMPLE_FROM_FILE:
+	if(_sampleFile == stdin) return "STDIN";
+	else return _sampleFileName;
+    }
+    Fatal("SampleMethodStr: unknown _sampleMethod %d", _sampleMethod);
+    return NULL;
+}
+
 int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     int i;
     if(_rawCounts) { // turn off alphas by making them all 1.
@@ -1381,13 +1402,6 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if (_sampleMethod == -1) {
-	if(_desiredPrec)
-	    _sampleMethod = SAMPLE_SEQUENTIAL_CHAINING; // MCMC samples are not independent, so use SEC for CI's
-	else
-	    _sampleMethod = SAMPLE_MCMC;
-    }
-
     if (_orbitNumber != -1) {
         if (_odvFile != NULL) {
             parseOdvFromFile(_odvFile);
@@ -1411,6 +1425,14 @@ int main(int argc, char *argv[])
 	_desiredDigits = 2;
 	_desiredPrec = pow(10, -_desiredDigits);
     }
+    if (_sampleMethod == -1) {
+	if(_desiredPrec)
+	    _sampleMethod = SAMPLE_SEQUENTIAL_CHAINING; // MCMC samples are not independent, so use SEC for CI's
+	else
+	    _sampleMethod = SAMPLE_MCMC;
+    }
+    if(!_quiet) Note("Sampling method is %s", SampleMethodStr());
+
     if(_desiredPrec && _confidence == 0)
 	_confidence = (1-_desiredPrec/10);
     if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
