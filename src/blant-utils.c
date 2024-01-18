@@ -37,6 +37,7 @@ unsigned int L_K_Func(Gint_type Gint) {
     }
     else {
 	// For now, just cheat and use the pre-computed lookup table
+	// FIXME: this is where we need to insert the search that's currently inside fast-canon-map
 	assert(_K);
 	BinTreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
 	//Warning("BinTreeSize %d", B->n);
