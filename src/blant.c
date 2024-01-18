@@ -625,7 +625,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	{
 	    if((_sampleFile && _sampleFileEOF) || (_desiredPrec && confMet) || _earlyAbort) {
 		_numSamples = numSamples = i-1; // lots of code below assumes numSamples is set later on
-		if(!_quiet) Note("numSamples was %d", numSamples);
+		if(!_quiet) Note("numSamples was %lu", numSamples);
 	    }
 	    if(_desiredPrec && confMet && _quiet<2)
 		Note("estimated precision %.1f digits (worst %.1f ID %d) at %g%% confidence after %lu samples in %d batches",
