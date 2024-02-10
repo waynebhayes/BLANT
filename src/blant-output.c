@@ -123,8 +123,8 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     VarraySort(Vcopy, k);
 
     if (_outputMode == indexGraphletsRNO) {
-        // move the first node in Varray (the root node) to the start of Vcopy
-        // this is because we now consider identical sets of nodes different if they were created in a different order (specifically, if the root node was different)
+        // move the first node in Varray (the root node) to the start of Vcopy, since the RNO indexing mode must consider
+	// node sets different if they were created in a different order (specifically, if the root node was different)
         unsigned base_node = Varray[0];
 
         if (Vcopy[0] != base_node) {
@@ -143,6 +143,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
         }
     }
 
+    // use cheap hash function, and use it to replace the oldest bitvec in the circular buffer
     unsigned hash=Vcopy[0];
     for(i=1;i<k;i++) hash = hash*G->n + Vcopy[i]; // Yes this will likely overflow. Shouldn't matter.
     hash = hash % MCMC_MAX_HASH;
