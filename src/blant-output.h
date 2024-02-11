@@ -22,7 +22,7 @@ char *PrintNode(char c, int v); // returns a pointer to a constant buffer; YOU n
 // Print a pair of nodes, but sorted so that u<=v, even if they are strings.
 char *PrintNodePairSorted(int u, char c, int v); // returns a pointer to a constant buffer, YOU must print it.
 
-char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w);
-char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w);
+char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w);
+char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w);
 
 #endif
