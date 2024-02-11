@@ -156,7 +156,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double weight)
+char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double weight)
 {
     int j;
     unsigned char perm[MAX_K];
@@ -197,8 +197,7 @@ char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray
     return buf[which];
 }
 
-char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w) {
-    assert(TinyGraphDFSConnected(g,0));
+char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w) {
     int j;
     static SET* printed;
     if(!printed) printed = SetAlloc(k);
@@ -340,7 +339,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||
 	    _canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, g, k, weight));
+	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, k, weight));
 	break;
     case predict:
 	assert(!G->weight);
@@ -348,9 +347,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	else Predict_AccumulateMotifs(G,Varray,g,Gint,GintOrdinal);
 	break;
     case indexOrbits:
+	assert(TinyGraphDFSConnected(g,0));
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
-	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, g, k, weight));
+	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, k, weight));
 	break;
     case communityDetection:
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;

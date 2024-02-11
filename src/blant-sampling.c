@@ -1171,7 +1171,7 @@ double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k)
 double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
 {
 	//Original SampleGraphletMCMC initial step.
-	// Not using tinyGraph to compute overcounting since W_size exceeeds the max tinygrpah size
+	// Not using tinyGraph to compute overcounting since W_size exceeds the max tinygraph size
 	assert(W == _windowSize);
 	static Boolean setup = false;
 	static int currSamples = 0;

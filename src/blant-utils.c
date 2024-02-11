@@ -4,6 +4,7 @@
 #include "blant.h"
 #include "blant-utils.h"
 #include "bintree.h"
+#include "sim_anneal.h"
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -27,7 +28,7 @@ static int CmpInt(foint a, foint b) {
 }
 
 // Surprisingly, BinTree works MUCH faster than a HASH map.
-unsigned int L_K_Func(Gint_type Gint) {
+static unsigned int L_K_Func_Memory(Gint_type Gint) {
     static BINTREE *B;
     if(!B) B = BinTreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
     foint f;
@@ -45,6 +46,53 @@ unsigned int L_K_Func(Gint_type Gint) {
 	return _K[Gint];
     }
 }
+
+static TINY_GRAPH _g, _h; // the current and "moved" TINY_GRAPHs for simulated annealing
+
+foint SA_GenMove(Boolean generate, foint current) {
+    assert(current.v == (void*)(&_g));
+    if(generate) {
+	_h = _g;
+	int u = _k*drand48(), v = u;
+	while(u==v) v = _k*drand48();
+	TinyGraphSwapNodes(&_h, u,v);
+	return (foint)(void*)(&_h);
+    }
+    else
+	return (foint)(void*)(&_g);
+}
+
+foint SA_Accept(Boolean accept, foint sol) {
+    assert(sol.v == (void*)(&_h));
+    if(accept) _g = _h;
+    return (foint)(void*)(&_g);
+}
+
+double SA_Score(foint solution) {
+    return TinyGraph2Int((TINY_GRAPH*)solution.v, _k);
+}
+
+Gint_type L_K_Func_SA(Gint_type Gint) {
+    TinyGraphEdgesAllDelete(&_g);
+    TinyGraphEdgesAllDelete(&_h);
+    Int2TinyGraph(&_g, Gint);
+    SIM_ANNEAL *sa = SimAnnealAlloc(-1, (foint)(void*)(&_g), SA_GenMove, SA_Score, SA_Accept, 100);
+    int result = SimAnnealRun(sa);
+    if(result <= 0) Fatal("SimAnnealRun returned %d", result);
+    foint solution = SimAnnealSol(sa);
+    assert(solution.v == (void*)(&_g));
+    SimAnnealFree(sa);
+    return TinyGraph2Int(&_g, _k);
+}
+
+unsigned int L_K_Func(Gint_type Gint) {
+    Gint_type m = L_K_Func_Memory(Gint);
+    Gint_type s = L_K_Func_SA(Gint);
+    assert(m==s);
+    assert(m==_K[Gint]);
+    return s;
+}
+
 #else
 unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented"); return -1;}
 #endif
