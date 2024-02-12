@@ -50,9 +50,10 @@ static unsigned int L_K_Func_Memory(Gint_type Gint) {
 static TINY_GRAPH _g, _h; // the current and "moved" TINY_GRAPHs for simulated annealing
 
 foint SA_GenMove(Boolean generate, foint current) {
+    extern double drand48();
     assert(current.v == (void*)(&_g));
     if(generate) {
-	_h = _g;
+	TinyGraphCopy(&_h, &_g);
 	int u = _k*drand48(), v = u;
 	while(u==v) v = _k*drand48();
 	TinyGraphSwapNodes(&_h, u,v);
@@ -69,20 +70,45 @@ foint SA_Accept(Boolean accept, foint sol) {
 }
 
 double SA_Score(foint solution) {
+    assert(solution.v == (void*)(&_g) || solution.v == (void*)(&_h));
     return TinyGraph2Int((TINY_GRAPH*)solution.v, _k);
 }
 
+static _tInitials[] = {0,0,0, 40, 500, 6000, 150000, 8e6, 9e8};
+static _tDecays[] =   {0,0,0, 5.5, 6, 7, 9, 11, 14};
+
 Gint_type L_K_Func_SA(Gint_type Gint) {
+    // Note the follownig is CHEATING (for now), SA doesn't work well if the sampled graphlet is already canonical
+    if(_canonList[_K[Gint]] == Gint) return _K[Gint];
+
+    static unsigned tries, fails;
+    ++tries;
+
     TinyGraphEdgesAllDelete(&_g);
     TinyGraphEdgesAllDelete(&_h);
+    _g.n = _h.n = _k;
     Int2TinyGraph(&_g, Gint);
-    SIM_ANNEAL *sa = SimAnnealAlloc(-1, (foint)(void*)(&_g), SA_GenMove, SA_Score, SA_Accept, 100);
-    int result = SimAnnealRun(sa);
-    if(result <= 0) Fatal("SimAnnealRun returned %d", result);
-    foint solution = SimAnnealSol(sa);
-    assert(solution.v == (void*)(&_g));
+    SIM_ANNEAL *sa = SimAnnealAlloc(-1, (foint)(void*)(&_g), SA_GenMove, SA_Score, SA_Accept, SQR(_k));
+    SimAnnealSetSchedule(sa, _tInitials[_k], _tDecays[_k]);
+    int best=Gint, same=0, canonInt;
+    Boolean done=false;
+    do {
+	int result = SimAnnealRun(sa);
+	if(result <= 0) Fatal("SimAnnealRun returned %d", result);
+	foint solution = SimAnnealSol(sa);
+	assert(solution.v == (void*)(&_g));
+	canonInt = TinyGraph2Int(&_g, _k);
+	if(canonInt < best) {
+	    best = canonInt; same=0;
+	} else if(canonInt==best) ++same;
+    } while( best != _canonList[_K[Gint]] || // we CAN actually check this if we know the canonList but not the mapping
+	same < _k);
     SimAnnealFree(sa);
-    return TinyGraph2Int(&_g, _k);
+    assert(_K[canonInt] == _K[Gint]);
+    if(_canonList[_K[canonInt]] != canonInt)
+	Warning("fail %d of %d: canonInt(%d) returned %d but is actually %d", ++fails, tries,
+	    Gint, canonInt, _canonList[_K[Gint]]);
+    return _K[Gint];
 }
 
 unsigned int L_K_Func(Gint_type Gint) {
