@@ -21,21 +21,23 @@ declare -a fnames=("SCerevisiae.el" "AThaliana.el" "CElegans.el")
 for k in {3..6}; do
     for nnw in "${fnames[@]}"
     do
-        outLines=`./blant -k$k -md -sMCMC -t $CORES -n$n networks/$nnw | tr ' ' '\n' | awk '{sum+=$1} END {print 1*sum}'`
-        if [ $outLines -ne $n ]
+	CMD="./blant -q -k$k -md -sMCMC -t $CORES -n$n networks/$nnw"
+	outLines=`$CMD | tr ' ' '\n' | awk '{sum+=$1} END {print 1*sum}'`
+	if [ $outLines -ne $n ]
 	then
-            echo "Distribution table entries do not sum up to $n" >&2
-            echo "cmd: ./blant -k$k -md -sMCMC -t $CORES -n$n networks/$nnw" >&2
-            exit 1
-        fi
-        ./blant -k$k -md -sMCMC -t $CORES -r$seed -n$n networks/$nnw > $TEST_DIR/blant_distr1.txt
-        ./blant -k$k -md -sMCMC -t $CORES -r$seed -n$n networks/$nnw > $TEST_DIR/blant_distr2.txt
-        if ! [ `diff $TEST_DIR/blant_distr1.txt $TEST_DIR/blant_distr2.txt | wc -l` -eq 0 ]; then
-            echo "Distribution table differs for the same random seed $seed" >&2
-            echo "cmd: ./blant -k$k -md -sMCMC -t $CORES -r$seed -n$n networks/$nnw" >&2
-            remove_temp_file
-            exit 1
-        fi
+	    echo "Distribution table entries do not sum up to $n" >&2
+	    echo "cmd was: $CMD" >&2
+	    exit 1
+	fi
+	CMD="./blant -q -k$k -md -sMCMC -t $CORES -r$seed -n$n networks/$nnw"
+	$CMD > $TEST_DIR/blant_distr1.txt
+	$CMD > $TEST_DIR/blant_distr2.txt
+	if ! [ `diff $TEST_DIR/blant_distr1.txt $TEST_DIR/blant_distr2.txt | wc -l` -eq 0 ]; then
+	    echo "Distribution table differs for the same random seed $seed" >&2
+	    echo "cmd was: $CMD" >&2
+	    remove_temp_file
+	    exit 1
+	fi
     done
 done
 
