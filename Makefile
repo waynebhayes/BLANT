@@ -131,7 +131,7 @@ test_all: test_index_mode check_maps
 all: most $(ehd_txts) test_all
 
 gcc-version:
-	@if ls $(SRCDIR)/*.gz | fgrep -q "$(GCC)"; then :; else echo "WARNING: gcc version not supported; prediction disabled" >&2; fi
+	@if ls $(SRCDIR)/*.gz | fgrep -q "$(GCC)"; then touch gcc-version; else echo "WARNING: gcc version not supported; prediction disabled" >&2; fi
 
 canon_maps: base $(canon_all) subcanon_maps
 
@@ -269,7 +269,7 @@ check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 
 clean:
 	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
-	@/bin/rm -rf $(OBJDIR)/*
+	@/bin/rm -rf gcc-version $(OBJDIR)/*
 
 realclean:
 	echo "'realclean' is now called 'pristine'; try again"
