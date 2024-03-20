@@ -41,6 +41,10 @@ extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're
 
 #define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 
+extern unsigned long _known_canonical_count[]; known number of canonicals for k=0 to 12 inclusive (13 entries)
+	//{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592};
+	//  k=1  2  3   4   5   6     7     8      9        10         11          12
+
 // This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
 #if TINY_SET_SIZE == 16
 #if __GLIBCXX_TYPE_INT_N_0 == 128

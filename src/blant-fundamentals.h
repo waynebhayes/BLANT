@@ -29,4 +29,6 @@
 // It would be nice to get this working with the value 1 rather than 0.
 #define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
+#define DEFAULT_DIGITS 3 // 3 digits of precision by defalut
+
 #endif // _BLANT_FUNDAMENTALS_H

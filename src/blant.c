@@ -41,6 +41,10 @@ char * _sampleFileName;
 unsigned int _k, _min_edge_count;
 unsigned int _Bk, _k_small;
 
+extern unsigned long _known_canonical_count[] =
+	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592};
+	//k=1  2  3   4   5   6     7     8      9        10         11          12
+
 int _alphaList[MAX_CANONICALS];
 int _numCanon, _canonNumEdges[MAX_CANONICALS];
 double _totalStarMotifs; // note this is a double rather than int because the value can *way* overflow any integer
@@ -1422,7 +1426,7 @@ int main(int argc, char *argv[])
 
     if(numSamples && _desiredPrec) Fatal("cannot specify both -n (sample size) and -[Pp] (desired precision)");
     if(!numSamples && !_desiredPrec) { // default to 2 digits of precision at 99.9% confidence
-	_desiredDigits = 2;
+	_desiredDigits = DEFAULT_DIGITS;
 	_desiredPrec = pow(10, -_desiredDigits);
     }
     if (_sampleMethod == -1) {
