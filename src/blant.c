@@ -41,7 +41,7 @@ char * _sampleFileName;
 unsigned int _k, _min_edge_count;
 unsigned int _Bk, _k_small;
 
-extern unsigned long _known_canonical_count[] =
+unsigned long _known_canonical_count[] =
 	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592};
 	//k=1  2  3   4   5   6     7     8      9        10         11          12
 
@@ -288,7 +288,6 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 	    _EDGE_COVER_G = GraphCopy(G);
 	}
 
-	char BUF[BUFSIZ];
 	_numSamples = numSamples;
 	if(!_window) {
 		initialize(G, k, numSamples);
