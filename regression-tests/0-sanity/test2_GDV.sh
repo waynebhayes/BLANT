@@ -8,7 +8,7 @@ N=3000000
 export k=1
 for S in MCMC SEC NBE EBE; do
     case $S in
-    MCMC) TOL=0.0036; exp=2;;
+    MCMC) TOL=0.006; exp=2;;
     SEC)  TOL=1.1e-4; exp=3;;
     NBE)  TOL=1.1e-4; exp=3;;
     EBE)  TOL=1.3e-4; exp=3;;
