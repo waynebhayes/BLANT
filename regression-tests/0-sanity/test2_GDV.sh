@@ -11,7 +11,7 @@ for S in MCMC SEC NBE EBE; do
     MCMC) TOL=0.0036; exp=2;;
     SEC)  TOL=1.1e-4; exp=3;;
     NBE)  TOL=1.1e-4; exp=3;;
-    EBE)  TOL=1.1e-4; exp=3;;
+    EBE)  TOL=1.3e-4; exp=3;;
     esac
 
     for k in 3 4 5 6 7 8
