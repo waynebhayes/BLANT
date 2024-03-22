@@ -142,6 +142,9 @@ canon_maps: base $(canon_all) subcanon_maps
 fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
 
+smaller-canon-map: libwayne $(SRCDIR)/EdgePredict/smaller-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/EdgePredict/smaller-canon-map.c $(LIBWAYNE_BOTH) -Isrc
+
 slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_BOTH)
 
