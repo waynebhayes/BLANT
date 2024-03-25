@@ -1140,6 +1140,7 @@ const char * const USAGE_LONG =
 // in the parent.
 int main(int argc, char *argv[])
 {
+    //printf("char %d short %d int %d long %d long long %d Gint %d\n", sizeof(char), sizeof(short), sizeof(int), sizeof(long), sizeof(long long), sizeof(Gint_type));
     // ENABLE_MEM_DEBUG(); // requires including "mem-debug.h" in blant.h (NOT at the top of blant.c!)
     int i, j, opt, multiplicity=1;
     unsigned long numSamples=0;

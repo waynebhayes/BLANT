@@ -53,11 +53,12 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 #endif
 	{
 	    if(!Gint2) break;
-	    int bit = (1 << bitPos);
+	    Gint_type bit = ((Gint_type)1 << bitPos);
 	    if(Gint & bit)
 		TinyGraphConnect(G,i,j);
 	    Gint2 &= ~bit;
 	    bitPos++;
+	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
 	}
 	if(!Gint2) break;
     }
