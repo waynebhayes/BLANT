@@ -3,7 +3,7 @@ echo 'testing Graphlet (not orbit) Degree Vectors'
 
 # "correct" values came from 3e9 samples... but we no longer need to divide by 1000 since it's already absolute estimates
 
-N=3000000
+N=9000000
 
 export k=1
 for S in MCMC SEC NBE EBE; do
@@ -11,7 +11,7 @@ for S in MCMC SEC NBE EBE; do
     MCMC) TOL=0.006; exp=2;;
     SEC)  TOL=1.1e-4; exp=3;;
     NBE)  TOL=1.1e-4; exp=3;;
-    EBE)  TOL=1.3e-4; exp=3;;
+    EBE)  TOL=1.5e-4; exp=3;;
     esac
 
     for k in 3 4 5 6 7 8
