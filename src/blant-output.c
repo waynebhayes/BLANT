@@ -271,7 +271,7 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
 	// but it seemed buggy and I can't figure out what's wrong. - WH
 	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c], u_connectedOrb=_orbit2connectedIndex[u_orbit];
 	assert(0 <= u_connectedOrb && u_connectedOrb < _numConnectedOrbits);
-	if(_communityMode=='o') ++ODV(u, u_orbit); else ++GDV(u, GintOrdinal);
+	if(_communityMode=='o') ODV(u, u_orbit)+=1; else GDV(u, GintOrdinal)+=1;
 	int item = (_communityMode=='o' ? u_connectedOrb : _canon2connectedIndex[GintOrdinal]);
 #endif
 

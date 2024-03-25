@@ -8,8 +8,8 @@ const char* _BLANT_DIR = DEFAULT_BLANT_DIR;
 // Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 {
-    int i, j, bitPos=0, bit;
-    Gint_type Gint = 0;
+    int i, j, bitPos=0;
+    Gint_type Gint = 0, bit;
 
 #if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
     for(i=k-1;i>0;i--)
@@ -23,7 +23,7 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
         {
 	    if(TinyGraphAreConnected(g,i,j))
 	    {
-		bit = (1 << bitPos);
+		bit = (((Gint_type)1) << bitPos);
 		Gint |= bit;
 	    }
             bitPos++;
