@@ -42,7 +42,7 @@ unsigned int _k, _min_edge_count;
 unsigned int _Bk, _k_small;
 
 unsigned long _known_canonical_count[] =
-	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864}; // 165091172592 (k=12) too big for 32 bits
+	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592}; // note (k=12) too big for 32 bits
 	//k=1  2  3   4   5   6     7     8      9        10         11          12
 
 int _alphaList[MAX_CANONICALS];
