@@ -49,19 +49,25 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
 #if TINY_SET_SIZE == 16
 #if __GLIBCXX_TYPE_INT_N_0 == 128
     typedef __uint128 Gint_type; // need 120 bits for undirected adjacency matrix for k=16...
+    #define GINT_FMT "%ull"
     typedef __uint128 Gordinal_type; // ... and max numCanonicals = 64001015704527557894928 < 2^76... what type is that???
+    #define GORDINAL_FMT "%ull"
     #define MAX_BINTREE_K 16
 #else
-    typedef unsigned long long Gint_type; // for k=11, need 55 bits in undirected adjacency matrix, so 64 bits sufficient...
+    typedef unsigned long Gint_type; // k=8->32 bits, k=11->55 < 64 bits in undirected adjacency matrix
+    #define GINT_FMT "%ul"
     typedef unsigned Gordinal_type; // ... and max numCanonicals = 1018997864 < 2^30, so 32 bits are sufficient
+    #define GORDINAL_FMT "%u"
     #define MAX_BINTREE_K 11
 #endif
 #elif TINY_SET_SIZE == 8
-typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
-typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
+    typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
+    #define GINT_FMT "%u"
+    typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
+    #define GORDINAL_FMT "%uh"
     #define MAX_BINTREE_K 8
 #else
-#error "unknwon TINY_SET_SIZE"
+    #error "unknwon TINY_SET_SIZE"
 #endif
 
 extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];

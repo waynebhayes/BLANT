@@ -51,7 +51,7 @@ static char _printBuf[BUFSIZ];
 
 char *PrintGraphletID(Gint_type Gint)
 {
-    if(_displayMode == noncanonical) sprintf(_printBuf, "%d", Gint);
+    if(_displayMode == noncanonical) sprintf(_printBuf, GINT_FMT, Gint);
     else PrintOrdinal(L_K(Gint));
     return _printBuf;
 }
@@ -66,13 +66,7 @@ char *PrintOrdinal(Gordinal_type GintOrdinal)
 	sprintf(_printBuf, "%d", GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
-#if TINY_SET_SIZE <= 32
-	sprintf(_printBuf, "%u", _canonList[GintOrdinal]);
-#elif TINY_SET_SIZE >= 64
-	sprintf(_printBuf, "%llu", _canonList[GintOrdinal]);
-#else
-#error "unknown TINY_SET_SIZE"
-#endif
+	sprintf(_printBuf, GORDINAL_FMT, _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)

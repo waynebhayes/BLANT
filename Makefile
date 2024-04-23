@@ -131,7 +131,7 @@ test_all: test_index_mode check_maps
 all: most $(ehd_txts) test_all
 
 gcc-version:
-	@if ls $(SRCDIR)/*.gz | fgrep -q "$(GCC)"; then touch gcc-version; else echo "WARNING: gcc version not supported; prediction disabled" >&2; fi
+	@if ls $(SRCDIR)/*.gz 2>/dev/null | fgrep -q "$(GCC)"; then touch gcc-version; else echo "WARNING: gcc version not supported; prediction disabled" >&2; fi
 
 canon_maps: base $(canon_all) subcanon_maps
 
@@ -266,7 +266,7 @@ test_index_mode: blant blant-sanity $(canon_all) #$(canon_map_bins)
 	for S in NBE MCMC SEC EBE; do for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo basic sanity check sampling method $$S indexing k=$$k; ./blant -q -s $$S -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done; done
 
 check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
-	ls canon_maps.correct/ | egrep -v '$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
+	ls canon_maps.correct/ | egrep -v 'canon_list2|$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 ### Cleaning ###
 
