@@ -1,5 +1,7 @@
 // This file defines the fundamental compile-time constants that all blant-related programs must know.
 
+#include <stdint.h>
+
 #ifndef _BLANT_FUNDAMENTALS_H
 #define _BLANT_FUNDAMENTALS_H
 
@@ -11,6 +13,37 @@
 
 // maximum number of entries in the canon_map (lookup table)
 #define maxBk (1 << (MAX_K*(MAX_K-1)/2 + MAX_K*SELF_LOOPS))
+
+#if MAX_K <= 8
+#define MAX_CANONICALS	12346
+#define MAX_ORBITS	79264
+#elif MAX_K == 9
+#define MAX_CANONICALS	274668
+#define MAX_ORBITS	2208612
+#elif MAX_K == 10
+#define MAX_CANONICALS	12005168
+#define MAX_ORBITS	113743760
+#elif MAX_K == 11
+#define MAX_CANONICALS	1018997864
+#if long_width < 34
+  #error "cannot do MAX_K==11 since unsigned long doesn't have enough bits to store MAX_ORBITS"
+#else
+  #define MAX_ORBITS	10926227136UL
+#endif
+#elif MAX_K == 12
+#if long_width < 38
+  #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_CANONICALS"
+#else
+  #define MAX_CANONICALS 165091172592UL
+#endif
+#if long_width < 41
+  #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_ORBITS"
+#else
+  #define MAX_ORBITS	1956363435360UL
+#endif
+#else
+  #error "MAX_K too big"
+#endif
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses

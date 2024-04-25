@@ -61,9 +61,9 @@ int _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
 
-int _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
-int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
-int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
+Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
+Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
+char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 int *_whichComponent;
 
 // char* _BLANT_DIR;

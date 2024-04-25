@@ -9,12 +9,10 @@
 #include "blant.h"
 
 static int k;
-static Gint_type canon_list[MAX_CANONICALS];
-static int canon_num_edges[MAX_CANONICALS];
 
 Boolean suitablePerm(int permutation[], int adj[k][k+1]);
-void permuteNodes(int permutation[], int adj[k][k+1], long *D);
-void makeOrbit(int permutation[], long orbit[]);
+Gint_type permuteNodes(int permutation[], int adj[k][k+1]); // returns the integer version of the adjacency matrix
+void makeOrbit(int permutation[], long orbit[k]);
 void getCycle(int permutation[], int cycle[], int seed, int current, Boolean visited[]);
 
 Boolean nextPermutation(int permutation[])
@@ -49,10 +47,10 @@ Boolean nextPermutation(int permutation[])
     return 0;
 }
 
-void getDecimal(int adj[k][k+1],long *D){
+Gint_type getDecimal(int adj[k][k+1]) {
 
     int i, j, bitPos=0;
-    *D=0;
+    Gint_type D=0;
 #if LOWER_TRIANGLE
     for(i=k-1;i>0;i--)
        for(j=i-1;j>=0;j--)
@@ -61,13 +59,13 @@ void getDecimal(int adj[k][k+1],long *D){
 	for(j=k-1;j>i;j--)
 #endif
 	{
-	    if(adj[i][j]==1) *D+= (1 << bitPos);
+	    if(adj[i][j]==1) D+= (((Gint_type)1) << bitPos);
 		bitPos++;
 	}
-
+    return D;
 }
 
-void getGraph(long int base10, int adj[k][k+1]){
+void getGraph(Gint_type base10, int adj[k][k+1]){
     int i,j;
 #if LOWER_TRIANGLE
     for(i=k-1;i>0;i--)
@@ -84,10 +82,10 @@ void getGraph(long int base10, int adj[k][k+1]){
 
      for(i=0; i<k; i++)
         for(j=0; j<k; j++)
-            adj[i][k]+=adj[i][j];
+            adj[i][k]+=adj[i][j]; // what is this used for? - WH
 }
 
-void orbits(long int Decimal, long orbit[]){
+void orbits(Gint_type Decimal, long orbit[k]){
     int permutation[k], i, j;
 
     //initially,the permutation is (0, 1, ..., numNodes_-1)
@@ -100,16 +98,12 @@ void orbits(long int Decimal, long orbit[]){
     for(i=0; i<k; i++)
      for(j=0; j<k+1; j++)
       adj[i][j]=0;
-    getGraph(Decimal,adj);
-    long d=0;
-
+    getGraph(Decimal, adj);
     while( nextPermutation(permutation) ){
-        d=0;
         //ruling out searching into unnecessary permutations
         if(!suitablePerm(permutation,adj)) continue;
-        permuteNodes(permutation,adj,&d);
-        //Check for automorphism
-        if(Decimal == d) makeOrbit(permutation, orbit);
+        if(permuteNodes(permutation, adj) == Decimal) //Check for automorphism
+	    makeOrbit(permutation, orbit);
     }
 }
 
@@ -123,7 +117,7 @@ Boolean suitablePerm(int permutation[], int adj[k][k+1]){
     return true;
 }
 
-void permuteNodes(int permutation[], int adj[k][k+1], long* D){
+Gint_type permuteNodes(int permutation[], int adj[k][k+1]){
     //To store adjMatrix_ after permutation
     int pAdj[k][k+1], i, j;
     for(i=0; i<k; i++)
@@ -138,10 +132,10 @@ void permuteNodes(int permutation[], int adj[k][k+1], long* D){
         }
     }
 
-    getDecimal(pAdj, D);
-
+    return getDecimal(pAdj);
 }
-void makeOrbit(int permutation[], long orbit[]){
+
+void makeOrbit(int permutation[], long orbit[k]){
     int i, j;
     Boolean visited[k];
     for(i=0;i<k;i++)
@@ -151,7 +145,7 @@ void makeOrbit(int permutation[], long orbit[]){
             //finding out each cycle at a time
             int cycle[k+1];
             cycle[0]=0;
-	    int minOrbit=i;
+	    long minOrbit=i;
             getCycle(permutation, cycle, i, i, visited);
 
             for(j=1; j<=cycle[0]; j++)
@@ -169,38 +163,49 @@ void getCycle(int permutation[], int cycle[], int seed, int current, Boolean vis
         getCycle(permutation, cycle, seed, permutation[current], visited);
 }
 
+static Gint_type canon_list[MAX_CANONICALS];
+static int canon_num_edges[MAX_CANONICALS];
+
 int main(int argc, char* argv[]){
+    fprintf(stderr, "sizeof(Gint_type)=%lu\n", sizeof(Gint_type));
     if(argc != 2) {
 	fprintf(stderr, "USAGE: %s k\n", argv[0]);
 	exit(1);
     }
     k=atoi(argv[1]);
-    assert(k > 2 && k <= 8);
+    assert(k > 2 && k <= 10);
     //reading data from canon_list file
     char BUF[BUFSIZ];
     SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
-    int numCanon = connectedCanonicals->maxElem;
+    Gordinal_type i, numCanon = connectedCanonicals->maxElem;
+    assert(numCanon <= MAX_CANONICALS);
+    fprintf(stderr, "last canonical "GORDINAL_FMT" has Gint "GINT_FMT" with %d edges\n",
+	numCanon, canon_list[numCanon-1], canon_num_edges[numCanon-1]);
     SetFree(connectedCanonicals);
-    int numOrbits = 0, i, j;
-    long orbit[numCanon][k];
+    int j;
+    long numOrbits=0, orbit[numCanon][k]; // must be signed in order to check for overflow below
     for(i=0; i<numCanon; i++){
-    	orbits(canon_list[i],orbit[i]);
+	orbits(canon_list[i], orbit[i]);
         for(j=0;j<k;j++){
-	    if(orbit[i][j]==j)
+	    if(orbit[i][j]==j) {
 		orbit[i][j]=numOrbits++;
+		assert(numOrbits>0); // ensure no overflow
+	    }
 	    else
                 orbit[i][j]=orbit[i][orbit[i][j]];
         }
+#if IMMEDIATE_OUTPUT
+	for(j=0;j<k;j++) printf("%ld ", orbit[i][j]);
+	printf("\n");
+#endif
     }
 
-    //output
-    //printf("k=%d\n", k);
-    printf("%d\n", numOrbits);
+    printf("%ld\n", numOrbits);
+#if !IMMEDIATE_OUTPUT
     for(i=0; i<numCanon; i++){
-	for(j=0;j<k;j++) {
-	    printf("%ld ", orbit[i][j]);
-	}
+	for(j=0;j<k;j++) printf("%ld ", orbit[i][j]);
 	printf("\n");
     }
+#endif
     return 0;
 }

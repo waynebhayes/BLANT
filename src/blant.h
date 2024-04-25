@@ -39,33 +39,47 @@ extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're
 
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
-#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
-
 extern unsigned long _known_canonical_count[]; //known number of canonicals for k=0 to 12 inclusive (13 entries)
 	//{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592};
 	//  k=1  2  3   4   5   6     7     8      9        10         11          12
 
 // This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
 #if TINY_SET_SIZE == 16
-#if __GLIBCXX_TYPE_INT_N_0 == 128
+  #if __GLIBCXX_TYPE_INT_N_0 == 128
     typedef __uint128 Gint_type; // need 120 bits for undirected adjacency matrix for k=16...
     #define GINT_FMT "%ull"
     typedef __uint128 Gordinal_type; // ... and max numCanonicals = 64001015704527557894928 < 2^76... what type is that???
     #define GORDINAL_FMT "%ull"
     #define MAX_BINTREE_K 16
-#else
-    typedef unsigned long Gint_type; // k=8->32 bits, k=11->55 < 64 bits in undirected adjacency matrix
-    #define GINT_FMT "%ul"
-    typedef unsigned Gordinal_type; // ... and max numCanonicals = 1018997864 < 2^30, so 32 bits are sufficient
-    #define GORDINAL_FMT "%u"
+  #elif long_width >= 120
+    typedef unsigned long Gint_type, Gordinal_type; //... numCanonicals = 64001015704527557894928 < 2^76
+    #define GINT_FMT "%lu"
+    #define GORDINAL_FMT "%ul"
+    #define MAX_BINTREE_K 16
+  #elif long_width >= 55
+    typedef unsigned long Gint_type; // for k=11, need 55 bits in undirected adjacency matrix, so 64 bits sufficient...
+    #define GINT_FMT "%lu"
+    #if int_width >=30
+      typedef unsigned Gordinal_type; // ... and max numCanonicals = 1018997864 < 2^30, so 32 bits are sufficient
+      #define GORDINAL_FMT "%u"
+    #else
+      typedef unsigned long Gordinal_type;
+      #define GORDINAL_FMT "%ul"
+    #endif
     #define MAX_BINTREE_K 11
-#endif
+  #else
+    #error "cannot do TINY_SET_SIZE 16 due to no integers being wide enough"
+  #endif
 #elif TINY_SET_SIZE == 8
+  #if int_width >= 28 && short_width >= 16
     typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
     #define GINT_FMT "%u"
     typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
-    #define GORDINAL_FMT "%uh"
+    #define GORDINAL_FMT "%hu"
     #define MAX_BINTREE_K 8
+  #else
+    #error "cannot do TINY_SET_SIZE 8 due to no integers long enough"
+  #endif
 #else
     #error "unknwon TINY_SET_SIZE"
 #endif
@@ -74,14 +88,12 @@ extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS], _canon
 extern double _totalStarMotifs;
 extern Gint_type _canonList[MAX_CANONICALS];
 
-#define MAX_ORBITS	79264	// This is the number of orbits for k=8
-
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k);
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, int *canon_num_edges); // returns a SET containing list of connected ordinals
-int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][MAX_K],  int orbit_canon_mapping[MAX_ORBITS],
-    int orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k);
+Gint_type orbitListPopulate(char *BUF, Gint_type orbit_list[MAX_CANONICALS][MAX_K],
+    Gordinal_type orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], Gordinal_type numCanon, int k);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
 
@@ -106,7 +118,7 @@ extern double *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 #define SHAWN_AND_ZICAN 0
 extern unsigned int _Bk;
 
-extern int _numOrbits, _orbitList[MAX_CANONICALS][MAX_K];
+extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K];
 extern int _alphaList[MAX_CANONICALS];
 
 extern char **_nodeNames, _supportNodeNames;
@@ -139,8 +151,8 @@ enum PrecisionMode {PrecUndef, mean, worst};
 
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse, noncanonical};
 extern enum CanonicalDisplayMode _displayMode;
-extern int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
-extern int _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
+extern Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
+extern char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
 
 enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration, estimate_absolute};
 extern enum FrequencyDisplayMode _freqDisplayMode;
