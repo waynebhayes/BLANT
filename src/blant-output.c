@@ -63,7 +63,7 @@ char *PrintOrdinal(Gordinal_type GintOrdinal)
     switch (_displayMode) {
     case undefined:
     case ordinal:
-	sprintf(_printBuf, "%d", GintOrdinal);
+	sprintf(_printBuf, GORDINAL_FMT, GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
 	sprintf(_printBuf, GORDINAL_FMT, _canonList[GintOrdinal]);
@@ -77,7 +77,7 @@ char *PrintOrdinal(Gordinal_type GintOrdinal)
     case orca: // Prints the ORCA ID of the canonical. Jesse uses same number.
     case jesse:
 	if(SELF_LOOPS) Apology("sorry, orca and jesse output formats do not support self-loops");
-	sprintf(_printBuf, "%d", _outputMapping[GintOrdinal]);
+	sprintf(_printBuf, GORDINAL_FMT, _outputMapping[GintOrdinal]);
 	break;
     case noncanonical: break; // handled above
     default: Fatal("Internal error: PrintGraphletID called with unknown _displayMode %d", _displayMode);

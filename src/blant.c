@@ -45,7 +45,7 @@ unsigned long _known_canonical_count[] =
 	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592}; // note (k=12) too big for 32 bits
 	//k=1  2  3   4   5   6     7     8      9        10         11          12
 
-int _alphaList[MAX_CANONICALS];
+Gint_type _alphaList[MAX_CANONICALS];
 int _numCanon, _canonNumEdges[MAX_CANONICALS];
 double _totalStarMotifs; // note this is a double rather than int because the value can *way* overflow any integer
 int _canonNumStarMotifs[MAX_CANONICALS]; // However, the per-canonical values are integers
@@ -230,7 +230,7 @@ const char *SampleMethodStr(void) {
     return NULL;
 }
 
-int alphaListPopulate(char *BUF, int *alpha_list, int k) {
+Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
     int i;
     if(_rawCounts) { // turn off alphas by making them all 1.
 	for(i=0; i<_numCanon; i++) alpha_list[i] = 1;
@@ -246,8 +246,8 @@ int alphaListPopulate(char *BUF, int *alpha_list, int k) {
     }
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    int numAlphas;
-    assert(1==fscanf(fp_ord, "%d",&numAlphas));
+    Gint_type numAlphas;
+    assert(1==fscanf(fp_ord, GINT_FMT, &numAlphas));
 #if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
     assert(numAlphas == _numCanon);
 #endif
@@ -1146,6 +1146,8 @@ int main(int argc, char *argv[])
     unsigned long numSamples=0;
     double windowRep_edge_density = 0.0;
     int exitStatus = 0;
+
+    assert(MAX_K <= TINY_SET_SIZE);
 
     if(argc == 1)
     {

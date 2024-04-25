@@ -4,11 +4,10 @@
 #include "misc.h"
 #include <stdio.h>
 
-int _alphaList[MAX_CANONICALS];
-Gint_type _canonList[MAX_CANONICALS];
+Gint_type _canonList[MAX_CANONICALS], _alphaList[MAX_CANONICALS];
 int _canonNumEdges[MAX_CANONICALS];
 
-int CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
+Gint_type CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
     seen = TSetUnion(seen, candidates);
     TSET outset = 0;
     int outbound[k], outsetSize = 0;
@@ -18,7 +17,6 @@ int CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
     int i, j;
     for (i = 0; i < k; i++) {
         if (!TSetIn(seen, i)) continue;
-
         for (j = 0; j < k; j++) {
             if (i != j && !TSetIn(seen, j) && !TSetIn(outset, j) && TinyGraphAreConnected(g, i, j)) {
                 outbound[outsetSize++] = j;
