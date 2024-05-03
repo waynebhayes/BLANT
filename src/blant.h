@@ -87,7 +87,7 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
 extern Gordinal_type _numCanon, _numConnectedCanon;
 char _canonNumEdges[MAX_CANONICALS];
 extern double _totalStarMotifs;
-extern Gint_type _canonList[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
+extern Gint_type _canonList[MAX_CANONICALS];
 
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
@@ -141,7 +141,7 @@ enum OutputMode {undef, indexGraphlets, indexGraphletsRNO, indexOrbits, indexMot
     graphletDistribution // used in Windowing
 };
 extern enum OutputMode _outputMode;
-extern int _outputMapping[MAX_CANONICALS];
+extern int _outputMapping[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
 
 extern double _graphletCount[MAX_CANONICALS];
 extern int **_graphletDistributionTable;

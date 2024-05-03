@@ -48,7 +48,7 @@ unsigned long _known_canonical_count[] =
 Gint_type _alphaList[MAX_CANONICALS];
 Gordinal_type _numCanon;
 char _canonNumEdges[MAX_CANONICALS];
-double _totalStarMotifs; // note this is a double rather than int because the value can *way* overflow any integer
+double _totalStarMotifs; // This is a double because the value can *way* overflow even a 128-bit integer on large graphs.
 int _canonNumStarMotifs[MAX_CANONICALS]; // However, the per-canonical values are integers
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
@@ -58,7 +58,7 @@ char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
 Boolean _rawCounts;
-int _numConnectedCanon;
+Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
 
