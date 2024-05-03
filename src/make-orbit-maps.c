@@ -164,7 +164,7 @@ void getCycle(int permutation[], int cycle[], int seed, int current, Boolean vis
 }
 
 static Gint_type canon_list[MAX_CANONICALS];
-static int canon_num_edges[MAX_CANONICALS];
+static char canon_num_edges[MAX_CANONICALS];
 
 int main(int argc, char* argv[]){
     fprintf(stderr, "sizeof(Gint_type)=%lu\n", sizeof(Gint_type));

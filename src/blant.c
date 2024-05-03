@@ -46,7 +46,8 @@ unsigned long _known_canonical_count[] =
 	//k=1  2  3   4   5   6     7     8      9        10         11          12
 
 Gint_type _alphaList[MAX_CANONICALS];
-int _numCanon, _canonNumEdges[MAX_CANONICALS];
+Gordinal_type _numCanon;
+char _canonNumEdges[MAX_CANONICALS];
 double _totalStarMotifs; // note this is a double rather than int because the value can *way* overflow any integer
 int _canonNumStarMotifs[MAX_CANONICALS]; // However, the per-canonical values are integers
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical

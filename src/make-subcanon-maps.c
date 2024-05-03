@@ -12,7 +12,7 @@
 
 static Gordinal_type *K; // The (k-1)-graphlet canonmap.
 static Gint_type canon_list[MAX_CANONICALS];
-static int canon_num_edges[MAX_CANONICALS];
+static char canon_num_edges[MAX_CANONICALS];
 
 int main(int argc, char* argv[]) {
     int i, j, k;

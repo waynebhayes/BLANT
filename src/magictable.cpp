@@ -34,8 +34,6 @@ using std::cerr;
 using std::ostream;
 using std::unordered_set;
 
-#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
-
 //Column contents information. Order can be changed easily. 
 const int CONNECTED = 0;
 const int UPPER_ORDINAL = 1;

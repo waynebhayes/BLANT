@@ -84,14 +84,15 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
     #error "unknwon TINY_SET_SIZE"
 #endif
 
-extern int _numCanon, _numConnectedCanon, _canonNumEdges[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
+extern Gordinal_type _numCanon, _numConnectedCanon;
+char _canonNumEdges[MAX_CANONICALS];
 extern double _totalStarMotifs;
-extern Gint_type _canonList[MAX_CANONICALS];
+extern Gint_type _canonList[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
 
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k);
-SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, int *canon_num_edges); // returns a SET containing list of connected ordinals
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges); // returns a SET containing list of connected ordinals
 Gint_type orbitListPopulate(char *BUF, Gint_type orbit_list[MAX_CANONICALS][MAX_K],
     Gordinal_type orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], Gordinal_type numCanon, int k);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);

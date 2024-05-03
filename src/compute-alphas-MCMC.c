@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 Gint_type _canonList[MAX_CANONICALS], _alphaList[MAX_CANONICALS];
-int _canonNumEdges[MAX_CANONICALS];
+char _canonNumEdges[MAX_CANONICALS];
 
 static Gint_type _L, _alpha, *_Darray;
 static COMBIN *_Lcombin;

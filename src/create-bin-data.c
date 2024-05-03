@@ -37,7 +37,7 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 Gordinal_type K[Bk]; // does not NEED to be unsigned, so leave it signed, since for kk<=8 max_Bk is 12346 < 32657
 kperm Permutations[Bk];
 static Gint_type canon_list[MAX_CANONICALS];
-static int canon_num_edges[MAX_CANONICALS];
+static char canon_num_edges[MAX_CANONICALS];
 
 void ExtractPerm(char perm[kk], int i) // you provide a permutation array, we fill it with permutation i
 {

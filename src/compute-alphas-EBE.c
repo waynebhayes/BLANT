@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 Gint_type _canonList[MAX_CANONICALS], _alphaList[MAX_CANONICALS];
-int _canonNumEdges[MAX_CANONICALS];
+char _canonNumEdges[MAX_CANONICALS];
 
 Gint_type CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
     seen = TSetUnion(seen, candidates);

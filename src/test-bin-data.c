@@ -23,7 +23,7 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 kperm Permutations[Bk] __attribute__ ((aligned (32768)));
 Gordinal_type K[Bk] __attribute__ ((aligned (32768)));
 static Gint_type canon_list[MAX_CANONICALS];
-static int canon_num_edges[MAX_CANONICALS];
+static char canon_num_edges[MAX_CANONICALS];
 
 void ExtractPerm(char perm[k], int i) // you provide a permutation array, we fill it with permutation i
 {
