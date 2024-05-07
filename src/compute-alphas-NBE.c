@@ -56,8 +56,8 @@ int ComputeAlphaNode(TINY_GRAPH* g, int k) {
 
 SET* _connectedCanonicals;
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "USAGE: %s k\n", argv[0]);
+    if (argc != 2 && argc != 3 && argc != 4) {
+        fprintf(stderr, "USAGE: %s k ID\nOr,  %s k ID\nOr,  %s k start end\n", argv[0], argv[0], argv[0]);
         exit(-1);
     }
     int k = atoi(argv[1]);
@@ -69,8 +69,26 @@ int main(int argc, char* argv[]) {
 #endif
     _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     int numCanon = _connectedCanonicals->maxElem;
+
+	int start, end;
+	if(argc == 2) {
+		start = 0, end = numCanon - 1;
+	} else if (argc == 3) {
+		start = atoi(argv[2]), end = atoi(argv[2]);
+		if(start < 0 || start >= numCanon) {
+			fprintf(stderr, "Invalid ID\n");
+			exit(-1);
+		}
+	} else {
+		start = atoi(argv[2]), end = atoi(argv[3]);
+		if(start < 0 || start >= numCanon || end < 0 || end >= numCanon || start > end) {
+			fprintf(stderr, "Invalid range\n");
+			exit(-1);
+		}
+	}
+
     int i;
-    for (i = 0; i < numCanon; i++) {
+    for (i = start; i <= end; i++) {
 	    Int2TinyGraph(g, _canonList[i]);
     if (!SetIn(_connectedCanonicals, i))
 	_alphaList[i] = 0;

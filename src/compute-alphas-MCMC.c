@@ -109,8 +109,8 @@ Gint_type ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, u
 SET *_connectedCanonicals;
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "USAGE: %s k\n", argv[0]);
+    if (argc != 2 && argc != 3 && argc != 4) {
+        fprintf(stderr, "USAGE: %s k ID\nOr,  %s k ID\nOr,  %s k start end\n", argv[0], argv[0], argv[0]);
         exit(-1);
     }
     int k = atoi(argv[1]);
@@ -125,12 +125,29 @@ int main(int argc, char* argv[]) {
     _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
     Gordinal_type numCanon = _connectedCanonicals->maxElem;
 
+	int start, end;
+	if(argc == 2) {
+		start = 0, end = numCanon - 1;
+	} else if (argc == 3) {
+		start = atoi(argv[2]), end = atoi(argv[2]);
+		if(start < 0 || start >= numCanon) {
+			fprintf(stderr, "Invalid ID\n");
+			exit(-1);
+		}
+	} else {
+		start = atoi(argv[2]), end = atoi(argv[3]);
+		if(start < 0 || start >= numCanon || end < 0 || end >= numCanon || start > end) {
+			fprintf(stderr, "Invalid range\n");
+			exit(-1);
+		}
+	}
+
     _L = k - mcmc_d  + 1;
     unsigned combinArrayD[mcmc_d]; //Used to hold combinations of d graphlets from our k graphlet
     unsigned combinArrayL[_L]; //Used to hold combinations of L d graphlets from Darray
     // create the alpha list
     Gordinal_type i;
-    for (i = 0; i < numCanon; i++) {
+    for (i = start; i <= end; i++) {
 	Int2TinyGraph(gk, _canonList[i]);
 	TinyGraphEdgesAllDelete(gd);
 	if (SetIn(_connectedCanonicals, i)) {
