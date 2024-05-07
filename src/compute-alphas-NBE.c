@@ -57,7 +57,7 @@ int ComputeAlphaNode(TINY_GRAPH* g, int k) {
 SET* _connectedCanonicals;
 int main(int argc, char* argv[]) {
     if (argc != 2 && argc != 3 && argc != 4) {
-        fprintf(stderr, "USAGE: %s k ID\nOr,  %s k ID\nOr,  %s k start end\n", argv[0], argv[0], argv[0]);
+        fprintf(stderr, "USAGE: %s k\nOr,  %s k ID\nOr,  %s k start end [inclusive]\n", argv[0], argv[0], argv[0]);
         exit(-1);
     }
     int k = atoi(argv[1]);
