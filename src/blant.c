@@ -96,6 +96,7 @@ double *_doubleOrbitDegreeVector[MAX_ORBITS];
 
 double *_cumulativeProb, _worstPrecision, _meanPrec;
 enum PrecisionMode _precisionMode = mean;
+enum PrecisionWeights _precisionWt = PrecWtNone;
 int _worstCanon=-1;
 
 double _desiredDigits, _desiredPrec, _confidence;
@@ -576,7 +577,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				// guarantees that for sufficiently large batches, the batch means *are* Normally
 				// distributed, so we can compute confidence intervals.
 				for(j=0;j<_numCanon;j++) if(SetIn(_connectedCanonicals,j) && _batchRawCount[j]) {
-				    StatAddSample(sTotal[j], (double)_batchRawCount[j]);
+				    double sample = _batchRawCount[j];
+				    if(_precisionWt == PrecWtNone) StatAddSample(sTotal[j], sample);
+				    else {
+					double w = sample;
+					if(_precisionWt == PrecWtLog) sample = log(sample);
+					else assert(_precisionWt == PrecWtRaw);
+					StatAddWeightedSample(sTotal[j], sample, w);
+				    }
 				    if(StatN(sTotal[j]) > 1) {
 					double relInterval = StatConfInterval(sTotal[j], _confidence) / StatMean(sTotal[j]);
 					intervalSum += relInterval;
@@ -1060,7 +1068,11 @@ const char * const USAGE_LONG =
 "    precision: desired precision of graphlet frequencies; use p<1 for fractional precision, p>=1 for #digits (base 10).\n"\
 "        Note0: when p>=1, digits can be non-integer, eg 1.5 means fractional precision 10^(-1.5) or about 3% precision.\n"
 "        Note1: -p limits the MEAN precision across graphlets; -P limits the worst case precision (not recommended)\n"\
-"        Note2: technically we use confidence intervals. The relative interval width is set to the precision,\n"\
+"        Note2: if a 'w' or 'W' is appended after the number specifying precision, then the mean will be WEIGHTED\n"\
+"               by the count--effectively saying you don't care about rare graphlets and want the frequent ones to have\n"\
+"               accurate counts. If an 'l' or 'L' is appended, we weigh by the logarithm of the count, which is less\n"\
+"               Draconian against rare graphlets.\n"\
+"        Note3: technically we use confidence intervals. The relative interval width is set to the precision,\n"\
 "               and the default confidence is (1-precision/10). eg. if p=0.01 (2 digits), confidence is set to 99.9%;\n"\
 "               p=0.001 (3 digits) sets confidence to 99.99%. The confidence is applied to the mean if -p was specified,\n"\
 "               or the worst-case if -P was specified (not recommended). To change the default confidence, use the\n"\
@@ -1288,7 +1300,7 @@ int main(int argc, char *argv[])
 	case 'p':
 	    if(atof(optarg) < 1) { // user has asked for relative precision
 		_desiredPrec = atof(optarg);
-		if(_desiredPrec <= 0 || _desiredPrec >= 1)
+		if(_desiredPrec <= 0)
 		    Fatal("invalid requested precision %g must be in (0,1)", _desiredPrec);
 		_desiredDigits = -log(_desiredPrec)/log(10);
 	    }
@@ -1300,6 +1312,14 @@ int main(int argc, char *argv[])
 	    if(_desiredDigits > 3)
 		Warning("requesting more than 3 digits of precision may be infeasible; you've requested %g", _desiredDigits);
 	    if(_confidence) Fatal("Please specify confidence (-c option) AFTER specifying precision with -p or -P");
+	    char wChar = optarg[strlen(optarg)-1];
+	    if(isalpha(wChar)) {
+		switch(wChar) {
+		case 'w': case 'W': _precisionWt=PrecWtRaw; break;
+		case 'l': case 'L': _precisionWt=PrecWtLog; break;
+		default: Fatal("unknown precision weighting %c", wChar);
+		}
+	    }
 	    break;
 	case 'c': _confidence = atof(optarg);
 	    if(_confidence <= 0) Fatal("confidence must be in (0,1), not %g", _confidence);

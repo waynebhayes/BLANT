@@ -148,6 +148,7 @@ extern int **_graphletDistributionTable;
 extern double _graphletConcentration[MAX_CANONICALS];
 extern unsigned long _batchRawCount[MAX_CANONICALS], _batchRawTotalSamples; // batches for confidence intervals
 enum PrecisionMode {PrecUndef, mean, worst};
+enum PrecisionWeights {PrecWtNone, PrecWtRaw, PrecWtLog};
 
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse, noncanonical};
 extern enum CanonicalDisplayMode _displayMode;
