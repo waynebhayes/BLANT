@@ -85,7 +85,7 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
 #endif
 
 extern Gordinal_type _numCanon, _numConnectedCanon;
-char _canonNumEdges[MAX_CANONICALS];
+extern char _canonNumEdges[MAX_CANONICALS];
 extern double _totalStarMotifs;
 extern Gint_type _canonList[MAX_CANONICALS];
 

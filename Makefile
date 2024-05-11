@@ -130,9 +130,6 @@ test_all: test_index_mode check_maps
 
 all: most $(ehd_txts) test_all
 
-gcc-version:
-	@if ls $(SRCDIR)/*.gz 2>/dev/null | fgrep -q "$(GCC)"; then touch gcc-version; else echo "WARNING: gcc version not supported; prediction disabled" >&2; fi
-
 canon_maps: base $(canon_all) subcanon_maps
 
 .PHONY: all most test_blant check_maps pristine clean_canon_maps
@@ -142,16 +139,13 @@ canon_maps: base $(canon_all) subcanon_maps
 fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
 
-smaller-canon-map: libwayne $(SRCDIR)/EdgePredict/smaller-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' $(SPEED) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/EdgePredict/smaller-canon-map.c $(LIBWAYNE_BOTH) -Isrc
-
 slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_BOTH)
 
 make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
 
-blant: gcc-version libwayne $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
+blant: libwayne $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/MT19937/mt19937.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/MT19937/mt19937.o $(LIBWAYNE_LINK)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
@@ -272,7 +266,7 @@ check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 
 clean:
 	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
-	@/bin/rm -rf gcc-version $(OBJDIR)/*
+	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
 	echo "'realclean' is now called 'pristine'; try again"
