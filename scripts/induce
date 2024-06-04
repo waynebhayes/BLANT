@@ -1,0 +1,86 @@
+#!/bin/bash
+USAGE="USAGE: $0 { -f ffff | -n numNodes | nodeList.txt } graph.el
+PURPOSE: print to standard output an induced subgraph of graph.el on either:
+    - a randomly chosen fraction ffff of the nodes of graph.el, if the '-f' option is given
+      or
+    - a randomly chosen number numNodes of the nodes of graph.el, if the '-n' option is given
+    - the set of nodes in the file 'nodeList.txt'
+Note: the set of output nodes may be smaller than requested since after inducement, some nodes may end up with degree zero,
+and will not appear in the edge list."
+
+# Functions
+die(){ (trap "" 0 1 2 3 15; echo "$USAGE"; echo "FATAL ERROR: $@")>&2; exit 1; }
+warn(){ (echo "WARNING: $@")>&2; }
+not(){ if eval "$@"; then return 1; else return 0; fi; }
+newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
+parse(){ awk "BEGIN{print $@}" </dev/null; }
+
+# generally useful Variables
+NL='
+'
+TAB='	'
+
+BASENAME=`basename "$0" .sh`
+[ "$BASENAME" == skel ] && die "$0 is a skeleton Bourne Shell script; your scripts should source it, not run it"
+USAGE=${USAGE:?"$0 should have a USAGE message before using skel.sh"}
+echo "$BASENAME" | grep "[ $TAB]" && die "Shell script names really REALLY shouldn't contain spaces or tabs"
+[ $BASENAME == "$BASENAME" ] || die "something weird with filename in '$BASENAME'"
+
+# Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
+TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
+ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+
+FRAC=UNDEF
+NUM=UNDEF
+NODES=""
+
+case "$1" in
+-f) FRAC="$2"; shift 2;;
+-n) NUM="$2"; shift 2; die "-n not yet implemented" ;;
+*) [ -r "$1" ] || die "'$1' needs to be an input file of nodes";
+    NODES="$1"; shift;
+    cp "$NODES" $TMPDIR/nodes
+    ;;
+esac
+
+[ $# -eq 1 -a -r "$1" ] || die "Last argument must be a graph file"
+
+cp -p "$1" $TMPDIR/graph.el || die "couldn't copy graph file '$1'"
+
+if [ "$FRAC" != "UNDEF" ]; then # create random induced subgraph
+    awk 'BEGIN{srand(); n=0; FRAC='"$FRAC"';
+	if(FRAC < 0 || FRAC > 1) {
+	    printf "FRAC (%g) must be between 0 and 1\n", FRAC >"/dev/fd/2";
+	    exit 1
+	}
+    }
+    {
+	if(!($1 in V)){ nodeName[++n]=$1; V[$1]=1}
+	if(!($2 in V)){ nodeName[++n]=$2; V[$2]=1}
+    }
+    END {
+	n1=int(FRAC*n);
+	induced[""]=1; delete induced[""]; # create empty array
+	for(i=0;i<n1;i++) {
+	    do {u = nodeName[int(1+n*rand())]} while(u in induced);
+	    induced[u]=1;
+	    print u;
+	}
+    }' $TMPDIR/graph.el > $TMPDIR/nodes || trap "" 0 1 2 3 15
+fi
+
+#ls -l $TMPDIR/nodes $TMPDIR/graph.el >&2
+awk 'ARGIND==1{
+	if(NF!=1){
+	    printf "first file \"%s\", line %d: expecting 1 column (a list of nodes) but got \"%s\"\n",
+		FILENAME,FNR,$0 >"/dev/fd/2"; exit 1
+	}
+	++nodes[$1];
+    }
+    ARGIND==2{
+	if(NF!=2) {
+	    printf "second file \"%s\", line %d: expecting 2 columns (an edge) but got \"%s\"\n",
+		FILENAME,FNR,$0 >"/dev/fd/2"; exit 1
+	}
+	if(($1 in nodes) && ($2 in nodes)) print;
+    }' $TMPDIR/nodes $TMPDIR/graph.el || trap "" 0 1 2 3 15
