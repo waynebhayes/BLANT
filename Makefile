@@ -145,8 +145,8 @@ slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJD
 make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
 
-blant: libwayne $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_HOME)/C++/FutureAsync.o $(LIBWAYNE_LINK)
+blant: libwayne $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o #$(LIBWAYNE_HOME)/C++/FutureAsync.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) #$(LIBWAYNE_HOME)/C++/FutureAsync.o
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
@@ -194,7 +194,7 @@ $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=c++11
 
-$(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_HOME)/C++/FutureAsync.o: libwayne
+$(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	cd $(LIBWAYNE_HOME)/C++ && $(MAKE)
 
 $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
