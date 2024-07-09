@@ -19,7 +19,7 @@ endif
 ifdef DEBUG
     ifdef PROFILE
 	SPEED=-O0 -ggdb -pg
-	LIB_OPT=-g-pg
+	LIB_OPT=-pg-g
     else
 	SPEED=-O0 -ggdb
 	LIB_OPT=-g
