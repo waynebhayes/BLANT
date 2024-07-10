@@ -32,6 +32,7 @@ static int _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not in
 static unsigned *_pairs;
 static float *_weights;
 char **_nodeNames, _supportNodeNames = true;
+static FILE *interestFile;
 Boolean _child; // are we a child process?
 int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
@@ -61,6 +62,8 @@ Boolean _rawCounts;
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
+int *_startNodes, _numStartNodes;
+SET *_startNodeSet;
 
 Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
 Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
@@ -644,6 +647,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    -(log(_meanPrec)/log(10)), -(log(_worstPrecision)/log(10)), _worstCanon,
 		    100*_confidence, numSamples, batch);
 	}
+	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
     }
 
     // Sampling done. Now generate output for output modes that require it.
@@ -774,13 +778,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     if(_outputMode == outputODV || (_outputMode == communityDetection && _communityMode=='o'))
 	for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
     if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
-    TinyGraphFree(empty_g);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT && numSamples)
     	fprintf(stderr,"Average number of tries per sample is %.15g\n", _acceptRejectTotalTries/(double)numSamples);
     SetFree(V);
     SetFree(prev_node_set);
     SetFree(intersect_node);
+    TinyGraphFree(empty_g);
     return _earlyAbort;
 }
 
@@ -1133,6 +1137,7 @@ const char * const USAGE_LONG =
 "       but defaults to 4 to be conservative.\n"\
 "    -r seed: pick your own random seed\n"\
 "    -S is for SANITY TESTING ONLY! It turns off the de-biasing alpha multipliers and produces BIASED samples\n"\
+"    -i FILENAME: file containing \"nodes of interest\"; every graphlet sampled will have at least one of these nodes\n"\
 "    -W windowSize: DEPRECATED. (use '-h' option for more)\n"\
 "	-p windowRepSamplingMethod: (DEPRECATED) one of the below\n"\
 "	    MIN (Minimizer); MAX (Maximizer); DMIN (Minimizer With Distance); DMAX (Maximizer with Distance);\n"\
@@ -1178,7 +1183,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:d:c:e:f:F:hg:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X:")) != -1)
+    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X:")) != -1)
     {
 	switch(opt)
 	{
@@ -1193,6 +1198,11 @@ int main(int argc, char *argv[])
 	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
 	    #endif
 	    exit(1); break;
+	case 'i':
+	    interestFile = fopen(optarg, "r");
+	    if(!interestFile) Fatal("cannot open nodes-of-interest file '%s' while processing -i option", optarg);
+	    // file will be read later, after we read the graph input file so we have the names
+	    break;
 	case 'F':
 	    if(_freqDisplayMode != freq_display_mode_undef) Fatal("-C option cannot appear more than once");
 	    switch (*optarg)
@@ -1559,6 +1569,46 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
+    _startNodes = Calloc(G->n, sizeof(unsigned));
+    _startNodeSet = SetAlloc(G->n);
+    if(interestFile) {
+	if(_sampleMethod != SAMPLE_NODE_EXPANSION) {
+	    Warning("sampleMethod is being set to NBE to accomodate nodes-of-interest file");
+	    _sampleMethod = SAMPLE_NODE_EXPANSION;
+	}
+	char nodeName[BUFSIZ];
+	while(1 == fscanf(interestFile, "%s", nodeName)) {
+	    int nodeNum;
+	    if(_supportNodeNames) {
+                if(!BinTreeLookup(G->nameDict, (foint)nodeName, (foint*)&nodeNum))
+                    Fatal("nodes-of-interest file contains non-existent node '%s'", nodeName);
+	    } else {
+		nodeNum = atoi(nodeName);
+		if(nodeNum < 0 || nodeNum >= G->n)
+                    Fatal("nodes-of-interest file contains non-existent node '%d'", nodeNum);
+	    }
+	    if(SetIn(_startNodeSet, nodeNum))
+		Fatal("nodes-of-interest cannot contain duplicate nodes but we've already seen '%s'", nodeName);
+	    _startNodes[_numStartNodes] = nodeNum;
+	    SetAdd(_startNodeSet, nodeNum);
+	    ++_numStartNodes;
+	    if(_numStartNodes > G->n)
+		Fatal("nodes-of-interest file contains '%d' entries, which is more nodes (%d) than input graph",
+		    _numStartNodes, G->n);
+	}
+	if(_numStartNodes < _k)
+	    Fatal("nodes-of-interest file must contain at least k=%d entries, but contains only %d", _k, _numStartNodes);
+	Note("Read %d nodes-of-interest", _numStartNodes);
+	assert(SetCardinality(_startNodeSet) == _numStartNodes);
+    } else {
+	int l;
+	_numStartNodes = G->n;
+	for(l=0; l<G->n; l++) {
+	    _startNodes[l]=l;
+	    SetAdd(_startNodeSet, l);
+	}
+    }
+
     if(_outputMode == communityDetection) {
 	if(_communityMode == 'o' || _communityMode=='g') // allocate sets for [node][orbit], but 2nd dimension only when needed
 	    _communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**)); // elements are only allocated when needed
@@ -1581,7 +1631,7 @@ int main(int argc, char *argv[])
             {
                 if(sscanf(line, "%s%f ", nodeName, &importance) != 2)
                     Fatal("GraphNodeImportance: Error while reading\n");
-                if(!BinTreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
+                if(!BinTreeLookup(G->nameDict, (foint)nodeName, (foint*)&nodeNum))
                     Fatal("Node Importance Error: %s is not in the Graph file\n", nodeName);
                 _graphNodeImportance[nodeNum.i] = importance;
             }

@@ -167,6 +167,10 @@ extern int *_componentSize; // number of nodes in each CC
 extern int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.
 extern SET **_componentSet;
 
+// from -i "nodes of interest" file, the list of nodes to start all graphlet samples, or the identity mapping if not
+extern int *_startNodes, _numStartNodes;
+extern SET *_startNodeSet;
+
 extern double *_cumulativeProb;
 extern Boolean _child, _weighted;
 extern Boolean _rawCounts;

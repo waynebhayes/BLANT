@@ -72,31 +72,33 @@ void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G) {
 // Sliding window is generated from a preselected edge from a predefined connected component and grown through edge walking.
 void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int windowSize, int edge)
 {
-	MultisetEmpty(XLS);
-	QueueEmpty(XLQ);
+    MultisetEmpty(XLS);
+    QueueEmpty(XLQ);
 
-	if (windowSize < 1) {
-		Fatal("Window Size must be at least 1");
-	}
+    if (windowSize < 1) {
+	Fatal("Window Size must be at least 1");
+    }
 #if PARANOID_ASSERTS
-	assert(edge >= 0 && edge < G->numEdges);
+    assert(edge >= 0 && edge < G->numEdges);
 #endif
 
+    do
 	X[0] = G->edgeList[2 * edge];
-	X[1] = G->edgeList[2 * edge + 1];
+    while(!SetIn(_startNodeSet, X[0]));
+    X[1] = G->edgeList[2 * edge + 1];
 
     MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
 
-	// Add windowSize-1 d graphlets to our sliding window. The edge we added is the first d graphlet
-	int i, j;
-	for (i = 1; i < windowSize; i++) {
-		MCMCGetNeighbor(X, G); // After each call latest graphlet is in X array
-		for (j = 0; j < mcmc_d; j++) {
-			MultisetAdd(XLS, X[j]);
-			QueuePut(XLQ, (foint) X[j]);
-		}
+    // Add windowSize-1 d graphlets to our sliding window. The edge we added is the first d graphlet
+    int i, j;
+    for (i = 1; i < windowSize; i++) {
+	MCMCGetNeighbor(X, G); // After each call latest graphlet is in X array
+	for (j = 0; j < mcmc_d; j++) {
+	    MultisetAdd(XLS, X[j]);
+	    QueuePut(XLQ, (foint) X[j]);
 	}
+    }
 }
 
 // WalkLSteps fills XLS, XLQ (the sliding window) with L dgraphlets
@@ -107,47 +109,47 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int wi
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge)
 {
 
-	//For now d must be equal to 2 because we start by picking a random edge
-	if (mcmc_d != 2) {
-		Fatal("mcmc_d must be set to 2 in blant.h for now");
-	}
+    //For now d must be equal to 2 because we start by picking a random edge
+    if (mcmc_d != 2) {
+	Fatal("mcmc_d must be set to 2 in blant.h for now");
+    }
 
-	if (edge < 0 && cc == -1) { // Pick a random edge from anywhere in the graph that has at least k nodes
-	    do {
-		edge = G->numEdges * RandomUniform();
-		X[0] = G->edgeList[2*edge];
-	    } while(!(_componentSize[_whichComponent[G->edgeList[2*edge]]] < k));
-	    X[1] = G->edgeList[2*edge+1];
-	}
-	else if (edge < 0) { // Pick a random edge from within a chosen connected component
-		do {
-		edge = G->numEdges * RandomUniform();
-		X[0] = G->edgeList[2*edge];
-		} while(!SetIn(_componentSet[cc], X[0]));
-		X[1] = G->edgeList[2*edge+1];
-	}
-	// else start from the preselected edge
+    if (edge < 0 && cc == -1) { // Pick a random edge from any component in the graph that has at least k nodes
+	do {
+	    edge = G->numEdges * RandomUniform();
+	    X[0] = G->edgeList[2*edge];
+	    assert(false); // this loop is suspect: the while statement below MUST be wrong
+	} while(!(_componentSize[_whichComponent[X[0]]] < k));
+    }
+    else if (edge < 0) { // Pick a random edge from within a chosen connected component
+	do {
+	    edge = G->numEdges * RandomUniform();
+	    X[0] = G->edgeList[2*edge];
+	} while(!SetIn(_componentSet[cc], X[0]) || !SetIn(_startNodeSet, X[0]));
+    }
+    X[1] = G->edgeList[2*edge+1];
+    // else start from the preselected edge
 
 #if PARANOID_ASSERTS
-	assert(_componentSize[_whichComponent[X[0]]] >= k); // Assert we can fill the window with the prechosen edge.
+    assert(_componentSize[_whichComponent[X[0]]] >= k); // Assert we can fill the window with the prechosen edge.
 #endif
 
-	initializeSlidingWindow(XLS, XLQ, X, G, _MCMC_L, edge);
+    initializeSlidingWindow(XLS, XLQ, X, G, _MCMC_L, edge);
 
-	// Keep crawling until we have k distinct vertices
-	static int numTries = 0;
-	static int depth = 0;
-	while (MultisetSupport(XLS) < k) {
-	    if (numTries++ > MAX_TRIES) { // If we crawl 100 steps without k distinct vertices restart
-		assert(depth++ < MAX_TRIES); // If we restart 100 times in a row without success give up
-		WalkLSteps(XLS,XLQ,X,G,k,cc,edge); // try again
-		depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
-		numTries = 0; // And our number of attempts to crawl one step
-		return;
-	    }
-	    crawlOneStep(XLS, XLQ, X, G);
+    // Keep crawling until we have k distinct vertices
+    static int numTries = 0;
+    static int depth = 0;
+    while (MultisetSupport(XLS) < k) {
+	if (numTries++ > MAX_TRIES) { // If we crawl 100 steps without k distinct vertices restart
+	    assert(depth++ < MAX_TRIES); // If we restart 100 times in a row without success give up
+	    WalkLSteps(XLS,XLQ,X,G,k,cc,edge); // try again
+	    depth = 0; // If we get passed the recursive calls and successfully find a k graphlet, reset our depth
+	    numTries = 0; // And our number of attempts to crawl one step
+	    return;
 	}
-	numTries = 0;
+	crawlOneStep(XLS, XLQ, X, G);
+    }
+    numTries = 0;
 }
 
 // return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
@@ -184,7 +186,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     SetEmpty(V);
     int edge;
     if(G->useComplement) {
-	Varray[0] = G->n * RandomUniform();
+	Varray[0] = _startNodes[(int)(_numStartNodes * RandomUniform())];
 	Varray[1] = GraphRandomNeighbor(G,Varray[0]);
     } else {
 	if(whichCC<0){ // we are being TOLD to choose a specific edge to start, even if NUM_START_NODES is 1
@@ -194,15 +196,17 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
 	else {
 #if NBE_NUM_START_NODES == 1 // start with a uniform random NODE and one of its neighbors
+	    int numTries=0; // be sure we don't mess up CC from _startNodes
 	    do {
-		Varray[0] = G->n * RandomUniform();
+		Varray[0] = _startNodes[(int)(_numStartNodes * RandomUniform())];
+		assert(numTries++ < 10*G->n);
 	    } while(!SetIn(_componentSet[whichCC], Varray[0]));
 	    Varray[1] = GraphRandomNeighbor(G,Varray[0]);
-#else
+#else // start with a random EDGE
 	    do {
 		edge = G->numEdges * RandomUniform();
 		Varray[0] = G->edgeList[2*edge];
-	    } while(!SetIn(_componentSet[whichCC], Varray[0]));
+	    } while(!SetIn(_componentSet[whichCC], Varray[0]) || !SetIn(_startNodeSet, Varray[0]));
 	    assert(edge < G->numEdges);
 	    Varray[1] = G->edgeList[2*edge+1];
 #endif
@@ -327,7 +331,8 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(nOut == SetCardinality(outSet));
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k);
+	static TINY_GRAPH *g;
+	if(!g) g = TinyGraphAlloc(k);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	Gordinal_type GintOrdinal = L_K(Gint);
@@ -386,6 +391,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
+    if(!SetIn(_startNodeSet,v1) && !SetIn(_startNodeSet, v2)) Fatal("startNodes not implemented in Faye sampling");
 
     /* Faye: Mark v1 and v2 as visited */
     visited[v1] = 1;
@@ -509,6 +515,9 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 	assert(Varray[i] >= 0 && Varray[i] < G->n);
 	SetAdd(V, Varray[i]);
     }
+    Boolean found=false;
+    for(i=0;i<k;i++) if(SetIn(_startNodeSet, Varray[i])) {found=true; break;}
+    if(!found) Fatal("sampling graphlets from file but this line doesn't contain a node from the set of interest:\n%s",line);
     return 1.0;
 }
 
@@ -556,17 +565,19 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
 {
     if(G->useComplement) Fatal("Sorry, EBE not implemented for complemented graphs");
-    int edge, v1, v2;
+    int edge, v1, v2, numTries = 0;
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     if(whichCC<0) edge = -(whichCC+1);
     else do {
 	edge = G->numEdges * RandomUniform();
 	v1 = G->edgeList[2*edge];
-    } while(!SetIn(_componentSet[whichCC], v1));
+	if(numTries++ > 2*G->numEdges) Fatal("EBE is taking suspiciously long");
+    } while(!SetIn(_componentSet[whichCC], v1) || !SetIn(_startNodeSet, v1));
     v1 = G->edgeList[2*edge];
     v2 = G->edgeList[2*edge+1];
     assert(edge < G->numEdges);
+    assert(SetIn(_startNodeSet, v1) || SetIn(_startNodeSet, v2));
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
     int vCount = 2;
@@ -583,8 +594,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     else if(Gn != G->n) {SetFree(internal); internal = SetAlloc(G->n); Gn=G->n;}
     else SetEmpty(internal);
 
-    int numTries = 0;
-	double multiplier = 1;
+    numTries = 0;
+    double multiplier = 1;
     while(vCount < k)
     {
 	int i, whichNeigh, newNode = -1;
@@ -734,7 +745,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
     do {
 	edge = G->numEdges * RandomUniform();
 	v1 = G->edgeList[2*edge];
-    } while(!SetIn(_componentSet[whichCC], v1));
+    } while(!SetIn(_componentSet[whichCC], v1) || !SetIn(_startNodeSet, v1));
     v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
@@ -891,14 +902,14 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	setup = true;
 	WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, currEdge);
 	do {
-		currEdge++;
+	    currEdge++;
 	} while (_componentSize[_whichComponent[G->edgeList[2*currEdge]]] < k);
 	currSamples = 0;
     }
     else {
 	// Keep crawling until we have k distinct vertices(can sample a graphlet). Crawl at least once
 	do  {
-		crawlOneStep(XLS, XLQ, Xcurrent, G);
+	    crawlOneStep(XLS, XLQ, Xcurrent, G);
 	} while (MultisetSupport(XLS) != k);
 	currSamples++;
     }
@@ -943,6 +954,9 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     Gordinal_type GintOrdinal = L_K(Gint);
 
     assert(numNodes == k); // Ensure we are returning k nodes
+    Boolean found=false;
+    for(j=0;j<k;j++) if(SetIn(_startNodeSet,Varray[j])){found=true;break;}
+    assert(found);
 
     if(_sampleSubmethod == SAMPLE_MCMC_EC) {
 	int _i,_j;
@@ -994,116 +1008,118 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
     if (!g) {
 	//NON REENTRANT CODE
-		g = TinyGraphAlloc(k);
+	g = TinyGraphAlloc(k);
     }
 
-	double multiplier = 1;
-	int edge;
-	bool foundGraphlet = false;
+    double multiplier = 1;
+    int edge;
+    bool foundGraphlet = false;
 
-	do {
-		foundGraphlet = true;
-		// Pick the first edge
-		if (whichCC == -1) { // Pick a random edge from anywhere in the graph that has at least k nodes
-			do {
-			edge = G->numEdges * RandomUniform();
-			} while(!(_componentSize[_whichComponent[G->edgeList[2*edge]]] < k));
-		} else { // Pick a random edge from within a chosen connected component
-			do {
-			edge = G->numEdges * RandomUniform();
-			} while(!SetIn(_componentSet[whichCC], G->edgeList[2*edge]));
+    do {
+	foundGraphlet = true;
+	// Pick the first edge
+	if (whichCC == -1) { // Pick a random edge from anywhere in the graph that has at least k nodes
+	    do {
+		edge = G->numEdges * RandomUniform();
+		Xcurrent[0] = G->edgeList[2 * edge];
+	    } while(!(_componentSize[_whichComponent[Xcurrent[0]]] < k) || !SetIn(_startNodeSet, Xcurrent[0]));
+	    // FIXME: Shouldn't the above be UNTIL, or perhaps while componentSize < k rather than NOT < k?
+	} else { // Pick a random edge from within a chosen connected component
+	    do {
+		edge = G->numEdges * RandomUniform();
+		Xcurrent[0] = G->edgeList[2 * edge];
+	    } while(!SetIn(_componentSet[whichCC], Xcurrent[0]) || !SetIn(_startNodeSet, Xcurrent[0]));
+	}
+
+#if PARANOID_ASSERTS
+	assert(edge >= 0 && edge < G->numEdges);
+#endif
+
+	Xcurrent[1] = G->edgeList[2 * edge + 1];
+
+	Varray[0] = Xcurrent[0], Varray[1] = Xcurrent[1];
+
+	int i, j;
+	for (i = 2; i < k; i++) {
+		int oldu = Xcurrent[0];
+		int oldv = Xcurrent[1];
+
+		double p = RandomUniform();
+		double uDegree = GraphDegree(G, oldu), vDegree = GraphDegree(G, oldv);
+
+		for(j = 0; j < i; j++) {
+			if(GraphAreConnected(G, Varray[j], oldu)) uDegree--;
+			if(GraphAreConnected(G, Varray[j], oldv)) vDegree--;
 		}
 
 		#if PARANOID_ASSERTS
-			assert(edge >= 0 && edge < G->numEdges);
+			assert(uDegree >= 0);
+			assert(vDegree >= 0);
 		#endif
 
-		Xcurrent[0] = G->edgeList[2 * edge];
-		Xcurrent[1] = G->edgeList[2 * edge + 1];
-
-		Varray[0] = Xcurrent[0], Varray[1] = Xcurrent[1];
-
-		int i, j;
-		for (i = 2; i < k; i++) {
-			int oldu = Xcurrent[0];
-			int oldv = Xcurrent[1];
-
-			double p = RandomUniform();
-			double uDegree = GraphDegree(G, oldu), vDegree = GraphDegree(G, oldv);
-
-			for(j = 0; j < i; j++) {
-				if(GraphAreConnected(G, Varray[j], oldu)) uDegree--;
-				if(GraphAreConnected(G, Varray[j], oldv)) vDegree--;
-			}
-
-			#if PARANOID_ASSERTS
-				assert(uDegree >= 0);
-				assert(vDegree >= 0);
-			#endif
-
-			if(uDegree + vDegree == 0) {
-				foundGraphlet = false; // We got stuck, restart
-				break;
-			}
-
-			if(!_rawCounts) multiplier *= (uDegree + vDegree);
-
-
-			// Select a new edge such that the other endpoint is a new node
-			if(p < uDegree/(uDegree + vDegree)) {
-				while (oldv == Xcurrent[1]) {
-					Xcurrent[1] = GraphRandomNeighbor(G, Xcurrent[0]);
-					for(j = 0; j < i; j++) {
-						if(Xcurrent[1] == Varray[j]) {
-							Xcurrent[1] = oldv;
-							break;
-						}
-					}
-				}
-				Varray[i] = Xcurrent[1];
-			} else {
-				while (oldu == Xcurrent[0]) {
-					Xcurrent[0] = GraphRandomNeighbor(G, Xcurrent[1]);
-					for(j = 0; j < i; j++) {
-						if(Xcurrent[0] == Varray[j]) {
-							Xcurrent[0] = oldu;
-							break;
-						}
-					}
-				}
-				Varray[i] = Xcurrent[0];
-			}
-			#if PARANOID_ASSERTS
-			#if !SELF_LOOPS
-				assert(Xcurrent[0] != Xcurrent[1]);
-			#endif
-				assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
-				assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
-			#endif
+		if(uDegree + vDegree == 0) {
+			foundGraphlet = false; // We got stuck, restart
+			break;
 		}
 
-	} while (!foundGraphlet); // foundGraphlet will be false if we get stuck somewhere with no new node and need to restart
+		if(!_rawCounts) multiplier *= (uDegree + vDegree);
 
 
-	assert(multiplier > 0.0);
+		// Select a new edge such that the other endpoint is a new node
+		if(p < uDegree/(uDegree + vDegree)) {
+			while (oldv == Xcurrent[1]) {
+				Xcurrent[1] = GraphRandomNeighbor(G, Xcurrent[0]);
+				for(j = 0; j < i; j++) {
+					if(Xcurrent[1] == Varray[j]) {
+						Xcurrent[1] = oldv;
+						break;
+					}
+				}
+			}
+			Varray[i] = Xcurrent[1];
+		} else {
+			while (oldu == Xcurrent[0]) {
+				Xcurrent[0] = GraphRandomNeighbor(G, Xcurrent[1]);
+				for(j = 0; j < i; j++) {
+					if(Xcurrent[0] == Varray[j]) {
+						Xcurrent[0] = oldu;
+						break;
+					}
+				}
+			}
+			Varray[i] = Xcurrent[0];
+		}
+		#if PARANOID_ASSERTS
+		#if !SELF_LOOPS
+			assert(Xcurrent[0] != Xcurrent[1]);
+		#endif
+			assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
+			assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
+		#endif
+	}
 
+    } while (!foundGraphlet); // foundGraphlet will be false if we get stuck somewhere with no new node and need to restart
+
+    assert(multiplier > 0.0);
 
     int i, j;
     SetEmpty(V);
 
+    Boolean found=false;
     for (i = 0; i < k; i++) {
-		SetAdd(V, Varray[i]);
+	SetAdd(V, Varray[i]);
+	if(SetIn(_startNodeSet, Varray[i])) found=true;
     }
+    assert(found);
 
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g, k);
     Gordinal_type GintOrdinal = L_K(Gint);
 
-
     double ocount = 1.0;
 
-	// The over counting ratio is the alpha value divided by the multiplier
-	ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
+    // The over counting ratio is the alpha value divided by the multiplier
+    ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 
     if (_outputMode == outputODV) {
 	unsigned char perm[k];
@@ -1113,18 +1129,18 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	}
     }
-	if (_outputMode == outputGDV) {
-		unsigned char perm[k];
-		memset(perm, 0, k);
-		ExtractPerm(perm, Gint);
-		for (j = 0; j < k; j++) {
-		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
-		}
+    if (_outputMode == outputGDV) {
+	unsigned char perm[k];
+	memset(perm, 0, k);
+	ExtractPerm(perm, Gint);
+	for (j = 0; j < k; j++) {
+	    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 	}
-	if(ocount < 0) {
-	    Warning("ocount (%g) is less than 0\n", ocount);
-	}
-	_graphletConcentration[GintOrdinal] += ocount;
+    }
+    if(ocount < 0) {
+	Warning("ocount (%g) is less than 0\n", ocount);
+    }
+    _graphletConcentration[GintOrdinal] += ocount;
 
     _g_overcount = ocount;
     return 1.0;
@@ -1217,6 +1233,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
  */
 void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr) {
     if(G->useComplement) Fatal("Sorry, complemented graphs not supported in INDEX mode");
+    if(_numStartNodes != G->n) Fatal("Sorry, nodes-of-interest not implemented for Index+Print");
     // i, j, and neigh are just used in for loops in this function
     int i, j, neigh;
     // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
