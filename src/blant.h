@@ -28,6 +28,8 @@ double RandomUniform(void) {
 #define RandomSeed srand48
 #endif
 
+#define K_GE_9 0
+
 #define USE_INSERTION_SORT 0
 #define GEN_SYN_GRAPH 0
 
