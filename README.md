@@ -37,16 +37,26 @@ Note that doing the above performs a "make pristine", which is even cleaner than
 
 Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
 
-BLANT has been tested and runs fine on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 11 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS (both Intel and M1/M2) using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is an incredibly unstsable travesty of a development environment that is prone to bit-rot on a timescale of weeks to months; these are slowly being replaced by C/C++ implementations.
+BLANT has been tested and runs on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 11 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS (both Intel and M1/M2) using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is a nightmare to work with on "real world" projects since it's prone to [horrible software rot](https://news.ycombinator.com/item?id=38982034) on a timescale of weeks to months. 
 
 ### Required Command-line arguments
-SYNOPSIS (things inside {} are mandatory; those inside [] are optional; if no source network is given, it is read from the standard input):
+SYNOPSIS (things inside {} are mandatory; those inside [] are optional; if no source network is given, it is read from the standard input).
+Note that you can just run "./blant" without any arguments to get help.
 
-    blant {-k graphletSize} {-n numSamples} {-m outputMode} {-s samplingMethod} [-d displayMode] [-t THREADS] [-r randomSeed] [sourceNetwork]
-#### -k *k*: graphlet size (from *k*=3 up to *k*=8) of graphlets to sample
+    ./blant {-k graphletSize} sourceNetwork.el
+#### -k *k*: graphlet size (from *k*=3 up to *k*=8) of graphlets to sample. This is the only required argument (other than the input network)
 *k* is an integer that can be 3 through 8 inclusive, and represents the number of nodes in the graphlets that will be sampled. For now BLANT almost always samples only connected graphlets, returning a disconnected "graphette" only if there is a connected component in the input graph that has fewer than *k* nodes; such disconnected graphlets are *never* returned by the MCMC method.
 
-#### -n {integer}: the number of random graphlet samples to take
+#### sourceNetwork.el: the input network.
+For now the most acceptable format is an "edge list" file: two nodes representing an edge on each input line.
+
+### Common optional command-line arguments
+
+    ./blant {-k graphletSize} [-m outputMode] [-s samplingMethod] [-d displayMode] [-p precision | -n numSamples] sourceNetwork.el
+#### -p {precision}: if <1, it represents the desired fractional precision of counts; if >=1, it repreents the desired _number_ of digits of precision.
+For example, "-p 0.01" and "-p 2" both mean "2 digits of precision", equivalent to a fractional precision of 0.01 (1%).
+
+#### -n {integer}: [DEPRECATED: use -p instead] the number of random graphlet samples to take
 *n* is a non-negative integer representing the total number of graphlets that should be sampled. 0 is allowed; values into the billions are feasible (more if you use parallelism).
 
 #### -m{outputMode}: how to use the sampled graphlets on output. All output goes to the standard output (aka "terminal")
