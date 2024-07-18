@@ -584,15 +584,15 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				    if(_precisionWt == PrecWtNone) StatAddSample(sTotal[j], sample);
 				    else {
 					double w = sample;
-					if(_precisionWt == PrecWtLog) sample = log(sample);
+					if(_precisionWt == PrecWtLog) w = log(w);
 					else assert(_precisionWt == PrecWtRaw);
-					StatAddWeightedSample(sTotal[j], sample, w);
+					StatAddWeightedSample(sTotal[j], w, sample);
 				    }
 				    if(StatN(sTotal[j]) > 1) {
 					double relInterval = StatConfInterval(sTotal[j], _confidence) / StatMean(sTotal[j]);
 					intervalSum += relInterval;
-					// under-sampled graphlets (<30) don't count towards "worst"
-					if(_batchRawCount[j] > 30 && relInterval > worstInterval) {
+					// under-sampled graphlets (<1000) don't count towards "worst"
+					if(_batchRawCount[j] > 1000 && relInterval > worstInterval) {
 					    worstInterval = relInterval;
 					    _worstCanon=j;
 					}
@@ -1468,7 +1468,7 @@ int main(int argc, char *argv[])
 	else
 	    _sampleMethod = SAMPLE_MCMC;
     }
-    if(!_quiet) Note("Sampling method is %s", SampleMethodStr());
+    if(!_quiet && _outputMode != predict_merge) Note("Sampling method is %s", SampleMethodStr());
 
     if(_desiredPrec && _confidence == 0)
 	_confidence = (1-_desiredPrec/10);

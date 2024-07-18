@@ -1,11 +1,13 @@
+#ifndef _BLANT_FUNDAMENTALS_H
+#define _BLANT_FUNDAMENTALS_H
+
 // This file defines the fundamental compile-time constants that all blant-related programs must know.
 
 #include <stdint.h>
 
-#ifndef _BLANT_FUNDAMENTALS_H
-#define _BLANT_FUNDAMENTALS_H
-
+#ifndef SELF_LOOPS
 #define SELF_LOOPS 0	// do we allow self-loops? MUST be 0 or 1, no other values allowed.
+#endif
 
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
@@ -62,6 +64,6 @@
 // It would be nice to get this working with the value 1 rather than 0.
 #define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
-#define DEFAULT_DIGITS 3 // 3 digits of precision by defalut
+#define DEFAULT_DIGITS 2 // 2 digits of precision by defalut
 
 #endif // _BLANT_FUNDAMENTALS_H
