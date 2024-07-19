@@ -91,6 +91,7 @@ extern char _canonNumEdges[MAX_CANONICALS];
 extern double _totalStarMotifs;
 extern Gint_type _canonList[MAX_CANONICALS];
 
+double GetCPUseconds(void);
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
 Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k);

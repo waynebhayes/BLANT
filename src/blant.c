@@ -1,3 +1,5 @@
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -7,6 +9,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <limits.h>
+#include <signal.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -118,6 +121,24 @@ Gordinal_type *_K = NULL; // Allocating memory dynamically
 static unsigned int **_componentList; // list of lists of components, largest to smallest.
 static double _totalCombinations, *_combinations, *_probOfComponent;
 SET **_componentSet;
+
+double GetCPUseconds(void) {
+    struct rusage usg;
+    double res = 0;
+    if (getrusage(RUSAGE_SELF, &usg) == 0) {
+        res += (usg.ru_utime.tv_sec + usg.ru_stime.tv_sec) +
+               (usg.ru_utime.tv_usec + usg.ru_stime.tv_usec)/1e6;
+    } else {
+        return -1;
+    }
+    if (getrusage(RUSAGE_CHILDREN, &usg) == 0) {
+        res += (usg.ru_utime.tv_sec + usg.ru_stime.tv_sec) +
+               (usg.ru_utime.tv_usec + usg.ru_stime.tv_usec)/1e6;
+    } else {
+        return -1;
+    }
+    return res;
+}
 
 void SetBlantDir(void) {
     char* temp = getenv("BLANT_DIR");
@@ -388,20 +409,22 @@ static int StateDegree(GRAPH *G, SET *S)
 void convertFrequencies(unsigned long numSamples)
 {
     int i;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) {
+    switch(_sampleMethod) {
+    case SAMPLE_MCMC: case SAMPLE_NODE_EXPANSION: case SAMPLE_SEQUENTIAL_CHAINING: case SAMPLE_EDGE_EXPANSION:
 	if (_freqDisplayMode == count || _freqDisplayMode == estimate_absolute) {
 	    double totalConcentration = 0;
 	    for (i = 0; i < _numCanon; i++) totalConcentration += _graphletConcentration[i];
 	    assert(totalConcentration);
 	    for (i = 0; i < _numCanon; i++) _graphletCount[i] = _graphletConcentration[i]/totalConcentration * numSamples;
 	}
-    }
-    else {
+	break;
+    default:
 	if (_freqDisplayMode == concentration && numSamples) {
 	    for (i = 0; i < _numCanon; i++) {
 		_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
 	    }
 	}
+	break;
     }
 }
 
@@ -569,12 +592,12 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
                 if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) {
 		    stuck = 0;
 		    if(_desiredPrec) {
-			if(i && i%batchSize==0) {
+			if(i && i%batchSize==0) { // we just finished a batch
 			    int minNumBatches = 3+1/sqrt(1-_confidence)/k; //heuristic
 			    int maxNumBatches = 1000*minNumBatches; // huge
 			    double worstInterval=0, intervalSum=0;
 			    _worstCanon = -1;
-			    if(_batchRawTotalSamples) {
+			    if(_batchRawTotalSamples) { // in rare cases a batch may finish with no actual samples
 				int j;
 				// Even though the samples may not be Normally distributed, the Law of Large Numbers
 				// guarantees that for sufficiently large batches, the batch means *are* Normally
@@ -584,15 +607,15 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				    if(_precisionWt == PrecWtNone) StatAddSample(sTotal[j], sample);
 				    else {
 					double w = sample;
-					if(_precisionWt == PrecWtLog) w = log(w);
+					if(_precisionWt == PrecWtLog) {if(w>1) w = log(w);}
 					else assert(_precisionWt == PrecWtRaw);
 					StatAddWeightedSample(sTotal[j], w, sample);
 				    }
 				    if(StatN(sTotal[j]) > 1) {
 					double relInterval = StatConfInterval(sTotal[j], _confidence) / StatMean(sTotal[j]);
 					intervalSum += relInterval;
-					// under-sampled graphlets (<1000) don't count towards "worst"
-					if(_batchRawCount[j] > 1000 && relInterval > worstInterval) {
+					// under-sampled graphlets (<=2) don't count towards "worst"
+					if( _graphletCount[j] > 2 && relInterval > worstInterval) {
 					    worstInterval = relInterval;
 					    _worstCanon=j;
 					}
@@ -600,16 +623,18 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				}
 				_meanPrec = intervalSum/_numConnectedCanon;
 				if(worstInterval) _worstPrecision = worstInterval;
-				double precision;
+				double precision=0;
 				switch(_precisionMode) {
 				    case mean: precision = _meanPrec; break;
 				    case worst: precision = _worstPrecision; break;
-				    default: precision=0; Fatal("unknown precision mode"); break;
+				    default: Fatal("unknown precision mode"); break;
 				}
 
-				if(batch++ && _quiet<1)
-				    Note("batch %d, total samples %ld, worstPrec %g (g%d, count %d) meanPrec %g))",
-					batch, i, worstInterval, _worstCanon, _batchRawCount[_worstCanon], _meanPrec);
+				if(++batch && _quiet<1) {
+				    system("date -Iseconds | sed 's/T/ /' -e 's/,/./' -e 's/-..:..$//' | tr '\n' ' ' >&2");
+				    Note("batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0g)", batch,
+					GetCPUseconds(), i, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
+				}
 				if(batch>=maxNumBatches || (batch >= minNumBatches && precision < _desiredPrec))
 				    confMet=true; // don't reset the counts if we're done
 				else {
@@ -644,7 +669,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    }
 	    if(_desiredPrec && confMet && _quiet<2)
 		Note("estimated precision %.1f digits (worst %.1f ID %d) at %g%% confidence after %lu samples in %d batches",
-		    -(log(_meanPrec)/log(10)), -(log(_worstPrecision)/log(10)), _worstCanon,
+		    -(log(_meanPrec?_meanPrec:1)/log(10)), -(log(_worstPrecision?_worstPrecision:1)/log(10)), _worstCanon,
 		    100*_confidence, numSamples, batch);
 	}
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
@@ -1153,6 +1178,11 @@ const char * const USAGE_LONG =
 "   -a = sets whether ties are broken alphabetically or reverse alphabetically"\
 ;
 
+static void SigEarlyAbort(int sig) {
+    Warning("caught signal %d; setting _earlyAbort=true", sig);
+    _earlyAbort = true;
+}
+
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
 // blant *processes* (not threads, but full processes), and simply merge all their outputs together here
 // in the parent.
@@ -1172,6 +1202,8 @@ int main(int argc, char *argv[])
 	puts(USAGE_SHORT);
 	exit(1);
     }
+
+    signal(SIGUSR1, SigEarlyAbort);
 
     _JOBS = 1;
     _MAX_THREADS = 4;
