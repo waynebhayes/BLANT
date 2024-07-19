@@ -1011,7 +1011,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		break;
 	    case predict_merge: assert(false); break; // should not be here
 	    case predict:
-		Predict_ProcessLine(G, line);
+		Predict_ProcessLine(G, lineNum+1, line);
 		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
