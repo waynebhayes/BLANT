@@ -631,8 +631,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				}
 
 				if(++batch && _quiet<1) {
-				    system("date -Iseconds | sed 's/T/ /' -e 's/,/./' -e 's/-..:..$//' | tr '\n' ' ' >&2");
-				    Note("batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0g)", batch,
+				    FILE *fp;
+				    fp = popen("date -Iseconds | sed 's/T/ /' -e 's/,/./' -e 's/-..:..$//'", "r");
+				    char buf[BUFSIZ]; fgets(buf, sizeof(buf)-1, fp); pclose(fp);
+				    buf[strlen(buf)-1] = '\0'; // nuke the newline
+				    Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batch,
 					GetCPUseconds(), i, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
 				}
 				if(batch>=maxNumBatches || (batch >= minNumBatches && precision < _desiredPrec))
@@ -1610,19 +1613,19 @@ int main(int argc, char *argv[])
 	}
 	char nodeName[BUFSIZ];
 	while(1 == fscanf(interestFile, "%s", nodeName)) {
-	    int nodeNum;
+	    foint nodeNum;
 	    if(_supportNodeNames) {
-                if(!BinTreeLookup(G->nameDict, (foint)nodeName, (foint*)&nodeNum))
+                if(!BinTreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
                     Fatal("nodes-of-interest file contains non-existent node '%s'", nodeName);
 	    } else {
-		nodeNum = atoi(nodeName);
-		if(nodeNum < 0 || nodeNum >= G->n)
-                    Fatal("nodes-of-interest file contains non-existent node '%d'", nodeNum);
+		nodeNum.i = atoi(nodeName);
+		if(nodeNum.i < 0 || nodeNum.i >= G->n)
+                    Fatal("nodes-of-interest file contains non-existent node '%d'", nodeNum.i);
 	    }
-	    if(SetIn(_startNodeSet, nodeNum))
+	    if(SetIn(_startNodeSet, nodeNum.i))
 		Fatal("nodes-of-interest cannot contain duplicate nodes but we've already seen '%s'", nodeName);
-	    _startNodes[_numStartNodes] = nodeNum;
-	    SetAdd(_startNodeSet, nodeNum);
+	    _startNodes[_numStartNodes] = nodeNum.i;
+	    SetAdd(_startNodeSet, nodeNum.i);
 	    ++_numStartNodes;
 	    if(_numStartNodes > G->n)
 		Fatal("nodes-of-interest file contains '%d' entries, which is more nodes (%d) than input graph",
@@ -1663,7 +1666,7 @@ int main(int argc, char *argv[])
             {
                 if(sscanf(line, "%s%f ", nodeName, &importance) != 2)
                     Fatal("GraphNodeImportance: Error while reading\n");
-                if(!BinTreeLookup(G->nameDict, (foint)nodeName, (foint*)&nodeNum))
+                if(!BinTreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
                     Fatal("Node Importance Error: %s is not in the Graph file\n", nodeName);
                 _graphNodeImportance[nodeNum.i] = importance;
             }
