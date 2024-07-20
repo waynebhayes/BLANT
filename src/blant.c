@@ -900,8 +900,8 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     double meanSamplesPerJob = totalSamples/(double)_JOBS;
     if(!_quiet) Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
 
-    int threadsRunning = 0, jobsDone = 0;
-    int thread, lineNum = 0, job=0;
+    int threadsRunning = 0, jobsDone = 0, thread, job=0;
+    unsigned long lineNum = 0;
     for(i=0; numSamples > 0 && i<_MAX_THREADS;i++) {
 	unsigned long samples = meanSamplesPerJob;
 	assert(samples>0);
@@ -1011,7 +1011,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		break;
 	    case predict_merge: assert(false); break; // should not be here
 	    case predict:
-		Predict_ProcessLine(G, lineNum+1, line);
+		Predict_ProcessLine(G, lineNum, line);
 		break;
 	    default:
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
