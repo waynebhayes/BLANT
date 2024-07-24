@@ -1604,6 +1604,7 @@ int main(int argc, char *argv[])
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
 
+    // Always allocate this set; if there are no "nodes of interest" then every node is a possible start done
     _startNodes = Calloc(G->n, sizeof(unsigned));
     _startNodeSet = SetAlloc(G->n);
     if(interestFile) {
@@ -1631,8 +1632,10 @@ int main(int argc, char *argv[])
 		Fatal("nodes-of-interest file contains '%d' entries, which is more nodes (%d) than input graph",
 		    _numStartNodes, G->n);
 	}
+    #if 0 // this isn't actually needed with NBE
 	if(_numStartNodes < _k)
 	    Fatal("nodes-of-interest file must contain at least k=%d entries, but contains only %d", _k, _numStartNodes);
+    #endif
 	Note("Read %d nodes-of-interest", _numStartNodes);
 	assert(SetCardinality(_startNodeSet) == _numStartNodes);
     } else {
