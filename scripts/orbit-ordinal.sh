@@ -45,7 +45,7 @@ fi
 #1 2 2   1       0 1     1,2
 #3 3 4   3       1 2     0,2 1,2
 #5 5 5   7       1 3     0,1 0,2 1,2
-paste <(wzcat orbit_map$k.txt*) canon_list$k.txt | #tee /dev/tty |
+paste <(cat orbit_map$k.txt 2>/dev/null || unxz < orbit_map$k.txt.xz) canon_list$k.txt | #tee /dev/tty |
     hawk 'BEGIN{k='$k'}
 	NR==1{numOrbits=$1; numCanon=$2; D=ceil(log10(numOrbits)); F="%"D"d"; # format string for numDigits
 	    printf("ordinal\t%-"(k+1)*(D)"s\tC\tm\tedgeList\n", "orbits");
