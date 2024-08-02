@@ -2,6 +2,7 @@
 #include <sys/mman.h>
 #include <assert.h>
 #include "blant.h"
+#include "tinygraph.h"
 
 const char* _BLANT_DIR = DEFAULT_BLANT_DIR;
 

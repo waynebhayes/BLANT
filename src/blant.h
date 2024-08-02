@@ -3,6 +3,7 @@
 
 #include "blant-fundamentals.h" // defining k related constants, including SELF_LOOPS
 
+#include "misc.h"
 #include "sets.h"
 #include "tinygraph.h"
 #include "blant-window.h"
@@ -27,8 +28,6 @@ double RandomUniform(void) {
 #define RandomUniform drand48
 #define RandomSeed srand48
 #endif
-
-#define K_GE_9 0
 
 #define USE_INSERTION_SORT 0
 #define GEN_SYN_GRAPH 0
@@ -107,7 +106,12 @@ char** convertToEL(char* file); // from convert.cpp
 #define DEFAULT_BLANT_DIR "."
 extern const char* _BLANT_DIR;
 
-#define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
+#ifndef NDEBUG
+#define NDEBUG 1
+#endif
+#ifndef PARANOID_ASSERTS
+#define PARANOID_ASSERTS 0	// turn on copious assert checking --- slows down execution by a factor of 2-3
+#endif
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
 extern double       *_orbitDegreeVector[MAX_ORBITS];

@@ -277,13 +277,6 @@ TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *g, GRAPH *G, unsigned *Varray)
     return g;
 }
 
-int getMaximumIntNumber(int K)
-{
-    assert(K >= 3 && K <= 8);
-    int num_of_bits = K * (K-1) / 2;
-    return pow(2, num_of_bits);
-}
-
 int orbitpair_cmp(long int a, long int b) {
     return (int) (a - b);
 }

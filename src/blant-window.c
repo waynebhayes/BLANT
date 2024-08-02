@@ -319,7 +319,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
     Gordinal_type GintOrdinal;
     Gint_type Gint;
     assert(SetToArray(WArray, W) == _windowSize);
-    MULTISET *canonMSET = MultisetAlloc(getMaximumIntNumber(_k));
+    MULTISET *canonMSET = MultisetAlloc(maxBk);
     COMBIN *c = CombinZeroth(_windowSize, _k, ca);  // (W choose K) many k-node graphlets in Window
 
     // Construct Adj Matrix for the Window
