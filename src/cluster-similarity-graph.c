@@ -43,8 +43,11 @@ CLUSTER *ReadCluster(FILE *fp)
     if(numRead!=5) Fatal("cluster %d: fscanf only read %d values: n %d m %d nc2 %d k %d ED %g\n", _line, numRead,c->n,c->m,c->nc2,c->k,c->ED);
     assert(c->nc2 == c->n*(c->n-1)/2); // assert we are in sync with the lines, because nc2 is "n choose 2"
     c->ED /= 100; // blant outputs a percentage, we want a fraction
-    for(i=0; i<c->n;i++) {assert(fscanf(fp, "%u", &v)==1); SetAdd(c->nodes,v);}
-	c->kin=hashmap_new();
+    for(i=0; i<c->n;i++) {
+	if(fscanf(fp, "%u", &v)!=1) Fatal("ReadCluster: failed to read element %d",i);
+	SetAdd(c->nodes,v);
+    }
+    c->kin=hashmap_new();
     return c;
 }
 

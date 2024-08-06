@@ -89,15 +89,16 @@ SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_
     sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    Gordinal_type numCanon, i;
+    Gordinal_type numCanon=0, i;
     int connected;
-    assert(1==fscanf(fp_ord, GORDINAL_FMT "\n",&numCanon));
+    if(1!=fscanf(fp_ord, GORDINAL_FMT "\n",&numCanon) || numCanon==0) Fatal("canonListPopulate failed to read numCanon");
     SET *connectedCanonicals = SetAlloc(numCanon);
     for(i=0; i<numCanon; i++) {
 	char buf[BUFSIZ], *tmp;
 	tmp = fgets(buf, sizeof(buf), fp_ord);
 	assert(tmp == buf);
-	assert(3==sscanf(buf, GINT_FMT "\t%d %hhd", &canon_list[i], &connected, &canon_num_edges[i]));
+	if(3!=sscanf(buf, GINT_FMT "\t%d %hhd", &canon_list[i], &connected, &canon_num_edges[i]))
+	    Fatal("canonListPopulate: failed to read 3 inputs from line %d", i);
 	if(connected) SetAdd(connectedCanonicals, i);
     }
     fclose(fp_ord);
@@ -112,19 +113,19 @@ Gint_type orbitListPopulate(char *BUF,
     sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    Gint_type o, numOrbit;
-    assert(1==fscanf(fp_ord, GINT_FMT, &numOrbit));
-    for(o=0;o<numOrbit;o++)
+    Gint_type o, numOrbits;
+    if(1!=fscanf(fp_ord, GINT_FMT, &numOrbits)) Fatal("orbitListPopulate failed to read numOrbits");
+    for(o=0;o<numOrbits;o++)
 	orbit_canon_node_mapping[o] = -1;
     Gordinal_type c; int j;
     for(c=0; c<numCanon; c++) for(j=0; j<k; j++) {
-	assert(1==fscanf(fp_ord, GINT_FMT, &orbit_list[c][j]));
+	if(1!=fscanf(fp_ord, GINT_FMT, &orbit_list[c][j])) Fatal("orbitListPopulate: failed to read canon %d", c);
 	orbit_canon_mapping[orbit_list[c][j]] = c;
 	if(orbit_canon_node_mapping[orbit_list[c][j]] < 0)
 	    orbit_canon_node_mapping[orbit_list[c][j]] = j;
     }
     fclose(fp_ord);
-    return numOrbit;
+    return numOrbits;
 }
 
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
@@ -132,7 +133,8 @@ void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
     sprintf(BUF, "%s/%s/orca_orbit_mapping%d.txt", _BLANT_DIR, "orca_jesse_blant_table", k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    int numOrbit, i;
-    assert(1==fscanf(fp_ord, "%d", &numOrbit));
-    for (i=0; i<numOrbit; i++) { assert(1==fscanf(fp_ord, "%d", &orca_orbit_mapping[i])); }
+    int numOrbits, i;
+    if(1!=fscanf(fp_ord, "%d", &numOrbits)) Fatal("orcaOrbitMappingPopulate: failed to read numOrbits");
+    for(i=0; i<numOrbits; i++) if(1!=fscanf(fp_ord, "%d", &orca_orbit_mapping[i]))
+	Fatal("orcaOrbitMappingPopulate: failed to read mapping %d", i);
 }

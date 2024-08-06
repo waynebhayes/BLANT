@@ -272,12 +272,14 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
     }
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    Gint_type numAlphas;
-    assert(1==fscanf(fp_ord, GINT_FMT, &numAlphas));
+    Gint_type numAlphas=0;
+    if(1!=fscanf(fp_ord, GINT_FMT, &numAlphas) || numAlphas<=0) Fatal("alphaListPopulate: fscanf failed to read numAlphas");
 #if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
     assert(numAlphas == _numCanon);
 #endif
-    for(i=0; i<numAlphas; i++) assert(1==fscanf(fp_ord, GINT_FMT, &alpha_list[i]));
+    for(i=0; i<numAlphas; i++)
+	if(1!=fscanf(fp_ord, GINT_FMT, &alpha_list[i]))
+	    Fatal("alphaListPopulate: fscanf failed to read alpha[%d]", i);
     fclose(fp_ord);
     return numAlphas;
 }
@@ -829,8 +831,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 */
 FILE *ForkBlant(int k, unsigned long numSamples, GRAPH *G)
 {
-    int fds[2];
-    assert(pipe(fds) >= 0);
+    int fds[2] = {-1, -1};
+    if(pipe(fds) < 0) Fatal("pipe(2) failed");
     int threadSeed = INT_MAX*RandomUniform(); // this must happen BEFORE the fork for each thread to get a different seed
     int pid = fork();
     if(pid > 0) // we are the parent
@@ -845,7 +847,7 @@ FILE *ForkBlant(int k, unsigned long numSamples, GRAPH *G)
 	RandomSeed(_seed);
 	(void)close(fds[0]); // we will not be reading from the pipe, so close it.
 	(void)close(1); // close our usual stdout
-	assert(dup(fds[1])>=0); // copy the write end of the pipe to fd 1.
+	if(dup(fds[1])<0) Fatal("dup(2) failed"); // copy the write end of the pipe to fd 1.
 	(void)close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
 
 	// For any "counting" mode, use internal numbering when communicating through pipes to the parent
@@ -1295,7 +1297,7 @@ int main(int argc, char *argv[])
 	    break;
 	    }
 	    break;
-	case 't': assert(1==sscanf(optarg, "%d", &_JOBS));
+	case 't': if(1!=sscanf(optarg, "%d", &_JOBS)) Fatal("main: sscanf failed to read _JOBS");
 	    _MAX_THREADS = _JOBS;
 	    assert(1 <= _JOBS && _MAX_THREADS <= MAX_POSSIBLE_THREADS);
 	    break;

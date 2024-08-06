@@ -1166,7 +1166,8 @@ int main(int argc, char *argv[]){
                 BLANT[i][_k[j]-1][line] = (int*) Malloc((MAX_K+1) * sizeof(int));
                 int l;
                 for (l=0; l<=_k[j]; l++){
-                    assert(1 == fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])));
+                    if(1 != fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])))
+			Fatal("failed to read (BLANT[%d][_k[%d]-1][%d][%d])", i,j,line,l);
                     if (l>0){
                         GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]] += 1; // update GDV matrix
                     }
@@ -1174,7 +1175,7 @@ int main(int argc, char *argv[]){
                 assert(BLANT[i][_k[j]-1][line][0] < _maxNumCanon);
                 ++D[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]]; // update squiggly plot vector
             }
-            assert(fscanf(fp, "%d", &line) < 1); // ensure there's nothing left to read.
+            if(fscanf(fp, "%d", &line) >= 1) Fatal("extra input"); // ensure there's nothing left to read.
             fclose(fp);
             optind++;
         }
@@ -1326,7 +1327,7 @@ int main(int argc, char *argv[]){
         }
 
         // check nothing left to read
-        assert(fscanf(fp, "%d", &e) < 1);
+        if(fscanf(fp, "%d", &e) > 0) Fatal("extra input");
         fclose(fp);
     }
 
@@ -1354,7 +1355,7 @@ int main(int argc, char *argv[]){
         }
 
         // check nothing left to read
-        assert(fscanf(fp, "%d", &x) < 1);
+        if(fscanf(fp, "%d", &x) > 0) Fatal("extra input");
         fclose(fp);
     }
 

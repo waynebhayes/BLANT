@@ -162,7 +162,8 @@ void LoadMagicTable(void)
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     for(i=0; i<_numCanon; i++) {
         for(j=0; j<12 ;j++) {
-            assert(1==fscanf(fp_ord, "%d", &_magicTable[i][j]));
+            if(1!=fscanf(fp_ord, "%d", &_magicTable[i][j]))
+		Fatal("LoadMagicTable: failed to load [i][j]=[%d][%d]", i,j);
         }
     }
     fclose(fp_ord);
