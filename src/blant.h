@@ -107,10 +107,10 @@ char** convertToEL(char* file); // from convert.cpp
 extern const char* _BLANT_DIR;
 
 #ifndef NDEBUG
-#define NDEBUG 1
+#define NDEBUG 0
 #endif
 #ifndef PARANOID_ASSERTS
-#define PARANOID_ASSERTS 0	// turn on copious assert checking --- slows down execution by a factor of 2-3
+#define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
 #endif
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
