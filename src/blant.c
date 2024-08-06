@@ -277,7 +277,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
 #if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
     assert(numAlphas == _numCanon);
 #endif
-    for(i=0; i<numAlphas; i++) assert(1==fscanf(fp_ord, "%d", &alpha_list[i]));
+    for(i=0; i<numAlphas; i++) assert(1==fscanf(fp_ord, GINT_FMT, &alpha_list[i]));
     fclose(fp_ord);
     return numAlphas;
 }
@@ -325,20 +325,21 @@ void finalize(GRAPH *G, unsigned long numSamples) {
     double totalConcentration = 0;
     int i, j;
     for (i = 0; i < _numCanon; i++) {
-	if(_graphletConcentration[i] < 0.0)
-	    Fatal("_graphletConcentration[%d] %.15g should be non-negative\n",i, _graphletConcentration[i]);
+	if(_graphletConcentration[i] < 0.0 || isinf(_graphletConcentration[i]))
+	    Fatal("_graphletConcentration[%d] %.15g should be neither negative nor infinite\n", i, _graphletConcentration[i]);
 	totalConcentration += _graphletConcentration[i];
     }
     if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
 
-	if(_outputMode == outputODV)
-		for(i=0;i<_numOrbits;i++) {
-			for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j] = _doubleOrbitDegreeVector[i][j]/totalConcentration * numSamples;
-		}
-	if(_outputMode == outputGDV)
-		for(i=0;i<_numCanon;i++) {
-			for(j=0;j<G->n;j++) _doubleGraphletDegreeVector[i][j] = _doubleGraphletDegreeVector[i][j]/totalConcentration * numSamples;
-		}
+    if(_outputMode == outputODV)
+	for(i=0;i<_numOrbits;i++)
+	    for(j=0;j<G->n;j++)
+		_doubleOrbitDegreeVector[i][j] *= numSamples/totalConcentration;
+
+    if(_outputMode == outputGDV)
+	for(i=0;i<_numCanon;i++)
+	    for(j=0;j<G->n;j++)
+		_doubleGraphletDegreeVector[i][j] *= numSamples/totalConcentration;
 }
 
 #if 0 // unused code, commented out to shut up the compiler
@@ -409,18 +410,21 @@ static int StateDegree(GRAPH *G, SET *S)
 void convertFrequencies(unsigned long numSamples)
 {
     int i;
+    assert(numSamples);
     switch(_sampleMethod) {
     case SAMPLE_MCMC: case SAMPLE_NODE_EXPANSION: case SAMPLE_SEQUENTIAL_CHAINING: case SAMPLE_EDGE_EXPANSION:
-	if (_freqDisplayMode == count || _freqDisplayMode == estimate_absolute) {
+	if (_freqDisplayMode == freq_display_mode_count || _freqDisplayMode == freq_display_mode_estimate_absolute) {
 	    double totalConcentration = 0;
+	    for (i = 0; i < _numCanon; i++) assert(_graphletConcentration[i] >= 0.0 && !isinf(_graphletConcentration[i]));
 	    for (i = 0; i < _numCanon; i++) totalConcentration += _graphletConcentration[i];
 	    assert(totalConcentration);
 	    for (i = 0; i < _numCanon; i++) _graphletCount[i] = _graphletConcentration[i]/totalConcentration * numSamples;
 	}
 	break;
     default:
-	if (_freqDisplayMode == concentration && numSamples) {
+	if (_freqDisplayMode == freq_display_mode_concentration && numSamples) {
 	    for (i = 0; i < _numCanon; i++) {
+		assert(_graphletCount[i] >= 0.0 && !isinf(_graphletCount[i]));
 		_graphletConcentration[i] = _graphletCount[i] / (double)numSamples;
 	    }
 	}
@@ -693,7 +697,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     if ((_outputMode == graphletFrequency || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
 	convertFrequencies(numSamples);
 
-    if(((_outputMode == graphletFrequency && _freqDisplayMode == estimate_absolute) || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
+    if(((_outputMode == graphletFrequency && _freqDisplayMode == freq_display_mode_estimate_absolute) ||
+	_outputMode == outputGDV || _outputMode == outputODV) && !_window)
 	computeAbsoluteMultiplier(numSamples);
 
     switch(_outputMode)
@@ -704,7 +709,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     case graphletFrequency:
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (SetIn(_connectedCanonicals, canon)) {
-		if(_freqDisplayMode == concentration)
+		if(_freqDisplayMode == freq_display_mode_concentration)
 		    printf("%lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
 		else
 		    printf("%llu %s\n", (unsigned long long) llround(_absoluteCountMultiplier * _graphletCount[canon]),
@@ -734,8 +739,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
-		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) printf(" %.15g", ODV(i,orbit_index));
+		if(_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
+		    _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION))
+			printf(" %.15g", ODV(i,orbit_index));
 		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]));
 	    }
 	    printf("\n");
@@ -950,7 +956,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	    switch(_outputMode)
 	    {
 	    case graphletFrequency:
-		numRead = sscanf(line, "%lf%d", &gcount, &canon);
+		numRead = scanf(line, "%lf%d", &gcount, &canon);
 		assert(numRead == 2);
 		_graphletCount[canon] += gcount;
 		break;
@@ -1242,9 +1248,9 @@ int main(int argc, char *argv[])
 	    if(_freqDisplayMode != freq_display_mode_undef) Fatal("-C option cannot appear more than once");
 	    switch (*optarg)
 	    {
-		case 'n': _freqDisplayMode = count; break;
-		case 'c': _freqDisplayMode = concentration; break;
-		case 'a': case 'e': _freqDisplayMode = estimate_absolute; break;
+		case 'n': _freqDisplayMode = freq_display_mode_count; break;
+		case 'c': _freqDisplayMode = freq_display_mode_concentration; break;
+		case 'a': case 'e': _freqDisplayMode = freq_display_mode_estimate_absolute; break;
 		default: Fatal("-C%c: unknown frequency display mode", *optarg); break;
 	    }
 	    break;
@@ -1490,7 +1496,8 @@ int main(int argc, char *argv[])
     RandomSeed(_seed);
 
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
-    if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = estimate_absolute; // Default to estimating count
+    if(_freqDisplayMode == freq_display_mode_undef)
+	_freqDisplayMode = freq_display_mode_estimate_absolute; // Default to estimating count
 
     if(numSamples && _desiredPrec) Fatal("cannot specify both -n (sample size) and -[Pp] (desired precision)");
     if(!numSamples && !_desiredPrec) { // default to 2 digits of precision at 99.9% confidence

@@ -162,7 +162,7 @@ extern enum CanonicalDisplayMode _displayMode;
 extern Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
 extern char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
 
-enum FrequencyDisplayMode {freq_display_mode_undef, count, concentration, estimate_absolute};
+enum FrequencyDisplayMode {freq_display_mode_undef, freq_display_mode_count, freq_display_mode_concentration, freq_display_mode_estimate_absolute};
 extern enum FrequencyDisplayMode _freqDisplayMode;
 
 extern int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_ordering to our orbits
