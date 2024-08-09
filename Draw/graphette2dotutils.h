@@ -1,4 +1,5 @@
 #include <string>
+#include <stdint.h>
 
 std::string appendLeadingZeros(const std::string& inputBitstring, int k);
 

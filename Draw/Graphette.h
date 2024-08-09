@@ -1,4 +1,5 @@
 #include <string>
+#include <stdint.h>
 #include "graphette2dotutils.h"
 
 enum class TriangularRepresentation { none, lower, upper };

@@ -7,6 +7,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <stdint.h>
 #include "blant-fundamentals.h"
 
 // We assume LOWER_TRIANGLE is defined in blant-fundamentals.h; otherwise, Int2TinyGraph won't build a correct graph.
