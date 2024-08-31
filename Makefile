@@ -29,8 +29,8 @@ else
 	SPEED=-O3 -pg
 	LIB_OPT=-pg
     else
-	SPEED=-O3
-	LIB_OPT=
+	SPEED=-O3 #-DNDEBUG
+	LIB_OPT= #-nd # NDEBUG
     endif
 endif
 
@@ -211,7 +211,7 @@ $(LIBWAYNE_HOME)/Makefile:
 	git submodule update libwayne
 	(cd libwayne && git checkout master && git pull)
 
-libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a
+libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a
 libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
 	(cd libwayne && make all)
 
