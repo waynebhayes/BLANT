@@ -162,34 +162,3 @@ Gordinal_type canon_to_ordinal(Gint_type canon, int k) {
         }
     }
 }
-
-
-
-// int main(int argc, char* argv[]) {
-
-//     int k = atoi(argv[1]);
-
-//     read_maps(k);
-
-
-
-//     for(int num = 0; num < (1 << (k * (k - 1) / 2)); num++) {
-//         unsigned long long canon1;
-//         char perm1[MAXK];
-//         smaller_canon_map(num, k, &canon1, perm1);
-
-//         printf("%d\t%llu\t%s\n", num, canon1, perm1);
-//     }    
-
-//     // unsigned long long canon1;
-//     // char perm1[MAXK];
-//     // int num = 33;
-
-//     // smaller_canon_map(num, 4, &canon1, perm1);
-
-//     // printf("%d\t%llu\t%s\n", num, canon1, perm1);
-
-
-
-//     return 0;
-// }
