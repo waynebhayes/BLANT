@@ -21,7 +21,7 @@
 #define CANON_MAP_FOLDER "canon_maps/"
 
 
-extern void smaller_canon_map(Gint_type num, int k, Gint_type* return_canon, char* return_permutation);
+extern void smaller_canon_map(Gint_type num, int k, Gint_type* return_canon, unsigned char* return_permutation);
 extern void read_maps(int max_k);
 extern Gordinal_type canon_to_ordinal(Gint_type canon, int k);
 

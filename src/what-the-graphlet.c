@@ -11,7 +11,7 @@ unsigned long long _canonical_count[] =
 Gint_type map_non_canon[MAXK+1][MAX_SIZE];
 
 Gint_type map_canon[MAXK+1][MAX_SIZE];
-char map_permutation[MAXK+1][MAX_SIZE][MAXK];
+unsigned char map_permutation[MAXK+1][MAX_SIZE][MAXK];
 
 Gint_type ordinal_to_canon[MAXK+1][MAX_CANON];
 
@@ -44,7 +44,7 @@ void read_maps(int max_k) {
 
 
 
-int permute(int num, char* perm, int n) {
+int permute(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
         permuted |= ((num >> (n - i - 1)) & 1) << (n - (perm[i] - '0') - 1);
@@ -52,7 +52,7 @@ int permute(int num, char* perm, int n) {
     return permuted;
 }
 
-int reverse_permute(int num, char* perm, int n) {
+int reverse_permute(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
         permuted |= ((num >> (n - (perm[i] - '0') - 1)) & 1) << (n - i - 1);
@@ -60,7 +60,7 @@ int reverse_permute(int num, char* perm, int n) {
     return permuted;
 }
 
-void permutation_composition(char* perm1, char* perm2, int n, char* permuted) {
+void permutation_composition(unsigned char* perm1, unsigned char* perm2, int n, unsigned char* permuted) {
     for(int i = 0; i < n; i++) {
         permuted[i] = perm1[perm2[i] - '0'];
     }
@@ -72,7 +72,7 @@ void permutation_composition(char* perm1, char* perm2, int n, char* permuted) {
 
 
 
-void smaller_canon_map(Gint_type num, int k, Gint_type* return_canon, char* return_permutation) {
+void smaller_canon_map(Gint_type num, int k, Gint_type* return_canon, unsigned char* return_permutation) {
     // The base case
     if(k == 3) {
         ///////// Binary search the index ////////
@@ -102,7 +102,7 @@ void smaller_canon_map(Gint_type num, int k, Gint_type* return_canon, char* retu
     // Recursion for > 3
     // Getting the canonical for first k-1 nodes and their permutation
     Gint_type prev_canon;
-    char prev_perm[MAXK];
+    unsigned char prev_perm[MAXK];
     // #define prev_perm return_permutation // Reuse the memory, no need to allocate new memory
     smaller_canon_map(num >> (k-1), k-1, &prev_canon, prev_perm);
 

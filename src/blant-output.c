@@ -374,7 +374,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
         GintOrdinal=L_K(Gint);
     } else {
         Gint_type canon_value; //Change types
-        char perm[MAX_K];
+        unsigned char perm[MAX_K];
         smaller_canon_map(Gint, k, &canon_value, perm);
         GintOrdinal=canon_to_ordinal(canon_value, k);
     }
