@@ -6,6 +6,7 @@
 #include "queue.h"
 #include "multisets.h"
 #include "blant-output.h"
+#include "what-the-graphlet.h"
 
 int _sampleMethod = -1, _sampleSubmethod = -1;
 FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
@@ -335,20 +336,32 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(!g) g = TinyGraphAlloc(k);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
-	Gordinal_type GintOrdinal = L_K(Gint);
+	Gordinal_type GintOrdinal;
+	char perm[k];
+	if(k <= 8) {
+		GintOrdinal = L_K(Gint);
+		memset(perm, 0, k);
+		ExtractPerm(perm, Gint);
+	} else {
+		Gint_type canon_value; //Change types
+		smaller_canon_map(Gint, k, &canon_value, perm);
+		for(j = 0; j < k; j++) {
+			if(perm[j] >= '0' && perm[j] <= '9') {
+				perm[j] = perm[j] - '0';
+			} else {
+				perm[j] = perm[j] - 'A' + 10;
+			}
+		}
+		GintOrdinal = canon_to_ordinal(canon_value, k);
+	}
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
+
 	if (_outputMode == outputODV) {
-	    unsigned char perm[k];
-	    memset(perm, 0, k);
-	    ExtractPerm(perm, Gint);
 	    for (j = 0; j < k; j++) {
 		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode == outputGDV) {
-		unsigned char perm[k];
-		memset(perm, 0, k);
-		ExtractPerm(perm, Gint);
 		for (j = 0; j < k; j++) {
 		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 		}

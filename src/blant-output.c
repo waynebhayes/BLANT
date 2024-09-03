@@ -6,6 +6,7 @@
 #include "sorts.h"
 #include "combin.h"
 #include "tinygraph.h"
+#include "what-the-graphlet.h"
 
 #define SORT_INDEX_MODE 0 // Note this destroys the columns-are-identical property, don't use by default.
 
@@ -53,7 +54,16 @@ static char _printBuf[BUFSIZ];
 char *PrintGraphletID(Gint_type Gint)
 {
     if(_displayMode == noncanonical) sprintf(_printBuf, GINT_FMT, Gint);
-    else PrintOrdinal(L_K(Gint));
+    else {
+        if(_k <= 8) {
+            PrintOrdinal(L_K(Gint));
+        } else {
+            unsigned char perm[MAX_K];
+            Gint_type canon_value; //Change types
+            smaller_canon_map(Gint, _k, &canon_value, perm);
+            PrintOrdinal(canon_to_ordinal(canon_value, _k));
+        }
+    }
     return _printBuf;
 }
 
@@ -160,7 +170,19 @@ char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray
     for(j=0;j<k;j++) perm[j]=j;
 #else
     memset(perm, 0, k);
-    ExtractPerm(perm, Gint);
+    if(k <= 8) {
+        ExtractPerm(perm, Gint); // all should change
+    } else {
+        Gint_type canon_value; //Change types
+	    smaller_canon_map(Gint, k, &canon_value, perm);
+		for(j = 0; j < k; j++) {
+			if(perm[j] >= '0' && perm[j] <= '9') {
+				perm[j] = perm[j] - '0';
+			} else {
+				perm[j] = perm[j] - 'A' + 10;
+			}
+		}
+    }
     assert(PERMS_CAN2NON);
 #endif
     static char buf[2][BUFSIZ]; // build the string using two alterating buffers
@@ -203,7 +225,19 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned 
     for(j=0;j<k;j++) perm[j]=j;
 #else
     memset(perm, 0, k);
-    ExtractPerm(perm, Gint);
+    if(k <= 8) {
+        ExtractPerm(perm, Gint); // all should change
+    } else {
+        Gint_type canon_value; //Change types
+	    smaller_canon_map(Gint, k, &canon_value, perm);
+		for(j = 0; j < k; j++) {
+			if(perm[j] >= '0' && perm[j] <= '9') {
+				perm[j] = perm[j] - '0';
+			} else {
+				perm[j] = perm[j] - 'A' + 10;
+			}
+		}
+    }
     assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
 #endif
     static char buf[2][BUFSIZ];
@@ -240,7 +274,19 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
 #else
     assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
     memset(perm, 0, k);
-    ExtractPerm(perm, Gint);
+    if(k <= 8) {
+        ExtractPerm(perm, Gint); // all should change
+    } else {
+        Gint_type canon_value; //Change types
+	    smaller_canon_map(Gint, k, &canon_value, perm);
+		for(int j = 0; j < k; j++) {
+			if(perm[j] >= '0' && perm[j] <= '9') {
+				perm[j] = perm[j] - '0';
+			} else {
+				perm[j] = perm[j] - 'A' + 10;
+			}
+		}
+    }
 #endif
     for(c=0;c<k;c++)
     {
@@ -283,7 +329,19 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
 #else
     assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
     memset(perm, 0, k);
-    ExtractPerm(perm, Gint);
+    if(k <= 8) {
+        ExtractPerm(perm, Gint); // all should change
+    } else {
+        Gint_type canon_value; //Change types
+	    smaller_canon_map(Gint, k, &canon_value, perm);
+		for(int j = 0; j < k; j++) {
+			if(perm[j] >= '0' && perm[j] <= '9') {
+				perm[j] = perm[j] - '0';
+			} else {
+				perm[j] = perm[j] - 'A' + 10;
+			}
+		}
+    }
 #endif
     for(c=0;c<k;c++)
     {
@@ -311,7 +369,15 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g,k);
-    Gordinal_type GintOrdinal=L_K(Gint), j;
+    Gordinal_type GintOrdinal, j;
+    if(k <= 8) {
+        GintOrdinal=L_K(Gint);
+    } else {
+        Gint_type canon_value; //Change types
+        char perm[MAX_K];
+        smaller_canon_map(Gint, k, &canon_value, perm);
+        GintOrdinal=canon_to_ordinal(canon_value, k);
+    }
 
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
@@ -358,7 +424,19 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	break;
     case outputODV:
 	memset(perm, 0, _k);
-	ExtractPerm(perm, Gint);
+    if(_k <= 8) {
+        ExtractPerm(perm, Gint); // all should change
+    } else {
+        Gint_type canon_value; //Change types
+	    smaller_canon_map(Gint, _k, &canon_value, perm);
+		for(j = 0; j < _k; j++) {
+			if(perm[j] >= '0' && perm[j] <= '9') {
+				perm[j] = perm[j] - '0';
+			} else {
+				perm[j] = perm[j] - 'A' + 10;
+			}
+		}
+    }
 #if PERMS_CAN2NON
 	for(j=0;j<k;j++) ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ])+=weight;
 #else
