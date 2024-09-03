@@ -135,7 +135,7 @@ void SetGlobalCanonMaps(void)
 {
     int i;
     char BUF[BUFSIZ];
-    assert(3 <= _k && _k <= MAX_K);
+    assert(3 <= _k && _k <= 9);
 #if SELF_LOOPS
     _Bk = (1 <<(_k*(_k+1)/2));
 #else
@@ -145,7 +145,7 @@ void SetGlobalCanonMaps(void)
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
-    _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k_base);
+    _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k_base);
     int pfd = open(BUF, 0*O_RDONLY);
     Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);

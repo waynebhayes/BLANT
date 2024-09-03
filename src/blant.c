@@ -25,6 +25,7 @@
 #include "blant-sampling.h"
 #include "blant-synth-graph.h"
 #include "what-the-graphlet.h"
+#include "what-the-graphlet.h"
 #include "rand48.h"
 Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 #include "blant-predict.h"
@@ -43,7 +44,7 @@ int _quiet; // suppress notes and/or warnings, higher value = more quiet
 char * _sampleFileName;
 
 // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
-unsigned int _k, _min_edge_count, _k_base; // _k_base is MIN(_k, 8) because we want BLANT to pull the k=8 lookup table when we will be computing for k>8
+unsigned int _k, _min_edge_count, _k_base;
 unsigned int _Bk, _k_small;
 
 unsigned long _known_canonical_count[] =
@@ -293,7 +294,7 @@ void initialize(GRAPH* G, int k, unsigned long numSamples) {
 
     char BUF[BUFSIZ];
     _numSamples = numSamples;
-	if (k > OLD_MAX_K) read_smaller_canon_maps(MAX_K);
+	read_maps(MAX_K);
     alphaListPopulate(BUF, _alphaList, k);
     for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
 }
@@ -1381,15 +1382,15 @@ int main(int argc, char *argv[])
 	    if(_confidence >= 1) _confidence /= 100; // user specified percent
 	    break;
 	case 'k': _k = atoi(optarg);
-		_k_base = MIN(_k, OLD_MAX_K);
+		_k_base = MAX(_k, 8);
 	    if (_GRAPH_GEN && _k >= 33) {
 		_k_small = _k % 10;
-		if (!(3 <= _k_small && _k_small <= MAX_K))
-		    Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, MAX_K);
+		if (!(3 <= _k_small && _k_small <= 9))
+		    Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k_small);
 		_k /= 10;
 		assert(_k_small <= _k);
 	    } // First k indicates stamping size, second k indicates KS test size.
-	    if (!(3 <= _k && _k <= MAX_K)) Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, MAX_K);
+	    if (!(3 <= _k && _k <= 9)) Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k);
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
 	case 'w': _weighted = true; break;
@@ -1539,7 +1540,7 @@ int main(int argc, char *argv[])
 
     SetBlantDir(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
-    if(_k <= OLD_MAX_K)
+    if(_k <= 8)
     LoadMagicTable(); // needs _k to be set
 
     if (_window && _windowSize >= 3) {
