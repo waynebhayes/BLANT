@@ -6,6 +6,7 @@
 #include "graph.h"
 #include "multisets.h"
 #include "blant-utils.h"
+#include "what-the-graphlet.h"
 
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
@@ -138,9 +139,23 @@ void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numE
 void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int numEdges, unsigned *WArray, unsigned *VArray, MULTISET *canonMSET, unsigned char perm[])
 {
     int pending_D;
-    Gordinal_type GintOrdinal = L_K(Gint);
-    memset(perm, 0, _k);
-    ExtractPerm(perm, Gint);
+    Gordinal_type GintOrdinal;
+	if(_k <= 8) {
+		GintOrdinal = L_K(Gint);
+		memset(perm, 0, _k);
+		ExtractPerm(perm, Gint);
+	} else {
+		Gint_type canon_value; //Change types
+		smaller_canon_map(Gint, _k, &canon_value, perm);
+		for(int j = 0; j < _k; j++) {
+			if(perm[j] >= '0' && perm[j] <= '9') {
+				perm[j] = perm[j] - '0';
+			} else {
+				perm[j] = perm[j] - 'A' + 10;
+			}
+		}
+		GintOrdinal = canon_to_ordinal(canon_value, _k);
+	}
     if (_windowRep_limit_neglect_trivial && GintOrdinal == _k - 1) return;
     if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
     {

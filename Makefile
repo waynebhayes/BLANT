@@ -62,7 +62,8 @@ BLANT_SRCS = blant.c \
 			 blant-predict.o \
 			 blant-synth-graph.c \
 			 importance.c \
-			 odv.c
+			 odv.c \
+			 what-the-graphlet.c
 
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))

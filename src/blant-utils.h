@@ -12,7 +12,7 @@ typedef struct nwhn { // this struct is needed for sorting
 struct orbitpair_bits {
 // NOTE that we store k-3 for k (thus k3), thus k=3 maps to 0, 8 maps to 5, and 10 maps to 7 (the highest value in 3 bits).
 #if MAX_K >= 9
-    unsigned int k3:4, ordinal: 38; // Kimia: I changed this from 54 to 38 since even at k=12 38 is enough
+    unsigned long long k3:4, ordinal: 38; // Kimia: I changed this from 54 to 38 since even at k=12 38 is enough
     unsigned int o:4, p:4;  
 #else 
     unsigned int k3:3, ordinal: 14; // Kimia: I changed this from 23 to 14, which is enough to store unsigned ints < 12346
