@@ -5,29 +5,15 @@
 
 
 
-#define MAXK 9
-
-#if MAXK == 9
-#define MAX_SIZE 3160576
-#define MAX_CANON 274668
-#elif MAXK == 8
-#define MAX_SIZE 133632
-#define MAX_CANON 12346
-#else
-#define MAX_SIZE 8988
-#define MAX_CANON 1044
-#endif
-
-
-#define CANON_MAP_FOLDER "canon_maps/"
-
 unsigned long long _canonical_count[] =
 	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864};
 
-unsigned long long map_ordinal[MAXK+1][MAX_SIZE];
+Gint_type map_non_canon[MAXK+1][MAX_SIZE];
 
-unsigned long long map_canon[MAXK+1][MAX_SIZE];
+Gint_type map_canon[MAXK+1][MAX_SIZE];
 char map_permutation[MAXK+1][MAX_SIZE][MAXK];
+
+Gint_type ordinal_to_canon[MAXK+1][MAX_CANON];
 
 
 
@@ -35,16 +21,21 @@ char map_permutation[MAXK+1][MAX_SIZE][MAXK];
 
 void read_maps(int max_k) {
     char filename[100];
-    int cnt;
+    Gint_type cnt;
+    Gordinal_type cannon_cnt;
     char buf[BUFSIZ];
 
     for(int k = 3; k <= max_k; k++) {
         sprintf(filename, "%s%s%d.txt", CANON_MAP_FOLDER, "smaller_canon_map", k);
         FILE* file = fopen(filename, "r");
 
-        cnt = 0;
+        cnt = 0, cannon_cnt = 0;
         while(fgets(buf, sizeof(buf), file)) {
-            sscanf(buf, "%llu\t%llu\t%s\t%*s", &map_ordinal[k][cnt], &map_canon[k][cnt], map_permutation[k][cnt]);
+            sscanf(buf, "%llu\t%llu\t%s\t%*s", &map_non_canon[k][cnt], &map_canon[k][cnt], map_permutation[k][cnt]); // Need to change formates
+            if(map_non_canon[k][cnt] == map_canon[k][cnt]) {
+                ordinal_to_canon[k][cannon_cnt] = map_canon[k][cnt];
+                cannon_cnt++;
+            }
             cnt++;
         }
         fclose(file);
@@ -81,17 +72,17 @@ void permutation_composition(char* perm1, char* perm2, int n, char* permuted) {
 
 
 
-void smaller_canon_map(unsigned long long num, int k, unsigned long long* return_canon, char* return_permutation) {
+void smaller_canon_map(Gint_type num, int k, Gint_type* return_canon, char* return_permutation) {
     // The base case
     if(k == 3) {
         ///////// Binary search the index ////////
-        int index = -1, low = 0, high = _canonical_count[2] << 2, mid;
+        Gint_type index = -1, low = 0, high = _canonical_count[2] << 2, mid;
         while (low <= high) {
             mid = (low + high) / 2;
-            if (map_ordinal[3][mid] == num) {
+            if (map_non_canon[3][mid] == num) {
                 index = mid;
                 break;
-            } else if (map_ordinal[3][mid] < num) {
+            } else if (map_non_canon[3][mid] < num) {
                 low = mid + 1;
             } else {
                 high = mid - 1;
@@ -110,14 +101,14 @@ void smaller_canon_map(unsigned long long num, int k, unsigned long long* return
 
     // Recursion for > 3
     // Getting the canonical for first k-1 nodes and their permutation
-    unsigned long long prev_canon;
+    Gint_type prev_canon;
     char prev_perm[MAXK];
     // #define prev_perm return_permutation // Reuse the memory, no need to allocate new memory
     smaller_canon_map(num >> (k-1), k-1, &prev_canon, prev_perm);
 
 
     // Preparing the last row
-    unsigned int last_row = num & ((1ll << (k-1))-1);
+    int last_row = num & ((1ll << (k-1))-1);
     last_row = reverse_permute(last_row, prev_perm, k-1);
 
 
@@ -132,13 +123,13 @@ void smaller_canon_map(unsigned long long num, int k, unsigned long long* return
     // Using the pre-calculated canonicals
 
     ///////// Binary search the index ////////
-    int index = -1, low = 0, high = _canonical_count[k - 1] << (k - 1), mid;
+    Gint_type index = -1, low = 0, high = _canonical_count[k - 1] << (k - 1), mid;
     while (low <= high) {
         mid = (low + high) / 2;
-        if (map_ordinal[k][mid] == ((prev_canon << (k - 1)) | last_row)) {
+        if (map_non_canon[k][mid] == ((prev_canon << (k - 1)) | last_row)) {
             index = mid;
             break;
-        } else if (map_ordinal[k][mid] < ((prev_canon << (k - 1)) | last_row)) {
+        } else if (map_non_canon[k][mid] < ((prev_canon << (k - 1)) | last_row)) {
             low = mid + 1;
         } else {
             high = mid - 1;
@@ -155,6 +146,22 @@ void smaller_canon_map(unsigned long long num, int k, unsigned long long* return
     return;
 }
 
+
+
+Gordinal_type canon_to_ordinal(Gint_type canon, int k) {
+    // binary search
+    Gordinal_type low = 0, high = _canonical_count[k] - 1, mid;
+    while (low <= high) {
+        mid = (low + high) / 2;
+        if (ordinal_to_canon[k][mid] == canon) {
+            return mid;
+        } else if (ordinal_to_canon[k][mid] < canon) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+}
 
 
 
