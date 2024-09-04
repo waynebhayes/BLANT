@@ -11,7 +11,7 @@ unsigned long long _canonical_count[] =
 Gint_type map_non_canon[MAXK+1][MAX_SIZE];
 
 Gint_type map_canon[MAXK+1][MAX_SIZE];
-unsigned char map_permutation[MAXK+1][MAX_SIZE][MAXK];
+unsigned char map_permutation[MAXK+1][MAX_SIZE][MAXK+1];
 
 Gint_type ordinal_to_canon[MAXK+1][MAX_CANON];
 
@@ -32,6 +32,13 @@ void read_maps(int max_k) {
         cnt = 0, cannon_cnt = 0;
         while(fgets(buf, sizeof(buf), file)) {
             sscanf(buf, "%llu\t%llu\t%s\t%*s", &map_non_canon[k][cnt], &map_canon[k][cnt], map_permutation[k][cnt]); // Need to change formates
+            for(int j = 0; j < k; j++) {
+                if(map_permutation[k][cnt][j] <= '9') {
+                    map_permutation[k][cnt][j] = map_permutation[k][cnt][j] - '0';
+                } else {
+                    map_permutation[k][cnt][j] = map_permutation[k][cnt][j] - 'A' + 10;
+                }
+            }
             if(map_non_canon[k][cnt] == map_canon[k][cnt]) {
                 ordinal_to_canon[k][cannon_cnt] = map_canon[k][cnt];
                 cannon_cnt++;
@@ -47,7 +54,7 @@ void read_maps(int max_k) {
 int permute(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
-        permuted |= ((num >> (n - i - 1)) & 1) << (n - (perm[i] - '0') - 1);
+        permuted |= ((num >> (n - i - 1)) & 1) << (n - perm[i] - 1);
     }
     return permuted;
 }
@@ -55,14 +62,14 @@ int permute(int num, unsigned char* perm, int n) {
 int reverse_permute(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
-        permuted |= ((num >> (n - (perm[i] - '0') - 1)) & 1) << (n - i - 1);
+        permuted |= ((num >> (n - perm[i] - 1)) & 1) << (n - i - 1);
     }
     return permuted;
 }
 
 void permutation_composition(unsigned char* perm1, unsigned char* perm2, int n, unsigned char* permuted) {
     for(int i = 0; i < n; i++) {
-        permuted[i] = perm1[perm2[i] - '0'];
+        permuted[i] = perm1[perm2[i]];
     }
     permuted[n] = '\0';
 }
@@ -90,7 +97,9 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
         }
         ///////// Binary search the index ////////
 
-        strcpy(return_permutation, map_permutation[3][index]);
+        for(int j = 0; j < 3; j++) {
+            return_permutation[j] = map_permutation[3][index][j];
+        }
         return map_canon[3][index];
     }
 
@@ -100,8 +109,7 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
 
     // Recursion for > 3
     // Getting the canonical for first k-1 nodes and their permutation
-    unsigned char prev_perm[MAXK];
-    // #define prev_perm return_permutation // Reuse the memory, no need to allocate new memory
+    unsigned char prev_perm[MAXK+1];
     Gint_type prev_canon = smaller_canon_map(num >> (k-1), k-1, prev_perm);
 
 
@@ -112,7 +120,7 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
 
 
     // Permutation for the first transformation
-    prev_perm[k - 1] = k - 1 + '0';
+    prev_perm[k - 1] = k - 1;
     prev_perm[k] = '\0';
 
     

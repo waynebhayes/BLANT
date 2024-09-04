@@ -184,13 +184,6 @@ void ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {   
     if(_k > 8) {
 	    smaller_canon_map(Gint, _k, perm);
-        for(int j = 0; j < _k; j++) {
-            if(perm[j] <= '9') {
-                perm[j] = perm[j] - '0';
-            } else {
-                perm[j] = perm[j] - 'A' + 10;
-            }
-        }
         return;
     }
     int j, i32 = 0;
