@@ -125,6 +125,7 @@ extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k, _min_edge_count, _k_base;
 extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
 extern unsigned int L_K_Func(Gint_type Gint);
+extern Gordinal_type L_K_Smaller_Canon_Map(Gint_type Gint);
 #if DYNAMIC_CANON_MAP
 #define L_K(Gint) L_K_Func(Gint)
 #else

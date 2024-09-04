@@ -2,6 +2,7 @@
 #define BLANT_UTILS_H
 
 #include "blant.h"
+#include "what-the-graphlet.h"
 
 typedef struct nwhn { // this struct is needed for sorting
     int node;
@@ -25,7 +26,7 @@ long int orbitpair_copy(long int src);
 
 Boolean arrayIn(unsigned *arr, int size, int item);
 void printIntArray(int* arr, int n, char* name);
-void ExtractPerm(unsigned char perm[_k], int i);
+void ExtractPerm(unsigned char perm[_k], Gint_type Gint);
 void InvertPerm(unsigned char inverse[_k], unsigned const char perm[_k]);
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, unsigned *Varray);
 int asccompFunc(const foint i, const foint j);

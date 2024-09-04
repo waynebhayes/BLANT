@@ -124,9 +124,8 @@ unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented")
 #endif
 
 Gordinal_type L_K_Smaller_Canon_Map(Gint_type Gint) {
-    Gordinal_type canon_value;
     char perm[MAX_K];
-    smaller_canon_map(Gint, _k, perm);
+    Gordinal_type canon_value = smaller_canon_map(Gint, _k, perm);
     return canon_to_ordinal(canon_value, _k);
 }
 
