@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export LANG=C # to ensure sort is not fucked up by stupid POSIX standards
+
 if [ "$RUNNING_UNDER_TIME" != true ]; then
     export RUNNING_UNDER_TIME=true
     #echo "restarting with timing" >&2
