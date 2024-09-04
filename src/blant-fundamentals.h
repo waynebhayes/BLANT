@@ -21,7 +21,11 @@
 #define MAX_K (9-SELF_LOOPS) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
 
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
+#if MAX_K <= 8
 #define maxBk (1 << (MAX_K*(MAX_K-1)/2 + MAX_K*SELF_LOOPS))
+#else
+#define maxBk (1 << (8*(8-1)/2 + 8*SELF_LOOPS))
+#endif
 
 #if MAX_K <= 8
 #define MAX_CANONICALS	12346
