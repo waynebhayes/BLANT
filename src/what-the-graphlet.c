@@ -54,7 +54,7 @@ void read_smaller_canon_maps(int max_k) {
 int permute(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
-        permuted |= ((num >> (n - i - 1)) & 1) << (n - (perm[i] - '0') - 1);
+        permuted |= ((num >> (n - i - 1)) & 1) << (n - perm[i] - 1);
     }
     return permuted;
 }
@@ -62,14 +62,14 @@ int permute(int num, unsigned char* perm, int n) {
 int reverse_permute(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
-        permuted |= ((num >> (n - (perm[i] - '0') - 1)) & 1) << (n - i - 1);
+        permuted |= ((num >> (n - perm[i] - 1)) & 1) << (n - i - 1);
     }
     return permuted;
 }
 
 void permutation_composition(unsigned char* perm1, unsigned char* perm2, int n, unsigned char* permuted) {
     for(int i = 0; i < n; i++) {
-        permuted[i] = perm1[perm2[i] - '0'];
+        permuted[i] = perm1[perm2[i]];
     }
     permuted[n] = '\0';
 }
@@ -120,7 +120,7 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
 
 
     // Permutation for the first transformation
-    prev_perm[k - 1] = k - 1 + '0';
+    prev_perm[k - 1] = k - 1;
     prev_perm[k] = '\0';
 
     
