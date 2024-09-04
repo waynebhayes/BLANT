@@ -123,6 +123,13 @@ unsigned int L_K_Func(Gint_type Gint) {
 unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented"); return -1;}
 #endif
 
+Gordinal_type L_K_Smaller_Canon_Map(Gint_type Gint) {
+    Gordinal_type canon_value;
+    char perm[MAX_K];
+    smaller_canon_map(Gint, _k, perm);
+    return canon_to_ordinal(canon_value, _k);
+}
+
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
 void SetGlobalCanonMaps(void)
@@ -174,10 +181,14 @@ void LoadMagicTable(void)
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
-void ExtractPerm(unsigned char perm[_k], int i)
-{
+void ExtractPerm(unsigned char perm[_k], Gint_type Gint)
+{   
+    if(_k > 8) {
+	    smaller_canon_map(Gint, _k, perm); // i here is Gint
+        return;
+    }
     int j, i32 = 0;
-    for(j=0;j<3;j++) i32 |= (Permutations[i][j] << j*8);
+    for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
     for(j=0;j<_k;j++)
 	perm[j] = (i32 >> 3*j) & 7;
 }

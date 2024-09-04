@@ -1381,7 +1381,7 @@ int main(int argc, char *argv[])
 	    if(_confidence >= 1) _confidence /= 100; // user specified percent
 	    break;
 	case 'k': _k = atoi(optarg);
-		_k_base = MAX(_k, 8);
+		_k_base = MIN(_k, 8);
 	    if (_GRAPH_GEN && _k >= 33) {
 		_k_small = _k % 10;
 		if (!(3 <= _k_small && _k_small <= 9))

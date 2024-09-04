@@ -128,7 +128,7 @@ extern unsigned int L_K_Func(Gint_type Gint);
 #if DYNAMIC_CANON_MAP
 #define L_K(Gint) L_K_Func(Gint)
 #else
-#define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
+#define L_K(Gint) ((_k > 8) ? L_K_Smaller_Canon_Map(Gint) : (_K ? _K[Gint] : L_K_Func(Gint)))
 #endif
 extern SET *_connectedCanonicals;
 
