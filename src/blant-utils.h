@@ -11,12 +11,20 @@ typedef struct nwhn { // this struct is needed for sorting
 
 struct orbitpair_bits {
 // NOTE that we store k-3 for k (thus k3), thus k=3 maps to 0, 8 maps to 5, and 10 maps to 7 (the highest value in 3 bits).
-#if MAX_K >= 9
-    unsigned int k3:4, ordinal: 38; // Kimia: I changed this from 54 to 38 since even at k=12 38 is enough
-    unsigned int o:4, p:4;  
-#else 
-    unsigned int k3:3, ordinal: 14; // Kimia: I changed this from 23 to 14, which is enough to store unsigned ints < 12346
-    unsigned int o:3, p:3; // k is stored as k-3, o and p correctly go from 0 through 7 max
+#if MAX_K <=8
+    unsigned int k3:3, o:3, p:3; // k is stored as k-3, o and p correctly go from 0 through 7 max
+    unsigned int ordinal: 14; // Kimia: I changed this from 23 to 14, which is enough to store unsigned ints < 12346
+#else
+    unsigned int k3:4, o:4, p:4; // 4 bits is enough up to k=16
+#if MAX_K == 9
+    unsigned int ordinal: 19; // ceil(log2(274668)), where 274668=maxCanon for k=9, giving 31 bits total
+#elif MAX_K == 10
+    unsigned int ordinal: 24; // ceil(log2(12005168)), maxCanon for k=10
+#elif MAX_K == 11
+    unsigned int ordinal: 30; // ceil(log2(1018997864)), maxCanon for k=11
+#else
+#error sorry can't handle MAX_K > 11 at the moment
+#endif
 #endif
 };
 
