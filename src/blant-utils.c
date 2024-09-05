@@ -135,7 +135,7 @@ void SetGlobalCanonMaps(void)
 {
     int i;
     char BUF[BUFSIZ];
-    assert(3 <= _k && _k <= 9);
+    assert(3 <= _k && _k <= MAX_K);
 #if SELF_LOOPS
     _Bk = (1 <<(_k*(_k+1)/2));
 #else

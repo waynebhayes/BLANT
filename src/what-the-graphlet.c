@@ -6,12 +6,13 @@
 
 
 Gint_type _canonical_count[] =
+Gint_type _canonical_count[] =
 	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864};
 
-Gint_type map_non_canon[MAX_K+1][SMALL_MAP_SIZE];
+Gint_type map_non_canon[MAXK+1][SMALL_MAP_SIZE];
 
-Gint_type map_canon[MAX_K+1][SMALL_MAP_SIZE];
-unsigned char map_permutation[MAX_K+1][SMALL_MAP_SIZE][MAX_K+1];
+Gint_type map_canon[MAXK+1][SMALL_MAP_SIZE];
+unsigned char map_permutation[MAXK+1][SMALL_MAP_SIZE][MAXK+1];
 
 Gint_type ordinal_to_canon[MAX_K+1][MAX_CANONICALS];
 
@@ -19,6 +20,7 @@ Gint_type ordinal_to_canon[MAX_K+1][MAX_CANONICALS];
 
 
 
+void read_smaller_canon_maps(int max_k) {
 void read_smaller_canon_maps(int max_k) {
     char filename[100];
     Gint_type cnt;
