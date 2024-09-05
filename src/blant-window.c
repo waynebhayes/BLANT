@@ -138,9 +138,8 @@ void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numE
 void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int numEdges, unsigned *WArray, unsigned *VArray, MULTISET *canonMSET, unsigned char perm[])
 {
     int pending_D;
-    Gordinal_type GintOrdinal = L_K(Gint);
     memset(perm, 0, _k);
-    ExtractPerm(perm, Gint);
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
     if (_windowRep_limit_neglect_trivial && GintOrdinal == _k - 1) return;
     if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
     {

@@ -13,8 +13,8 @@ char *PrintGraphletID(Gint_type Gint); // returns a string that YOU must print
 char *PrintOrdinal(Gordinal_type GintOrdinal); // returns a string that YOU must print
 
 // For _outputMode = communityDetection, process the graphlet/orbit counts and neighbors
-void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w);
-void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w);
+void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm);
+void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm);
 
 // You should print a node EXCLUSIVELY with this function; it automatically determines if we're supporting names or not.
 // If c is non-zero, the character is prepended, using putchar(), before the node is printed (eg ' ', ';' or '\t').
@@ -22,7 +22,7 @@ char *PrintNode(char c, int v); // returns a pointer to a constant buffer; YOU n
 // Print a pair of nodes, but sorted so that u<=v, even if they are strings.
 char *PrintNodePairSorted(int u, char c, int v); // returns a pointer to a constant buffer, YOU must print it.
 
-char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w);
-char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w);
+char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w, unsigned char* perm);
+char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w, unsigned char* perm);
 
 #endif
