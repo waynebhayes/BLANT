@@ -1381,15 +1381,15 @@ int main(int argc, char *argv[])
 	    if(_confidence >= 1) _confidence /= 100; // user specified percent
 	    break;
 	case 'k': _k = atoi(optarg);
-		_k_base = MIN(_k, 8);
+		_k_base = MIN(_k, OLD_MAX_K);
 	    if (_GRAPH_GEN && _k >= 33) {
 		_k_small = _k % 10;
-		if (!(3 <= _k_small && _k_small <= 9))
-		    Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k_small);
+		if (!(3 <= _k_small && _k_small <= MAX_K))
+		    Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, MAX_K);
 		_k /= 10;
 		assert(_k_small <= _k);
 	    } // First k indicates stamping size, second k indicates KS test size.
-	    if (!(3 <= _k && _k <= 9)) Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k);
+	    if (!(3 <= _k && _k <= MAX_K)) Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, MAX_K);
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
 	case 'w': _weighted = true; break;
@@ -1539,7 +1539,7 @@ int main(int argc, char *argv[])
 
     SetBlantDir(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
-    if(_k <= 8)
+    if(_k <= OLD_MAX_K)
     LoadMagicTable(); // needs _k to be set
 
     if (_window && _windowSize >= 3) {
