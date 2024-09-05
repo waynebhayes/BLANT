@@ -31,7 +31,8 @@ void read_maps(int max_k) {
 
         cnt = 0, cannon_cnt = 0;
         while(fgets(buf, sizeof(buf), file)) {
-            sscanf(buf, GINT_FMT"\t"GINT_FMT"\t%s\t%*s", &map_non_canon[k][cnt], &map_canon[k][cnt], map_permutation[k][cnt]);
+            int numRead = sscanf(buf, GINT_FMT"\t"GINT_FMT"\t%s\t%*s", &map_non_canon[k][cnt], &map_canon[k][cnt], map_permutation[k][cnt]);
+            assert(numRead == 3);
             for(int j = 0; j < k; j++) {
                 if(map_permutation[k][cnt][j] <= '9') {
                     map_permutation[k][cnt][j] = map_permutation[k][cnt][j] - '0';
