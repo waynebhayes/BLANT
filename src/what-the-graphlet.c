@@ -28,6 +28,7 @@ void read_maps(int max_k) {
     for(int k = 3; k <= max_k; k++) {
         sprintf(filename, "%s%s%d.txt", CANON_MAP_FOLDER, "smaller_canon_map", k);
         FILE* file = fopen(filename, "r");
+        if(!file) Fatal("cannot find %s\n", filename);
 
         cnt = 0, cannon_cnt = 0;
         while(fgets(buf, sizeof(buf), file)) {
