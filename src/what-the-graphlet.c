@@ -8,12 +8,12 @@
 Gint_type _canonical_count[] =
 	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864};
 
-Gint_type map_non_canon[MAXK+1][SMALL_MAP_SIZE];
+Gint_type map_non_canon[MAX_K+1][SMALL_MAP_SIZE];
 
-Gint_type map_canon[MAXK+1][SMALL_MAP_SIZE];
-unsigned char map_permutation[MAXK+1][SMALL_MAP_SIZE][MAXK+1];
+Gint_type map_canon[MAX_K+1][SMALL_MAP_SIZE];
+unsigned char map_permutation[MAX_K+1][SMALL_MAP_SIZE][MAX_K+1];
 
-Gint_type ordinal_to_canon[MAXK+1][MAX_CANON];
+Gint_type ordinal_to_canon[MAX_K+1][MAX_CANONICALS];
 
 
 
@@ -109,7 +109,7 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
 
     // Recursion for > 3
     // Getting the canonical for first k-1 nodes and their permutation
-    unsigned char prev_perm[MAXK+1];
+    unsigned char prev_perm[MAX_K+1];
     Gint_type prev_canon = smaller_canon_map(num >> (k-1), k-1, prev_perm);
 
 
