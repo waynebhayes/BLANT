@@ -4,17 +4,12 @@
 #include "blant.h"
 
 
-#define MAXK 9
-
-#if MAXK == 9
-#define MAX_SIZE 3160576
-#define MAX_CANON 274668
-#elif MAXK == 8
-#define MAX_SIZE 133632
-#define MAX_CANON 12346
+#if MAX_K == 9
+#define SMALLER_MAP_ZISE 3160576
+#elif MAX_K == 8
+#define SMALLER_MAP_ZISE 133632
 #else
-#define MAX_SIZE 8988
-#define MAX_CANON 1044
+#define SMALLER_MAP_ZISE 8988
 #endif
 
 
@@ -26,7 +21,7 @@ extern void read_maps(int max_k);
 extern Gordinal_type canon_to_ordinal(Gint_type canon, int k);
 
 
-extern Gint_type map_non_canon[MAXK+1][MAX_SIZE];
+extern Gint_type map_non_canon[MAX_K+1][SMALLER_MAP_ZISE];
 
 
 #endif

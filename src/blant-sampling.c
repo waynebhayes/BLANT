@@ -281,21 +281,17 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    TinyGraphInducedFromGraph(T, G, Varray);
 	    Gint_type Gint = TinyGraph2Int(T, k);
 	    TinyGraphFree(T);
-	    Gordinal_type GintOrdinal = L_K(Gint);
+		unsigned char perm[k];
+		memset(perm, 0, k);
+	    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);;
 
 	    double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	    if (_outputMode == outputODV) {
-		unsigned char perm[k];
-		memset(perm, 0, k);
-		ExtractPerm(perm, Gint);
 		for (j = 0; j < k; j++) {
 		    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 		}
 	    }
 		if (_outputMode == outputGDV) {
-			unsigned char perm[k];
-			memset(perm, 0, k);
-			ExtractPerm(perm, Gint);
 			for (j = 0; j < k; j++) {
 				_doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 			}
@@ -335,20 +331,16 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(!g) g = TinyGraphAlloc(k);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
-	Gordinal_type GintOrdinal = L_K(Gint);
+	unsigned char perm[k];
+	memset(perm, 0, k);
+	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode == outputODV) {
-	    unsigned char perm[k];
-	    memset(perm, 0, k);
-	    ExtractPerm(perm, Gint);
 	    for (j = 0; j < k; j++) {
 		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode == outputGDV) {
-		unsigned char perm[k];
-		memset(perm, 0, k);
-		ExtractPerm(perm, Gint);
 		for (j = 0; j < k; j++) {
 		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 		}
@@ -689,20 +681,16 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	TINY_GRAPH *g = TinyGraphAlloc(k);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
-	Gordinal_type GintOrdinal = L_K(Gint);
+	unsigned char perm[k];
+	memset(perm, 0, k);
+	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode == outputODV) {
-	    unsigned char perm[k];
-	    memset(perm, 0, k);
-	    ExtractPerm(perm, Gint);
 	    for (j = 0; j < k; j++) {
 		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode == outputGDV) {
-		unsigned char perm[k];
-		memset(perm, 0, k);
-		ExtractPerm(perm, Gint);
 		for (j = 0; j < k; j++) {
 		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 		}
@@ -951,7 +939,9 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     }
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g, k);
-    Gordinal_type GintOrdinal = L_K(Gint);
+	unsigned char perm[k];
+	memset(perm, 0, k);
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);;
 
     assert(numNodes == k); // Ensure we are returning k nodes
     Boolean found=false;
@@ -974,17 +964,11 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
     }
     if (_outputMode == outputODV) {
-	unsigned char perm[k];
-	memset(perm, 0, k);
-	ExtractPerm(perm, Gint);
 	for (j = 0; j < k; j++) {
 	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	}
     }
 	if (_outputMode == outputGDV) {
-		unsigned char perm[k];
-		memset(perm, 0, k);
-		ExtractPerm(perm, Gint);
 		for (j = 0; j < k; j++) {
 		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 		}
@@ -1114,7 +1098,9 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g, k);
-    Gordinal_type GintOrdinal = L_K(Gint);
+	unsigned char perm[k];
+	memset(perm, 0, k);
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);;
 
     double ocount = 1.0;
 
@@ -1122,17 +1108,12 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 
     if (_outputMode == outputODV) {
-	unsigned char perm[k];
-	memset(perm, 0, k);
-	ExtractPerm(perm, Gint);
+	
 	for (j = 0; j < k; j++) {
 	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	}
     }
     if (_outputMode == outputGDV) {
-	unsigned char perm[k];
-	memset(perm, 0, k);
-	ExtractPerm(perm, Gint);
 	for (j = 0; j < k; j++) {
 	    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 	}

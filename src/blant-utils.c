@@ -180,16 +180,16 @@ void LoadMagicTable(void)
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
-void ExtractPerm(unsigned char perm[_k], Gint_type Gint)
+Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {   
-    if(_k > 8) {
-	    smaller_canon_map(Gint, _k, perm);
-        return;
+    if(_k > OLD_MAX_K) {
+        return canon_to_ordinal(smaller_canon_map(Gint, _k, perm), _k);
     }
     int j, i32 = 0;
     for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
     for(j=0;j<_k;j++)
 	perm[j] = (i32 >> 3*j) & 7;
+    return _K[Gint];
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
