@@ -51,7 +51,7 @@ void read_maps(int max_k) {
 
 
 
-int permute(int num, unsigned char* perm, int n) {
+int permute_bits(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
         permuted |= ((num >> (n - i - 1)) & 1) << (n - perm[i] - 1);
@@ -59,7 +59,7 @@ int permute(int num, unsigned char* perm, int n) {
     return permuted;
 }
 
-int reverse_permute(int num, unsigned char* perm, int n) {
+int reverse_permute_bits(int num, unsigned char* perm, int n) {
     int permuted = 0;
     for(int i = 0; i < n; i++) {
         permuted |= ((num >> (n - perm[i] - 1)) & 1) << (n - i - 1);
@@ -73,8 +73,6 @@ void permutation_composition(unsigned char* perm1, unsigned char* perm2, int n, 
     }
     permuted[n] = '\0';
 }
-
-
 
 
 
@@ -104,9 +102,6 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
     }
 
 
-
-
-
     // Recursion for > 3
     // Getting the canonical for first k-1 nodes and their permutation
     unsigned char prev_perm[MAX_K+1];
@@ -115,8 +110,7 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
 
     // Preparing the last row
     int last_row = num & ((1ll << (k-1))-1);
-    last_row = reverse_permute(last_row, prev_perm, k-1);
-
+    last_row = reverse_permute_bits(last_row, prev_perm, k-1);
 
 
     // Permutation for the first transformation
@@ -124,8 +118,6 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
     prev_perm[k] = '\0';
 
     
-
-
     // Using the pre-calculated canonicals
 
     ///////// Binary search the index ////////
@@ -143,7 +135,6 @@ Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutat
     }
     ///////// Binary search the index ////////
     
-
 
     // Because we want return_permutation(X) == prev_perm(map_permutation[k][index](X))
     permutation_composition(prev_perm, map_permutation[k][index], k, return_permutation);
