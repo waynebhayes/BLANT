@@ -97,6 +97,8 @@ SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_
 	char buf[BUFSIZ], *tmp;
 	tmp = fgets(buf, sizeof(buf), fp_ord);
 	assert(tmp == buf);
+	int len = strlen(buf);
+	assert(buf[len] == '\0' && buf[len-1] == '\n');
 	if(3!=sscanf(buf, GINT_FMT "\t%d %hhd", &canon_list[i], &connected, &canon_num_edges[i]))
 	    Fatal("canonListPopulate: failed to read 3 inputs from line %d", i);
 	if(connected) SetAdd(connectedCanonicals, i);
