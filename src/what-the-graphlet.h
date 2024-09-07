@@ -17,7 +17,7 @@
 
 
 extern Gint_type smaller_canon_map(Gint_type num, int k, unsigned char* return_permutation);
-extern void read_maps(int max_k);
+extern void read_smaller_canon_maps(int max_k);
 extern Gordinal_type canon_to_ordinal(Gint_type canon, int k);
 
 

@@ -295,7 +295,7 @@ void initialize(GRAPH* G, int k, unsigned long numSamples) {
 
     char BUF[BUFSIZ];
     _numSamples = numSamples;
-	if (k > 8) read_maps(MAX_K);
+	if (k > 8) read_smaller_canon_maps(MAX_K);
     alphaListPopulate(BUF, _alphaList, k);
     for(i = 0; i < _numCanon; i++) _graphletConcentration[i] = 0.0;
 }

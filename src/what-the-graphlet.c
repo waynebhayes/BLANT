@@ -19,7 +19,7 @@ Gint_type ordinal_to_canon[MAX_K+1][MAX_CANONICALS];
 
 
 
-void read_maps(int max_k) {
+void read_smaller_canon_maps(int max_k) {
     char filename[100];
     Gint_type cnt;
     Gordinal_type cannon_cnt;
