@@ -42,7 +42,9 @@ int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 char * _sampleFileName;
 
-// _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k; _k_base is the k that we will be using for the base of smaller canon map.
+// _k is the global variable storing k; 
+// _Bk=actual number of entries in the canon_map for given k; 
+// _k_base is the k that we will be using for the base of smaller canon map when k>8, otherwiswe _k_base == k
 unsigned int _k, _min_edge_count, _k_base;
 unsigned int _Bk, _k_small;
 
