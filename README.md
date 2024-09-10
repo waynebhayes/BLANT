@@ -1,5 +1,6 @@
 # BLANT: Basic Local Alignment of Network Topology
-## Analogy with **BLAST**
+If you want to just get straight to using BLANT, skip down a few paragraphs to USAGE and the "Quick Start Guide"
+## What is BLANT? AN analogy with **BLAST**
 If you are in the bioinformatics field, you have probably heard of the tool named *BLAST*, the *Basic Local Alignment Search Tool*. BLAST is an algorithm for quickly finding local alignments in genomic (or proteomic) sequences. BLAST works by first creating a comprehensive database of all *k*-letter sequences (called "*k*-mers") that appear in the corpus of the sequence to be searched and/or aligned. Such *k*-mers can be used to "seed" a local alignment between two distant regions of sequence. Below we show a hypothetical alignment between two distant regions of sequence, both of which contain the **boldfaced** *k*-mer "**GAGACCGT**":
 
   ACTAGAT*C*CAC*C*TCTAGGCAGGTA **GAGACCGT** GTTCTTCA*G*AGGTGA*A*GGAGACGCACAAACGGGCCC
