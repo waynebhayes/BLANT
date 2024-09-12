@@ -134,9 +134,10 @@ void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
     assert(k<=5);
     sprintf(BUF, "%s/%s/orca_orbit_mapping%d.txt", _BLANT_DIR, "orca_jesse_blant_table", k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    int numOrbits, i;
-    if(1!=fscanf(fp_ord, "%d", &numOrbits)) Fatal("orcaOrbitMappingPopulate: failed to read numOrbits");
-    for(i=0; i<numOrbits; i++) if(1!=fscanf(fp_ord, "%d", &orca_orbit_mapping[i]))
-	Fatal("orcaOrbitMappingPopulate: failed to read mapping %d", i);
+    if(fp_ord) {
+	int numOrbits, i;
+	if(1!=fscanf(fp_ord, "%d", &numOrbits)) Fatal("orcaOrbitMappingPopulate: failed to read numOrbits");
+	for(i=0; i<numOrbits; i++) if(1!=fscanf(fp_ord, "%d", &orca_orbit_mapping[i]))
+	    Fatal("orcaOrbitMappingPopulate: failed to read mapping %d", i);
+    }
 }

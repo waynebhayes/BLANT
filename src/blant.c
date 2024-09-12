@@ -922,7 +922,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 
     do // this loop reads lines from the parallel child threads, one line read per thread per loop iteration
     {
-	char line[MAX_CANONICALS * BUFSIZ]; // this is just supposed to be really large
+	char line[1000*1000*1000]; // this is just supposed to be really large
 	for(thread=0;thread<_MAX_THREADS;thread++)	// process one line from each thread
 	{
 	    if(!fpThreads[thread]) continue;
@@ -1382,11 +1382,11 @@ int main(int argc, char *argv[])
 	    if (_GRAPH_GEN && _k >= 33) {
 		_k_small = _k % 10; // used in windowing code, obsolete
 		if (!(3 <= _k_small && _k_small <= MAX_K))
-		    Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, MAX_K);
+		    Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, MAX_K);
 		_k /= 10;
 		assert(_k_small <= _k);
 	    } // First k indicates stamping size, second k indicates KS test size.
-	    if (!(3 <= _k && _k <= MAX_K)) Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, MAX_K);
+	    if (!(3 <= _k && _k <= MAX_K)) Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, MAX_K);
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
 	case 'w': _weighted = true; break;

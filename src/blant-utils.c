@@ -3,6 +3,7 @@
 #include <math.h>
 #include "blant.h"
 #include "blant-utils.h"
+#include "blant-predict.h"
 #include "bintree.h"
 #include "sim_anneal.h"
 
@@ -140,8 +141,10 @@ void SetGlobalCanonMaps(void)
     _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
-    if(pfd) Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
-    assert(Permutations != MAP_FAILED);
+    if(pfd>=0) {
+	Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
+	assert(Permutations != MAP_FAILED);
+    }
     _numConnectedOrbits = 0;
     for (i=0; i < _numOrbits; i++)
 	if (SetIn(_connectedCanonicals, _orbitCanonMapping[i]))
@@ -156,17 +159,18 @@ void LoadMagicTable(void)
     char BUF[BUFSIZ];
     sprintf(BUF, "%s/orca_jesse_blant_table/UpperToLower%d.txt", _BLANT_DIR, _k);
     FILE *fp_ord=fopen(BUF, "r");
-    if(!fp_ord) Fatal("cannot find %s\n", BUF);
-    for(i=0; i<_numCanon; i++) {
-        for(j=0; j<12 ;j++) {
-            if(1!=fscanf(fp_ord, "%d", &_magicTable[i][j]))
-		Fatal("LoadMagicTable: failed to load [i][j]=[%d][%d]", i,j);
-        }
-    }
-    fclose(fp_ord);
-    if(_displayMode == orca || _displayMode == jesse) {
-        // Load mapping from lower_ordinal to ORCA/Jesse ID into table for fast lookup
-	for (i=0; i < _numCanon; i++) _outputMapping[_magicTable[i][4]] = _magicTable[i][7];
+    if(fp_ord) {
+	for(i=0; i<_numCanon; i++) {
+	    for(j=0; j<12 ;j++) {
+		if(1!=fscanf(fp_ord, "%d", &_magicTable[i][j]))
+		    Fatal("LoadMagicTable: failed to load [i][j]=[%d][%d]", i,j);
+	    }
+	}
+	fclose(fp_ord);
+	if(_displayMode == orca || _displayMode == jesse) {
+	    // Load mapping from lower_ordinal to ORCA/Jesse ID into table for fast lookup
+	    for (i=0; i < _numCanon; i++) _outputMapping[_magicTable[i][4]] = _magicTable[i][7];
+	}
     }
 }
 
@@ -174,11 +178,13 @@ void LoadMagicTable(void)
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
-    int j, i32 = 0;
-    for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
-    for(j=0;j<_k;j++)
-	perm[j] = (i32 >> 3*j) & 7;
-    return _K[Gint];
+    if(Permutations) {
+	int j, i32 = 0;
+	for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
+	for(j=0;j<_k;j++)
+	    perm[j] = (i32 >> 3*j) & 7;
+	return _K[Gint];
+    } else return canon_to_ordinal(smaller_canon_map(Gint, _k, perm), _k);
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
