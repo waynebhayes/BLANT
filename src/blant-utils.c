@@ -129,7 +129,7 @@ void SetGlobalCanonMaps(void)
 {
     int i;
     char BUF[BUFSIZ];
-    assert(3 <= _k && _k <= 8);
+    assert(3 <= _k && _k <= MAX_K);
 #if SELF_LOOPS
     _Bk = (1 <<(_k*(_k+1)/2));
 #else
@@ -140,7 +140,6 @@ void SetGlobalCanonMaps(void)
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
     _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
-
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
     Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
@@ -175,12 +174,13 @@ void LoadMagicTable(void)
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
-void ExtractPerm(unsigned char perm[_k], int i)
+Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
     int j, i32 = 0;
-    for(j=0;j<3;j++) i32 |= (Permutations[i][j] << j*8);
+    for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
     for(j=0;j<_k;j++)
 	perm[j] = (i32 >> 3*j) & 7;
+    return _K[Gint];
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])

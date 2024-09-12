@@ -1380,13 +1380,13 @@ int main(int argc, char *argv[])
 	    break;
 	case 'k': _k = atoi(optarg);
 	    if (_GRAPH_GEN && _k >= 33) {
-		_k_small = _k % 10;
-		if (!(3 <= _k_small && _k_small <= 8))
-		    Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k_small);
+		_k_small = _k % 10; // used in windowing code, obsolete
+		if (!(3 <= _k_small && _k_small <= MAX_K))
+		    Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, MAX_K);
 		_k /= 10;
 		assert(_k_small <= _k);
 	    } // First k indicates stamping size, second k indicates KS test size.
-	    if (!(3 <= _k && _k <= 8)) Fatal("%s\nERROR: k [%d] must be between 3 and 8\n%s", USAGE_SHORT, _k);
+	    if (!(3 <= _k && _k <= MAX_K)) Fatal("%s\nERROR: k [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, MAX_K);
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
 	case 'w': _weighted = true; break;
