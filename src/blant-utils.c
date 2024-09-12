@@ -119,8 +119,6 @@ unsigned int L_K_Func(Gint_type Gint) {
     return s;
 }
 
-#else
-unsigned int L_K_Func(Gint_type Gint) {Apology("L_K_Func() not yet implemented"); return -1;}
 #endif
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
@@ -142,7 +140,7 @@ void SetGlobalCanonMaps(void)
     _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
-    Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
+    if(pfd) Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
     assert(Permutations != MAP_FAILED);
     _numConnectedOrbits = 0;
     for (i=0; i < _numOrbits; i++)

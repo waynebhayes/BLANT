@@ -78,7 +78,7 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
 #endif
     sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
-    assert(Kfd > 0);
+    if(Kfd <= 0) return NULL;
     //short int *Kf = Mmap(K, Bk*sizeof(short int), Kfd); // Using Mmap will cause error due to MAP_FIXED flag
     Gordinal_type *Kf = (Gordinal_type*) mmap(K, sizeof(Gordinal_type)*Bk, PROT_READ, MAP_PRIVATE, Kfd, 0);
     assert(Kf != MAP_FAILED);
