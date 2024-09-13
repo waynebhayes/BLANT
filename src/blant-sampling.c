@@ -283,7 +283,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    TinyGraphFree(T);
 	    unsigned char perm[k];
 	    memset(perm, 0, k);
-	    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);;
+	    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 
 	    double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	    if (_outputMode == outputODV) {
@@ -937,7 +937,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     Gint_type Gint = TinyGraph2Int(g, k);
     unsigned char perm[k];
     memset(perm, 0, k);
-    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);;
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 
     assert(numNodes == k); // Ensure we are returning k nodes
     Boolean found=false;
@@ -1094,7 +1094,7 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     Gint_type Gint = TinyGraph2Int(g, k);
     unsigned char perm[k];
     memset(perm, 0, k);
-    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);;
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 
     double ocount = 1.0;
 

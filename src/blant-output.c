@@ -67,7 +67,7 @@ char *PrintOrdinal(Gordinal_type GintOrdinal)
 	sprintf(_printBuf, GORDINAL_FMT, GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
-	sprintf(_printBuf, GORDINAL_FMT, _canonList[GintOrdinal]);
+	sprintf(_printBuf, GINT_FMT, _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
