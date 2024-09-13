@@ -3,9 +3,6 @@
 
 // This file defines the fundamental compile-time constants that all blant-related programs must know.
 
-#ifndef NDEBUG
-#define NDEBUG 0
-#endif
 #ifndef PARANOID_ASSERTS
 #define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
 #endif
@@ -18,7 +15,7 @@
 
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
-#define MAX_K (9-SELF_LOOPS) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
+#define MAX_K (8-SELF_LOOPS) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
 
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
 #define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
