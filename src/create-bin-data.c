@@ -34,7 +34,7 @@
 
 typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 24 bits
 #define Bk (1 <<(kk*(kk-1)/2 + kk*SELF_LOOPS))
-Gordinal_type K[Bk]; // does not NEED to be unsigned, so leave it signed, since for kk<=8 max_Bk is 12346 < 32657
+Gordinal_type K[Bk];
 kperm Permutations[Bk];
 static Gint_type canon_list[MAX_CANONICALS];
 static char canon_num_edges[MAX_CANONICALS];
@@ -57,8 +57,10 @@ void EncodePerm(kperm *p, char perm[kk]) // you provide 3 bytes of storage and a
 
 static int siCmp(const void *A, const void *B)
 {
-    const int *a = A, *b = B;
-    return *a-*b;
+    const Gint_type *a = A, *b = B;
+    if(*a>*b) return 1;
+    if(*a<*b) return -1;
+    return 0;
 }
 
 Gordinal_type canon2ordinal(int numCanon, Gint_type *_canon_list, int canonical)
@@ -98,6 +100,7 @@ int main(int argc, char *argv[])
 	}
 #endif
 	ord=canon2ordinal(numCanon, canon_list, canonical);
+	assert(0<=ord && ord < numCanon);
 	K[line]=ord;
 	for(i=0;i<kk;i++)perm[i] -= '0';
 	EncodePerm(&Permutations[line], perm);
