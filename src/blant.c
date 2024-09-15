@@ -1193,7 +1193,7 @@ const char * const USAGE_LONG =
 
 static void SigEarlyAbort(int sig) {
     Warning("caught signal %d; setting _earlyAbort=true", sig);
-    return _earlyAbort = true;
+    _earlyAbort = true;
 }
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel
