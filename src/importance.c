@@ -162,7 +162,7 @@ void getImportances(double *importances, GRAPH *G) {
 }
 
 ADJ_LIST *generateAdjacencyList(GRAPH *G) {
-    ADJ_LIST *adjList = malloc(sizeof(ADJ_LIST*));
+    ADJ_LIST *adjList = malloc(sizeof(ADJ_LIST));
     adjList->lists = malloc(G->n * sizeof(int*));
     adjList->sizes = malloc(G->n * sizeof(int));
     int basei, neighi;

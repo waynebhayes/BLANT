@@ -639,7 +639,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				if(++batch && _quiet<1) {
 				    FILE *fp;
 				    fp = popen("date -Iseconds | sed -e 's/T/ /' -e 's/,/./' -e 's/-..:..$//'", "r");
-				    char buf[BUFSIZ]; fgets(buf, sizeof(buf)-1, fp); pclose(fp);
+				    char buf[BUFSIZ];
+				    if(buf != fgets(buf, sizeof(buf)-1, fp)) Fatal("fgets");
+				    pclose(fp);
 				    buf[strlen(buf)-1] = '\0'; // nuke the newline
 				    Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batch,
 					GetCPUseconds(), i, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
@@ -1191,7 +1193,7 @@ const char * const USAGE_LONG =
 
 static void SigEarlyAbort(int sig) {
     Warning("caught signal %d; setting _earlyAbort=true", sig);
-    _earlyAbort = true;
+    return _earlyAbort = true;
 }
 
 // The main program, which handles multiple threads if requested.  We simply fire off a bunch of parallel

@@ -50,7 +50,7 @@ export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/
 UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm64/)V="arm64";else V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
 
 STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
-CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
+CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 CXX=g++ $(SPEED) $(NDEBUG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
@@ -150,8 +150,8 @@ slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJD
 make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
 
-blant: libwayne $(OBJS) $(OBJDIR)/convert.o $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o #$(LIBWAYNE_HOME)/C++/FutureAsync.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) #$(LIBWAYNE_HOME)/C++/FutureAsync.o
+blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
