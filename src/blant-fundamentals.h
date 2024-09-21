@@ -21,32 +21,32 @@
 #define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
 
 #if MAX_K <= 8
-#define MAX_CANONICALS	12346
-#define MAX_ORBITS	79264
+  #define MAX_CANONICALS	12346
+  #define MAX_ORBITS	79264
 #elif MAX_K == 9
-#define MAX_CANONICALS	274668
-#define MAX_ORBITS	2208612
+  #define MAX_CANONICALS	274668
+  #define MAX_ORBITS	2208612
 #elif MAX_K == 10
-#define MAX_CANONICALS	12005168
-#define MAX_ORBITS	113743760
+  #define MAX_CANONICALS	12005168
+  #define MAX_ORBITS	113743760
 #elif MAX_K == 11
-#define MAX_CANONICALS	1018997864
-#if long_width < 34
-  #error "cannot do MAX_K==11 since unsigned long doesn't have enough bits to store MAX_ORBITS"
-#else
-  #define MAX_ORBITS	10926227136UL
-#endif
+  #define MAX_CANONICALS	1018997864
+  #if long_width < 34
+    #error "cannot do MAX_K==11 since unsigned long doesn't have enough bits to store MAX_ORBITS"
+  #else
+    #define MAX_ORBITS	10926227136UL
+  #endif
 #elif MAX_K == 12
-#if long_width < 38
-  #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_CANONICALS"
-#else
-  #define MAX_CANONICALS 165091172592UL
-#endif
-#if long_width < 41
-  #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_ORBITS"
-#else
-  #define MAX_ORBITS	1956363435360UL
-#endif
+  #if long_width < 38
+    #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_CANONICALS"
+  #else
+    #define MAX_CANONICALS 165091172592UL
+  #endif
+  #if long_width < 41
+    #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_ORBITS"
+  #else
+    #define MAX_ORBITS	1956363435360UL
+  #endif
 #else
   #error "MAX_K too big"
 #endif

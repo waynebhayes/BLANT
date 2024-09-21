@@ -28,6 +28,7 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 		Gint |= bit;
 	    }
             bitPos++;
+	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
         }
     }
     return Gint;
@@ -72,9 +73,9 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
 #if SELF_LOOPS
     if (k > 7) Fatal("cannot have k>7 when SELF_LOOPS");
-    int Bk = (1 <<(k*(k+1)/2));
+    int Bk = (1U <<(k*(k+1)/2));
 #else
-    int Bk = (1 <<(k*(k-1)/2));
+    int Bk = (1U <<(k*(k-1)/2));
 #endif
     sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);

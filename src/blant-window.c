@@ -53,11 +53,12 @@ Gint_type combWindow2Int(int (*windowAdjList)[_windowSize], unsigned *Varray, un
         {
             if (windowAdjList[Varray[i]][Varray[j]] == 1)
             {
-                bit = (1 << bitPos);
+                bit = (1U << bitPos);
                 Gint |= bit;
                 *numEdges = *numEdges + 1;
             }
             bitPos++;
+	    assert(bitPos < int_width);
         }
     return Gint;
 }

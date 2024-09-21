@@ -60,7 +60,8 @@ Gint_type getDecimal(int adj[k][k+1]) {
 #endif
 	{
 	    if(adj[i][j]==1) D+= (((Gint_type)1) << bitPos);
-		bitPos++;
+	    bitPos++;
+	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
 	}
     return D;
 }

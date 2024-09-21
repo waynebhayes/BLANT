@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     for(i=0; i<MAX_CANONICALS; i++)
 	_canonicalGraph[i] = TinyGraphAlloc(k);
 
-    int maxGint = (1<<(k*(k-1)/2)), Gint;
+    int maxGint = (1U<<(k*(k-1)/2)), Gint;
     int numPerCore = maxGint / numParallel;
     int Gmin = coreID*numPerCore;
     int Gmax = (coreID+1)*numPerCore;

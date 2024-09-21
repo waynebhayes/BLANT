@@ -33,7 +33,7 @@
 #endif
 
 typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 24 bits
-#define Bk (1 <<(kk*(kk-1)/2 + kk*SELF_LOOPS))
+#define Bk (1U <<(kk*(kk-1)/2 + kk*SELF_LOOPS))
 Gordinal_type K[Bk];
 kperm Permutations[Bk];
 static Gint_type canon_list[MAX_CANONICALS];

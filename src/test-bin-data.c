@@ -19,7 +19,7 @@
 #endif
 
 typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 24 bits
-#define Bk (1 <<(k*(k-1)/2))
+#define Bk (1U <<(k*(k-1)/2))
 kperm Permutations[Bk] __attribute__ ((aligned (32768)));
 Gordinal_type K[Bk] __attribute__ ((aligned (32768)));
 static Gint_type canon_list[MAX_CANONICALS];

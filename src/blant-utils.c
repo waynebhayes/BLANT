@@ -130,9 +130,9 @@ void SetGlobalCanonMaps(void)
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= MAX_K);
 #if SELF_LOOPS
-    _Bk = (1 <<(_k*(_k+1)/2));
+    _Bk = (1U <<(_k*(_k+1)/2));
 #else
-    _Bk = (1 <<(_k*(_k-1)/2));
+    _Bk = (1U <<(_k*(_k-1)/2));
 #endif
     _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges);
     _numCanon = _connectedCanonicals->maxElem;

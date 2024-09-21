@@ -93,7 +93,7 @@ void SetGlobalCanonMaps(void){
         if (_k[i] == -1)
             break;
         assert(3 <= _k[i] && _k[i] <= 8);
-        _Bk = (1 <<(_k[i]*(_k[i]-1)/2));
+        _Bk = (1U <<(_k[i]*(_k[i]-1)/2));
         char BUF[BUFSIZ];
         _connectedCanonicals[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _k[i]);
         _numCanon[_k[i]-1] = _connectedCanonicals[_k[i]-1]->maxElem;

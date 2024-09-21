@@ -7,7 +7,7 @@
 #include "blant.h"
 
 static int k; // number of bits required to store ints up to 2^(k choose 2)
-static unsigned long numBitValues; // the actual value 2^(k choose 2)
+static long numBitValues; // the actual value 2^(k choose 2)
 
 #if LOWER_TRIANGLE
 
@@ -223,8 +223,8 @@ static char USAGE[] = "USAGE: $0 k";
 int main(int argc, char* argv[]){
     if(argc != 2){fprintf(stderr, "expecting exactly one argument, which is k\n%s\n",USAGE); exit(1);}
     k = atoi(argv[1]);
-    if(k<=8) numBitValues = (1UL << k*(k-1)/2);
-    else numBitValues = (1UL << k*(k-1)/2);
+    numBitValues = (1UL << k*(k-1)/2);
+    assert(numBitValues>0);
     data = malloc(sizeof(xChar)*numBitValues);
     done = malloc(sizeof(bool)*numBitValues);
     canon_map();
