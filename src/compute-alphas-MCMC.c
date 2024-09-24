@@ -10,6 +10,8 @@ char _canonNumEdges[MAX_CANONICALS];
 static Gint_type _L, _alpha, *_Darray;
 static COMBIN *_Lcombin;
 
+#define ON_THE_FLY 1 // print only the non-zero ones, on-the-fly
+
 /* if all consecutive elements within s share d-1 nodes then alpha++
    Used as function pointer for CombinAllPermutations.
    Iterates through permutations of connected d graphlets from the k graphlet and checks if an ordering of them
@@ -152,15 +154,20 @@ int main(int argc, char* argv[]) {
 	TinyGraphEdgesAllDelete(gd);
 	if (SetIn(_connectedCanonicals, i)) {
 	    _alphaList[i] = ComputeAlpha(gk, gd, combinArrayD, combinArrayL, k, _L);
+#if ON_THE_FLY
+	    printf(GORDINAL_FMT" "GINT_FMT"\n", i, _alphaList[i]); fflush(stdout);
+#endif
 	}
 	else _alphaList[i] = 0; // set to 0 if unconnected graphlet
     }
 
+#if !ON_THE_FLY
     printf(GORDINAL_FMT "\n", numCanon);
     for (i = 0; i < numCanon; i++) {
 	printf(GINT_FMT " ", _alphaList[i]);
     }
     printf("\n");
+#endif
 
     TinyGraphFree(gk);
     TinyGraphFree(gd);
