@@ -29,7 +29,7 @@ TMPDIR=`mktemp -d $MYTMP/$BASENAME.XXXXXX`
 
 [ $# -eq 1 ] || die "expecting exactly 1 argument"
 k=$1;
-[ 3 -le $k -a $k -le 9 ] || die "k must be between 3 and 9"
+[ 3 -le $k -a $k -le 10 ] || die "k must be between 3 and 10"
 
 if [ $k -le 8 ]; then
     cd "$EXEDIR/../canon_maps" 2>/dev/null || cd "$EXEDIR/../src/bionets/BLANT/canon_maps" || die "couldn't cd to $EXEDIR/../canon_maps directory"
@@ -45,16 +45,20 @@ fi
 #1 2 2   1       0 1     1,2
 #3 3 4   3       1 2     0,2 1,2
 #5 5 5   7       1 3     0,1 0,2 1,2
-paste <(cat orbit_map$k.txt 2>/dev/null || unxz < orbit_map$k.txt.xz) canon_list$k.txt | #tee /dev/tty |
+CS=canon-ordinal-to-signature$k.txt
+paste <(tail -1 $CS|awk '{print $2}'; cat $CS) <((cat orbit_map$k.txt || unxz < orbit_map$k.txt.xz)2>/dev/null) canon_list$k.txt | #tee /dev/tty |
     hawk 'BEGIN{k='$k'}
-	NR==1{numOrbits=$1; numCanon=$2; D=ceil(log10(numOrbits)); F="%"D"d"; # format string for numDigits
-	    printf("ordinal\t%-"(k+1)*(D)"s\tC\tm\tedgeList\n", "orbits");
+	NR==1{ lastSig=$1; numOrbits=$2; numCanon=$3;
+	    Ds=ceil(log10(lastSig));   Fs="%"Ds"d"; # format string for signatures
+	    Do=ceil(log10(numOrbits)); Fo="%"Do"d"; # format string for canonical+orbit IDs
+	    printf("ordinal\t%"Ds"s\t", "sig");
+	    printf("%-"(k+1)*(Do)"s\tC\tm\tedgeList\n", "orbits");
 	}
 	NR>1{
-	    printf(F, NR-2);
-	    for(i=1;i<=k;i++) printf((i==1?"\t":" ")F, $i);  # orbit IDs preceded by tab or space as appropriate
+	    printf(Fo"\t"Fs, $1,$2);
+	    for(i=1;i<=k;i++) printf((i==1?"\t":" ")Fo, $(i+2));  # orbit IDs preceded by tab or space as appropriate
 	    # we will skip printing the integer value of the canonical, which is column k+1
-	    printf("\t%d\t%d\t", $(k+2), $(k+3)); # connected numEdges
-	    for(i=k+4;i<=NF;i++) printf((i==k+4?"":" ")"%s", $i);  # edge list
+	    printf("\t%d\t%d\t", $(k+4), $(k+5)); # connected numEdges
+	    for(i=k+4;i<=NF;i++) printf((i==k+4?"":" ")"%s", $(i+2));  # edge list
 	    print ""
 	}'

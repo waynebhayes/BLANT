@@ -924,7 +924,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 
     do // this loop reads lines from the parallel child threads, one line read per thread per loop iteration
     {
-	char line[MAX_CANONICALS * BUFSIZ]; // this is just supposed to be really large
+	char line[1000 * BUFSIZ]; // this is just supposed to be really large
 	for(thread=0;thread<_MAX_THREADS;thread++)	// process one line from each thread
 	{
 	    if(!fpThreads[thread]) continue;
