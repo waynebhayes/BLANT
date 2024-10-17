@@ -3,8 +3,10 @@
 EXEDIR=`dirname "$0"`; BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME k
-PURPOSE: nicely print the ordinal value, orbits, and canon_list files for a particular k"
+USAGE="USAGE: $BASENAME [-r] k
+PURPOSE: nicely print the ordinal value, orbits, and canon_list files for a particular k
+OPTIONS:
+    -r means to print the orbits relative to the lowest one for that canonical."
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -27,6 +29,12 @@ TMPDIR=`mktemp -d $MYTMP/$BASENAME.XXXXXX`
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
+REL=0
+case "$1" in
+-r) REL=1; shift;;
+-*) die "unknown option '$1'";;
+esac
+
 [ $# -eq 1 ] || die "expecting exactly 1 argument"
 k=$1;
 [ 3 -le $k -a $k -le 10 ] || die "k must be between 3 and 10"
@@ -47,7 +55,7 @@ fi
 #5 5 5   7       1 3     0,1 0,2 1,2
 CS=canon-ordinal-to-signature$k.txt
 paste <(tail -1 $CS|awk '{print $2}'; cat $CS) <((cat orbit_map$k.txt || unxz < orbit_map$k.txt.xz)2>/dev/null) canon_list$k.txt | #tee /dev/tty |
-    hawk 'BEGIN{k='$k'}
+    hawk 'BEGIN{k='$k';REL='$REL'}
 	NR==1{ lastSig=$1; numOrbits=$2; numCanon=$3;
 	    Ds=ceil(log10(lastSig));   Fs="%"Ds"d"; # format string for signatures
 	    Do=ceil(log10(numOrbits)); Fo="%"Do"d"; # format string for canonical+orbit IDs
@@ -56,7 +64,7 @@ paste <(tail -1 $CS|awk '{print $2}'; cat $CS) <((cat orbit_map$k.txt || unxz < 
 	}
 	NR>1{
 	    printf(Fo"\t"Fs, $1,$2);
-	    for(i=1;i<=k;i++) printf((i==1?"\t":" ")Fo, $(i+2));  # orbit IDs preceded by tab or space as appropriate
+	    for(i=1;i<=k;i++) printf((i==1?"\t":" ")Fo, $(i+2)-REL*$3);  # orbit IDs preceded by tab or space as appropriate
 	    # we will skip printing the integer value of the canonical, which is column k+1
 	    printf("\t%d\t%d\t", $(k+4), $(k+5)); # connected numEdges
 	    for(i=k+4;i<=NF;i++) printf((i==k+4?"":" ")"%s", $(i+2));  # edge list
