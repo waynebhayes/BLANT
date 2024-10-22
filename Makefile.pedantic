@@ -1,0 +1,91 @@
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin: canon_maps/canon_map%.txt create-bin-data%
+	./create-bin-data$*
+
+create-bin-data%: $(SRCDIR)/create-bin-data.c $(SRCDIR)/libblant.c src/blant.h
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
+
+canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
+	[ $* -eq 8 -a '(' -f canon_maps/canon_map$*.txt -o -f canon_maps/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
+
+
+
+
+# Below here is just copied from the current Makefile
+
+
+
+
+
+
+
+
+
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
+	[ -f canon_maps/canon_map$*.bin -a -f canon_maps/perm_map$*.bin ] || ./create-bin-data$*
+	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
+	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
+
+canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
+	mkdir -p canon_maps
+	# It's cheap to make all but k=8 canon maps, so make all but skip 8 if it already exists
+	[ $* -eq 8 -a '(' -f canon_maps/canon_map$*.txt -o -f canon_maps/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
+	if [ $* -eq 8 -a -f canon_maps/canon_map$*.txt -a ! -f canon_maps/canon_map$*.txt.gz ]; then gzip canon_maps/canon_map$*.txt & fi
+
+canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_maps/canon_map%.bin
+	@if [ ! -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp canon_maps.correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
+	#(cd canon_maps.correct && ls EdgeHammingDistance$*.txt*) | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
+
+canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
+	./compute-alphas-NBE $* > $@
+
+canon_maps/alpha_list_ebe%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
+	./compute-alphas-EBE $* > $@
+
+.INTERMEDIATE: .created-subcanon-maps
+subcanon_maps: $(subcanon_txts) ;
+$(subcanon_txts): .created-subcanon-maps
+.created-subcanon-maps: make-subcanon-maps | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
+	# only do it for k > 3 since it's 4-3, 5-4, etc.
+	for k in $(K); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k > canon_maps/subcanon_map$$k-$$(($$k-1)).txt; fi; done
+
+magic_table: $(magic_table_txts) ;
+$(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
+	./make-orca-jesse-blant-table $(if $(EIGHT),8,$(if $(SEVEN),7,6))
+
+### Testing ###
+
+blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
+	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
+
+test_index_mode: blant blant-sanity $(canon_all) #$(canon_map_bins)
+	# First run blant-sanity for various values of k
+	for S in NBE MCMC SEC EBE; do for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo basic sanity check sampling method $$S indexing k=$$k; ./blant -q -s $$S -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done; done
+
+check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
+	ls canon_maps.correct/ | egrep -v 'canon_list2|$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
+
+### Cleaning ###
+
+clean:
+	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
+	@/bin/rm -rf $(OBJDIR)/*
+
+realclean:
+	echo "'realclean' is now called 'pristine'; try again"
+	false
+
+pristine: clean clean_canon_maps
+ifndef NO_CLEAN_LIBWAYNE
+	@cd $(LIBWAYNE_HOME); $(MAKE) clean
+endif
+	@/bin/rm -f canon_maps/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
+	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
+	@./scripts/delete-python-shit.sh $(UNAME)
+
+clean_canon_maps:
+	@/bin/rm -f canon_maps/*[3-7].* # don't remove 8 since it takes too long to create
+	@/bin/rm -f orca_jesse_blant_table/UpperToLower*.txt
