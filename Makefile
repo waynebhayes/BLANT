@@ -191,7 +191,7 @@ cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
 $(OBJDIR)/blant-predict.o:
-	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); fi
+	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_BOTH)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); fi
 
 ### Object Files/Prereqs ###
 
