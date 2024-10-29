@@ -176,6 +176,9 @@ compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant
 compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
+compute-alphas-MCMC-fast: libwayne $(SRCDIR)/compute-alphas-MCMC-fast.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-fast.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+
 Draw: Draw/graphette2dot
 
 Draw/graphette2dot: libwayne Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
@@ -270,7 +273,7 @@ check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
+	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE compute-alphas-MCMC-fast makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
