@@ -3,12 +3,10 @@
 BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME [OPTIONS] blant_cmd mu Ks EDs network.el
+USAGE="USAGE: $BASENAME [OPTIONS] blant_cmd Ks EDs network.el
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large communities in network.el.
 REQUIRED ARGUMENTS:
     blant_cmd is the raw BLANT command; usually it's just './blant', but can include options (eg './blant -C')
-    mu is the mean number of times each *node* should be touched by a graphlet sample, so BLANT will thus take
-	mu*(n/k) total samples of k-node graphlets.
     Ks is a list of graphlet sizes to do BLANT sampling in
     EDs is a list of the edge density thresholds to explore
 OPTIONS (added BEFORE the blant.exe name)
@@ -20,6 +18,7 @@ OPTIONS (added BEFORE the blant.exe name)
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
     -v: verbose output
+    -pD: tell BLANT to estimate graphlet counts with D digits of precision (default 1)
     -r SEED: use the integer SEED as the random seed
     -emt value: minimum edge mean threshold: the smallest average-over-edgeWeights for a cluster to be included [default 0.5]
     -m smallest: if m>=1, ignore clusters/cliques/communities with fewer than this number of nodes; otherwise if m<1, treat
@@ -31,10 +30,9 @@ OPTIONS (added BEFORE the blant.exe name)
 	cluster (though it can overlap by more than this with MULTIPLE previous clusters). If it overlaps more than this with
 	any ONE previous cluster, it is discarded.
 PREDICTION
-    -pN: perform edge prediction of up to N edges for each node on the 'periphery' of a communty because it has
+    -PN: perform edge prediction of up to N edges for each node on the 'periphery' of a communty because it has
 	as many as N too few edges into the community to be added; prediction seems to work better with larger
-	k, with k=8 working best at high edge densities, though lower k works OK for lower edge densities;
-	significantly increasing mu also appears to help (eg 10000 or even 100000).
+	k, with k=8 working best at high edge densities, though lower k works OK for lower edge densities.
 	NOTE: predicted edges are sent to the standard error stream (aka stderr, cerr, Unix file descriptor 2),
 	so they do not litter the pipeline. To view them, it's best to run $BASENAME with '2>&1 >/dev/null'
 	appended to its command line."
@@ -72,7 +70,7 @@ WEIGHTED=''
 W=''
 ONLY_ONE=0
 exclusive=0
-SAMPLE_METHOD=-sMCMC #-sNBE
+SAMPLE_METHOD=-sEBE #MCMC #-sNBE
 ONLY_BEST_ORBIT=0
 OVERLAP=0.5
 EDGE_PREDICT=0
@@ -80,6 +78,8 @@ COMPLEMENT=''
 TURAN=false
 DEBUG=false # set to true to store BLANT output
 VERBOSE=0
+QUIET=-qq
+PRECISION=-p1
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 5n"
@@ -95,7 +95,8 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -D) BLANT_FILES="$2"; shift 2;;
     -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
-    -v) VERBOSE=1; shift;;
+    -v) VERBOSE=1; QUIET=''; shift;;
+    -p[0-9]*) PRECISION="$1"; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -emt) minEdgeMean="$2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
@@ -105,20 +106,19 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -M[0-9]*) maxClus="`echo $1|sed 's/^-m//'`"; shift 1;;
     -o) OVERLAP="$2"; shift 2;;
     -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
-    -p[0-9]*) EDGE_PREDICT="`echo $1|sed 's/^-p//'`"; shift 1;;
+    -P[0-9]*) EDGE_PREDICT="`echo $1|sed 's/^-P//'`"; shift 1;;
     -*) die "unknown option '$1'";;
     esac
 done
 
-[ $# -ne 5 ] && die "expecting exactly 5 mandatory arguments, but you supplied $#"
+[ $# -ne 4 ] && die "expecting exactly 4 mandatory arguments, but you supplied $#"
 
-BLANT_CMD="$1";
+BLANT_CMD="$1 ${PRECISION}L $QUIET";
 BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
-mu=$2;
-Ks=(`echo $3 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
+Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
-EDs=($4)
-net=$5
+EDs=($3)
+net=$4
 
 if [ "$COMPLEMENT" != "" ]; then
     #SAMPLE_METHOD=-sNBE # only method that works for now
@@ -156,7 +156,6 @@ esac
 BLANT_EXIT_CODE=0
 if [ "$BLANT_FILES" = "$TMPDIR" ]; then
     for k in "${Ks[@]}"; do
-	n=`hawk "BEGIN{print int($mu * $numNodes / $k)}"</dev/null`
 	#minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
 	# Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
 	# DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
@@ -165,7 +164,7 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	ABSOLUTE_CLIQUE_COUNT=""
 	CMD=""
 	$TURAN && CMD="./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null &&"'ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`";'
-	CMD="$CMD $BLANT_CMD $WEIGHTED $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k -n$n $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
+	CMD="$CMD $BLANT_CMD $WEIGHTED $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
 	eval $CMD > $TMPDIR/blant$k.out &
     done
 fi
