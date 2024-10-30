@@ -14,11 +14,12 @@ REQUIRED ARGUMENTS:
 OPTIONS (added BEFORE the blant.exe name)
     -D DIR: use existing blant output files in directory DIR
     -A: Use Sweta Jain's Turan's Shadow code to estimate absolute counts
-    -C: run on the complement graph, G'
+    -C: run on the complement graph, G' (careful, this can cause long run times)
     -1: exit after printing only one 1 cluster (the biggest one)
     -h: use only the highest count graphlet/orbit for neighbors
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
+    -v: verbose output
     -r SEED: use the integer SEED as the random seed
     -emt value: minimum edge mean threshold: the smallest average-over-edgeWeights for a cluster to be included [default 0.5]
     -m smallest: if m>=1, ignore clusters/cliques/communities with fewer than this number of nodes; otherwise if m<1, treat
@@ -77,6 +78,8 @@ OVERLAP=0.5
 EDGE_PREDICT=0
 COMPLEMENT=''
 TURAN=false
+DEBUG=false # set to true to store BLANT output
+VERBOSE=0
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 5n"
@@ -92,6 +95,7 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -D) BLANT_FILES="$2"; shift 2;;
     -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
+    -v) VERBOSE=1; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -emt) minEdgeMean="$2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
@@ -147,13 +151,12 @@ case "$net" in
 *.elw) [ "X$WEIGHTED" = "X-w" ] || die "weighted edgelist given without -w option";;
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
-DEBUG=false # set to true to store BLANT output
 
 # Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0
 if [ "$BLANT_FILES" = "$TMPDIR" ]; then
     for k in "${Ks[@]}"; do
-	n=`hawk "BEGIN{print int($mu * $numNodes / $k)}"`
+	n=`hawk "BEGIN{print int($mu * $numNodes / $k)}"</dev/null`
 	#minEdges=`hawk 'BEGIN{edC='$EDGE_DENSITY_THRESHOLD'*choose('$k',2);rounded_edC=int(edC); if(rounded_edC < edC){rounded_edC++;} print rounded_edC}'`
 	# Use MCMC because it gives asymptotically correct concentrations *internally*, and that's what we're using now.
 	# DO NOT USE -mi since it will NOT output duplicates, thus messing up the "true" graphlet frequencies/concentrations
@@ -216,7 +219,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    if(M>0) pVal=M; else pVal=1/choose(n,2)^2; # heuristic to make pVal small enough to get significant clusters
 		    for(e=1;e<m;e++)if(eps^e<pVal) break;
 		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>e) break;
-		    printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
+		    if('$VERBOSE') printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
 		}
 		ASSERT(minClus>=1,"minClus "minClus" must be >=1");
 	    }
@@ -449,12 +452,14 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 		maxEdges=choose(length(cluster[i]),2);
 		edgeMean = edgeSum[i]/edges[i];
 		ASSERT(edgeMean>='$minEdgeMean', "oops, should not get this far with an edgeMean of "edgeMean);
-		printf "%g clusterWeight, %g edgeSum, %g edgeMean, %d nodes, %d of %d edges from k %d %g%%:",
-		    edgeSum[i]/length(cluster[i]), edgeSum[i], edgeMean,
-		    length(cluster[i]), edges[i], maxEdges, kk[i], 100*edges[i]/maxEdges
+		printf "%d nodes, %d/%d edges, %g%% density from k %d", length(cluster[i]), edges[i], maxEdges,
+		    100*edges[i]/maxEdges, kk[i]
+		if('$VERBOSE') printf " %g clusterWeight, %g edgeSum, %g edgeMean",
+		    edgeSum[i]/length(cluster[i]), edgeSum[i], edgeMean
+		printf ":"
 		for(u in cluster[i]) printf " %s", u
 		print ""
 	    }
-	}' | sort -k 5gr -k 1gr -k 7nr -k 16n # sort order: edgeMean, clusterWeight, number of nodes, nodeList
+	}' | sort -k 1nr -k 3nr -k 9n # sort order: edge density, number of nodes, value of k
 #set -x
 exit $BLANT_EXIT_CODE
