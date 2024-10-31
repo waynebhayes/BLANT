@@ -565,7 +565,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     else // sample graphlets from entire graph using either numSamples or confidence
     {
-	int batchSize = 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
 	    Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 		batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
@@ -599,7 +599,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    stuck = 0;
 		    if(_desiredPrec) {
 			if(i && i%batchSize==0) { // we just finished a batch
-			    int minNumBatches = 3+1/sqrt(1-_confidence)/k; //heuristic
+			    int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
 			    int maxNumBatches = 1000*minNumBatches; // huge
 			    double worstInterval=0, intervalSum=0;
 			    _worstCanon = -1;
