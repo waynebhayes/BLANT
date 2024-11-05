@@ -174,6 +174,7 @@ extern SET *_startNodeSet;
 extern double *_cumulativeProb;
 extern Boolean _child, _weighted;
 extern Boolean _rawCounts;
+extern int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 #define SPARSE true // do not try false at the moment, it's broken
 
