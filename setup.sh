@@ -11,7 +11,6 @@ warn(){ (echo "WARNING: $@")>&2; }
 not(){ if eval "$@"; then return 1; else return 0; fi; }
 newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
 parse(){ awk "BEGIN{print $*}" </dev/null; }
-which(){ echo "$PATH" | tr : "$NL" | awk '!seen[$0]{print}{++seen[$0]}' | while read d; do eval /bin/ls $d/$N; done 2>/dev/null | newlines; }
 export TAB='	'; export NL='
 '
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
