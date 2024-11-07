@@ -18,6 +18,7 @@ OPTIONS (added BEFORE the blant.exe name)
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
     -v: verbose output
+    -n: suppress list of nodes in the community
     -pD: tell BLANT to estimate graphlet counts with D digits of precision (default 1)
     -r SEED: use the integer SEED as the random seed
     -emt value: minimum edge mean threshold: the smallest average-over-edgeWeights for a cluster to be included [default 0.5]
@@ -80,11 +81,12 @@ DEBUG=false # set to true to store BLANT output
 VERBOSE=0
 QUIET=-qq
 PRECISION=-p1
+PRINT_MEMBERS=1
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 5n"
 
-while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
+while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     case "$1" in
     -1) ONLY_ONE=1; shift;;
     -h) ONLY_BEST_ORBIT=1; shift;;
@@ -96,6 +98,7 @@ while echo "$1" | grep '^-' >/dev/null; do # first argument is an option
     -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
     -v) VERBOSE=1; QUIET=''; shift;;
+    -n) PRINT_MEMBERS=0; shift;;
     -p[0-9]*) PRECISION="$1"; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -emt) minEdgeMean="$2"; shift 2;;
@@ -451,12 +454,15 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 		maxEdges=choose(length(cluster[i]),2);
 		edgeMean = edgeSum[i]/edges[i];
 		ASSERT(edgeMean>='$minEdgeMean', "oops, should not get this far with an edgeMean of "edgeMean);
-		printf "%d nodes, %d/%d edges, %g%% density from k %d", length(cluster[i]), edges[i], maxEdges,
-		    100*edges[i]/maxEdges, kk[i]
-		if('$VERBOSE') printf " %g clusterWeight, %g edgeSum, %g edgeMean",
+		printf "%d nodes, %d/%d edges, %g%% density", length(cluster[i]), edges[i], maxEdges,
+		    100*edges[i]/maxEdges
+		if('$VERBOSE') printf " from k %d, %g clusterWeight, %g edgeSum, %g edgeMean", kk[i],
 		    edgeSum[i]/length(cluster[i]), edgeSum[i], edgeMean
-		printf ":"
-		for(u in cluster[i]) printf " %s", u
+		if('$PRINT_MEMBERS') {
+		    printf ", nodeSet {"
+		    for(u in cluster[i]) printf " %s", u
+		    printf " }"
+		}
 		print ""
 	    }
 	}' | sort -k 1nr -k 3nr -k 9n # sort order: edge density, number of nodes, value of k
