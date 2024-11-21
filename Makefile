@@ -2,8 +2,8 @@
 #ifndef CORES
     CORES := 1 # temporarily set to 1 since I broke threading. :-(
 #endif
-ifndef PAUSE
-    PAUSE := 100
+ifndef PAUSE   
+	PAUSE := 1
 endif
 # Uncomment either of these to remove them (removing 7 implies removing 8)
 EIGHT := 8
@@ -87,8 +87,6 @@ subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),can
 #orbit_map_txts := $(foreach k,$(K), canon_maps/orbit_map$(k).txt)
 #canon_map_files := $(canon_map_bins) $(perm_map_bins) $(canon_map_txts) $(canon_list_txts) $(canon_ordinal_to_signature_txts) $(orbit_map_txts)
 
-# ehd takes up too much space and isn't used anywhere yet
-#ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
 #alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
 #alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_ebe$(k).txt)
 #alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
@@ -133,7 +131,7 @@ most: base Draw subcanon_maps
 
 test_all: test_index_mode check_maps
 
-all: most $(ehd_txts) test_all
+all: most test_all
 
 canon_maps: base $(canon_all) subcanon_maps
 
@@ -164,9 +162,6 @@ synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/synt
 CC: libwayne $(SRCDIR)/CC.c $(OBJDIR)/convert.o | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE_LINK)
 
-makeEHD: $(OBJDIR)/makeEHD.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_LINK)
-
 compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
@@ -175,9 +170,6 @@ compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant
 
 compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
-
-compute-alphas-MCMC-fast: libwayne $(SRCDIR)/compute-alphas-MCMC-fast.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-fast.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 Draw: Draw/graphette2dot
 
@@ -194,7 +186,7 @@ cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
 $(OBJDIR)/blant-predict.o:
-	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_BOTH)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); fi
+	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); fi
 
 ### Object Files/Prereqs ###
 
@@ -209,10 +201,6 @@ $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
 
-$(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
-	@mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/makeEHD.c -o $@ $(LIBWAYNE_COMP)
-
 $(LIBWAYNE_HOME)/Makefile:
 	echo "Hmm, submodule libwayne doesn't seem to exist; getting it now"
 	git submodule init libwayne
@@ -223,29 +211,35 @@ libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwa
 libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
 	(cd libwayne && make all)
 
-### Generated File Recipes ###
 
-canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
-	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
-	[ -f canon_maps/canon_map$*.bin -a -f canon_maps/perm_map$*.bin ] || ./create-bin-data$*
-	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
-	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
+### Generated File Recipes
 
+# canon_map, canon_list, and canon-...-signature are all targeted together, because they all depend on output from fast-canon-map
+# for simplicity and readability, they can be created seperately, in which canon_list depends on canon_map, and sig depends on canon_list, but it doesn't really matter
 canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p canon_maps
-	# It's cheap to make all but k=8 canon maps, so make all but skip 8 if it already exists
+	@# It's cheap to make all but k=8 canon maps, so make all but skip 8 if it already exists. Then, print and output it all to respective map, list, and signature txt files
 	[ $* -eq 8 -a '(' -f canon_maps/canon_map$*.txt -o -f canon_maps/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee canon_maps/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee canon_maps/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > canon_maps/canon-ordinal-to-signature$*.txt
+	@# If k=8 and canon_map.txt exists but not the compressed version, generate compressed version
 	if [ $* -eq 8 -a -f canon_maps/canon_map$*.txt -a ! -f canon_maps/canon_map$*.txt.gz ]; then gzip canon_maps/canon_map$*.txt & fi
-
-canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_maps/canon_map%.bin
-	@if [ ! -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp canon_maps.correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
-	#(cd canon_maps.correct && ls EdgeHammingDistance$*.txt*) | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
 
 canon_maps/alpha_list_ebe%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
 	./compute-alphas-EBE $* > $@
+
+canon_maps/alpha_list_mcmc%.txt: compute-alphas-MCMC canon_maps/canon_list%.txt
+	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
+
+canon_maps/orbit_map%.txt: make-orbit-maps
+	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
+
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin: $(SRCDIR)/create-bin-data.c canon_maps/canon_list%.txt canon_maps/canon_map%.txt
+	# compile create-bin-data.c to create-bin-data[k] executables
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
+	[ -f canon_maps/canon_map$*.bin -a -f canon_maps/perm_map$*.bin ] || ./create-bin-data$*
+
 
 .INTERMEDIATE: .created-subcanon-maps
 subcanon_maps: $(subcanon_txts) ;
@@ -273,7 +267,7 @@ check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE compute-alphas-MCMC-fast makeEHD make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
+	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
