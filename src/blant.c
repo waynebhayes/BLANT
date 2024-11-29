@@ -640,9 +640,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 				    FILE *fp;
 				    fp = popen("date -Iseconds | sed -e 's/T/ /' -e 's/,/./' -e 's/-..:..$//'", "r");
 				    char buf[BUFSIZ];
-				    if(buf != fgets(buf, sizeof(buf)-1, fp)) Fatal("fgets");
-				    pclose(fp);
-				    buf[strlen(buf)-1] = '\0'; // nuke the newline
+				    if(fp && buf == fgets(buf, sizeof(buf)-1, fp)) {
+					pclose(fp);
+					buf[strlen(buf)-1] = '\0'; // nuke the newline
+				    }
+				    else strcpy(buf, "(time failed)");
 				    Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batch,
 					GetCPUseconds(), i, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
 				}
