@@ -1,6 +1,6 @@
 # Number of cores to use when invoking parallelism
 #ifndef CORES
-    CORES := 1 # temporarily set to 1 since I broke threading. :-(
+CORES := 1 # temporarily set to 1 since I broke threading. :-(
 #endif
 ifndef PAUSE   
 	PAUSE := 1
@@ -73,23 +73,17 @@ OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
 ### Generated File Lists ###
+
+# these variables serve only to help in the creation of the generated file lists variables
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
-canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map canon_maps/alpha_list_nbe canon_maps/alpha_list_ebe canon_maps/alpha_list_mcmc
+alpha_sampling_methods := NBE EBE MCMC
+alpha_txts := $(foreach method,$(alpha_sampling_methods),canon_maps/alpha_list_$(method))
+canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map $(alpha_txts)
 canon_bin := canon_maps/canon_map canon_maps/perm_map
+
+# actual generated file lists variables
 canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix $(k).bin, $(canon_bin)))
 subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt) canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map4-3.txt
-
-#canon_map_bins := $(foreach k,$(K), canon_maps/canon_map$(k).bin)
-#perm_map_bins := $(foreach k,$(K), canon_maps/perm_map$(k).bin)
-#canon_map_txts := $(foreach k,$(K), canon_maps/canon_map$(k).txt)
-#canon_list_txts := $(foreach k,$(K), canon_maps/canon_list$(k).txt)
-#canon_ordinal_to_signature_txts := $(foreach k,$(K), canon_maps/canon-ordinal-to-signature$(k).txt)
-#orbit_map_txts := $(foreach k,$(K), canon_maps/orbit_map$(k).txt)
-#canon_map_files := $(canon_map_bins) $(perm_map_bins) $(canon_map_txts) $(canon_list_txts) $(canon_ordinal_to_signature_txts) $(orbit_map_txts)
-
-#alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
-#alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_ebe$(k).txt)
-#alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
 ##################################################################################################################
@@ -223,14 +217,14 @@ canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to
 	@# If k=8 and canon_map.txt exists but not the compressed version, generate compressed version
 	if [ $* -eq 8 -a -f canon_maps/canon_map$*.txt -a ! -f canon_maps/canon_map$*.txt.gz ]; then gzip canon_maps/canon_map$*.txt & fi
 
-canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
+canon_maps/alpha_list_NBE%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
 
-canon_maps/alpha_list_ebe%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
+canon_maps/alpha_list_EBE%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
 	./compute-alphas-EBE $* > $@
 
-canon_maps/alpha_list_mcmc%.txt: compute-alphas-MCMC canon_maps/canon_list%.txt
-	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
+canon_maps/alpha_list_MCMC%.txt: compute-alphas-MCMC canon_maps/canon_list%.txt
+	@if [ -f canon_maps.correct/alpha_list_MCMC$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_MCMC$*.txt; fi
 
 canon_maps/orbit_map%.txt: make-orbit-maps
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt

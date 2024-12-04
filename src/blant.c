@@ -264,11 +264,11 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
     }
 
     if(_sampleMethod == SAMPLE_NODE_EXPANSION) {
-	    sprintf(BUF, "%s/%s/alpha_list_nbe%d.txt", _BLANT_DIR, CANON_DIR, k);
+	    sprintf(BUF, "%s/%s/alpha_list_NBE%d.txt", _BLANT_DIR, CANON_DIR, k);
     } else if(_sampleMethod == SAMPLE_EDGE_EXPANSION) {
-	    sprintf(BUF, "%s/%s/alpha_list_ebe%d.txt", _BLANT_DIR, CANON_DIR, k);
+	    sprintf(BUF, "%s/%s/alpha_list_EBE%d.txt", _BLANT_DIR, CANON_DIR, k);
     } else {
-	    sprintf(BUF, "%s/%s/alpha_list_mcmc%d.txt", _BLANT_DIR, CANON_DIR, k);
+	    sprintf(BUF, "%s/%s/alpha_list_MCMC%d.txt", _BLANT_DIR, CANON_DIR, k);
     }
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
