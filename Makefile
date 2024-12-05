@@ -86,21 +86,26 @@ canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix 
 subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt) canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map4-3.txt
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
+# ehd takes up too much space and isn't used anywhere yet
+#ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
+
+#base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant canon_maps/check_maps canon_maps/test_index_mode
+base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
+
 ##################################################################################################################
 ####### this is an attempt to create rules to make data files for just ONE value of k... but not working yet...
-k3: $(addsuffix 3.txt, $(canon_txt)) $(addsuffix 3.bin, $(canon_bin)) orca_jesse_blant_table/UpperToLower3.txt
-k4: $(addsuffix 4.txt, $(canon_txt)) $(addsuffix 4.bin, $(canon_bin)) canon_maps/subcanon_map4-3.txt orca_jesse_blant_table/UpperToLower4.txt
-k5: $(addsuffix 5.txt, $(canon_txt)) $(addsuffix 5.bin, $(canon_bin)) canon_maps/subcanon_map5-4.txt orca_jesse_blant_table/UpperToLower5.txt
-k6: $(addsuffix 6.txt, $(canon_txt)) $(addsuffix 6.bin, $(canon_bin)) canon_maps/subcanon_map6-5.txt orca_jesse_blant_table/UpperToLower6.txt
-k7: $(addsuffix 7.txt, $(canon_txt)) $(addsuffix 7.bin, $(canon_bin)) canon_maps/subcanon_map7-6.txt orca_jesse_blant_table/UpperToLower7.txt
-k8: $(addsuffix 8.txt, $(canon_txt)) $(addsuffix 8.bin, $(canon_bin)) canon_maps/subcanon_map8-7.txt orca_jesse_blant_table/UpperToLower8.txt
+# orca_jesse_blant_table and canon_maps/subcanon_maps both list the entirety of canon maps as prerequisites
+# thus trying to include them as a prerequisite for just one value of k builds them all
+k3: $(addsuffix 3.txt, $(canon_txt)) $(addsuffix 3.bin, $(canon_bin)) # orca_jesse_blant_table/UpperToLower3.txt
+k4: $(addsuffix 4.txt, $(canon_txt)) $(addsuffix 4.bin, $(canon_bin)) # orca_jesse_blant_table/UpperToLower4.txt canon_maps/subcanon_map4-3.txt
+k5: $(addsuffix 5.txt, $(canon_txt)) $(addsuffix 5.bin, $(canon_bin)) # orca_jesse_blant_table/UpperToLower5.txt canon_maps/subcanon_map5-4.txt
+k6: $(addsuffix 6.txt, $(canon_txt)) $(addsuffix 6.bin, $(canon_bin)) # orca_jesse_blant_table/UpperToLower6.txt canon_maps/subcanon_map6-5.txt
+k7: $(addsuffix 7.txt, $(canon_txt)) $(addsuffix 7.bin, $(canon_bin)) # orca_jesse_blant_table/UpperToLower7.txt canon_maps/subcanon_map7-6.txt
+k8: $(addsuffix 8.txt, $(canon_txt)) $(addsuffix 8.bin, $(canon_bin)) # orca_jesse_blant_table/UpperToLower8.txt canon_maps/subcanon_map8-7.txt
 ##################################################################################################################
 
-# to begin work on producing data files on ONE value of k, the targets must be phony and you can't produce the subcanon maps
-# .PHONY: k3 k4 k5 k6 k7 k8
+.PHONY: k3 k4 k5 k6 k7 k8
 
-#base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant check_maps test_index_mode
-base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
 
 show-gcc-ver:
 	$(GCC) -v
@@ -126,13 +131,13 @@ show-gcc-ver:
 
 most: base Draw subcanon_maps
 
-test_all: test_index_mode check_maps
+test_all: canon_maps/test_index_mode canon_maps/check_maps test_fast
 
 all: most test_all
 
 canon_maps: base $(canon_all) subcanon_maps
 
-.PHONY: all most test_blant check_maps pristine clean_canon_maps
+.PHONY: all test_all most pristine clean_canon_maps
 
 ### Executables ###
 
@@ -198,6 +203,12 @@ $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
 
+
+$(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
+	@mkdir -p $(dir $@)
+	$(CC) -c $(SRCDIR)/makeEHD.c -o $@ $(LIBWAYNE_COMP)
+
+
 $(LIBWAYNE_HOME)/Makefile:
 	echo "Hmm, submodule libwayne doesn't seem to exist; getting it now"
 	git submodule init libwayne
@@ -205,6 +216,7 @@ $(LIBWAYNE_HOME)/Makefile:
 	(cd libwayne && git checkout master && git pull)
 
 libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a
+
 libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
 	(cd libwayne && make all)
 
@@ -229,6 +241,10 @@ canon_maps/alpha_list_EBE%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
 canon_maps/alpha_list_MCMC%.txt: compute-alphas-MCMC canon_maps/canon_list%.txt
 	@if [ -f canon_maps.correct/alpha_list_MCMC$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_MCMC$*.txt; fi
 
+# Currently unused target
+compute-alphas-MCMC-fast: libwayne $(SRCDIR)/compute-alphas-MCMC-fast.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-fast.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+
 canon_maps/orbit_map%.txt: make-orbit-maps
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
 
@@ -237,6 +253,10 @@ canon_maps/canon_map%.bin canon_maps/perm_map%.bin: $(SRCDIR)/create-bin-data.c 
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	[ -f canon_maps/canon_map$*.bin -a -f canon_maps/perm_map$*.bin ] || ./create-bin-data$*
 
+# Currently unused target
+canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_maps/canon_map%.bin
+	@if [ ! -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp canon_maps.correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
+	#(cd canon_maps.correct && ls EdgeHammingDistance$*.txt*) | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
 .INTERMEDIATE: .created-subcanon-maps
 subcanon_maps: $(subcanon_txts) ;
@@ -254,25 +274,32 @@ $(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_tx
 blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
 	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
 
-canon_map.stamp: $(canon_all) $(subcanon_txts)
-	@echo Touching canon_map.stamp so check_maps and test_index_mode tests only occur if the canon_maps are changed.
-	@touch canon_map.stamp
+test_stamp: blant blant-sanity $(canon_all) $(subcanon_txts)
+	@echo Touching test_stamp so canon_maps/check_maps and canon_maps/test_index_mode tests only occur if the canon_maps are changed.
+	@# If canon_maps/canon_map8.txt is the only outdated prerequisite, it's fine, because the .gz version exists
+	@if [ -n "$?" ] && { [ "$$(echo "$?" | wc -w)" -ne 1 ] || [ "$?" != "canon_maps/canon_map8.txt" ]; }; then \
+		touch test_stamp; \
+	fi
 
-test_index_mode: blant blant-sanity canon_map.stamp
-    @echo "Outdated prerequisites for $@: $?"
+test_fast: blant blant-sanity
+	# Run blant sanity test only for MCMC tables. If this fails, chances are EVERYTHING ELSE is wrong. These tests will run every time base is made
+	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo basic sanity check sampling method MCMC indexing k=$$k; ./blant -q -s MCMC -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
+
+canon_maps/test_index_mode: test_stamp
+	touch canon_maps/test_index_mode
 	# First run blant-sanity for various values of k
 	for S in NBE MCMC SEC EBE; do for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo basic sanity check sampling method $$S indexing k=$$k; ./blant -q -s $$S -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done; done
 
-check_maps: blant blant-sanity canon_map.stamp
-    @echo "Outdated prerequisites for $@: $?"
+canon_maps/check_maps: test_stamp
+	touch canon_maps/check_maps
 	ls canon_maps.correct/ | egrep -v 'canon_list2|$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
-.PHONY: test_index_mode check_maps blant-sanity
+.PHONY: test_fast
 
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps canon_map.stamp
+	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp canon_maps/check_maps canon_maps/test_index_mode
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
