@@ -96,8 +96,11 @@ k7: $(addsuffix 7.txt, $(canon_txt)) $(addsuffix 7.bin, $(canon_bin)) canon_maps
 k8: $(addsuffix 8.txt, $(canon_txt)) $(addsuffix 8.bin, $(canon_bin)) canon_maps/subcanon_map8-7.txt orca_jesse_blant_table/UpperToLower8.txt
 ##################################################################################################################
 
+# to begin work on producing data files on ONE value of k, the targets must be phony and you can't produce the subcanon maps
+# .PHONY: k3 k4 k5 k6 k7 k8
+
 #base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant check_maps test_index_mode
-base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant check_maps test_index_mode
+base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
 
 show-gcc-ver:
 	$(GCC) -v
@@ -251,17 +254,25 @@ $(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_tx
 blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
 	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
 
-test_index_mode: blant blant-sanity $(canon_all) #$(canon_map_bins)
+canon_map.stamp: $(canon_all) $(subcanon_txts)
+	@echo Touching canon_map.stamp so check_maps and test_index_mode tests only occur if the canon_maps are changed.
+	@touch canon_map.stamp
+
+test_index_mode: blant blant-sanity canon_map.stamp
+    @echo "Outdated prerequisites for $@: $?"
 	# First run blant-sanity for various values of k
 	for S in NBE MCMC SEC EBE; do for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo basic sanity check sampling method $$S indexing k=$$k; ./blant -q -s $$S -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done; done
 
-check_maps: blant blant-sanity $(canon_all) $(alphas) $(subcanon_txts)
+check_maps: blant blant-sanity canon_map.stamp
+    @echo "Outdated prerequisites for $@: $?"
 	ls canon_maps.correct/ | egrep -v 'canon_list2|$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming' | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
+
+.PHONY: test_index_mode check_maps blant-sanity
 
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps
+	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps canon_map.stamp
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
