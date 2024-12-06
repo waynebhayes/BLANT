@@ -89,7 +89,6 @@ magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).tx
 # ehd takes up too much space and isn't used anywhere yet
 #ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
 
-#base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant canon_maps/check_maps canon_maps/test_index_mode
 base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
 
 ##################################################################################################################
@@ -239,7 +238,7 @@ canon_maps/alpha_list_EBE%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
 	./compute-alphas-EBE $* > $@
 
 canon_maps/alpha_list_MCMC%.txt: compute-alphas-MCMC canon_maps/canon_list%.txt
-	@if [ -f canon_maps.correct/alpha_list_MCMC$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_MCMC$*.txt; fi
+	@if [ -f canon_maps.correct/alpha_list_MCMC$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_MCMC$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_MCMC$*.txt; fi
 
 # Currently unused target
 compute-alphas-MCMC-fast: libwayne $(SRCDIR)/compute-alphas-MCMC-fast.c | $(OBJDIR)/libblant.o
