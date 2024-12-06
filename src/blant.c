@@ -1036,7 +1036,9 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     unsigned long leftovers = numSamples % _JOBS;
-    return RunBlantFromGraph(_k, leftovers, G);
+    int result = RunBlantFromGraph(_k, leftovers, G);
+    if(_outputMode == predict) Predict_Shutdown(G);
+    return result;
 }
 
 void BlantAddEdge(int v1, int v2, double weight)
