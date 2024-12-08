@@ -163,11 +163,18 @@ synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/synt
 CC: libwayne $(SRCDIR)/CC.c $(OBJDIR)/convert.o | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE_LINK)
 
+makeEHD: $(OBJDIR)/makeEHD.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_LINK)
+
 compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-EBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+
+# Currently unused target, was the old method for calculating MCMC
+compute-alphas-MCMC-slow: libwayne $(SRCDIR)/compute-alphas-MCMC-slow.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-slow.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
@@ -238,15 +245,12 @@ canon_maps/alpha_list_EBE%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
 	./compute-alphas-EBE $* > $@
 
 canon_maps/alpha_list_MCMC%.txt: compute-alphas-MCMC canon_maps/canon_list%.txt
-	@if [ -f canon_maps.correct/alpha_list_MCMC$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_MCMC$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_MCMC$*.txt; fi
-
-# Currently unused target
-compute-alphas-MCMC-fast: libwayne $(SRCDIR)/compute-alphas-MCMC-fast.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-fast.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+	./compute-alphas-MCMC $* > canon_maps/alpha_list_MCMC$*.txt;
 
 canon_maps/orbit_map%.txt: make-orbit-maps
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
 
+# future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
 canon_maps/canon_map%.bin canon_maps/perm_map%.bin: $(SRCDIR)/create-bin-data.c canon_maps/canon_list%.txt canon_maps/canon_map%.txt
 	# compile create-bin-data.c to create-bin-data[k] executables
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
@@ -298,7 +302,7 @@ canon_maps/check_maps: test_stamp
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp canon_maps/check_maps canon_maps/test_index_mode
+	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp canon_maps/check_maps canon_maps/test_index_mode
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
