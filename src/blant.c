@@ -726,7 +726,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     case predict_merge:
 	assert(false); break; // shouldn't get here
     case predict:
-	Predict_FlushMotifs(G);
+	Predict_Flush(G);
 	break;
     case outputGDV:
 	for(i=0; i < G->n; i++)

@@ -327,7 +327,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     case predict:
 	assert(!G->weight);
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else Predict_AccumulateMotifs(G,Varray,g,Gint,GintOrdinal);
+	else Predict_ProcessGraphlet(G,Varray,g,Gint,GintOrdinal);
 	break;
     case indexOrbits:
 	assert(TinyGraphDFSConnected(g,0));
