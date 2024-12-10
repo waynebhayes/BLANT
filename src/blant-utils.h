@@ -44,5 +44,6 @@ int nwhn_asc_alph_comp_func(const void *a, const void *b);
 int nwhn_asc_rev_comp_func(const void *a, const void *b);
 void SetGlobalCanonMaps(void);
 void LoadMagicTable(void);
+int NumOrbits(Gordinal_type ord);
 
 #endif

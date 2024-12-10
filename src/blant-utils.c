@@ -290,3 +290,9 @@ int orbitpair_cmp(long int a, long int b) {
 long int orbitpair_copy(long int src) {
     return src;
 }
+
+int NumOrbits(Gordinal_type ord) {
+    assert(0<=ord && ord<_numCanon);
+    if(ord==0 || ord==_numCanon-1) return 1; // the clique and indep set each have only 1 orbit
+    else return _orbitList[ord+1][0] - _orbitList[ord][0];
+}
