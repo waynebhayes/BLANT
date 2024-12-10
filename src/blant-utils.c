@@ -184,7 +184,7 @@ Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 	for(j=0;j<_k;j++)
 	    perm[j] = (i32 >> 3*j) & 7;
 	return _K[Gint];
-    } else return canon_to_ordinal(smaller_canon_map(Gint, _k, perm), _k);
+    } else return Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
