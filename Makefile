@@ -51,7 +51,7 @@ UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm
 
 STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
-CXX=g++ $(SPEED) $(NDEBUG)
+CXX=g++$(GCC_VER) $(SPEED) $(NDEBUG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm $(STACKSIZE) $(SPEED)
 LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
@@ -74,7 +74,7 @@ OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
 ### Generated File Lists ###
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
-canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map canon_maps/alpha_list_nbe canon_maps/alpha_list_ebe canon_maps/alpha_list_mcmc
+canon_txt := canon_maps/canon_map canon_maps/canon_list canon_maps/canon-ordinal-to-signature canon_maps/orbit_map canon_maps/alpha_list_NBE canon_maps/alpha_list_EBE canon_maps/alpha_list_MCMC
 canon_bin := canon_maps/canon_map canon_maps/perm_map
 canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix $(k).bin, $(canon_bin)))
 subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),canon_maps/subcanon_map7-6.txt) canon_maps/subcanon_map6-5.txt canon_maps/subcanon_map5-4.txt canon_maps/subcanon_map4-3.txt
@@ -89,9 +89,9 @@ subcanon_txts := $(if $(EIGHT),canon_maps/subcanon_map8-7.txt) $(if $(SEVEN),can
 
 # ehd takes up too much space and isn't used anywhere yet
 #ehd_txts := $(foreach k,$(K), canon_maps/EdgeHammingDistance$(k).txt)
-#alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_nbe$(k).txt)
-#alpha_nbe_txts := $(foreach k, $(K), canon_maps/alpha_list_ebe$(k).txt)
-#alpha_mcmc_txts := $(foreach k, $(K), canon_maps/alpha_list_mcmc$(k).txt)
+#alpha_NBE_txts := $(foreach k, $(K), canon_maps/alpha_list_NBE$(k).txt)
+#alpha_NBE_txts := $(foreach k, $(K), canon_maps/alpha_list_EBE$(k).txt)
+#alpha_MCMC_txts := $(foreach k, $(K), canon_maps/alpha_list_MCMC$(k).txt)
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
 ##################################################################################################################
@@ -104,7 +104,7 @@ k7: $(addsuffix 7.txt, $(canon_txt)) $(addsuffix 7.bin, $(canon_bin)) canon_maps
 k8: $(addsuffix 8.txt, $(canon_txt)) $(addsuffix 8.bin, $(canon_bin)) canon_maps/subcanon_map8-7.txt orca_jesse_blant_table/UpperToLower8.txt
 ##################################################################################################################
 
-#base: show-gcc-ver ./.notpristine libwayne $(alpha_nbe_txts) $(alpha_mcmc_txts) magic_table $(canon_map_files) blant check_maps test_index_mode
+#base: show-gcc-ver ./.notpristine libwayne $(alpha_NBE_txts) $(alpha_MCMC_txts) magic_table $(canon_map_files) blant check_maps test_index_mode
 base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant check_maps test_index_mode
 
 show-gcc-ver:
@@ -226,11 +226,12 @@ libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libway
 
 ### Generated File Recipes ###
 
-canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_mcmc%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
+canon_maps/canon_map%.bin canon_maps/perm_map%.bin canon_maps/orbit_map%.txt canon_maps/alpha_list_MCMC%.txt: libwayne $(SRCDIR)/create-bin-data.c | $(OBJDIR)/libblant.o $(SRCDIR)/blant.h canon_maps/canon_list%.txt canon_maps/canon_map%.txt make-orbit-maps compute-alphas-MCMC
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	[ -f canon_maps/canon_map$*.bin -a -f canon_maps/perm_map$*.bin ] || ./create-bin-data$*
 	./make-orbit-maps $* > canon_maps/orbit_map$*.txt
-	@if [ -f canon_maps.correct/alpha_list_mcmc$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_mcmc$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_mcmc$*.txt; fi
+	@if [ -f canon_maps.correct/alpha_list_MCMC$*.txt ]; then echo "computing MCMC alphas for k=$* takes days, so just copy it"; cp canon_maps.correct/alpha_list_MCMC$*.txt canon_maps/ && touch $@; else ./compute-alphas-MCMC $* > canon_maps/alpha_list_MCMC$*.txt; fi
+	./canon-upper.sh
 
 canon_maps/canon_map%.txt canon_maps/canon_list%.txt canon_maps/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p canon_maps
@@ -242,10 +243,10 @@ canon_maps/EdgeHammingDistance%.txt: makeEHD | canon_maps/canon_list%.txt canon_
 	@if [ ! -f canon_maps.correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp canon_maps.correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < canon_maps.correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
 	#(cd canon_maps.correct && ls EdgeHammingDistance$*.txt*) | awk '{printf "cmp canon_maps.correct/%s canon_maps/%s\n",$$1,$$1}' | sh
 
-canon_maps/alpha_list_nbe%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
+canon_maps/alpha_list_NBE%.txt: compute-alphas-NBE canon_maps/canon_list%.txt
 	./compute-alphas-NBE $* > $@
 
-canon_maps/alpha_list_ebe%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
+canon_maps/alpha_list_EBE%.txt: compute-alphas-EBE canon_maps/canon_list%.txt
 	./compute-alphas-EBE $* > $@
 
 .INTERMEDIATE: .created-subcanon-maps
