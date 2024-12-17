@@ -136,11 +136,12 @@ extern SET *_connectedCanonicals;
 extern SET ***_communityNeighbors;
 extern char _communityMode; // 'g' for graphlet or 'o' for orbit; default ???
 
-enum OutputMode {undef, indexGraphlets, indexGraphletsRNO, indexOrbits, indexMotifs, communityDetection,
-    indexMotifOrbits, predict, predict_merge, graphletFrequency, outputODV, outputGDV,
-    graphletDistribution // used in Windowing
+// Use POWERS OF 2 so we can combine them.
+enum OutputMode {undef=0, indexGraphlets=1, indexGraphletsRNO=2, indexOrbits=4, indexMotifs=8, communityDetection=16,
+    indexMotifOrbits=32, predict=64, predict_merge=128, graphletFrequency=256, outputODV=512, outputGDV=1024,
+    graphletDistribution=2048 // used in Windowing
 };
-extern enum OutputMode _outputMode;
+extern enum OutputMode _outputMode; // note they can be LOGINAL OR'd together; modes can overlap!
 extern int _outputMapping[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
 
 extern double _graphletCount[MAX_CANONICALS];

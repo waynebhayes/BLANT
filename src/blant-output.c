@@ -117,7 +117,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     memcpy(Vcopy, Varray, k*sizeof(*Varray));
     VarraySort(Vcopy, k);
 
-    if (_outputMode == indexGraphletsRNO) {
+    if (_outputMode & indexGraphletsRNO) {
         // move the first node in Varray (the root node) to the start of Vcopy, since the RNO indexing mode must consider
 	// node sets different if they were created in a different order (specifically, if the root node was different)
         unsigned base_node = Varray[0];
@@ -173,7 +173,7 @@ char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray
     // repeating orbits but don't have repeating perms). If all graphlets are unambiguous, doing this is fine (since perm
     // will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code
     // here (and code in a lot of other places)
-    if (_outputMode == indexGraphletsRNO) {
+    if (_outputMode & indexGraphletsRNO) {
         sprintf(buf[1-which], "%s+o%d", buf[which], perm[0]);
 	which=1-which;
     }
@@ -315,45 +315,42 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     _graphletCount[GintOrdinal]+=weight;
     ++_batchRawCount[GintOrdinal]; ++_batchRawTotalSamples;
 
-    switch(_outputMode)
-    {
-    case graphletFrequency: break; // already counted above
-    case indexGraphlets: case indexGraphletsRNO:
+    // case graphletFrequency: break; // already counted above
+    if(_outputMode & indexGraphlets || _outputMode&indexGraphletsRNO) {
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||
 	    _canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
 	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, k, weight, perm));
-	break;
-    case predict:
+    }
+    if(_outputMode & predict) {
 	assert(!G->weight);
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else Predict_ProcessGraphlet(G,Varray,g,Gint,GintOrdinal);
-	break;
-    case indexOrbits:
+    }
+    if(_outputMode & indexOrbits) {
 	assert(TinyGraphDFSConnected(g,0));
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
 	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, k, weight, perm));
-	break;
-    case communityDetection:
+    }
+    if(_outputMode & communityDetection) {
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
 	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm);
 	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm);
 	else Fatal("unkwown _communityMode %c", _communityMode);
-	break;
-    case outputGDV:
+    }
+    if(_outputMode & outputGDV) {
 	for(j=0;j<k;j++) GDV(Varray[j], GintOrdinal)+=weight;
-	break;
-    case outputODV:
+    }
+    if(_outputMode & outputODV) {
 #if PERMS_CAN2NON
 	for(j=0;j<k;j++) ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ])+=weight;
 #else
 	for(j=0;j<k;j++) ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]])+=weight;
 #endif
-	break;
-
-    default: Abort("ProcessGraphlet: unknown or un-implemented outputMode %d", _outputMode);
-	break;
     }
+
+    if(!_outputMode) Abort("ProcessGraphlet: unknown or un-implemented outputMode %d", _outputMode);
+
     return processed;
 }

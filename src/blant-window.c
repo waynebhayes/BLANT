@@ -395,32 +395,29 @@ void ProcessWindowRep(GRAPH *G, unsigned *VArray, int windowRepInt) {
     }
     _numWindowRep = _windowRep_limit_method ? limit_num : _numWindowRep;
 
-    switch(_outputMode)
-    {
-        case graphletFrequency:
-            _graphletCount[windowRepInt] += _numWindowRep;
-            break;
-        case indexGraphlets: case indexGraphletsRNO:
-            for(i=0; i<_windowSize; i++) PrintNode((i>0)*' ', VArray[i]);
-           	// printf("\n");
-            printf("\n%i %i\n", windowRepInt, _numWindowRep);
-            for(i=0; i<_numWindowRep; i++)
-            {
-                if(!((_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[limitIndex[i]], _k)) ||
-                    (!_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[i], _k))) ||
-                    _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
-                {
-                        for(j=0; j<_k; j++)
-                        {
-                            if(_windowRep_limit_method)
-                                PrintNode((j>0)*' ',_windowReps[limitIndex[i]][j]);
-                            else
-                                PrintNode((j>0)*' ',_windowReps[i][j]);
-                        }
-                    printf("\n");
-                }
-            }
-            break;
-        default: Abort("ProcessWindowRep: unknown or un-implemented outputMode");
+    if(_outputMode & graphletFrequency) {
+	_graphletCount[windowRepInt] += _numWindowRep;
     }
+    if(_outputMode & indexGraphlets || _outputMode & indexGraphletsRNO) {
+	for(i=0; i<_windowSize; i++) PrintNode((i>0)*' ', VArray[i]);
+	    // printf("\n");
+	printf("\n%i %i\n", windowRepInt, _numWindowRep);
+	for(i=0; i<_numWindowRep; i++)
+	{
+	    if(!((_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[limitIndex[i]], _k)) ||
+		(!_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[i], _k))) ||
+		_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
+	    {
+		    for(j=0; j<_k; j++)
+		    {
+			if(_windowRep_limit_method)
+			    PrintNode((j>0)*' ',_windowReps[limitIndex[i]][j]);
+			else
+			    PrintNode((j>0)*' ',_windowReps[i][j]);
+		    }
+		printf("\n");
+	    }
+	}
+    }
+    if(!_outputMode) Abort("ProcessWindowRep: unknown or un-implemented outputMode");
 }

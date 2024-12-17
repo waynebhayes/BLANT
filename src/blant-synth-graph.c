@@ -77,7 +77,7 @@ void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* t
     switch(mode)
     {
     case LOAD_CONCENTRATION:  // oned array is the connected cannonicals concentration [numConnected]
-        _outputMode = graphletFrequency; _freqDisplayMode = concentration; _sampleMethod = SAMPLE_MCMC;
+        _outputMode |= graphletFrequency; _freqDisplayMode = concentration; _sampleMethod = SAMPLE_MCMC;
         fpThread = ForkBlant(k, numSamples, G);
         for(i=0; i<_numConnectedCanon; i++)
         {
@@ -88,7 +88,7 @@ void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* t
         }
         break;
     case LOAD_INDEX: // twodarray is of size [numSamples][k]
-        _outputMode = indexGraphlets; _sampleMethod = SAMPLE_NODE_EXPANSION;
+        _outputMode |= indexGraphlets; _sampleMethod = SAMPLE_NODE_EXPANSION;
         fpThread = ForkBlant(k, numSamples, G);
         for(i=0; i<numSamples; i++)
         {
@@ -99,7 +99,7 @@ void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* t
         break;
     case LOAD_DISTRIBUTION:
     // onedarray is aggregated row concentration [numConnected]; 2darray is neighbor concentration [numConnected][numConnected]
-        _outputMode = graphletDistribution; _sampleMethod = SAMPLE_MCMC;
+        _outputMode |= graphletDistribution; _sampleMethod = SAMPLE_MCMC;
         for(i=0; i<_numCanon; i++)
             memset(_graphletDistributionTable[i], 0, _numCanon);
         fpThread = ForkBlant(k, numSamples, G);

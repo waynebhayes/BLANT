@@ -333,12 +333,11 @@ void finalize(GRAPH *G, unsigned long numSamples) {
     }
     if(totalConcentration) for (i = 0; i < _numCanon; i++) _graphletConcentration[i] /= totalConcentration;
 
-    if(_outputMode == outputODV)
+    if(_outputMode & outputODV)
 	for(i=0;i<_numOrbits;i++)
 	    for(j=0;j<G->n;j++)
 		_doubleOrbitDegreeVector[i][j] *= numSamples/totalConcentration;
-
-    if(_outputMode == outputGDV)
+    if(_outputMode & outputGDV)
 	for(i=0;i<_numCanon;i++)
 	    for(j=0;j<G->n;j++)
 		_doubleGraphletDegreeVector[i][j] *= numSamples/totalConcentration;
@@ -482,14 +481,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
     else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
-    if (_outputMode == graphletDistribution) {
+    if (_outputMode & graphletDistribution) {
         SampleGraphlet(G, V, Varray, k, G->n);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
 
     if ((_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC) &&
-	(_outputMode != indexGraphlets && _outputMode != indexGraphletsRNO && _outputMode != indexOrbits))
+	!(_outputMode & indexGraphlets) && !(_outputMode & indexGraphletsRNO) && !(_outputMode & indexOrbits))
 	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
     if (_sampleMethod == SAMPLE_INDEX) {
@@ -590,7 +589,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
                 if(_numWindowRep > 0)
                     ProcessWindowRep(G, Varray, windowRepInt);
             }
-            else if (_outputMode == graphletDistribution)
+            else if (_outputMode & graphletDistribution)
                 ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
             else {
 		static unsigned long stuck;
@@ -700,19 +699,17 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    !_window)
 	finalize(G, numSamples);
 
-    if ((_outputMode == graphletFrequency || _outputMode == outputGDV || _outputMode == outputODV) && !_window)
+    if ((_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV) && !_window)
 	convertFrequencies(numSamples);
 
-    if(((_outputMode == graphletFrequency && _freqDisplayMode == freq_display_mode_estimate_absolute) ||
-	_outputMode == outputGDV || _outputMode == outputODV) && !_window)
+    if(((_outputMode & graphletFrequency && _freqDisplayMode == freq_display_mode_estimate_absolute) ||
+	_outputMode & outputGDV || _outputMode & outputODV) && !_window)
 	computeAbsoluteMultiplier(numSamples);
 
-    switch(_outputMode)
-    {
-	int canon, orbit_index, u,v,c;
-    case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
-	break; // already printed on-the-fly in the Sample/Process loop above
-    case graphletFrequency:
+    int canon, orbit_index, u,v,c;
+    // case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
+	//break; // already printed on-the-fly in the Sample/Process loop above
+    if(_outputMode & graphletFrequency) {
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (SetIn(_connectedCanonicals, canon)) {
 		if(_freqDisplayMode == freq_display_mode_concentration)
@@ -722,13 +719,15 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 			PrintOrdinal(canon));
 	    }
 	}
-	break;
-    case predict_merge:
-	assert(false); break; // shouldn't get here
-    case predict:
+    }
+    if(_outputMode & predict_merge) assert(false); // shouldn't get here
+    if(_outputMode & predict) {
 	Predict_Flush(G);
-	break;
-    case outputGDV:
+	// Turn off ODV and GDV output because we needed them to be COMPUTED but don't want them output in predictMode
+	_outputMode &= ~(outputGDV|outputODV);
+    }
+    // Note: the test for predict mode output MUST be above the test for ODV/GDV output, to turn them off if we're predicting
+    if(_outputMode & outputGDV) {
 	for(i=0; i < G->n; i++)
 	{
 	    printf("%s", PrintNode(0,i));
@@ -738,8 +737,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
 	    puts("");
 	}
-	break;
-    case outputODV:
+    }
+    if(_outputMode & outputODV) {
         for(i=0; i<G->n; i++) {
 	    printf("%s", PrintNode(0,i));
 	    for(j=0; j<_numConnectedOrbits; j++) {
@@ -752,8 +751,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    }
 	    printf("\n");
 	}
-        break;
-    case communityDetection:
+    }
+    if(_outputMode & communityDetection) {
 	assert(_communityMode == 'o' || _communityMode == 'g');
 	switch(_communityMode)
 	{
@@ -800,24 +799,22 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    break;
 	default: Fatal("unknown _communityMode %c", _communityMode);
 	}
-	break;
-    case graphletDistribution:
+    }
+    if(_outputMode & graphletDistribution) {
         for(i=0; i<_numCanon; i++) {
             for(j=0; j<_numCanon; j++)
                 printf("%d ", _graphletDistributionTable[i][j]);
             printf("\n");
         }
-        break;
-    default: Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
-	break;
-	}
+    }
+    if(!_outputMode) Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
 
 #if !O_ALLOC && PARANOID_ASSERTS
     // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
-    if(_outputMode == outputGDV) for(i=0;i<_numCanon;i++) Free(_graphletDegreeVector[i]);
-    if(_outputMode == outputODV || (_outputMode == communityDetection && _communityMode=='o'))
+    if(_outputMode & outputGDV) for(i=0;i<_numCanon;i++) Free(_graphletDegreeVector[i]);
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
 	for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
-    if(_outputMode == outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
+    if(_outputMode & outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT && numSamples)
     	fprintf(stderr,"Average number of tries per sample is %.15g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -855,7 +852,8 @@ FILE *ForkBlant(int k, unsigned long numSamples, GRAPH *G)
 	(void)close(fds[1]); // close the original write end of the pipe since it's been moved to fd 1.
 
 	// For any "counting" mode, use internal numbering when communicating through pipes to the parent
-	if(_outputMode != indexGraphlets && _outputMode != indexGraphletsRNO && _outputMode != indexOrbits) _supportNodeNames = false;
+	if(!(_outputMode & indexGraphlets) && !(_outputMode & indexGraphletsRNO) && !(_outputMode & indexOrbits))
+	    _supportNodeNames = false;
 
 	RunBlantFromGraph(k, numSamples, G);
 	exit(0);
@@ -879,22 +877,22 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     int i, j;
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
-    if(_outputMode == outputGDV || (_outputMode == communityDetection && _communityMode=='g')) {
-		for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
-		for(i=0;i<_numCanon;i++) _doubleGraphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleGraphletDegreeVector));
-	}
-    if(_outputMode == outputODV || (_outputMode == communityDetection && _communityMode=='o')) {
+    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+	for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
+	for(i=0;i<_numCanon;i++) _doubleGraphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleGraphletDegreeVector));
+    }
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
 	for(i=0;i<_numOrbits;i++) {
 	    _orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
 	    for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
 	}
     }
-    if (_outputMode == outputODV) for(i=0;i<_numOrbits;i++){
+    if (_outputMode & outputODV) for(i=0;i<_numOrbits;i++){
 	_doubleOrbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
-    if(_outputMode == predict) Predict_Init(G);
-    if (_outputMode == graphletDistribution) {
+    if(_outputMode & predict) Predict_Init(G);
+    if (_outputMode & graphletDistribution) {
         _graphletDistributionTable = Ocalloc(_numCanon, sizeof(int*));
         for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Ocalloc(_numCanon, sizeof(int));
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
@@ -959,14 +957,12 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	    // EDWARD: printf("Line %d from thread %d is \"%s\"\n", lineNum, thread, tmp);
 	    int canon=-1, orbit=-1, numRead, nodeId;
 	    //fprintf(stderr, "Parent received the following line from the child: <%s>\n", line);
-	    switch(_outputMode)
-	    {
-	    case graphletFrequency:
+	    if(_outputMode & graphletFrequency) {
 		numRead = scanf(line, "%lf%d", &gcount, &canon);
 		assert(numRead == 2);
 		_graphletCount[canon] += gcount;
-		break;
-	    case graphletDistribution:
+	    }
+	    if(_outputMode & graphletDistribution) {
 		for(i=0; i<_numCanon; i++) {
 		    pch = strtok(line, " ");
 		    for(j=0; j<_numCanon; j++){
@@ -976,8 +972,8 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		    char *OK = fgets(line, sizeof(line), fpThreads[thread]);
 		    assert(OK || (i==_numCanon-1 && j == _numCanon));
 		}
-		break;
-	    case outputGDV:
+	    }
+	    if(_outputMode & outputGDV) {
 		assert(isdigit(*nextChar));
 		numRead = sscanf(nextChar, "%d", &nodeId);
 		assert(numRead == 1 && nodeId == lineNum);
@@ -995,8 +991,8 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		    nextChar++;
 		}
 		assert(*nextChar == '\0');
-		break;
-	    case outputODV:
+	    }
+	    if(_outputMode & outputODV) {
 		assert(isdigit(*nextChar));
 		numRead = sscanf(nextChar, "%d", &nodeId);
 		assert(numRead == 1 && nodeId == lineNum);
@@ -1014,21 +1010,17 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 		    nextChar++;
 		}
 		assert(*nextChar == '\0');
-		break;
-	    case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
+	    }
+	    if(_outputMode&indexGraphlets || _outputMode&indexGraphletsRNO || _outputMode&indexOrbits || _outputMode&indexMotifs || _outputMode&indexMotifOrbits) {
 		fputs(line, stdout);
 		if(_window)
 		    while(fgets(line, sizeof(line), fpThreads[thread]))
 			fputs(line, stdout);
-		break;
-	    case predict_merge: assert(false); break; // should not be here
-	    case predict:
-		Predict_ProcessLine(G, lineNum, line);
-		break;
-	    default:
-		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
-		break;
 	    }
+	    if(_outputMode&predict_merge) assert(false); // should not be here
+	    if(_outputMode& predict) Predict_ProcessLine(G, lineNum, line);
+	    if(!_outputMode)
+		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
 	}
 	lineNum++;
 	if(threadsRunning > 0) Fatal("Need a way to pass StarMotifCounts from children");
@@ -1037,7 +1029,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     unsigned long leftovers = numSamples % _JOBS;
     int result = RunBlantFromGraph(_k, leftovers, G);
-    if(_outputMode == predict) Predict_Shutdown(G);
+    if(_outputMode & predict) Predict_Shutdown(G);
     return result;
 }
 
@@ -1266,24 +1258,24 @@ int main(int argc, char *argv[])
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
 	    {
-	    case 'c': _outputMode = communityDetection;
+	    case 'c': _outputMode |= communityDetection;
 		switch(*(optarg+1)) {
 		case 'o': _communityMode='o'; break;
 		case '\0': case 'g': _communityMode='g'; break;
 		default: Fatal("-mc%c: unknown community mode; valid values g or o\n", *(optarg+1)); break;
 		}
 		break;
-	    case 'm': _outputMode = indexMotifs; break;
-	    case 'M': _outputMode = indexMotifOrbits; break;
-	    case 'i': _outputMode = indexGraphlets; break;
-	    case 'r': _outputMode = indexGraphletsRNO; break;
-	    case 'j': _outputMode = indexOrbits; break;
-	    case 'f': _outputMode = graphletFrequency; break;
-	    case 'g': _outputMode = outputGDV; break;
-	    case 'o': _outputMode = outputODV; break;
-	    case 'd': _outputMode = graphletDistribution; break;
-	    case 'p': _outputMode = predict; break;
-	    case 'q': _outputMode = predict_merge; break;
+	    case 'm': _outputMode |= indexMotifs; break;
+	    case 'M': _outputMode |= indexMotifOrbits; break;
+	    case 'i': _outputMode |= indexGraphlets; break;
+	    case 'r': _outputMode |= indexGraphletsRNO; break;
+	    case 'j': _outputMode |= indexOrbits; break;
+	    case 'f': _outputMode |= graphletFrequency; break;
+	    case 'g': _outputMode |= outputGDV; break;
+	    case 'o': _outputMode |= outputODV; break;
+	    case 'd': _outputMode |= graphletDistribution; break;
+	    case 'p': _outputMode |= (predict|outputGDV|outputODV); break;
+	    case 'q': _outputMode |= predict_merge; break;
 	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
 	    break;
 	    }
@@ -1518,7 +1510,7 @@ int main(int argc, char *argv[])
 	else
 	    _sampleMethod = SAMPLE_MCMC;
     }
-    if(!_quiet && _outputMode != predict_merge) Note("Sampling method is %s", SampleMethodStr());
+    if(!_quiet && !(_outputMode & predict_merge)) Note("Sampling method is %s", SampleMethodStr());
 
     if(_desiredPrec && _confidence == 0)
 	_confidence = (1-_desiredPrec/10);
@@ -1662,7 +1654,7 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if(_outputMode == communityDetection) {
+    if(_outputMode & communityDetection) {
 	if(_communityMode == 'o' || _communityMode=='g') // allocate sets for [node][orbit], but 2nd dimension only when needed
 	    _communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**)); // elements are only allocated when needed
 	else
@@ -1707,7 +1699,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    if(_outputMode == predict_merge)
+    if(_outputMode & predict_merge)
 	exitStatus = Predict_Merge(G);
     else
 	exitStatus = RunBlantInThreads(_k, numSamples, G);
