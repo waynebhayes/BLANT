@@ -1,12 +1,12 @@
-BUILD_DIR=build
-TARGET=$(BUILD_DIR)/cdijkstra
-HEADERS=$(wildcard include/*.h)
-SOURCES=$(wildcard src/*.c)
-LIBWAYNE_HOME=../libwayne
+BUILD_DIR = build
+TARGET = $(BUILD_DIR)/cdijkstra
+HEADERS = $(wildcard include/*.h)
+SOURCES = $(wildcard src/*.cpp)
+LIBWAYNE_HOME = ../libwayne
 
-CC=gcc
-CFLAGS=-g -Iinclude -I$(LIBWAYNE_HOME)/include
-CLIBS=-L$(LIBWAYNE_HOME) -lwayne -lm
+CXX = g++
+CXXFLAGS = -g -Iinclude -I$(LIBWAYNE_HOME)/include
+LDFLAGS = -L$(LIBWAYNE_HOME) -lwayne -lm
 
 .PHONY: all clean
 
@@ -15,11 +15,11 @@ all: $(TARGET)
 clean:
 	-rm -rf $(BUILD_DIR)
 
-$(TARGET): $(BUILD_DIR) libwayne $(HEADERS) $(SOURCES) 
-	$(CC) $(CFLAGS) -o $@ $(SOURCES) $(CLIBS)
+$(TARGET): $(BUILD_DIR) libwayne $(HEADERS) $(SOURCES)
+	$(CXX) $(CXXFLAGS) -o $@ $(SOURCES) $(LDFLAGS)
 
 libwayne:
-	cd .. && $(MAKE) $@
+	cd $(LIBWAYNE_HOME) && $(MAKE)
 
 $(BUILD_DIR):
 	mkdir -p $@
