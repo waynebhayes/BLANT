@@ -19,6 +19,11 @@ case "$1" in
     ;;
 esac
 
+if hostname | egrep Waynes-Air; then
+    echo "Assuming this is Wayne's MacBook Air, needing gcc-14"
+    export GCC_VER=-14
+fi
+
 USAGE="USAGE: $0 [ -make ] [ -x BLANT_EXE ][ list of tests to run, defaults to regression-tests/*/*.sh ]"
 
 
