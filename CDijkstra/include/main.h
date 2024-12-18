@@ -1,0 +1,12 @@
+#pragma once
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <set>
+#include <cstdlib>
+#include <ctime>
+#include <unordered_map>
+#include <climits>
