@@ -15,7 +15,7 @@ all: $(TARGET)
 clean:
 	-rm -rf $(BUILD_DIR)
 
-$(TARGET): $(BUILD_DIR) libwayne $(HEADERS) $(SOURCES)
+$(TARGET): $(BUILD_DIR) $(HEADERS) $(SOURCES)
 	$(CXX) $(CXXFLAGS) -o $@ $(SOURCES) $(LDFLAGS)
 
 libwayne:

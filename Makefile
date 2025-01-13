@@ -58,6 +58,11 @@ LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 
 # Name of BLANT source directory
 SRCDIR = src
+
+# All the headers (except synthetic ones which are orthogonal to blant itself)
+RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h importance.h odv.h uthash.h
+BLANT_HEADERS = $(addprefix $(SRCDIR)/, $(RAW_HEADERS))
+
 # Put all c files in SRCDIR below.
 BLANT_SRCS = blant.c \
 			 blant-window.c \
@@ -153,16 +158,13 @@ blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # 
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	./canon-upper.sh
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(LIBWAYNE_COMP)
 
 synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
 	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_COMP)
 	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE_LINK)
-
-CC: libwayne $(SRCDIR)/CC.c $(OBJDIR)/convert.o | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/CC.c $(OBJDIR)/convert.o $(LIBWAYNE_LINK)
 
 makeEHD: $(OBJDIR)/makeEHD.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_LINK)
