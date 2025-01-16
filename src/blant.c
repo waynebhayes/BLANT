@@ -406,7 +406,8 @@ static int StateDegree(GRAPH *G, SET *S)
 }
 #endif
 
-// This converts graphlet frequencies to concentrations or integers based on the sampling algorithm and command line arguments
+// This function is usually only run at the END after all sampling is finished; it converts graphlet frequencies to
+// concentrations or integers based on the sampling algorithm and command line arguments.
 // It returns an estimate of the total number of connected graphlets in the entire graph
 void convertFrequencies(unsigned long numSamples)
 {
