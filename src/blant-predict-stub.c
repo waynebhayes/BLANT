@@ -13,3 +13,5 @@ void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g, Gint_ty
     {Fatal("prediction not supported");};
 Gint_type Predict_canon_map(Gint_type num, int k, unsigned char* return_permutation)
     {Fatal("prediction not supported"); return -1;}
+void Predict_Shutdown(GRAPH *G) 
+    {Fatal("prediction not supported");}

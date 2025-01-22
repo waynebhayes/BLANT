@@ -77,6 +77,14 @@ BLANT_SRCS = blant.c \
 OBJDIR = _objs
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
+
+ifneq ("$(wildcard $(blant-predict.c))","")
+    BLANT_PREDICT_SRC = $(SRCDIR)/EdgePredict/blant-predict.c
+else
+    BLANT_PREDICT_SRC = $(SRCDIR)/blant-predict-stub.c
+$(info BLANT EdgePredict not found, and edge prediction will not be supported. Utilizing stub at $(BLANT_PREDICT_SRC) instead.)
+endif
+
 ### Generated File Lists ###
 
 # these variables serve only to help in the creation of the generated file lists variables
@@ -154,8 +162,8 @@ slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJD
 make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
 
-blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
+blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK)
 	./canon-upper.sh
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
@@ -196,7 +204,9 @@ make-orca-jesse-blant-table: libwayne $(SRCDIR)/blant-fundamentals.h $(SRCDIR)/m
 cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
-$(OBJDIR)/blant-predict.o: $(SRCDIR)/EdgePredict/blant-predict.c | $(SRCDIR)/blant-predict-stub.c
+
+
+$(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
 	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); fi
 
 ### Object Files/Prereqs ###
