@@ -457,8 +457,8 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
 
 
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
-// Call RunBlantInThreads instead, it's the top-level entry point to call once the
-// graph is finished being input---all the ways of reading input call RunBlantInThreads.
+// Call RunBlantInForks instead, it's the top-level entry point to call once the
+// graph is finished being input---all the ways of reading input call RunBlantInForks.
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
 static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
@@ -873,7 +873,7 @@ static FILE *fpThreads[MAX_POSSIBLE_THREADS]; // these will be the pipes reading
 // This is the primary entry point into BLANT, even if THREADS=1.  We assume you've already
 // read the graph into G, and will do whatever is necessary to run blant with the number of
 // threads specified.  Also does some sanity checking.
-int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
+int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 {
     int i, j;
     assert(k == _k);
@@ -1021,7 +1021,7 @@ int RunBlantInThreads(int k, unsigned long numSamples, GRAPH *G)
 	    if(_outputMode&predict_merge) assert(false); // should not be here
 	    if(_outputMode& predict) Predict_ProcessLine(G, lineNum, line);
 	    if(!_outputMode)
-		Abort("oops... unknown or unsupported _outputMode in RunBlantInThreads while reading child process");
+		Abort("oops... unknown or unsupported _outputMode in RunBlantInForks while reading child process");
 	}
 	lineNum++;
 	if(threadsRunning > 0) Fatal("Need a way to pass StarMotifCounts from children");
@@ -1068,7 +1068,7 @@ int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **
     GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, _weights);
     Free(_pairs);
     _nodeNames = nodeNames;
-    return RunBlantInThreads(k, numSamples, G);
+    return RunBlantInForks(k, numSamples, G);
 }
 
 // Initialize the graph G from an edgelist; the user must allocate the pairs array
@@ -1080,7 +1080,7 @@ int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numE
     assert(numNodes >= k);
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, weights);
     Free(pairs);
-    return RunBlantInThreads(k, numSamples, G);
+    return RunBlantInForks(k, numSamples, G);
 }
 
 const char * const USAGE_SHORT =
@@ -1703,7 +1703,7 @@ int main(int argc, char *argv[])
     if(_outputMode & predict_merge)
 	exitStatus = Predict_Merge(G);
     else
-	exitStatus = RunBlantInThreads(_k, numSamples, G);
+	exitStatus = RunBlantInForks(_k, numSamples, G);
     GraphFree(G);
     return exitStatus;
 }
