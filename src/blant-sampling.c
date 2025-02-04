@@ -215,11 +215,9 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     SetAdd(V, Varray[0]);
     SetAdd(V, Varray[1]);
 
-    static SET *outSet;
+    SET *outSet = SetAlloc(G->n);
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
-    if(!outSet)
-       outSet = SetAlloc(G->n);  // we won't bother to free this since it's static.
-    else if(G->n > outSet->maxElem)
+    if(G->n > outSet->maxElem)
 	SetResize(outSet, G->n);
     else
 	SetEmpty(outSet);
@@ -256,55 +254,8 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     for(i=2; i<k; i++)
     {
 	if(nOut == 0) // the graphlet has saturated it's connected component
-	{
-#if PARANOID_ASSERTS
-	    assert(SetCardinality(outSet) == 0);
-	    assert(SetCardinality(V) < k);
-#endif
-#if ALLOW_DISCONNECTED_GRAPHLETS
-	    while(SetIn(V, (j = G->n*RandomUniform()))) ; // must terminate since k <= G->n
-	    outbound[nOut++] = j;
-	    j = 0;
-#else
-	    static int depth;
-	    depth++;
-	    // must terminate eventually as long as there's at least one connected component with >=k nodes.
-	    assert(depth < MAX_TRIES); // graph is too disconnected
-	    SampleGraphletNodeBasedExpansion(G, V, Varray, k, whichCC);
-	    depth--;
-	    // Ensure the damn thing really *is* connected.
-	    TINY_GRAPH *T = TinyGraphAlloc(k);
-	    TinyGraphInducedFromGraph(T, G, Varray);
-#if PARANOID_ASSERTS
-	    assert(NumReachableNodes(T,0) == k);
-#endif
-	    TinyGraphInducedFromGraph(T, G, Varray);
-	    Gint_type Gint = TinyGraph2Int(T, k);
-	    TinyGraphFree(T);
-	    unsigned char perm[k];
-	    memset(perm, 0, k);
-	    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
-
-	    double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
-	    if (_outputMode & outputODV) {
-		for (j = 0; j < k; j++)
-		    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
-	    }
-	    if (_outputMode & outputGDV) {
-		for (j = 0; j < k; j++)
-		    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
-	    }
-	    if(ocount < 0) {
-		Warning("ocount (%g) is less than 0\n", ocount);
-	    }
-	    _graphletConcentration[GintOrdinal] += ocount;
-
-	    _g_overcount = ocount;
-	    return 1.0;
-#endif
-	}
-	else
-	    j = nOut * RandomUniform();
+	    Apology("NBE found a connected component with fewer than k nodes; this should be detected earlier!");
+	j = nOut * RandomUniform();
 	if(!_rawCounts) multiplier *= nOut;
 	assert(multiplier > 0.0);
 	int v0 = outbound[j];
@@ -325,8 +276,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(nOut == SetCardinality(outSet));
 #endif
     if(!_window) {
-	static TINY_GRAPH *g;
-	if(!g) g = TinyGraphAlloc(k);
+	TINY_GRAPH *g = TinyGraphAlloc(k);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	unsigned char perm[k];
@@ -347,9 +297,10 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	Warning("ocount (%g) is less than 0\n", ocount);
 	}
 	_graphletConcentration[GintOrdinal] += ocount;
-
 	_g_overcount = ocount;
+	TinyGraphFree(g);
     }
+    SetFree(outSet);
     return 1.0;
 }
 
