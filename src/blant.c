@@ -10,6 +10,7 @@
 #include <math.h>
 #include <limits.h>
 #include <signal.h>
+#include <pthread.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -456,6 +457,56 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
 }
 
 
+// https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
+typedef struct {
+    int numSamples;
+    int k;
+    GRAPH *G;
+    int varraySize;
+    // could also consider adding a localCount that is just summed up at the end of the thread joins, preventing the need for mutex locks
+    // experiment with this option in the future
+} ThreadData;
+
+pthread_mutex_t _PTHREAD_MUTEX;
+
+void* RunBlantInThread(void* arg) {
+    ThreadData* args = (ThreadData*)arg;
+    int numSamples = args->numSamples;
+    int k = args->k;
+    GRAPH *G = args->G;
+    int varraySize = args->varraySize;
+
+
+    SET *V = SetAlloc(G->n);
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
+    unsigned Varray[varraySize];
+
+    double weight;
+    int i;
+
+    // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
+    for(i=0; i<numSamples; i++)
+    {
+        if (_outputMode & graphletDistribution) {
+            // ProcessWindowDistribution blah blah not current problem
+        } else {
+            // mutex is not an ideal solution
+            // pthread_mutex_lock(&_PTHREAD_MUTEX);
+
+            weight = SampleGraphlet(G, V, Varray, k, G->n);
+            ProcessGraphlet(G, V, Varray, k, empty_g, weight);
+            // pthread_mutex_unlock(&_PTHREAD_MUTEX);
+            
+        }
+        // now just have to sort through RunBlantFromGraph for loop to see where to 
+    }
+    
+    SetFree(V);
+    TinyGraphFree(empty_g);
+    pthread_exit(0);
+}
+
+
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
 // Call RunBlantInForks instead, it's the top-level entry point to call once the
 // graph is finished being input---all the ways of reading input call RunBlantInForks.
@@ -565,6 +616,40 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     else // sample graphlets from entire graph using either numSamples or confidence
     {
+        // Ethan's added code --- start
+        struct timespec start, end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        _MAX_THREADS = 8; // eventually move to a command line option
+
+        pthread_t threads[_MAX_THREADS];
+        int samplesPerThread = numSamples / _MAX_THREADS;
+        ThreadData threadData = {
+            samplesPerThread, k, G, varraySize
+        };
+
+        pthread_mutex_init(&_PTHREAD_MUTEX, NULL);
+
+        Note("Running BLANT in %d threads, with %d samples per thread, for a total of %d samples.", _MAX_THREADS, samplesPerThread, numSamples);
+
+        for (unsigned t = 0; t < _MAX_THREADS; t++) {
+            pthread_create(&threads[t], NULL, RunBlantInThread, &threadData);
+        }
+        for (unsigned t = 0; t < _MAX_THREADS; t++) {
+            pthread_join(threads[t], NULL);
+        }
+        pthread_mutex_destroy(&_PTHREAD_MUTEX);
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        double elapsed_time = (end.tv_sec - start.tv_sec) +
+                            (end.tv_nsec - start.tv_nsec) / 1e9;
+        Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _MAX_THREADS); 
+
+        // abort early
+        _earlyAbort = true;
+        // ethan's added code --- end. the if (false) statement was added to skip the single thread sampling previously implemented
+
+    if (false) {
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
 	    Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
@@ -670,7 +755,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		}
             }
         }
-	assert(i);
+	// assert(i);
 	if(i<numSamples) {
 	    if(_quiet<2) Warning("only took %d samples out of %d", i, numSamples);
 	}
@@ -686,6 +771,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    100*_confidence, numSamples, batch);
 	}
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
+    }
     }
 
     // Sampling done. Now generate output for output modes that require it.
@@ -708,6 +794,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	computeAbsoluteMultiplier(numSamples);
 
     int canon, orbit_index, u,v,c;
+
+
     // case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	//break; // already printed on-the-fly in the Sample/Process loop above
     if(_outputMode & graphletFrequency) {
