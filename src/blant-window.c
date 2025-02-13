@@ -67,7 +67,8 @@ void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_
 {
     int num_difference;
     Gint_type Gint_prev_ordinal, Gint_curr_ordinal;
-    SampleGraphlet(G, V, Varray, k, G->n);
+    Accumulators REMOVE_TEMP_VAR;
+    SampleGraphlet(G, V, Varray, k, G->n, &REMOVE_TEMP_VAR);
     SetIntersect(intersect_node, prev_node_set, V);
     num_difference = k - SetCardinality(intersect_node);
     SetEmpty(intersect_node);

@@ -181,4 +181,22 @@ extern int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 
+
+// Headers for multithreading
+typedef struct {
+    // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
+    double graphletCount[MAX_CANONICALS];
+    double graphletConcentration[MAX_CANONICALS];
+} Accumulators;
+
+// https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
+typedef struct {
+    int numSamples;
+    int k;
+    GRAPH *G;
+    int varraySize;
+    Accumulators accums;
+} ThreadData;
+void* RunBlantInThread(void* arg);
+
 #endif

@@ -456,19 +456,6 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
     return total;
 }
 
-
-// https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
-typedef struct {
-    int numSamples;
-    int k;
-    GRAPH *G;
-    int varraySize;
-    // could also consider adding a localCount that is just summed up at the end of the thread joins, preventing the need for mutex locks
-    // experiment with this option in the future
-} ThreadData;
-
-pthread_mutex_t _PTHREAD_MUTEX;
-
 void* RunBlantInThread(void* arg) {
     ThreadData* args = (ThreadData*)arg;
     int numSamples = args->numSamples;
@@ -476,6 +463,11 @@ void* RunBlantInThread(void* arg) {
     GRAPH *G = args->G;
     int varraySize = args->varraySize;
 
+#if PARANOID_ASSERTS || true
+    for (int i = 0; i < _numCanon; i++) {
+        assert(args->accums.graphletConcentration[i] == 0);
+    }
+#endif
 
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *empty_g = TinyGraphAlloc(k);
@@ -483,24 +475,19 @@ void* RunBlantInThread(void* arg) {
 
     double weight;
     int i;
-
     // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
     for(i=0; i<numSamples; i++)
     {
         if (_outputMode & graphletDistribution) {
             // ProcessWindowDistribution blah blah not current problem
         } else {
-            // mutex is not an ideal solution
-            // pthread_mutex_lock(&_PTHREAD_MUTEX);
-
-            weight = SampleGraphlet(G, V, Varray, k, G->n);
-            ProcessGraphlet(G, V, Varray, k, empty_g, weight);
-            // pthread_mutex_unlock(&_PTHREAD_MUTEX);
-            
+            weight = SampleGraphlet(G, V, Varray, k, G->n, &args->accums);
+            ProcessGraphlet(G, V, Varray, k, empty_g, weight, &args->accums);
         }
         // now just have to sort through RunBlantFromGraph for loop to see where to 
     }
     
+
     SetFree(V);
     TinyGraphFree(empty_g);
     pthread_exit(0);
@@ -512,8 +499,7 @@ void* RunBlantInThread(void* arg) {
 // graph is finished being input---all the ways of reading input call RunBlantInForks.
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
-static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
-{
+static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     int windowRepInt, D;
     unsigned char perm[MAX_K+1];
     assert(k <= G->n);
@@ -534,7 +520,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
-        SampleGraphlet(G, V, Varray, k, G->n);
+        Accumulators REMOVE_TEMP_VAR;
+        SampleGraphlet(G, V, Varray, k, G->n, &REMOVE_TEMP_VAR);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
@@ -620,25 +607,37 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        _MAX_THREADS = 8; // eventually move to a command line option
-
         pthread_t threads[_MAX_THREADS];
+        ThreadData threadData[_MAX_THREADS];
         int samplesPerThread = numSamples / _MAX_THREADS;
-        ThreadData threadData = {
-            samplesPerThread, k, G, varraySize
-        };
+        int leftover = numSamples - (samplesPerThread * _MAX_THREADS);
 
-        pthread_mutex_init(&_PTHREAD_MUTEX, NULL);
+        Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _MAX_THREADS, samplesPerThread, samplesPerThread * _MAX_THREADS + leftover);
 
-        Note("Running BLANT in %d threads, with %d samples per thread, for a total of %d samples.", _MAX_THREADS, samplesPerThread, numSamples);
-
-        for (unsigned t = 0; t < _MAX_THREADS; t++) {
-            pthread_create(&threads[t], NULL, RunBlantInThread, &threadData);
+        for (unsigned t = 0; t < _MAX_THREADS; t++)
+        {
+            threadData[t].numSamples = samplesPerThread;
+            if (t == _MAX_THREADS - 1) threadData[t].numSamples += (leftover);
+            threadData[t].k = k;
+            threadData[t].G = G;
+            threadData[t].varraySize = varraySize;
+            Accumulators accums = {0};
+            threadData[t].accums = accums;
+            pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
         }
-        for (unsigned t = 0; t < _MAX_THREADS; t++) {
+        for (unsigned t = 0; t < _MAX_THREADS; t++)
+        {
             pthread_join(threads[t], NULL);
+            // printf("Thread %d output result:\n", t);
+            for (int i = 0; i < _numCanon; i++) {
+                _graphletConcentration[i] = 0;
+                _graphletCount[i] = 0;
+            }
+            for (int i = 0; i < _numCanon; i++) {
+                _graphletConcentration[i] += threadData[t].accums.graphletConcentration[i];
+                _graphletCount[i] += threadData[t].accums.graphletCount[i];
+            }
         }
-        pthread_mutex_destroy(&_PTHREAD_MUTEX);
 
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
@@ -647,131 +646,129 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 
         // abort early
         _earlyAbort = true;
-        // ethan's added code --- end. the if (false) statement was added to skip the single thread sampling previously implemented
+        // ethan's added code --- end. commented out the single thread ORIGINAL version below
 
-    if (false) {
-	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
-	if(_desiredPrec && _quiet<2)
-	    Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
-		batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
-	unsigned long i;
-	STAT *sTotal[MAX_CANONICALS];
-	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
-	Boolean confMet = false;
-	static int batch;
-        for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_desiredPrec && !confMet)) && !_earlyAbort; i++)
-        {
-            if(_window) {
-                SampleGraphlet(G, V, Varray, _windowSize, G->n);
-                _numWindowRep = 0;
-                if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D ||
-			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
-                    windowRepInt = maxBk;
-                if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D ||
-			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
-                    windowRepInt = -1;
-                D = _k * (_k - 1) / 2;
-                FindWindowRepInWindow(G, V, &windowRepInt, &D, perm);
-                if(_numWindowRep > 0)
-                    ProcessWindowRep(G, Varray, windowRepInt);
-            }
-            else if (_outputMode & graphletDistribution)
-                ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
-            else {
-		static unsigned long stuck;
-                double weight = SampleGraphlet(G, V, Varray, k, G->n);
-                if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) {
-		    stuck = 0;
-		    if(_desiredPrec) {
-			if(i && i%batchSize==0) { // we just finished a batch
-			    int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
-			    int maxNumBatches = 1000*minNumBatches; // huge
-			    double worstInterval=0, intervalSum=0;
-			    _worstCanon = -1;
-			    if(_batchRawTotalSamples) { // in rare cases a batch may finish with no actual samples
-				int j;
-				// Even though the samples may not be Normally distributed, the Law of Large Numbers
-				// guarantees that for sufficiently large batches, the batch means *are* Normally
-				// distributed, so we can compute confidence intervals.
-				for(j=0;j<_numCanon;j++) if(SetIn(_connectedCanonicals,j) && _batchRawCount[j]) {
-				    double sample = _batchRawCount[j];
-				    if(_precisionWt == PrecWtNone) StatAddSample(sTotal[j], sample);
-				    else {
-					double w = sample;
-					if(_precisionWt == PrecWtLog) {if(w>1) w = log(w);}
-					else assert(_precisionWt == PrecWtRaw);
-					StatAddWeightedSample(sTotal[j], w, sample);
-				    }
-				    if(StatN(sTotal[j]) > 1) {
-					double relInterval = StatConfInterval(sTotal[j], _confidence) / StatMean(sTotal[j]);
-					intervalSum += relInterval;
-					// under-sampled graphlets (<=2) don't count towards "worst"
-					if( _graphletCount[j] > 2 && relInterval > worstInterval) {
-					    worstInterval = relInterval;
-					    _worstCanon=j;
-					}
-				    }
-				}
-				_meanPrec = intervalSum/_numConnectedCanon;
-				if(worstInterval) _worstPrecision = worstInterval;
-				double precision=0;
-				switch(_precisionMode) {
-				    case mean: precision = _meanPrec; break;
-				    case worst: precision = _worstPrecision; break;
-				    default: Fatal("unknown precision mode"); break;
-				}
+	// int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+	// if(_desiredPrec && _quiet<2)
+	//     Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+	// 	batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
+	// unsigned long i;
+	// STAT *sTotal[MAX_CANONICALS];
+	// for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
+	// Boolean confMet = false;
+	// static int batch;
+    //     for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_desiredPrec && !confMet)) && !_earlyAbort; i++)
+    //     {
+    //         if(_window) {
+    //             SampleGraphlet(G, V, Varray, _windowSize, G->n);
+    //             _numWindowRep = 0;
+    //             if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D ||
+	// 		_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
+    //                 windowRepInt = maxBk;
+    //             if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D ||
+	// 		_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
+    //                 windowRepInt = -1;
+    //             D = _k * (_k - 1) / 2;
+    //             FindWindowRepInWindow(G, V, &windowRepInt, &D, perm);
+    //             if(_numWindowRep > 0)
+    //                 ProcessWindowRep(G, Varray, windowRepInt);
+    //         }
+    //         else if (_outputMode & graphletDistribution)
+    //             ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
+    //         else {
+	// 	static unsigned long stuck;
+    //             double weight = SampleGraphlet(G, V, Varray, k, G->n);
+    //             if(ProcessGraphlet(G, V, Varray, k, empty_g, weight)) {
+	// 	    stuck = 0;
+	// 	    if(_desiredPrec) {
+	// 		if(i && i%batchSize==0) { // we just finished a batch
+	// 		    int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
+	// 		    int maxNumBatches = 1000*minNumBatches; // huge
+	// 		    double worstInterval=0, intervalSum=0;
+	// 		    _worstCanon = -1;
+	// 		    if(_batchRawTotalSamples) { // in rare cases a batch may finish with no actual samples
+	// 			int j;
+	// 			// Even though the samples may not be Normally distributed, the Law of Large Numbers
+	// 			// guarantees that for sufficiently large batches, the batch means *are* Normally
+	// 			// distributed, so we can compute confidence intervals.
+	// 			for(j=0;j<_numCanon;j++) if(SetIn(_connectedCanonicals,j) && _batchRawCount[j]) {
+	// 			    double sample = _batchRawCount[j];
+	// 			    if(_precisionWt == PrecWtNone) StatAddSample(sTotal[j], sample);
+	// 			    else {
+	// 				double w = sample;
+	// 				if(_precisionWt == PrecWtLog) {if(w>1) w = log(w);}
+	// 				else assert(_precisionWt == PrecWtRaw);
+	// 				StatAddWeightedSample(sTotal[j], w, sample);
+	// 			    }
+	// 			    if(StatN(sTotal[j]) > 1) {
+	// 				double relInterval = StatConfInterval(sTotal[j], _confidence) / StatMean(sTotal[j]);
+	// 				intervalSum += relInterval;
+	// 				// under-sampled graphlets (<=2) don't count towards "worst"
+	// 				if( _graphletCount[j] > 2 && relInterval > worstInterval) {
+	// 				    worstInterval = relInterval;
+	// 				    _worstCanon=j;
+	// 				}
+	// 			    }
+	// 			}
+	// 			_meanPrec = intervalSum/_numConnectedCanon;
+	// 			if(worstInterval) _worstPrecision = worstInterval;
+	// 			double precision=0;
+	// 			switch(_precisionMode) {
+	// 			    case mean: precision = _meanPrec; break;
+	// 			    case worst: precision = _worstPrecision; break;
+	// 			    default: Fatal("unknown precision mode"); break;
+	// 			}
 
-				if(++batch && _quiet<1) {
-				    FILE *fp;
-				    fp = popen("date -Iseconds | sed -e 's/T/ /' -e 's/,/./' -e 's/-..:..$//'", "r");
-				    char buf[BUFSIZ];
-				    if(fp && buf == fgets(buf, sizeof(buf)-1, fp)) {
-					pclose(fp);
-					buf[strlen(buf)-1] = '\0'; // nuke the newline
-				    }
-				    else strcpy(buf, "(time failed)");
-				    Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batch,
-					GetCPUseconds(), i, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
-				}
-				if(batch>=maxNumBatches || (batch >= minNumBatches && precision < _desiredPrec))
-				    confMet=true; // don't reset the counts if we're done
-				else {
-				    _batchRawTotalSamples = 0;
-				    for(j=0;j<_numCanon;j++) _batchRawCount[j] = 0;
-				}
-			    }
-			    else
-				if(_quiet<3) Warning("invalid batch %d, batchTotal is zero", ++batch);
-			}
-		    }
-		}
-		else { // Processing failed--likely a recent duplicate detected by NodeSetSeenRecently().
-		    if(numSamples) --i; // negate the sample count of duplicate graphlets
-		    ++stuck;
-		    if(stuck > MAX(G->n,numSamples)) {
-			if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
-			_earlyAbort = true;
-		    }
-		}
-            }
-        }
-	// assert(i);
-	if(i<numSamples) {
-	    if(_quiet<2) Warning("only took %d samples out of %d", i, numSamples);
-	}
-	else
-	{
-	    if((_sampleFile && _sampleFileEOF) || (_desiredPrec && confMet) || _earlyAbort) {
-		_numSamples = numSamples = i-1; // lots of code below assumes numSamples is set later on
-		if(!_quiet) Note("numSamples was %lu", numSamples);
-	    }
-	    if(_desiredPrec && confMet && _quiet<2)
-		Note("estimated precision %.1f digits (worst %.1f ID %d) at %g%% confidence after %lu samples in %d batches",
-		    -(log(_meanPrec?_meanPrec:1)/log(10)), -(log(_worstPrecision?_worstPrecision:1)/log(10)), _worstCanon,
-		    100*_confidence, numSamples, batch);
-	}
-	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
-    }
+	// 			if(++batch && _quiet<1) {
+	// 			    FILE *fp;
+	// 			    fp = popen("date -Iseconds | sed -e 's/T/ /' -e 's/,/./' -e 's/-..:..$//'", "r");
+	// 			    char buf[BUFSIZ];
+	// 			    if(fp && buf == fgets(buf, sizeof(buf)-1, fp)) {
+	// 				pclose(fp);
+	// 				buf[strlen(buf)-1] = '\0'; // nuke the newline
+	// 			    }
+	// 			    else strcpy(buf, "(time failed)");
+	// 			    Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batch,
+	// 				GetCPUseconds(), i, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
+	// 			}
+	// 			if(batch>=maxNumBatches || (batch >= minNumBatches && precision < _desiredPrec))
+	// 			    confMet=true; // don't reset the counts if we're done
+	// 			else {
+	// 			    _batchRawTotalSamples = 0;
+	// 			    for(j=0;j<_numCanon;j++) _batchRawCount[j] = 0;
+	// 			}
+	// 		    }
+	// 		    else
+	// 			if(_quiet<3) Warning("invalid batch %d, batchTotal is zero", ++batch);
+	// 		}
+	// 	    }
+	// 	}
+	// 	else { // Processing failed--likely a recent duplicate detected by NodeSetSeenRecently().
+	// 	    if(numSamples) --i; // negate the sample count of duplicate graphlets
+	// 	    ++stuck;
+	// 	    if(stuck > MAX(G->n,numSamples)) {
+	// 		if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
+	// 		_earlyAbort = true;
+	// 	    }
+	// 	}
+    //         }
+    //     }
+	// // assert(i);
+	// if(i<numSamples) {
+	//     if(_quiet<2) Warning("only took %d samples out of %d", i, numSamples);
+	// }
+	// else
+	// {
+	//     if((_sampleFile && _sampleFileEOF) || (_desiredPrec && confMet) || _earlyAbort) {
+	// 	_numSamples = numSamples = i-1; // lots of code below assumes numSamples is set later on
+	// 	if(!_quiet) Note("numSamples was %lu", numSamples);
+	//     }
+	//     if(_desiredPrec && confMet && _quiet<2)
+	// 	Note("estimated precision %.1f digits (worst %.1f ID %d) at %g%% confidence after %lu samples in %d batches",
+	// 	    -(log(_meanPrec?_meanPrec:1)/log(10)), -(log(_worstPrecision?_worstPrecision:1)/log(10)), _worstCanon,
+	// 	    100*_confidence, numSamples, batch);
+	// }
+	// for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
     }
 
     // Sampling done. Now generate output for output modes that require it.
@@ -1304,7 +1301,7 @@ int main(int argc, char *argv[])
     signal(SIGUSR1, SigEarlyAbort);
 
     _JOBS = 1;
-    _MAX_THREADS = 4;
+    _MAX_THREADS = 1;
 
     _k = 0; _k_small = 0;
 
@@ -1313,7 +1310,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X:")) != -1)
+    while((opt = getopt(argc, argv, "E:a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
     {
 	switch(opt)
 	{
@@ -1564,6 +1561,9 @@ int main(int argc, char *argv[])
 	case 'a':
 	    _alphabeticTieBreaking = (atoi(optarg) != 0);
 	    break;
+	case 'E': // E for ethan (couldn't think of another letter), sets _MAX_THREADS 
+        _MAX_THREADS = atoi(optarg);
+        break;
 	default: Fatal("Run without command arguments for short usage message, or with -h for longer one");
 	    break;
 	}

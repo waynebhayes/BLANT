@@ -4,7 +4,7 @@
 #include "blant.h"
 
 // ProcessGraphlet returns true if the graphlet was processed, and false if it was removed due to being a duplicate
-Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight);
+Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums);
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 
 // None of the "Print" routines here actually print anything; they put the string into a constant internal buff, and then

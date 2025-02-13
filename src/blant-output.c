@@ -293,7 +293,7 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
     }
 }
 
-Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight)
+Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums)
 {
     _G=G;
     Boolean processed = true;
@@ -313,6 +313,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     }
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     _graphletCount[GintOrdinal]+=weight;
+    accums->graphletCount[GintOrdinal]+=weight;
     ++_batchRawCount[GintOrdinal]; ++_batchRawTotalSamples;
 
     // case graphletFrequency: break; // already counted above
