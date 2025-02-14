@@ -312,7 +312,6 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++_canonNumStarMotifs[GintOrdinal];
     }
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
-    _graphletCount[GintOrdinal]+=weight;
     accums->graphletCount[GintOrdinal]+=weight;
     ++_batchRawCount[GintOrdinal]; ++_batchRawTotalSamples;
 
