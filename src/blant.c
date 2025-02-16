@@ -497,8 +497,8 @@ void* RunBlantInThread(void* arg) {
 
 
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
-// Call RunBlantInForks instead, it's the top-level entry point to call once the
-// graph is finished being input---all the ways of reading input call RunBlantInForks.
+// Call RunBlantInForks (or RunBlantInThread) instead, it's the top-level entry point to call
+// once the graph is finished being input---all the ways of reading input call RunBlantIn(Forks|Threads).
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
 static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
@@ -795,17 +795,17 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
     int canon, orbit_index, u,v,c;
 
-
     // case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	//break; // already printed on-the-fly in the Sample/Process loop above
     if(_outputMode & graphletFrequency) {
+	char buf[BUFSIZ];
 	for(canon=0; canon<_numCanon; canon++) {
 	    if (SetIn(_connectedCanonicals, canon)) {
 		if(_freqDisplayMode == freq_display_mode_concentration)
-		    printf("%lf %s\n", _graphletConcentration[canon], PrintOrdinal(canon));
+		    printf("%lf %s\n", _graphletConcentration[canon], PrintOrdinal(buf, canon));
 		else
 		    printf("%llu %s\n", (unsigned long long) llround(_absoluteCountMultiplier * _graphletCount[canon]),
-			PrintOrdinal(canon));
+			PrintOrdinal(buf, canon));
 	    }
 	}
     }
@@ -819,26 +819,31 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     if(_outputMode & outputGDV) {
 	for(i=0; i < G->n; i++)
 	{
-	    printf("%s", PrintNode(0,i));
+	    char buf[BUFSIZ];
+	    PrintNode(buf, 0,i);
 	    for(canon=0; canon < _numCanon; canon++)
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) printf(" %.15g", GDV(i,canon));
-		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
-	    puts("");
+			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION))
+		    sprintf(buf+strlen(buf), " %.15g", GDV(i,canon));
+		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
+	    assert(strlen(buf) < BUFSIZ);
+	    puts(buf);
 	}
     }
     if(_outputMode & outputODV) {
+	char buf[BUFSIZ];
         for(i=0; i<G->n; i++) {
-	    printf("%s", PrintNode(0,i));
+	    PrintNode(buf,0,i);
 	    for(j=0; j<_numConnectedOrbits; j++) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
 		if(_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
 		    _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION))
-			printf(" %.15g", ODV(i,orbit_index));
-		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]));
+			sprintf(buf+strlen(buf), " %.15g", ODV(i,orbit_index));
+		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]));
 	    }
-	    printf("\n");
+	    assert(strlen(buf) < BUFSIZ);
+	    puts(buf);
 	}
     }
     if(_outputMode & communityDetection) {
@@ -851,17 +856,20 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    orbit_index = _connectedOrbits[c];
 		    double odv=ODV(u,orbit_index);
 		    int numPrinted = 0;
+		    char buf[BUFSIZ];
 		    if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
-			int buf=0;
+			int neigh=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
-			    v = GraphNextNeighbor(G,u,&buf); assert(v!=-1); // G->neighbor[u][j];
+			    char jbuf[BUFSIZ];
+			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=-1); // G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][orbit_index],v)) {
-				if(!numPrinted++) printf("%s %d %.15g\t", PrintNode(0,u), orbit_index, odv);
-				printf("%s", PrintNode(' ',v));
+				if(!numPrinted++) sprintf(buf, "%s %d %.15g\t", PrintNode(jbuf, 0,u), orbit_index, odv);
+				PrintNode(buf+strlen(buf), ' ',v);
 			    }
 			}
-			assert(-1==GraphNextNeighbor(G,u,&buf));
-			if(numPrinted) printf("\n");
+			assert(-1==GraphNextNeighbor(G,u,&neigh));
+			assert(strlen(buf) < BUFSIZ);
+			if(numPrinted) puts(buf);
 		    }
 		}
 	    }
@@ -871,17 +879,20 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		for(c=0; c<_numCanon; c++) if(SetIn(_connectedCanonicals,c)) {
 		    double gdv=GDV(u,c);
 		    int numPrinted = 0;
+		    char buf[BUFSIZ];
 		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
-			int buf=0;
+			int neigh=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
-			    v = GraphNextNeighbor(G,u,&buf); assert(v!=-1); //G->neighbor[u][j];
+			    char jbuf[BUFSIZ];
+			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=-1); //G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][c],v)) {
-				if(!numPrinted++) printf("%s %d %lg\t", PrintNode(0,u), c, gdv);
-				printf("%s", PrintNode(' ',v));
+				if(!numPrinted++) sprintf(buf, "%s %d %lg\t", PrintNode(jbuf, 0,u), c, gdv);
+				PrintNode(buf+strlen(buf), ' ',v);
 			    }
 			}
-			assert(-1==GraphNextNeighbor(G,u,&buf));
-			if(numPrinted) printf("\n");
+			assert(-1==GraphNextNeighbor(G,u,&neigh));
+			assert(strlen(buf) < BUFSIZ);
+			if(numPrinted) puts(buf);
 		    }
 		}
 	    }
@@ -890,10 +901,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	}
     }
     if(_outputMode & graphletDistribution) {
+	char buf[BUFSIZ];
+	buf[0]='\0'; // ensure it's length 0 to start
         for(i=0; i<_numCanon; i++) {
             for(j=0; j<_numCanon; j++)
-                printf("%d ", _graphletDistributionTable[i][j]);
-            printf("\n");
+                sprintf(buf+strlen(buf), "%d ", _graphletDistributionTable[i][j]);
+	    assert(strlen(buf) < BUFSIZ);
+            puts(buf);
         }
     }
     if(!_outputMode) Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
@@ -956,11 +970,11 @@ FILE *ForkBlant(int k, unsigned long numSamples, GRAPH *G)
 }
 
 
-static FILE *fpThreads[MAX_POSSIBLE_THREADS]; // these will be the pipes reading output of the parallel blants
+static FILE *fpProcs[MAX_POSSIBLE_THREADS]; // these will be the pipes reading output of the parallel blants
 
 // This is the primary entry point into BLANT, even if THREADS=1.  We assume you've already
 // read the graph into G, and will do whatever is necessary to run blant with the number of
-// threads specified.  Also does some sanity checking.
+// child processes specified.  Also does some sanity checking.
 int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 {
     int i, j;
@@ -994,56 +1008,56 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
         Fatal("The sampling methods INDEX and EDGE_COVER do not yet support multithreading (feel free to add it!)");
 
     // At this point, _JOBS must be greater than 1.
-    assert(_JOBS>1);
+    assert(_JOBS>1 && _JOBS <= _MAX_THREADS);
     unsigned long totalSamples = numSamples;
     double meanSamplesPerJob = totalSamples/(double)_JOBS;
     if(!_quiet) Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
 
-    int threadsRunning = 0, jobsDone = 0, thread, job=0;
+    int procsRunning = 0, jobsDone = 0, proc, job=0;
     unsigned long lineNum = 0;
     for(i=0; numSamples > 0 && i<_MAX_THREADS;i++) {
 	unsigned long samples = meanSamplesPerJob;
 	assert(samples>0);
 	if(samples > numSamples) samples = numSamples;
 	numSamples -= samples;
-	fpThreads[i] = ForkBlant(_k, samples, G);
-	if(!_quiet) Note("Started job %d of %d samples; %d threads running, %ld samples remaining to take",
-	    job++, samples, ++threadsRunning, numSamples);
+	fpProcs[i] = ForkBlant(_k, samples, G);
+	if(!_quiet) Note("Started job %d of %d samples; %d children running, %ld samples remaining to take",
+	    job++, samples, ++procsRunning, numSamples);
     }
 
-    do // this loop reads lines from the parallel child threads, one line read per thread per loop iteration
+    do // this loop reads lines from the parallel child procs, one line read per proc per loop iteration
     {
 	char line[1000 * BUFSIZ]; // this is just supposed to be really large
-	for(thread=0;thread<_MAX_THREADS;thread++)	// process one line from each thread
+	for(proc=0;proc<_MAX_THREADS;proc++)	// process one line from each proc
 	{
-	    if(!fpThreads[thread]) continue;
-	    char *tmp = fgets(line, sizeof(line), fpThreads[thread]);
+	    if(!fpProcs[proc]) continue;
+	    char *tmp = fgets(line, sizeof(line), fpProcs[proc]);
 	    assert(tmp>=0);
-	    if(feof(fpThreads[thread]))
+	    if(feof(fpProcs[proc]))
 	    {
 		wait(NULL); // reap the child
-		clearerr(fpThreads[thread]);
-		fclose(fpThreads[thread]);
-		fpThreads[thread] = NULL;
-		++jobsDone; --threadsRunning;
-		if(!_quiet) Note("Thead %d finished; jobsDone %d, threadsRunning %d", thread, jobsDone, threadsRunning);
-		if(numSamples == 0) fpThreads[thread] = NULL; // signify this pointer is finished.
+		clearerr(fpProcs[proc]);
+		fclose(fpProcs[proc]);
+		fpProcs[proc] = NULL;
+		++jobsDone; --procsRunning;
+		if(!_quiet) Note("Thead %d finished; jobsDone %d, procsRunning %d", proc, jobsDone, procsRunning);
+		if(numSamples == 0) fpProcs[proc] = NULL; // signify this pointer is finished.
 		else {
 		    unsigned long samples = meanSamplesPerJob;
 		    if(samples > numSamples) samples = numSamples;
 		    numSamples -= samples;
-		    fpThreads[thread] = ForkBlant(_k, samples, G);
-		    assert(fpThreads[thread]);
-		    ++threadsRunning;
+		    fpProcs[proc] = ForkBlant(_k, samples, G);
+		    assert(fpProcs[proc]);
+		    ++procsRunning;
 		    if(!_quiet)
-			Note("Started job %d (thread %d) of %d samples, %d threads running, %ld samples remaining to take",
-			    job++, thread, samples, threadsRunning, numSamples);
+			Note("Started job %d (proc %d) of %d samples, %d procs running, %ld samples remaining to take",
+			    job++, proc, samples, procsRunning, numSamples);
 		}
 		continue; // we'll ask for output next time around.
 	    }
 	    char *nextChar = line, *pch;
 	    double gcount = 0.0;
-	    // EDWARD: printf("Line %d from thread %d is \"%s\"\n", lineNum, thread, tmp);
+	    // EDWARD: printf("Line %d from proc %d is \"%s\"\n", lineNum, proc, tmp);
 	    int canon=-1, orbit=-1, numRead, nodeId;
 	    //fprintf(stderr, "Parent received the following line from the child: <%s>\n", line);
 	    if(_outputMode & graphletFrequency) {
@@ -1058,7 +1072,7 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 			_graphletDistributionTable[i][j] += atoi(pch);
 			pch = strtok(NULL, " ");
 		    }
-		    char *OK = fgets(line, sizeof(line), fpThreads[thread]);
+		    char *OK = fgets(line, sizeof(line), fpProcs[proc]);
 		    assert(OK || (i==_numCanon-1 && j == _numCanon));
 		}
 	    }
@@ -1103,7 +1117,7 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 	    if(_outputMode&indexGraphlets || _outputMode&indexGraphletsRNO || _outputMode&indexOrbits || _outputMode&indexMotifs || _outputMode&indexMotifOrbits) {
 		fputs(line, stdout);
 		if(_window)
-		    while(fgets(line, sizeof(line), fpThreads[thread]))
+		    while(fgets(line, sizeof(line), fpProcs[proc]))
 			fputs(line, stdout);
 	    }
 	    if(_outputMode&predict_merge) assert(false); // should not be here
@@ -1112,8 +1126,8 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInForks while reading child process");
 	}
 	lineNum++;
-	if(threadsRunning > 0) Fatal("Need a way to pass StarMotifCounts from children");
-    } while(threadsRunning > 0);
+	if(procsRunning > 0) Fatal("Need a way to pass StarMotifCounts from children");
+    } while(procsRunning > 0);
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     unsigned long leftovers = numSamples % _JOBS;

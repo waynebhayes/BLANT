@@ -9,8 +9,7 @@
 
 #define SORT_INDEX_MODE 0 // Note this destroys the columns-are-identical property, don't use by default.
 
-char *PrintNode(char c, int v) {
-    static char buf[BUFSIZ];
+char *PrintNode(char buf[], char c, int v) {
     char *s=buf;
     if(c) *s++ = c;
     if(_supportNodeNames)
@@ -20,8 +19,7 @@ char *PrintNode(char c, int v) {
     return buf;
 }
 
-char *PrintNodePairSorted(int u, char c, int v) {
-    static char buf[BUFSIZ];
+char *PrintNodePairSorted(char buf[], int u, char c, int v) {
     if(_supportNodeNames) {
 	char *s1=_nodeNames[u], *s2=_nodeNames[v];
 	if(strcmp(s1,s2)<0) { char *tmp=s1;s1=s2;s2=tmp; }
@@ -48,43 +46,42 @@ void VarraySort(unsigned *Varray, int k)
 #endif
 }
 
-static char _printBuf[BUFSIZ];
 
-char *PrintGraphletID(Gint_type Gint)
+char *PrintGraphletID(char buf[], Gint_type Gint)
 {
-    if(_displayMode == noncanonical) sprintf(_printBuf, GINT_FMT, Gint);
-    else PrintOrdinal(L_K(Gint));
-    return _printBuf;
+    if(_displayMode == noncanonical) sprintf(buf, GINT_FMT, Gint);
+    else PrintOrdinal(buf, L_K(Gint));
+    return buf;
 }
 
-char *PrintOrdinal(Gordinal_type GintOrdinal)
+char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
 {
     int j, GintNumBits = _k*(_k-1)/2;
     char GintBinary[GintNumBits+1]; // Only used in -db output mode for indexing
     switch (_displayMode) {
     case undefined:
     case ordinal:
-	sprintf(_printBuf, GORDINAL_FMT, GintOrdinal);
+	sprintf(buf, GORDINAL_FMT, GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
-	sprintf(_printBuf, GINT_FMT, _canonList[GintOrdinal]);
+	sprintf(buf, GINT_FMT, _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
 	    {GintBinary[GintNumBits-j-1]=((_canonList[GintOrdinal] >> j) & 1 ? '1' : '0');}
 	GintBinary[GintNumBits] = '\0';
-	strcpy(_printBuf, GintBinary);
+	strcpy(buf, GintBinary);
 	break;
     case orca: // Prints the ORCA ID of the canonical. Jesse uses same number.
     case jesse:
 	if(SELF_LOOPS) Apology("sorry, orca and jesse output formats do not support self-loops");
-	sprintf(_printBuf, GORDINAL_FMT, _outputMapping[GintOrdinal]);
+	sprintf(buf, GORDINAL_FMT, _outputMapping[GintOrdinal]);
 	break;
     case noncanonical: break; // handled above
     default: Fatal("Internal error: PrintGraphletID called with unknown _displayMode %d", _displayMode);
 	break;
     }
-    return _printBuf;
+    return buf;
 }
 
 // Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
@@ -107,8 +104,11 @@ char *PrintOrdinal(Gordinal_type GintOrdinal)
 static GRAPH *_G; // local copy of GRAPH *G
 
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
+// Also this is NON-RE-ENTRANT.
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
-    _G=G;
+    if(_G) assert(_G == G); // only allowed to set it once
+    else _G=G;
+    //if(_JOBS>1 || _MAX_THREADS>1) Apology("NodeSetSeenRecently is not re-entrant (called with %d jobs and %d max threads)", _JOBS, _MAX_THREADS);
     static unsigned circBuf[MCMC_CIRC_BUF], bufPos;
     static BITVEC *seen;
     static unsigned Vcopy[MAX_K];
@@ -151,7 +151,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     return false;
 }
 
-char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double weight, unsigned char* perm)
+char *PrintIndexEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double weight, unsigned char* perm)
 {
     int j;
 #if SORT_INDEX_MODE
@@ -160,9 +160,9 @@ char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray
 #else
     assert(PERMS_CAN2NON);
 #endif
-    static char buf[2][BUFSIZ]; // build the string using two alterating buffers
-    int which=0; // which should ALWAYS point to the one that HAS the data, and you print the next string into buf[1-which]
-    strcpy(buf[which], PrintGraphletID(Gint));
+    char buf[2][BUFSIZ]; // build the string using two alterating buffers
+    int which=0; // which should ALWAYS point to the one that HAS the data, and we print the next string into buf[1-which]
+    PrintGraphletID(buf[which], Gint);
 #define PRINT_NON_CANONICAL 0
 #if PRINT_NON_CANONICAL
         sprintf(buf[1-which], "%s [%d]", buf[which], Gint);
@@ -179,39 +179,40 @@ char *PrintIndexEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray
     }
 
     for(j=0;j<k;j++) {
-	sprintf(buf[1-which], "%s%s", buf[which], PrintNode(' ', Varray[(int)perm[j]]));
+	char jbuf[BUFSIZ];
+	sprintf(buf[1-which], "%s%s", buf[which], PrintNode(jbuf, ' ', Varray[(int)perm[j]]));
 	which=1-which;
     }
     if(_G->weight) {
 	sprintf(buf[1-which], "%s %g", buf[which], weight);
 	which=1-which;
     }
-    return buf[which];
+    strcpy(obuf, buf[which]);
+    return obuf;
 }
 
-char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w, unsigned char* perm) {
+char *PrintIndexOrbitsEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w, unsigned char* perm) {
     int j;
-    static SET* printed;
-    if(!printed) printed = SetAlloc(k);
-    SetEmpty(printed);
+    SET *printed = SetAlloc(k);
 #if SORT_INDEX_MODE
     VarraySort(Varray, k);
     for(j=0;j<k;j++) perm[j]=j;
 #else
     assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
 #endif
-    static char buf[2][BUFSIZ];
+    char buf[2][BUFSIZ];
     int which=0;
-    strcpy(buf[which], PrintGraphletID(Gint));
+    PrintGraphletID(buf[which], Gint);
     for(j=0;j<k;j++) if(!SetIn(printed,j))
     {
-	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(' ', Varray[(int)perm[j]]));
+	char jbuf[BUFSIZ];
+	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(jbuf, ' ', Varray[(int)perm[j]]));
 	SetAdd(printed, j);
 	int j1;
 	for(j1=j+1;j1<k;j1++) if(_orbitList[GintOrdinal][j1] == _orbitList[GintOrdinal][j])
 	{
 	    assert(!SetIn(printed, j1));
-	    which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(':', Varray[(int)perm[j1]]));
+	    which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(jbuf, ':', Varray[(int)perm[j1]]));
 	    SetAdd(printed, j1);
 	}
     }
@@ -219,12 +220,15 @@ char *PrintIndexOrbitsEntry(Gint_type Gint, Gordinal_type GintOrdinal, unsigned 
 	sprintf(buf[1-which], "%s %g", buf[which], w);
 	which=1-which;
     }
-    return buf[which];
+    SetFree(printed);
+    strcpy(obuf, buf[which]);
+    return obuf;
 }
 
 void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm)
 {
-    _G=G;
+    if(_G) assert(_G == G); // only allowed to set it once
+    else _G=G;
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
 #if SORT_INDEX_MODE
@@ -241,7 +245,7 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
 	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
 	    // FIXME: this should be pre-computed ONCE
-	    static TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+	    TINY_GRAPH gg; TinyGraphCopy(&gg, g);
 	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
 	    if(TinyGraphDFSConnected(&gg,d)) {
 		int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
@@ -263,7 +267,8 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
 
 void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm)
 {
-    _G=G;
+    if(_G) assert(_G == G); // only allowed to set it once
+    else _G=G;
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
 #if SORT_INDEX_MODE
@@ -281,7 +286,7 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
 	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
 	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
 	    // FIXME: this should be pre-computed ONCE
-	    static TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+	    TINY_GRAPH gg; TinyGraphCopy(&gg, g);
 	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
 	    if(TinyGraphDFSConnected(&gg,d)) {
 		int v=Varray[(int)perm[d]];
@@ -295,7 +300,8 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
 
 Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums)
 {
-    _G=G;
+    if(_G) assert(_G == G); // only allowed to set it once
+    else _G=G;
     Boolean processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g,k);
@@ -317,10 +323,11 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 
     // case graphletFrequency: break; // already counted above
     if(_outputMode & indexGraphlets || _outputMode&indexGraphletsRNO) {
+	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||
 	    _canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, k, weight, perm));
+	else puts(PrintIndexEntry(buf, Gint, GintOrdinal, Varray, k, weight, perm));
     }
     if(_outputMode & predict) {
 	assert(!G->weight);
@@ -329,9 +336,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     }
     if(_outputMode & indexOrbits) {
 	assert(TinyGraphDFSConnected(g,0));
+	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
-	else puts(PrintIndexOrbitsEntry(Gint, GintOrdinal, Varray, k, weight, perm));
+	else puts(PrintIndexOrbitsEntry(buf, Gint, GintOrdinal, Varray, k, weight, perm));
     }
     if(_outputMode & communityDetection) {
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;

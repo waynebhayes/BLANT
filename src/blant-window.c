@@ -400,9 +400,9 @@ void ProcessWindowRep(GRAPH *G, unsigned *VArray, int windowRepInt) {
 	_graphletCount[windowRepInt] += _numWindowRep;
     }
     if(_outputMode & indexGraphlets || _outputMode & indexGraphletsRNO) {
-	for(i=0; i<_windowSize; i++) PrintNode((i>0)*' ', VArray[i]);
-	    // printf("\n");
-	printf("\n%i %i\n", windowRepInt, _numWindowRep);
+	char buf[BUFSIZ];
+	for(i=0; i<_windowSize; i++) PrintNode(buf, (i>0)*' ', VArray[i]);
+	sprintf(buf+strlen(buf), "\n%i %i\n", windowRepInt, _numWindowRep);
 	for(i=0; i<_numWindowRep; i++)
 	{
 	    if(!((_windowRep_limit_method && NodeSetSeenRecently(G, _windowReps[limitIndex[i]], _k)) ||
@@ -412,11 +412,11 @@ void ProcessWindowRep(GRAPH *G, unsigned *VArray, int windowRepInt) {
 		    for(j=0; j<_k; j++)
 		    {
 			if(_windowRep_limit_method)
-			    PrintNode((j>0)*' ',_windowReps[limitIndex[i]][j]);
+			    PrintNode(buf+strlen(buf), (j>0)*' ',_windowReps[limitIndex[i]][j]);
 			else
-			    PrintNode((j>0)*' ',_windowReps[i][j]);
+			    PrintNode(buf+strlen(buf), (j>0)*' ',_windowReps[i][j]);
 		    }
-		printf("\n");
+		printf("%s\n", buf);
 	    }
 	}
     }
