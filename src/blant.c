@@ -10,6 +10,7 @@
 #include <math.h>
 #include <limits.h>
 #include <signal.h>
+#include <pthread.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -455,14 +456,52 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
     return total;
 }
 
+void* RunBlantInThread(void* arg) {
+    ThreadData* args = (ThreadData*)arg;
+    int numSamples = args->numSamples;
+    int k = args->k;
+    GRAPH *G = args->G;
+    int varraySize = args->varraySize;
+
+    RandomSeed(GetFancySeed(false));
+
+#if PARANOID_ASSERTS || true
+    for (int i = 0; i < _numCanon; i++) {
+        assert(args->accums.graphletConcentration[i] == 0);
+    }
+#endif
+
+    SET *V = SetAlloc(G->n);
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
+    unsigned Varray[varraySize];
+
+    double weight;
+    int i;
+    // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
+    for(i=0; i<numSamples; i++)
+    {
+        if (_outputMode & graphletDistribution) {
+            // ProcessWindowDistribution blah blah not current problem
+        } else {
+            weight = SampleGraphlet(G, V, Varray, k, G->n, &args->accums);
+            ProcessGraphlet(G, V, Varray, k, empty_g, weight, &args->accums);
+        }
+        // now just have to sort through RunBlantFromGraph for loop to see where to 
+    }
+    
+
+    SetFree(V);
+    TinyGraphFree(empty_g);
+    pthread_exit(0);
+}
+
 
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
 // Call RunBlantInForks instead, it's the top-level entry point to call once the
 // graph is finished being input---all the ways of reading input call RunBlantInForks.
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
-static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
-{
+static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     int windowRepInt, D;
     unsigned char perm[MAX_K+1];
     assert(k <= G->n);
@@ -483,7 +522,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
-        SampleGraphlet(G, V, Varray, k, G->n);
+        Accumulators REMOVE_TEMP_VAR;
+        SampleGraphlet(G, V, Varray, k, G->n, &REMOVE_TEMP_VAR);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
@@ -565,6 +605,51 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
     }
     else // sample graphlets from entire graph using either numSamples or confidence
     {
+        // Ethan's added code --- start
+        struct timespec start, end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
+
+        pthread_t threads[_MAX_THREADS];
+        ThreadData threadData[_MAX_THREADS];
+        int samplesPerThread = numSamples / _MAX_THREADS;
+        int leftover = numSamples - (samplesPerThread * _MAX_THREADS);
+
+        Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _MAX_THREADS, samplesPerThread, samplesPerThread * _MAX_THREADS + leftover);
+
+        for (unsigned t = 0; t < _MAX_THREADS; t++)
+        {
+            threadData[t].numSamples = samplesPerThread;
+            if (t == _MAX_THREADS - 1) threadData[t].numSamples += (leftover);
+            threadData[t].k = k;
+            threadData[t].G = G;
+            threadData[t].varraySize = varraySize;
+            Accumulators accums = {0};
+            threadData[t].accums = accums;
+            pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
+        }
+        for (unsigned t = 0; t < _MAX_THREADS; t++)
+        {
+            pthread_join(threads[t], NULL);
+            // printf("Thread %d output result:\n", t);
+            for (int i = 0; i < _numCanon; i++) {
+                _graphletConcentration[i] = 0;
+                _graphletCount[i] = 0;
+            }
+            for (int i = 0; i < _numCanon; i++) {
+                _graphletConcentration[i] += threadData[t].accums.graphletConcentration[i];
+                _graphletCount[i] += threadData[t].accums.graphletCount[i];
+            }
+        }
+
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        double elapsed_time = (end.tv_sec - start.tv_sec) +
+                            (end.tv_nsec - start.tv_nsec) / 1e9;
+        Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _MAX_THREADS); 
+
+        // abort early
+        _earlyAbort = true;
+        // ethan's added code --- end. commented out the single thread ORIGINAL version below
+    #if 0
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
 	    Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
@@ -670,7 +755,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		}
             }
         }
-	assert(i);
+	// assert(i);
 	if(i<numSamples) {
 	    if(_quiet<2) Warning("only took %d samples out of %d", i, numSamples);
 	}
@@ -686,6 +771,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 		    100*_confidence, numSamples, batch);
 	}
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
+    #endif
     }
 
     // Sampling done. Now generate output for output modes that require it.
@@ -708,6 +794,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	computeAbsoluteMultiplier(numSamples);
 
     int canon, orbit_index, u,v,c;
+
+
     // case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	//break; // already printed on-the-fly in the Sample/Process loop above
     if(_outputMode & graphletFrequency) {
@@ -1216,7 +1304,7 @@ int main(int argc, char *argv[])
     signal(SIGUSR1, SigEarlyAbort);
 
     _JOBS = 1;
-    _MAX_THREADS = 4;
+    _MAX_THREADS = 1;
 
     _k = 0; _k_small = 0;
 
@@ -1225,7 +1313,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X:")) != -1)
+    while((opt = getopt(argc, argv, "E:a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
     {
 	switch(opt)
 	{
@@ -1296,9 +1384,9 @@ int main(int argc, char *argv[])
 	    break;
 	    }
 	    break;
-	case 't': if(1!=sscanf(optarg, "%d", &_JOBS)) Fatal("main: sscanf failed to read _JOBS");
-	    _MAX_THREADS = _JOBS;
-	    assert(1 <= _JOBS && _MAX_THREADS <= MAX_POSSIBLE_THREADS);
+	case 't': 
+        _MAX_THREADS = atoi(optarg);
+        if(_MAX_THREADS > sysconf(_SC_NPROCESSORS_ONLN)) Fatal("More threads specified than available");
 	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
 	    break;

@@ -179,7 +179,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 // graphlet. We then add all the neighbors of THAT new node to the
 // "one step outside V" set.
 //   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
-double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
+double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums)
 {
     int i, j;
     assert(V && V->maxElem >= G->n);
@@ -296,7 +296,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	_graphletConcentration[GintOrdinal] += ocount;
+    accums->graphletConcentration[GintOrdinal] += ocount;
 	_g_overcount = ocount;
 	TinyGraphFree(g);
     }
@@ -1168,7 +1168,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         // low enough multiplicity (<= multiplicity); it will also check that the k nodes you passed it haven't already been
         // printed (although, this system does not work 100% perfectly); it will also print the nodes as output if
 	// the graphlet passes all checks
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0);
+        
+        Accumulators REMOVE_TEMP_VAR;
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &REMOVE_TEMP_VAR);
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 
@@ -1264,7 +1266,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
 
 
 // if cc == G->n, then we choose it randomly. Otherwise use cc given.
-double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
+double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumulators *accums) {
     double randomComponent = RandomUniform();
     if(cc == G->n) for(cc=0; cc<_numConnectedComponents;cc++)
 	if(_cumulativeProb[cc] > randomComponent)
@@ -1275,7 +1277,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc) {
 	SampleGraphletAcceptReject(G, V, Varray, k);	// REALLY REALLY SLOW and doesn't need to use cc
 	break;
     case SAMPLE_NODE_EXPANSION:
-	SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc);
+	SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc, accums);
 	break;
     case SAMPLE_SEQUENTIAL_CHAINING:
 	SampleGraphletSequentialEdgeChaining(G, V, Varray, k, cc);
