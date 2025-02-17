@@ -108,8 +108,8 @@ int _worstCanon=-1;
 
 double _desiredDigits, _desiredPrec, _confidence;
 
-// number of parallel threads required, and the maximum allowed at one time.
-int _JOBS, _MAX_THREADS;
+// number of parallel threads required, and the maximum allowed at one time (set to sysconf(_SC_NPROCESSORS_ONLN) later in main).
+int _NUM_THREADS, _MAX_THREADS;
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
@@ -458,7 +458,7 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
 
 void* RunBlantInThread(void* arg) {
     ThreadData* args = (ThreadData*)arg;
-    int numSamples = args->numSamples;
+    int numSamples = args->numSamples; // refers to the number of samples dedicated for THIS thread
     int k = args->k;
     GRAPH *G = args->G;
     int varraySize = args->varraySize;
@@ -474,21 +474,33 @@ void* RunBlantInThread(void* arg) {
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *empty_g = TinyGraphAlloc(k);
     unsigned Varray[varraySize];
+    bool earlyAbort = false;
 
     double weight;
-    int i;
     // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
-    for(i=0; i<numSamples; i++)
+    for(int i=0; i<numSamples; i++)
     {
-        if (_outputMode & graphletDistribution) {
-            // ProcessWindowDistribution blah blah not current problem
+		unsigned long stuck = 0; // might be able to optimize this by making stuck a static shared amongst threads
+        if (_window) {
+            Fatal("Multithreading not yet implemented for any window related output modes.");
+        } if (_outputMode & graphletDistribution) {
+            Fatal("Multithreading not yet implemented forgraphlet distribution output mode.");
         } else {
             weight = SampleGraphlet(G, V, Varray, k, G->n, &args->accums);
-            ProcessGraphlet(G, V, Varray, k, empty_g, weight, &args->accums);
+            if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, &args->accums)) {
+                // some more processing perhaps
+            } else {
+                // // processing failed, decrease i to sample another graphlet
+                if (numSamples) i--;
+                ++stuck;
+                if(stuck > MAX(G->n,numSamples)) {
+                    if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
+                    break; // no new samples able to be found, early abort
+                }
+            }
         }
         // now just have to sort through RunBlantFromGraph for loop to see where to 
     }
-    
 
     SetFree(V);
     TinyGraphFree(empty_g);
@@ -609,17 +621,17 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        pthread_t threads[_MAX_THREADS];
-        ThreadData threadData[_MAX_THREADS];
-        int samplesPerThread = numSamples / _MAX_THREADS;
-        int leftover = numSamples - (samplesPerThread * _MAX_THREADS);
+        pthread_t threads[_NUM_THREADS];
+        ThreadData threadData[_NUM_THREADS];
+        int samplesPerThread = numSamples / _NUM_THREADS;
+        int leftover = numSamples - (samplesPerThread * _NUM_THREADS);
 
-        Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _MAX_THREADS, samplesPerThread, samplesPerThread * _MAX_THREADS + leftover);
+        Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _NUM_THREADS, samplesPerThread, samplesPerThread * _NUM_THREADS + leftover);
 
-        for (unsigned t = 0; t < _MAX_THREADS; t++)
+        for (unsigned t = 0; t < _NUM_THREADS; t++)
         {
             threadData[t].numSamples = samplesPerThread;
-            if (t == _MAX_THREADS - 1) threadData[t].numSamples += (leftover);
+            if (t == _NUM_THREADS - 1) threadData[t].numSamples += (leftover);
             threadData[t].k = k;
             threadData[t].G = G;
             threadData[t].varraySize = varraySize;
@@ -627,7 +639,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             threadData[t].accums = accums;
             pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
         }
-        for (unsigned t = 0; t < _MAX_THREADS; t++)
+        for (unsigned t = 0; t < _NUM_THREADS; t++)
         {
             pthread_join(threads[t], NULL);
             // printf("Thread %d output result:\n", t);
@@ -644,7 +656,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
                             (end.tv_nsec - start.tv_nsec) / 1e9;
-        Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _MAX_THREADS); 
+        Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _NUM_THREADS); 
 
         // abort early
         _earlyAbort = true;
@@ -974,7 +986,8 @@ static FILE *fpProcs[MAX_POSSIBLE_THREADS]; // these will be the pipes reading o
 
 // This is the primary entry point into BLANT, even if THREADS=1.  We assume you've already
 // read the graph into G, and will do whatever is necessary to run blant with the number of
-// child processes specified.  Also does some sanity checking.
+// child processes specified.  Also does some sanity checking. 
+// [PTHREADS BRANCH ISDEPRECATING THIS]
 int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 {
     int i, j;
@@ -1001,17 +1014,17 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
-    if(_JOBS == 1)
+    if(_NUM_THREADS == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
     if (_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC)
         Fatal("The sampling methods INDEX and EDGE_COVER do not yet support multithreading (feel free to add it!)");
 
     // At this point, _JOBS must be greater than 1.
-    assert(_JOBS>1 && _JOBS <= _MAX_THREADS);
+    assert(_NUM_THREADS>1 && _NUM_THREADS <= _MAX_THREADS);
     unsigned long totalSamples = numSamples;
-    double meanSamplesPerJob = totalSamples/(double)_JOBS;
-    if(!_quiet) Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _JOBS, (int)meanSamplesPerJob);
+    double meanSamplesPerJob = totalSamples/(double)_NUM_THREADS;
+    if(!_quiet) Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _NUM_THREADS, (int)meanSamplesPerJob);
 
     int procsRunning = 0, jobsDone = 0, proc, job=0;
     unsigned long lineNum = 0;
@@ -1130,7 +1143,7 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
     } while(procsRunning > 0);
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
-    unsigned long leftovers = numSamples % _JOBS;
+    unsigned long leftovers = numSamples % _NUM_THREADS;
     int result = RunBlantFromGraph(_k, leftovers, G);
     if(_outputMode & predict) Predict_Shutdown(G);
     return result;
@@ -1317,8 +1330,8 @@ int main(int argc, char *argv[])
 
     signal(SIGUSR1, SigEarlyAbort);
 
-    _JOBS = 1;
-    _MAX_THREADS = 1;
+    _NUM_THREADS = 1;
+    _MAX_THREADS = sysconf(_SC_NPROCESSORS_ONLN);
 
     _k = 0; _k_small = 0;
 
@@ -1327,7 +1340,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "E:a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
+    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
     {
 	switch(opt)
 	{
@@ -1399,8 +1412,8 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 't': 
-        _MAX_THREADS = atoi(optarg);
-        if(_MAX_THREADS > sysconf(_SC_NPROCESSORS_ONLN)) Fatal("More threads specified than available");
+        _NUM_THREADS = atoi(optarg);
+        if(_NUM_THREADS > _MAX_THREADS) Fatal("More threads specified than available on system.");
 	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
 	    break;
@@ -1805,7 +1818,7 @@ int main(int argc, char *argv[])
     if(_outputMode & predict_merge)
 	exitStatus = Predict_Merge(G);
     else
-	exitStatus = RunBlantInForks(_k, numSamples, G);
+    exitStatus = RunBlantFromGraph(_k, numSamples, G);
     GraphFree(G);
     return exitStatus;
 }
