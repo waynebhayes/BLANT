@@ -1,17 +1,16 @@
 #include "../../libwayne/C++/SanaGraphBasis/Graph.hpp"
 #include <filesystem>
-#include <dlfcn.h>
 #include <vector>
 #include <queue>
 #include <unordered_map>
-
-constexpr std::filesystem::path script_path = std::filesystem::current_path();
-constexpr std::filesystem::path library_path = script_path/"Snap-6.0/";
+#include <unistd.h>
+#include "Snap-6.0/snap-core/Snap.h"
+namespace fs = std::filesystem;
 
 std::pair<int, int> dobfs(
 	const std::unordered_map<int, std::vector<int>>& graph,
     	int x,
-    	std::unordered_map<int, int>& components,
+    	std::vector<int>& components,
     	int cnum){
     int nodes = 0, edges = 0;
     std::queue<int> queue; //bfs queue
@@ -23,7 +22,7 @@ std::pair<int, int> dobfs(
     	++nodes;
     	edges += graph.at(src).size();
     	for(int n : graph.at(src)){
-    	    if(components.find(n) == components.end()){
+    	    if(std::find(components.begin(), components.end(), n) == components.end()){
     	    	queue.push(n);
     		components[n] = cnum;
     	    }
@@ -34,7 +33,7 @@ std::pair<int, int> dobfs(
 
 int getcomponents(
 	const std::unordered_map<int, std::vector<int>>& graph,
-	const std::vector<std::pair<int, int> csize){
+	std::vector<std::pair<int, int>>& csize){
     int n = graph.size();
     std::vector<int> components(n, -1);
     int cnum = 0;
@@ -49,11 +48,12 @@ int getcomponents(
 }
 
 void getprops(const string &input_file_name, int evalues = -1) {
+    using namespace TSnap;
     string output_file_name = "/tmp/" + fs::path(input_file_name).filename().string() + to_string(getpid());
 
     // Load graph dynamically
-    PUNGraph snap_graph = LoadEdgeList(input_file_name.c_str(), 0, 1);
-    if (!snap_graph) {
+    PUNGraph snap_graph = LoadEdgeList<PUNGraph>(TStr(input_file_name.c_str()), 0, 1);
+    if (snap_graph.Empty()) {
         cerr << "Failed to load graph from " << input_file_name << endl;
         return;
     }
@@ -87,20 +87,20 @@ void getprops(const string &input_file_name, int evalues = -1) {
         int ecc = GetNodeEcc(snap_graph, nodeid, false);
         diameter = max(diameter, ecc);
         
-        TIntPr64V nodevec;
+        TIntPrV nodevec;
         GetNodesAtHops(snap_graph, nodeid, nodevec, false);
-        for (auto item : nodevec) {
-            int k = item.GetVal1();
-            int nodes_at_k = item.GetVal2();
+        for (int i = 0; i < nodevec.Len(); ++i) {
+            int k = nodevec[i].GetVal1();
+            int nodes_at_k = nodevec[i].GetVal2();
             khop[k] += nodes_at_k;
         }
     }
 
     // Degree Distribution
-    TIntPr64V degvec;
+    TIntPrV degvec;
     TSnap::GetDegCnt(snap_graph, degvec);
-    for (auto item : degvec) {
-        degree_dist[item.GetVal1()] = item.GetVal2();
+    for (int i = 0; i < degvec.Len(); ++i) {
+        degree_dist[degvec[i].GetVal1()] = degvec[i].GetVal2();
     }
 
     // Eigenvalues
@@ -115,8 +115,8 @@ void getprops(const string &input_file_name, int evalues = -1) {
     }
 
     // Betweenness Centrality
-    TIntFlt64H nbw;
-    TIntPrFlt64H ebw;
+    TIntFltH nbw;
+    TIntPrFltH ebw;
     GetBetweennessCentr(snap_graph, nbw, ebw, 1.0, false);
 
     // Output results
@@ -144,8 +144,10 @@ void getprops(const string &input_file_name, int evalues = -1) {
     cout << endl;
 
     cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
-    for (auto &[nodeid, val] : nbw) {
-        cout << nodeid << " " << nbw[nodeid] << endl;
+    for (auto it = nbw.BegI(); it != nbw.EndI(); it.Next()) {
+        //TInt nodeid = nbw.GetKey();
+	//TFlt val = nbw.GetDat();
+	cout << nodeid << " " << val << endl;
     }
 
     cout << "node1 node2 edge_betweenness" << endl;
@@ -166,7 +168,4 @@ int main(int argc, char* argv[]) {
         cerr << "Input error! Usage: ./main [-e eigValsToCompute] inputFile" << endl;
         return 1;
     }
-
-    dlclose(handle); // Close the library when done
-    return 0;
 }
