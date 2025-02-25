@@ -105,7 +105,9 @@ static GRAPH *_G; // local copy of GRAPH *G
 
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 // Also this is NON-RE-ENTRANT.
+// Only does anything if sampling method is MCMC, otherwise returns false. This is because this function is terribly non re-entrant
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
+    if (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_MCMC_EC) return false;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
     //if(_JOBS>1 || _MAX_THREADS>1) Apology("NodeSetSeenRecently is not re-entrant (called with %d jobs and %d max threads)", _JOBS, _MAX_THREADS);

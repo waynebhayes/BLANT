@@ -11,23 +11,8 @@
 #include "Oalloc.h"
 // #include "mem-debug.h" // need this if you use ENABLE_MEMORY_TRACKING() at the top of main().
 
-#define USE_MarsenneTwister 0
-#if USE_MarsenneTwister
-#include "libwayne/MT19937/mt19937.h"
-static MT19937 *_mt19937;
-#define RandomSeed SeedMt19937
-void SeedMt19937(int seed) {
-    if(_mt19937) Mt19937Free(_mt19937);
-    _mt19937 = Mt19937Alloc(seed);
-}
-double RandomUniform(void) {
-    return Mt19937NextDouble(_mt19937);
-}
-#else
-#include "rand48.h"
-#define RandomUniform drand48
-#define RandomSeed srand48
-#endif
+void RandomSeed(long seed);
+double RandomUniform(void);
 
 #define USE_INSERTION_SORT 0
 #define GEN_SYN_GRAPH 0
@@ -196,6 +181,7 @@ typedef struct {
     GRAPH *G;
     int varraySize;
     Accumulators accums;
+    long seed;
 } ThreadData;
 void* RunBlantInThread(void* arg);
 
