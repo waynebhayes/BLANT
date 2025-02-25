@@ -32,6 +32,33 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're respons
 #include "odv.h"
 #include "stats.h"
 
+// define random variable algorithm
+#define USE_MarsenneTwister 0
+#if USE_MarsenneTwister
+#include "../C++/mt19937.h" // not yet implemented correctly
+__thread MT19937 *mt19937Seed;
+void RandomSeed(long seed) {
+    if(mt19937Seed) Mt19937Free(mt19937Seed);
+    mt19937Seed = Mt19937Alloc(seed);
+}
+double RandomUniform(void) {
+    return Mt19937NextDouble(mt19937Seed);
+}
+#else
+#include "rand48.h"
+__thread unsigned short erand48Seed[3];
+void RandomSeed(long seed) {
+    // split the number seed into 3 portions of 16 bits
+    erand48Seed[0] = (unsigned short)(seed & 0xFFFF);         // Lower 16 bits
+    erand48Seed[1] = (unsigned short)((seed >> 16) & 0xFFFF); // Middle 16 bits
+    erand48Seed[2] = (unsigned short)((seed >> 32) & 0xFFFF); // Upper 16 bits
+}
+double RandomUniform(void) {
+    return erand48(erand48Seed);
+}
+#endif
+
+
 static int _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
 static float *_weights;
@@ -462,8 +489,12 @@ void* RunBlantInThread(void* arg) {
     int k = args->k;
     GRAPH *G = args->G;
     int varraySize = args->varraySize;
+    long seed = args->seed;
 
-    RandomSeed(GetFancySeed(false));
+    RandomSeed(seed);
+
+    // utilizing MT generator, we'll create a TLS variable
+    // for each MT19937 generator
 
 #if PARANOID_ASSERTS || true
     for (int i = 0; i < _numCanon; i++) {
@@ -627,6 +658,12 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         int leftover = numSamples - (samplesPerThread * _NUM_THREADS);
 
         Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _NUM_THREADS, samplesPerThread, samplesPerThread * _NUM_THREADS + leftover);
+        
+        // seed the threads with a base seed that may or may not be specified
+        long base_seed = _seed;
+        if (_seed == -1) {
+            base_seed = GetFancySeed(true);
+        }
 
         for (unsigned t = 0; t < _NUM_THREADS; t++)
         {
@@ -637,6 +674,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             threadData[t].varraySize = varraySize;
             Accumulators accums = {0};
             threadData[t].accums = accums;
+            threadData[t].seed = base_seed + t; // each thread has it's own unique seed
             pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
         }
         for (unsigned t = 0; t < _NUM_THREADS; t++)
@@ -1605,11 +1643,6 @@ int main(int argc, char *argv[])
     }
 
     if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be at least 6 for INDEX sampling method because there are no unambiguous graphlets for k<=5",_k);
-
-    if(_seed == -1) _seed = GetFancySeed(false);
-    // This only seeds the main thread; sub-threads, if they exist, are seeded later by "stealing"
-    // exactly _THREADS-1 values from near the beginning of this main random stream.
-    RandomSeed(_seed);
 
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
     if(_freqDisplayMode == freq_display_mode_undef)
