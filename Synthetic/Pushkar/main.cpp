@@ -144,15 +144,17 @@ void getprops(const string &input_file_name, int evalues = -1) {
     cout << endl;
 
     cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
-    for (auto it = nbw.BegI(); it != nbw.EndI(); it.Next()) {
-        //TInt nodeid = nbw.GetKey();
-	//TFlt val = nbw.GetDat();
+    for (auto it = nbw.BegI(); it != nbw.EndI(); it++) {
+        TInt nodeid = it.GetKey();
+	TFlt val = it.GetDat();
 	cout << nodeid << " " << val << endl;
     }
 
     cout << "node1 node2 edge_betweenness" << endl;
-    for (auto &[edge, bw] : ebw) {
-        cout << edge.GetVal1() << " " << edge.GetVal2() << " " << bw << endl;
+    for (auto it = ebw.BegI(); it != ebw.EndI(); it++) {
+	TIntPr nodepid = it.GetKey();
+	TFlt val = it.GetDat();
+        cout << nodepid.GetVal1() << " : " << nodepid.GetVal2() << " " << val << " " << endl;
     }
 
     cout << "########################################################### End-of-output\n";
