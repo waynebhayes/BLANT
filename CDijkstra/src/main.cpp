@@ -16,8 +16,13 @@ int main()
     std::string Graph2 = "test/graph2.el";
     std::string Seed   = "test/seed.txt";
     std::string Sim    = "test/sim.txt";
+<<<<<<< HEAD
     int numNodes1=10;//number of nodes in graph 1
     int numNodes2=10;//number of nodes in graph 2
+=======
+    int numNodes1=10000;//number of nodes in graph 1
+    int numNodes2=10000;//number of nodes in graph 2
+>>>>>>> 959d33b (Mapping optimized with unordered map and vector)
 
     // 1. read graph and map string to int
     std::unordered_map<std::string, int> nameToIndex1;
@@ -25,6 +30,55 @@ int main()
     if (!buildNameMappings(Graph1, nameToIndex1, indexToName1, numNodes1)) {
         std::cerr << "Failed building node mapping.\n";
         return 1;
+<<<<<<< HEAD
+=======
+    }
+
+    std::unordered_map<std::string, int> nameToIndex2;
+    std::vector<std::string> indexToName2;
+    if (!buildNameMappings(Graph2, nameToIndex2, indexToName2, numNodes2)) {
+        std::cerr << "Failed building node mapping.\n";
+        return 1;
+    }
+
+    //2. read graph again to build adjacency matrix
+    numNodes1 = nameToIndex1.size();
+    std::vector<std::vector<bool>> adjMatrix1(
+        numNodes1,
+        std::vector<bool>(numNodes1, false)
+    );
+    if (!AdjMatrix(Graph1, nameToIndex1, adjMatrix1)) {
+        std::cerr << "Failed to fill adjacency matrix.\n";
+        return 1;
+    }
+
+    numNodes2 = nameToIndex2.size();
+    std::vector<std::vector<bool>> adjMatrix2(
+        numNodes2,
+        std::vector<bool>(numNodes2, false)
+    );
+    if (!AdjMatrix(Graph2, nameToIndex2, adjMatrix2)) {
+        std::cerr << "Failed to fill adjacency matrix.\n";
+        return 1;
+    }
+
+
+    // 2. Display node->index mappings
+    PrintNameToIndex(nameToIndex1);
+    PrintNameToIndex(nameToIndex2);
+    //    Display index->node mappings
+    PrintIndexToName(indexToName1);
+    PrintIndexToName(indexToName2);
+    //    Display the matrix
+    PrintAdjMatrix(adjMatrix1);
+    PrintAdjMatrix(adjMatrix2);
+
+    // 3. Read seed alignments
+    std::vector<std::pair<int,int>> alignmentList;
+    std::cout << "\nAlignment List: \n";
+    for (auto& p : alignmentList) {
+        std::cout << "(" << p.first << ", " << p.second << ")\n";
+>>>>>>> 959d33b (Mapping optimized with unordered map and vector)
     }
 
     std::unordered_map<std::string, int> nameToIndex2;
@@ -78,10 +132,17 @@ int main()
     std::vector<int> connectedNodes2;
     // Main loop: continue until no candidates meet the threshold
     while (alignmentInProgress&& iterationCount < maxIterations) {
+<<<<<<< HEAD
         if(iterationCount == 0){
             connectedNodes1 = getConnectedNodes(SeedNodeGraph1, adjMatrix1);
             connectedNodes2 = getConnectedNodes(SeedNodeGraph2, adjMatrix2);
         }
+=======
+        iterationCount++;
+        // 6. Get connected neighbors for seeds
+        std::vector<int> connectedNodes1 = getConnectedNodes(SeedNodeGraph1, adjMatrix1);
+        std::vector<int> connectedNodes2 = getConnectedNodes(SeedNodeGraph2, adjMatrix2);
+>>>>>>> 959d33b (Mapping optimized with unordered map and vector)
 
         std::cout << "\nConnected Nodes of Seed Graph 1:\n";
         displayConnectedNodes(connectedNodes1);
@@ -110,7 +171,38 @@ int main()
             }
         }
 
+<<<<<<< HEAD
         // 8. Display skip list
+=======
+        // Step 2: Filter out pairs that are already in the alignment list
+        candidatePairs.erase(
+            std::remove_if(candidatePairs.begin(), candidatePairs.end(),
+                [&](const std::pair<int, int>& pair) {
+                    return std::find(alignmentList.begin(), alignmentList.end(), pair) != alignmentList.end();
+                }),
+            candidatePairs.end()
+        );
+
+        std::cout << "\nFiltered Node Pairs (Natural Product):\n";
+        for (auto& np : candidatePairs) {
+            std::cout << "(" << np.first << ", " << np.second << ")\n";
+        }
+
+        // 8. Read similarity file
+        std::vector<std::vector<double>> similarityMatrix = ReadSimFile(nameToIndex1, nameToIndex2, Sim);
+
+
+        // 9. Add matching pairs to skip list
+        for (auto& np : candidatePairs) {
+        double similarity = similarityMatrix[np.first][np.second];
+
+        if (similarity > 0) {  // Only insert if similarity exists and is positive
+            std::cout << "Inserting: (" << np.first << ", " << np.second << ") with similarity " << similarity << "\n";
+            skiplist.insertElement(similarity, np.first, np.second);
+        }
+        }
+        // 10. Display skip list
+>>>>>>> 959d33b (Mapping optimized with unordered map and vector)
         skiplist.displayList();
 
         // 9. Pop one candidate from skip list
