@@ -4,8 +4,8 @@ HEADERS = $(wildcard include/*.h)
 SOURCES = $(wildcard src/*.cpp)
 LIBWAYNE_HOME = ../libwayne
 
-CXX = g++
-CXXFLAGS = -g -Iinclude -I$(LIBWAYNE_HOME)/include
+CXX = g++-14
+CXXFLAGS = -g -std=c++11 -Iinclude -I$(LIBWAYNE_HOME)/include
 LDFLAGS = -L$(LIBWAYNE_HOME) -lwayne -lm
 
 .PHONY: all clean
