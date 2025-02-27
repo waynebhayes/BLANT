@@ -10,29 +10,63 @@ int main()
 {
     auto start = std::chrono::high_resolution_clock::now();
     // Input file names
-    std::string filenameGraph1 = "rsrc/graph1.el";
-    std::string filenameGraph2 = "rsrc/graph2.el";
-    std::string filenameSeed   = "rsrc/seed.txt";
-    std::string filenameSim    = "rsrc/sim.txt";
+    std::string Graph1 = "test/graph1.el";
+    std::string Graph2 = "test/graph2.el";
+    std::string Seed   = "test/seed.txt";
+    std::string Sim    = "test/sim.txt";
+    int numNodes1=10000;//number of nodes in graph 1
+    int numNodes2=10000;//number of nodes in graph 2
 
-    // 1. Build adjacency matrices
-    std::vector<std::vector<int>> adjMatrix1;
-    std::vector<std::pair<std::string,int>> nodeIndexMapping1 =
-        createAdjacencyMatrix(filenameGraph1, adjMatrix1);
+    // 1. read graph and map string to int
+    std::unordered_map<std::string, int> nameToIndex1;
+    std::vector<std::string> indexToName1;
+    if (!buildNameMappings(Graph1, nameToIndex1, indexToName1, numNodes1)) {
+        std::cerr << "Failed building node mapping.\n";
+        return 1;
+    }
 
-    std::vector<std::vector<int>> adjMatrix2;
-    std::vector<std::pair<std::string,int>> nodeIndexMapping2 =
-        createAdjacencyMatrix(filenameGraph2, adjMatrix2);
+    std::unordered_map<std::string, int> nameToIndex2;
+    std::vector<std::string> indexToName2;
+    if (!buildNameMappings(Graph2, nameToIndex2, indexToName2, numNodes2)) {
+        std::cerr << "Failed building node mapping.\n";
+        return 1;
+    }
 
-    // 2. Display node→index mappings
-    DisplayNodetoIndex(nodeIndexMapping1, filenameGraph1);
-    DisplayNodetoIndex(nodeIndexMapping2, filenameGraph2);
+    //2. read graph again to build adjacency matrix
+    numNodes1 = nameToIndex1.size();
+    std::vector<std::vector<bool>> adjMatrix1(
+        numNodes1,
+        std::vector<bool>(numNodes1, false)
+    );
+    if (!AdjMatrix(Graph1, nameToIndex1, adjMatrix1)) {
+        std::cerr << "Failed to fill adjacency matrix.\n";
+        return 1;
+    }
+
+    numNodes2 = nameToIndex2.size();
+    std::vector<std::vector<bool>> adjMatrix2(
+        numNodes2,
+        std::vector<bool>(numNodes2, false)
+    );
+    if (!AdjMatrix(Graph2, nameToIndex2, adjMatrix2)) {
+        std::cerr << "Failed to fill adjacency matrix.\n";
+        return 1;
+    }
+
+
+    // 2. Display node->index mappings
+    PrintNameToIndex(nameToIndex1);
+    PrintNameToIndex(nameToIndex2);
+    //    Display index->node mappings
+    PrintIndexToName(indexToName1);
+    PrintIndexToName(indexToName2);
+    //    Display the matrix
+    PrintAdjMatrix(adjMatrix1);
+    PrintAdjMatrix(adjMatrix2);
 
     // 3. Read seed alignments
     std::vector<std::pair<int,int>> alignmentList;
-    mapNamesToIndicesFromFile(filenameSeed, nodeIndexMapping1, nodeIndexMapping2, alignmentList);
-
-    std::cout << "\nAlignment List: \n";.…
+    std::cout << "\nAlignment List: \n";
     for (auto& p : alignmentList) {
         std::cout << "(" << p.first << ", " << p.second << ")\n";
     }
@@ -53,7 +87,7 @@ int main()
     while (alignmentInProgress&& iterationCount < maxIterations) {
         iterationCount++;
         // 6. Get connected neighbors for seeds
-       std::vector<int> connectedNodes1 = getConnectedNodes(SeedNodeGraph1, adjMatrix1);
+        std::vector<int> connectedNodes1 = getConnectedNodes(SeedNodeGraph1, adjMatrix1);
         std::vector<int> connectedNodes2 = getConnectedNodes(SeedNodeGraph2, adjMatrix2);
 
         std::cout << "\nConnected Nodes of Seed Graph 1:\n";
@@ -85,7 +119,7 @@ int main()
         }
 
         // 8. Read similarity file
-        std::vector<std::vector<double>> similarityMatrix = ReadSimFile(nodeIndexMapping1, nodeIndexMapping2, filenameSim);
+        std::vector<std::vector<double>> similarityMatrix = ReadSimFile(nameToIndex1, nameToIndex2, Sim);
 
 
         // 9. Add matching pairs to skip list
