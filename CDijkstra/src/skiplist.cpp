@@ -257,8 +257,9 @@ Node* SkipList::searchElement(double key)
     // search key, we have found our target node
     if (candidate && candidate->key == key)
     {
+        //randomly select among all candiate with the same keys during traversal
         std::cout << "Found exact key: " << key << "\n";
-        return candidate;
+        return randomSelect(candidate);
     }
     else
     {
@@ -269,11 +270,18 @@ Node* SkipList::searchElement(double key)
         // If there is no valid predecessor (current is header), return candidate.
         if (current == header)
         {
-            std::cout << "Exact key not found. Closest key is: "
-                      << (candidate ? candidate->key : -1) << "\n";
-            return candidate;
+            if (candidate)
+            {
+                std::cout << "Exact key not found. Closest key is: " 
+                          << candidate->key << "\n";
+                return randomSelect(candidate);
+            }
+            else
+            {
+                std::cout << "Exact key not found. No candidate available.\n";
+                return candidate; // candidate is null
+            }
         }
-        
         // If there is no candidate on the right, return the predecessor.
         if (!candidate)
         {
@@ -298,7 +306,7 @@ Node* SkipList::searchElement(double key)
         
         //always use candidate because it has higher sim
         std::cout << "Exact key not found. Closest key is: " << candidate->key << "\n";
-            return candidate;
+            return randomSelect(candidate);
     }
 
 }
@@ -391,3 +399,24 @@ while (current != nullptr) {
 }
 
 
+Node* SkipList::randomSelect(Node* start)
+{
+    // If start is null, return null.
+    if (!start)
+        return nullptr;
+
+    Node* selected = start;
+    int count = 1;
+
+    // Traverse the level-0 chain while the key remains equal to start->key.
+    Node* temp = start->forward[0];
+    while (temp && temp->key == start->key)
+    {
+        count++;
+        // With probability 1/count, select the current node.
+        if (rand() % count == 0)
+            selected = temp;
+        temp = temp->forward[0];
+    }
+    return selected;
+}
