@@ -13,6 +13,7 @@
 int main()
 {
     auto start_total = std::chrono::high_resolution_clock::now();
+    auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
     std::string Graph1 = "test/RNorvegicus.el";
     std::string Graph2 = "test/SPombe.el";
@@ -95,6 +96,7 @@ int main()
 
 
     // 5. Initialize alignment process
+    auto start_alignment = std::chrono::high_resolution_clock::now();
     auto start_alignment = std::chrono::high_resolution_clock::now();
     bool alignmentInProgress = true;
     SkipList skiplist(20, 0.5);
