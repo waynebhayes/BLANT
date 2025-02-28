@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <tuple>
+#include <string.h>
 #include <cstring>
 #include <cstdint>  // For int8_t
 #include <cstdlib>
