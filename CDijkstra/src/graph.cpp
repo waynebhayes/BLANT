@@ -342,7 +342,7 @@ void displayConnectedNodes(const std::vector<int>& connectedNodes)
 }
 
 // ReadSimFIle
-std::vector<std::vector<double>> ReadSimFile(
+std::vector<std::vector<float>> ReadSimFile(
     const std::unordered_map<std::string, int>& nodeIndexMapping1,
     const std::unordered_map<std::string, int>& nodeIndexMapping2,
     const std::string& filename)
