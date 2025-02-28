@@ -282,10 +282,9 @@ Node* SkipList::searchElement(double key)
         }
         
         // Both predecessor and candidate exist. Compare differences.
-        double diffPredecessor = key - current->key;
-        double diffCandidate = candidate->key - key;
-        
-        if (diffPredecessor <= diffCandidate)
+        //double diffPredecessor = key - current->key;
+        //double diffCandidate = candidate->key - key;
+        /*if (diffPredecessor <= diffCandidate)
         {
             std::cout << "Exact key not found. Closest key is: " << current->key << "\n";
             return current;
@@ -295,6 +294,11 @@ Node* SkipList::searchElement(double key)
             std::cout << "Exact key not found. Closest key is: " << candidate->key << "\n";
             return candidate;
         }
+        */
+        
+        //always use candidate because it has higher sim
+        std::cout << "Exact key not found. Closest key is: " << candidate->key << "\n";
+            return candidate;
     }
 
 }

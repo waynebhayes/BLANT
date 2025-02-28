@@ -149,8 +149,8 @@ int main()
         //10. Add to aligned list
         SeedNodeGraph1.push_back(first);
         SeedNodeGraph2.push_back(second);
-        std::cout << "[DEBUG] Using maxNode: (" << first << ", " << second
-              << ") with value=" << key << "\n";
+        //std::cout << "[DEBUG] Using maxNode: (" << first << ", " << second
+        //      << ") with value=" << key << "\n";
         connectedNodes1 = getConnectedNodes(first, adjMatrix1);
         connectedNodes2 = getConnectedNodes(second, adjMatrix2);
     } else {
