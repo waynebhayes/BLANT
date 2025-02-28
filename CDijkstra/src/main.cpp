@@ -5,6 +5,8 @@
 #include <chrono>
 #include <unordered_map>
 #include <unordered_set>
+#include <unordered_map>
+#include <unordered_set>
 #include "graph.h"
 #include "skiplist.h" 
 
@@ -41,20 +43,14 @@ int main()
     auto start_adj_matrix = std::chrono::high_resolution_clock::now();
     //2. read graph again to build adjacency matrix
     numNodes1 = nameToIndex1.size();
-    std::vector<std::vector<bool>> adjMatrix1(
-        numNodes1,
-        std::vector<bool>(numNodes1, false)
-    );
+    std::vector<std::vector<bool>> adjMatrix1(numNodes1,std::vector<bool>(numNodes1, false));
     if (!AdjMatrix(Graph1, nameToIndex1, adjMatrix1)) {
         std::cerr << "Failed to fill adjacency matrix.\n";
         return 1;
     }
 
     numNodes2 = nameToIndex2.size();
-    std::vector<std::vector<bool>> adjMatrix2(
-        numNodes2,
-        std::vector<bool>(numNodes2, false)
-    );
+    std::vector<std::vector<bool>> adjMatrix2(numNodes2,std::vector<bool>(numNodes2, false));
     if (!AdjMatrix(Graph2, nameToIndex2, adjMatrix2)) {
         std::cerr << "Failed to fill adjacency matrix.\n";
         return 1;
@@ -149,6 +145,7 @@ int main()
         double key;
         int first, second;
         std::tie(key, first, second) = tup;
+
 
         if (key != -1.0) {
         //std::cout << "Popped node => key: " << key
