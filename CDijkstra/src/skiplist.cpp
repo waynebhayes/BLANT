@@ -180,7 +180,7 @@ void SkipList::deleteElement(double key, int vA, int vB)
         while(current->forward[i] != NULL  &&
               current->forward[i]->key < key)
             current = current->forward[i];
-        update[i] = current;
+        //update[i] = current;
     }
 
     /* reached level 0 and forward pointer to 
@@ -197,6 +197,16 @@ void SkipList::deleteElement(double key, int vA, int vB)
         /* start from lowest level and rearrange
            pointers just like we do in singly linked list
            to remove target node */
+
+        //compute the update
+           for (int i = level; i >= 0; i--) {
+            Node* cur = header;
+            while (cur->forward[i] != NULL && cur->forward[i] != current) {
+                cur = cur->forward[i];
+            }
+            update[i] = cur;
+        }
+    
         for(int i=0;i<=level;i++)
         {
             /* If at level i, next node is not target 
@@ -333,11 +343,31 @@ double chosenKey = chosen->key;
 int chosenA = chosen->VertexA;
 int chosenB = chosen->VertexB;
 
-// Traverse level 0 (the bottom level) of the skip list.
+std::vector<std::tuple<double, int, int>> nodesToDelete;
+Node* current = header->forward[0];
+while (current != nullptr) {
+    if (current->VertexA == chosenA || current->VertexB == chosenB) {
+        //std::cout << "[DEBUG] Processing node key: " << current->key << "\n";
+        //std::cout << "[DEBUG] Forward[0] is at address: " << current->forward[0] << "\n";
+        nodesToDelete.push_back(std::make_tuple(current->key, current->VertexA, current->VertexB));
+    }
+    current = current->forward[0];
+}
+for (const auto& nodeInfo : nodesToDelete) {
+    double key = std::get<0>(nodeInfo);
+    int vA = std::get<1>(nodeInfo);
+    int vB = std::get<2>(nodeInfo);
+    deleteElement(key, vA, vB);
+}
+
+/*// Traverse level 0 (the bottom level) of the skip list.
 Node* current = header->forward[0];
 while (current != nullptr) {
     // Save next pointer, since deletion will affect current->forward[0].
     Node* next = current->forward[0];
+    std::cout << "[DEBUG] Processing node key: " << current->key << "\n";
+    std::cout << "[DEBUG] Forward[0] is at address: " << current->forward[0] << "\n";
+
     // If this node involves either vertex of the chosen node...
     if (current->VertexA == chosenA || current->VertexB == chosenB) {
         // Update the existence matrix accordingly.
@@ -348,6 +378,9 @@ while (current != nullptr) {
     }
     current = next;
 }
+*/
+
+
 
 
     return std::make_tuple(chosenKey, chosenA, chosenB);
