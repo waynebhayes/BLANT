@@ -1,3 +1,0 @@
-A ARTHUR 0.85
-B RYAN 0.3
-D VY 0.6
