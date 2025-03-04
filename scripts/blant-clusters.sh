@@ -454,8 +454,8 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 		maxEdges=choose(length(cluster[i]),2);
 		edgeMean = edgeSum[i]/edges[i];
 		ASSERT(edgeMean>='$minEdgeMean', "oops, should not get this far with an edgeMean of "edgeMean);
-		printf "%d nodes, %d/%d edges, %g%% density", length(cluster[i]), edges[i], maxEdges,
-		    100*edges[i]/maxEdges
+		printf "%d nodes, %d/%d edges, %g%% density from k%d", length(cluster[i]), edges[i], maxEdges,
+		    100*edges[i]/maxEdges, k
 		if('$VERBOSE') printf " from k %d, %g clusterWeight, %g edgeSum, %g edgeMean", kk[i],
 		    edgeSum[i]/length(cluster[i]), edgeSum[i], edgeMean
 		if('$PRINT_MEMBERS') {
