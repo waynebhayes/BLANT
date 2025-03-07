@@ -172,6 +172,8 @@ typedef struct {
     // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
     double graphletCount[MAX_CANONICALS];
     double graphletConcentration[MAX_CANONICALS];
+    double *doubleGraphletDegreeVector[MAX_CANONICALS];
+    double *doubleOrbitDegreeVector[MAX_ORBITS];
 } Accumulators;
 
 // https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html

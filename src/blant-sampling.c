@@ -285,12 +285,12 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
-		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+		accums->doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode & outputGDV) {
 	    for (j = 0; j < k; j++) {
-		_doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+        accums->doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if(ocount < 0) {
@@ -503,7 +503,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 ** If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0],
 ** -2 means edgeList[1], etc.
 */
-double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC)
+double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums)
 {
     if(G->useComplement) Fatal("Sorry, EBE not implemented for complemented graphs");
     int edge, v1, v2, numTries = 0;
@@ -525,15 +525,12 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 
     int outDegree = GraphDegree(G,v1) + GraphDegree(G,v2);
 	int insideEdges = 1, j;
-    static int cumulative[MAX_K];
+    int cumulative[MAX_K];
     cumulative[0] = GraphDegree(G,v1); // where v1 = Varray[0]
     cumulative[1] = GraphDegree(G,v2) + cumulative[0];
 
-    static SET *internal;	// mark choices of whichNeigh that are discovered to be internal
-    static int Gn;
-    if(!internal) {internal = SetAlloc(G->n); Gn = G->n;}
-    else if(Gn != G->n) {SetFree(internal); internal = SetAlloc(G->n); Gn=G->n;}
-    else SetEmpty(internal);
+    SET *internal = SetAlloc(G->n);	// mark choices of whichNeigh that are discovered to be internal
+    int Gn = Gn = G->n;
 
     numTries = 0;
     double multiplier = 1;
@@ -557,10 +554,11 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		cumulative[j] = 0;
 	    SetEmpty(internal);
 #else
-	    static int depth;
+	    static __thread int depth; 
+        // static __thread allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
 	    depth++;
 	    assert(depth < MAX_TRIES);
-	    SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC);
+	    SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
 	    depth--;
 	    return 1.0;
 #endif
@@ -599,11 +597,12 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		    cumulative[j] = 0;
 		SetEmpty(internal);
 #else
-		static int depth;
-		depth++;
-		assert(depth < MAX_TRIES);
-		SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC);
-		depth--;
+        static __thread int depth; 
+        // static __thread allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
+        depth++;
+        assert(depth < MAX_TRIES);
+        SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
+        depth--;
 		return 1.0;
 #endif
 	    }
@@ -635,20 +634,24 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
-	    for (j = 0; j < k; j++)
-		_doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    for (j = 0; j < k; j++) {
+		accums->doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    }
 	}
 	if (_outputMode & outputGDV) {
-	    for (j = 0; j < k; j++)
-		_doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+	    for (j = 0; j < k; j++) {
+        accums->doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+	    }
 	}
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	_graphletConcentration[GintOrdinal] += ocount;
+	accums->graphletConcentration[GintOrdinal] += ocount;
 
 	_g_overcount = ocount;
     }
+
+    SetFree(internal);
     return 1.0;
 }
 
@@ -1289,7 +1292,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
 	SampleGraphletLuBressanReservoir(G, V, Varray, k, cc); // pretty slow but not as bad as unbiased
 	break;
     case SAMPLE_EDGE_EXPANSION:
-	SampleGraphletEdgeBasedExpansion(G, V, Varray, k, cc); // Faster than NBE but less well tested and understood.
+	SampleGraphletEdgeBasedExpansion(G, V, Varray, k, cc, accums); // Faster than NBE but less well tested and understood.
 	break;
     case SAMPLE_MCMC:
         if(!_window) {
