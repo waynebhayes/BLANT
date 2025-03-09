@@ -42,7 +42,7 @@ extern GRAPH *_EDGE_COVER_G;
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums);
 double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
 double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k);
-double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
+double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums);
 double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
 double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k);
 double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
