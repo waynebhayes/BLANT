@@ -37,14 +37,16 @@ NODES=""
 case "$1" in
 -f) FRAC="$2"; shift 2;;
 -n) NUM="$2"; shift 2; die "-n not yet implemented" ;;
-*)  NODES="$1"; shift;
-    cat "$NODES" > $TMPDIR/nodes
+-) NODES="-"; shift; cat > $TMPDIR/nodes;;
+*) [ -r "$1" ] || die "'$1' needs to be an input file of nodes";
+    NODES="$1"; shift;
+    cp "$NODES" $TMPDIR/nodes
     ;;
 esac
 
-[ $# -eq 1 ] || die "Last argument must be a graph file"
+[ $# -eq 1 -a -r "$1" ] || die "Last argument must be a graph file"
 
-cat "$1" > $TMPDIR/graph.el || die "couldn't copy graph file '$1'"
+cp -p "$1" $TMPDIR/graph.el || die "couldn't copy graph file '$1'"
 
 if [ "$FRAC" != "UNDEF" ]; then # create random induced subgraph
     awk 'BEGIN{srand(); n=0; FRAC='"$FRAC"';
@@ -77,8 +79,8 @@ awk 'ARGIND==1{
 	++nodes[$1];
     }
     ARGIND==2{
-	if(NF<2||NF>3) {
-	    printf "second file \"%s\", line %d: expecting 2 columns (an edge) but got \"%s\"\n",
+	if(NF!=2 && NF!=3) {
+	    printf "second file \"%s\", line %d: expecting 2 or 3 columns (an edge, possibly weighted) but got \"%s\"\n",
 		FILENAME,FNR,$0 >"/dev/fd/2"; exit 1
 	}
 	if(($1 in nodes) && ($2 in nodes)) print;
