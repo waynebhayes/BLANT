@@ -11,6 +11,7 @@ REQUIRED ARGUMENTS:
     EDs is a list of the edge density thresholds to explore
 OPTIONS (added BEFORE the blant.exe name)
     -D DIR: use existing blant output files in directory DIR
+    -T DIR: use temp space here rather than /tmp
     -A: Use Sweta Jain's Turan's Shadow code to estimate absolute counts
     -C: run on the complement graph, G' (careful, this can cause long run times)
     -1: exit after printing only one 1 cluster (the biggest one)
@@ -51,11 +52,6 @@ not(){ if eval "$@"; then return 1; else return 0; fi; }
 newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
 parse(){ awk "BEGIN{print $*}" </dev/null; }
 
-# Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
-TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
- trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
-#echo "TMPDIR is $TMPDIR"
-
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
 [ $# = 0 ] && usage
@@ -64,7 +60,6 @@ minClusArg=0
 maxClus=2147483647 # 2^31-1
 minEdgeMean=0.5
 RANDOM_SEED=
-BLANT_FILES="$TMPDIR"
 COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit (which uses FAR more memory, like 10-100x)
 SQR_NORM=0
 WEIGHTED=''
@@ -85,6 +80,7 @@ PRINT_MEMBERS=1
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 5n"
+BLANT_FILES=''
 
 while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     case "$1" in
@@ -95,6 +91,7 @@ while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     -s) SAMPLE_METHOD="-s$2"; shift 2;;
     -s*) SAMPLE_METHOD="$1"; shift;;
     -D) BLANT_FILES="$2"; shift 2;;
+    -T) LOCAL_TMP="$2"; shift 2;;
     -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
     -v) VERBOSE=1; QUIET=''; shift;;
@@ -115,6 +112,12 @@ while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
 done
 
 [ $# -ne 4 ] && die "expecting exactly 4 mandatory arguments, but you supplied $#"
+
+# Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
+[ "$TMPDIR" ] || TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
+ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+#echo "TMPDIR is $TMPDIR"
+[ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
 
 BLANT_CMD="$1 ${PRECISION}L $QUIET";
 BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
@@ -185,7 +188,7 @@ for edgeDensity in "${EDs[@]}"; do
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
 		ASSERT(cMode=="g" || cMode=="o", "COMMUNITY_MODE must be o or g, not "cMode);
 		rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
-		minEdges=MAX(rounded_edC, ('$k'-1))
+		minEdges=MAX(rounded_edC, ('$k')-1)
 	    }
 	    ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
 	    ARGIND==2 && FNR>1 && ((FNR-2) in canonEdges) {for(i=1;i<=NF;i++)orbit2canon[$i]=FNR-2}
