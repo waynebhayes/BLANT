@@ -372,7 +372,7 @@ double PerturbPartition(foint f) {
     double before = ScorePartition(true, f);
     int choice = drand48() * 3;
     //if(sa) printf("Iter %lu ", sa->iter);
-    printf("Choice = %d\n", choice);
+    //printf("Choice = %d\n", choice);
     /*
     for(int i = 0; i < P->n; ++i){
 	printf("i = %d\n");
@@ -410,16 +410,13 @@ double PerturbPartition(foint f) {
 }
 
 Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
-    Boolean actually;
     printf("Accept? %d\n", accept);
     PARTITION * P = (PARTITION *) f.v;
     double before = ScorePartition(true, f);
-    printf("P->n = %d, _newCom = %d, _oldCom = %d\n", P->n, _newCom, _oldCom);
+    //printf("P->n = %d, _newCom = %d, _oldCom = %d\n", P->n, _newCom, _oldCom);
     //printf("split fail = %d\n", _moveOption == 2 && _splitRej);
-    if(accept || (_moveOption == 2 && _splitRej)) actually = accept ? true : false; // do nothing?
+    if(accept || (_moveOption == 2 && _splitRej)) ; // do nothing?
     else {
-	//FIXME: need to retrieve whatever info is needed to revert a move
-	
 	int * memberList = Calloc(sizeof(int), SetCardinality(P->moved));
 	int i, j, n = SetToArray(memberList, P->moved);
 	// Could abstract moving these nodes into a function
@@ -444,6 +441,7 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
 	//PrintCommunity(P->C[_newCom]);
 
 	if(_moveOption == 1){
+	    // Move any overlapping nodes back into the original community as well
 	    int * commonNodes = Calloc(sizeof(int), SetCardinality(P->common));
 	    int a, b, c = SetToArray(commonNodes, P->common);
 	    for(i = 0; i < c; ++i)
@@ -453,15 +451,14 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
 	Free(memberList);
 	if(_moveOption == 2)
 	    PartitionDelCommunity(P, _newCom);
-	actually = true;
     }
     SetEmpty(P->moved);
     SetEmpty(P->common);
     double after = ScorePartition(true, f);
-    printf("\nMaybe Before = %f, After = %f\n", before, after);
+    //printf("\nMaybe Before = %f, After = %f\n", before, after);
     if(before > after)
-	fprintf(stderr, "ERROR: Rejection failed\n");
-    return actually;
+	fprintf(stderr, "ERROR: Rejection failed, before > after\n");
+    return accept;
 }
 
 void HillClimbing(PARTITION *P, int tries){
