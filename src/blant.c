@@ -734,7 +734,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G)
 	    printf("%s", PrintNode(0,i));
 	    for(canon=0; canon < _numCanon; canon++)
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) printf(" %.15g", GDV(i,canon));
+			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) {
+		    assert(_numThreads == 1);
+		    printf(" %.15g", GDV(i,canon));
+		}
 		else printf(" %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
 	    puts("");
 	}
