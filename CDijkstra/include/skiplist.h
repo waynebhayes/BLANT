@@ -48,6 +48,7 @@ public:
     void insertElement(double key, int vA, int vB);
     void deleteElement(double key, int vA, int vB);
     Node* searchElement(double key);
+    Node* randomSelect(Node* start);
     void displayList();
     int topValue();
     int currentLevel();
