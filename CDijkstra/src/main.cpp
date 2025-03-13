@@ -5,14 +5,11 @@
 #include <chrono>
 #include <unordered_map>
 #include <unordered_set>
-#include <unordered_map>
-#include <unordered_set>
 #include "graph.h"
 #include "skiplist.h" 
 
 int main()
 {
-    auto start_total = std::chrono::high_resolution_clock::now();
     auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
     std::string Graph1 = "test/RNorvegicus.el";
@@ -97,7 +94,6 @@ int main()
 
     // 5. Initialize alignment process
     auto start_alignment = std::chrono::high_resolution_clock::now();
-    auto start_alignment = std::chrono::high_resolution_clock::now();
     bool alignmentInProgress = true;
     SkipList skiplist(20, 0.5);
     int iterationCount = 0;
@@ -147,7 +143,6 @@ int main()
         double key;
         int first, second;
         std::tie(key, first, second) = tup;
-
 
         if (key != -1.0) {
         //std::cout << "Popped node => key: " << key

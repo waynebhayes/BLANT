@@ -13,30 +13,7 @@ bool buildNameMappings(
     nameToIndex.reserve(estimatedNodeCount);
     indexToName.reserve(estimatedNodeCount);
 
-bool buildNameMappings(
-    const std::string& filename,
-    std::unordered_map<std::string, int>& nameToIndex,
-    std::vector<std::string>& indexToName,
-    int estimatedNodeCount
-) {
-    // Reserve space if you know roughly how many nodes to expect
-    nameToIndex.reserve(estimatedNodeCount);
-    indexToName.reserve(estimatedNodeCount);
-
     std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file: " << filename << "\n";
-        return false;
-    }
-
-    int currentIndex = 0;
-    std::string nodeName;
-    while (file >> nodeName) {
-        // If nodeName isn't in the map, add it
-        if (nameToIndex.find(nodeName) == nameToIndex.end()) {
-            nameToIndex[nodeName] = currentIndex;
-            indexToName.push_back(nodeName);
-            currentIndex++;
     if (!file.is_open()) {
         std::cerr << "Error: Could not open file: " << filename << "\n";
         return false;
@@ -89,48 +66,11 @@ bool AdjMatrix(const std::string& filename,
     }
     file.close();
     return true;
-    return true;
 }
-
-bool AdjMatrix(const std::string& filename,
-    const std::unordered_map<std::string,int>& nameToIndex,
-    std::vector<std::vector<bool>>& adjMatrix)
-{
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-    std::cerr << "Error: Could not open file: " << filename << "\n";
-    return false;
-    }
-
-    std::string node1, node2;
-    while (file >> node1 >> node2) {
-    // Convert each name to its index
-    auto it1 = nameToIndex.find(node1);
-    auto it2 = nameToIndex.find(node2);
-    if (it1 == nameToIndex.end() || it2 == nameToIndex.end()) {
-    // This would be unusual if first pass was done correctly
-    // handle errors or skip
-    std::cerr << "Warning: Node not found in map: " 
-       << node1 << " or " << node2 << "\n";
-    continue;
-    }
-
-    int idx1 = it1->second;
-    int idx2 = it2->second;
-
-    // Mark adjacency as true 
-    adjMatrix[idx1][idx2] = true;
-    adjMatrix[idx2][idx1] = true;
-    }
-    file.close();
-    return true;
-}
-
 
 
 // Overload: getConnectedNodes(vector<int>, matrix)
 std::vector<int> getConnectedNodes(const std::vector<int>& nodeIndices,
-                                   const std::vector<std::vector<bool>>& adjMatrix)
                                    const std::vector<std::vector<bool>>& adjMatrix)
 {
         std::set<int> uniqueConnectedNodes;  // Use a set to ensure uniqueness
@@ -147,7 +87,6 @@ std::vector<int> getConnectedNodes(const std::vector<int>& nodeIndices,
     return std::vector<int>(uniqueConnectedNodes.begin(), uniqueConnectedNodes.end());
 }
 std::vector<int> getConnectedNodes(int nodeIndex,
-    const std::vector<std::vector<bool>>& adjMatrix)
     const std::vector<std::vector<bool>>& adjMatrix)
 {
 std::set<int> uniqueConnectedNodes;  // Use a set to ensure uniqueness
@@ -203,48 +142,7 @@ void mapNamesToIndicesFromFile(
 
     file.close();
 }
-void mapNamesToIndicesFromFile(
-    const std::string& filenameSeed,
-    std::unordered_map<std::string, int>& nodeIndexMapping1,
-    std::unordered_map<std::string, int>& nodeIndexMapping2,
-    std::vector<std::pair<int, int>>& alignmentList
-) {
-    std::ifstream file(filenameSeed);
-    if (!file.is_open()) {
-        std::cerr << "Error: Cannot open file " << filenameSeed << std::endl;
-        return;
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        std::string name1, name2;
-
-        if (!(iss >> name1 >> name2)) {
-            std::cerr << "Error: Invalid line format in " << filenameSeed << ": " << line << std::endl;
-            continue;
-        }
-
-        // Ensure both names have an index
-        if (nodeIndexMapping1.find(name1) == nodeIndexMapping1.end()) {
-            int newIndex = nodeIndexMapping1.size();
-            nodeIndexMapping1[name1] = newIndex;
-        }
-
-        if (nodeIndexMapping2.find(name2) == nodeIndexMapping2.end()) {
-            int newIndex = nodeIndexMapping2.size();
-            nodeIndexMapping2[name2] = newIndex;
-        }
-
-        // Store the alignment as index pairs
-        alignmentList.emplace_back(nodeIndexMapping1[name1], nodeIndexMapping2[name2]);
-    }
-
-    file.close();
-}
 // findIndex
-int findIndex(const std::unordered_map<std::string,int>& nodeIndexMapping,
-    const std::string& nodeName)
 int findIndex(const std::unordered_map<std::string,int>& nodeIndexMapping,
     const std::string& nodeName)
 {
@@ -256,18 +154,8 @@ return -1; // or handle "not found"
 return it->second; // return the integer index
 }
 
-// Use .find() to locate the key
-auto it = nodeIndexMapping.find(nodeName);
-if (it == nodeIndexMapping.end()) {
-return -1; // or handle "not found"
-}
-return it->second; // return the integer index
-}
-
 
 void ReadSeed(const std::string& seedFilename,
-    const std::unordered_map<std::string,int>& nodeIndexMapping1,
-    const std::unordered_map<std::string,int>& nodeIndexMapping2,
     const std::unordered_map<std::string,int>& nodeIndexMapping1,
     const std::unordered_map<std::string,int>& nodeIndexMapping2,
     std::vector<int>& SeedNodeGraph1,
@@ -409,48 +297,6 @@ std::ostream& operator<<(std::ostream& os,
     return os;
 }
 
-
-void PrintNameToIndex(const std::unordered_map<std::string, int>& nameToIndex)
-{
-    std::cout << "\n=== nameToIndex Map ===\n";
-    for (const auto& pair : nameToIndex) {
-        // pair.first is the node name (std::string)
-        // pair.second is the index (int)
-        std::cout << "Node \"" << pair.first 
-                  << "\" => index " << pair.second << '\n';
-    }
-}
-
-void PrintIndexToName(const std::vector<std::string>& indexToName)
-{
-    std::cout << "\n=== indexToName Vector ===\n";
-    for (int i = 0; i < (int)indexToName.size(); ++i) {
-        std::cout << "Index " << i 
-                  << " => Node \"" << indexToName[i] << "\"\n";
-    }
-}
-
-void PrintAdjMatrix(const std::vector<std::vector<bool>>& adjMatrix)
-{
-    // If you want to show column indices:
-    std::cout << "    ";
-    for (int col = 0; col < (int)adjMatrix.size(); ++col) {
-        std::cout << col << " ";
-    }
-    std::cout << "\n";
-
-    // Print each row
-    for (int row = 0; row < (int)adjMatrix.size(); ++row) {
-        // Print row index
-        std::cout << row << ":  ";
-
-        for (int col = 0; col < (int)adjMatrix[row].size(); ++col) {
-            // Convert the bool to 1 or 0
-            std::cout << (adjMatrix[row][col] ? 1 : 0) << " ";
-        }
-        std::cout << "\n";
-    }
-}
 
 void PrintNameToIndex(const std::unordered_map<std::string, int>& nameToIndex)
 {

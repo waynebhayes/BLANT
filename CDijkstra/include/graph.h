@@ -22,20 +22,16 @@ bool AdjMatrix(const std::string& filename,
 // Get connected nodes (overload for a list of nodes)
 std::vector<int> getConnectedNodes(const std::vector<int>& nodeIndices,
                                    const std::vector<std::vector<bool>>& adjMatrix);
-                                   const std::vector<std::vector<bool>>& adjMatrix);
 
 // Get connected nodes (overload for a single node)
 
 
 // Find a node index by name
 int findIndex(const std::unordered_map<std::string,int>& nodeIndexMapping,
-int findIndex(const std::unordered_map<std::string,int>& nodeIndexMapping,
               const std::string& nodeName);
 
 // Map names to indices from a file
 void ReadSeed(const std::string& seedFilename,
-    const std::unordered_map<std::string,int>& nodeIndexMapping1,
-    const std::unordered_map<std::string,int>& nodeIndexMapping2,
     const std::unordered_map<std::string,int>& nodeIndexMapping1,
     const std::unordered_map<std::string,int>& nodeIndexMapping2,
     std::vector<int>& SeedNodeGraph1,
@@ -63,8 +59,6 @@ std::vector<std::vector<float>> ReadSimFile(
     const std::unordered_map<std::string, int>& nodeIndexMapping2,
     const std::string& filename);
 std::vector<int> getConnectedNodes(int nodeIndex,
-    const std::vector<std::vector<bool>>& adjMatrix);
-
     const std::vector<std::vector<bool>>& adjMatrix);
 
 // Overloaded operators for printing
