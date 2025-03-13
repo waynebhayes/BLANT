@@ -5,14 +5,11 @@
 #include <chrono>
 #include <unordered_map>
 #include <unordered_set>
-#include <unordered_map>
-#include <unordered_set>
 #include "graph.h"
 #include "skiplist.h" 
 
 int main()
 {
-    auto start_total = std::chrono::high_resolution_clock::now();
     auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
     std::string Graph1 = "test/RNorvegicus.el";
@@ -70,7 +67,7 @@ int main()
     //    Display the matrix
     //PrintAdjMatrix(adjMatrix1);
     //PrintAdjMatrix(adjMatrix2);
-
+    
     // 3. read seed
     std::vector<int> SeedNodeGraph1;
     std::vector<int> SeedNodeGraph2;
@@ -83,20 +80,28 @@ int main()
     auto end_sim = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_sim = end_sim - start_sim;
     std::cout << "[TIME] Reading similarity file: " << elapsed_sim.count() << " seconds\n";
+    
+    std::ofstream outFile("output.txt",std::ios::app);
+    if (!outFile.is_open()) {
+        std::cerr << "Error opening output.txt\n";
+        return 1;
+    }
+    outFile << "===== file reading time =====\n";
+    outFile << "Graph mapping time: " << elapsed_mapping.count() << " seconds\n";
+    outFile << "Adjacency matrix construction time: " << elapsed_adj_matrix.count() << " seconds\n";
+    outFile << "Similarity file reading time: " << elapsed_sim.count() << " seconds\n\n";
+
 
     // 5. Initialize alignment process
-    auto start_alignment = std::chrono::high_resolution_clock::now();
     auto start_alignment = std::chrono::high_resolution_clock::now();
     bool alignmentInProgress = true;
     SkipList skiplist(20, 0.5);
     int iterationCount = 0;
-    const int maxIterations = 10;
-    std::vector<int> connectedNodes1;
-    std::vector<int> connectedNodes2;
+    //const int maxIterations = 10;
     std::vector<int> connectedNodes1;
     std::vector<int> connectedNodes2;
     // Main loop: continue until no candidates meet the threshold
-    while (alignmentInProgress&& iterationCount < maxIterations) {
+    while (alignmentInProgress) {
         if(iterationCount == 0){
             connectedNodes1 = getConnectedNodes(SeedNodeGraph1, adjMatrix1);
             connectedNodes2 = getConnectedNodes(SeedNodeGraph2, adjMatrix2);
@@ -134,12 +139,9 @@ int main()
 
         // 9. Pop one candidate from skip list
         auto tup = skiplist.pop(0.1);  // returns (key, first, second)
-        // 9. Pop one candidate from skip list
-        auto tup = skiplist.pop(0.1);  // returns (key, first, second)
         double key;
         int first, second;
         std::tie(key, first, second) = tup;
-
 
         if (key != -1.0) {
         //std::cout << "Popped node => key: " << key
@@ -171,6 +173,7 @@ std::cout << "[TIME] Alignment process: " << elapsed_alignment.count() << " seco
     //std::cout << "\nExecution Time: " << elapsed.count() << " seconds\n";
 
     std::cout << "\nFinal Alignment (name->name):\n";
+    outFile << "Final Alignment (name -> name):\n";
     for (size_t i = 0; i < SeedNodeGraph1.size(); ++i) {
         // Indices in each graph
     int idx1 = SeedNodeGraph1[i]; 
@@ -180,20 +183,14 @@ std::cout << "[TIME] Alignment process: " << elapsed_alignment.count() << " seco
     std::string node2Name = indexToName2[idx2];
     // Print the pair
     std::cout << "(" << node1Name << " => " << node2Name << ")\n";
-    std::cout << "\nFinal Alignment (name->name):\n";
-    for (size_t i = 0; i < SeedNodeGraph1.size(); ++i) {
-        // Indices in each graph
-    int idx1 = SeedNodeGraph1[i]; 
-    int idx2 = SeedNodeGraph2[i];
-    // Convert to node names
-    std::string node1Name = indexToName1[idx1];
-    std::string node2Name = indexToName2[idx2];
-    // Print the pair
-    std::cout << "(" << node1Name << " => " << node2Name << ")\n";
+    outFile << "(" << node1Name << " => " << node2Name << ")\n";
     }
     auto end_total = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_total = end_total - start_total;
     std::cout << "[TIME] Total execution time: " << elapsed_total.count() << " seconds\n";
+
+    outFile << "[TIME] Alignment process: " << elapsed_alignment.count() << " seconds\n";
+    outFile << "===== End of Run ===== ";
+    outFile.close();
     return 0;
 }
-
