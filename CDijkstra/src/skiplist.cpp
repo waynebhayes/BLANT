@@ -180,7 +180,7 @@ void SkipList::deleteElement(double key, int vA, int vB)
         while(current->forward[i] != NULL  &&
               current->forward[i]->key < key)
             current = current->forward[i];
-        update[i] = current;
+        //update[i] = current;
     }
 
     /* reached level 0 and forward pointer to 
@@ -197,6 +197,16 @@ void SkipList::deleteElement(double key, int vA, int vB)
         /* start from lowest level and rearrange
            pointers just like we do in singly linked list
            to remove target node */
+
+        //compute the update
+           for (int i = level; i >= 0; i--) {
+            Node* cur = header;
+            while (cur->forward[i] != NULL && cur->forward[i] != current) {
+                cur = cur->forward[i];
+            }
+            update[i] = cur;
+        }
+    
         for(int i=0;i<=level;i++)
         {
             /* If at level i, next node is not target 
@@ -247,8 +257,9 @@ Node* SkipList::searchElement(double key)
     // search key, we have found our target node
     if (candidate && candidate->key == key)
     {
+        //randomly select among all candiate with the same keys during traversal
         std::cout << "Found exact key: " << key << "\n";
-        return candidate;
+        return randomSelect(candidate);
     }
     else
     {
@@ -259,11 +270,18 @@ Node* SkipList::searchElement(double key)
         // If there is no valid predecessor (current is header), return candidate.
         if (current == header)
         {
-            std::cout << "Exact key not found. Closest key is: "
-                      << (candidate ? candidate->key : -1) << "\n";
-            return candidate;
+            if (candidate)
+            {
+                std::cout << "Exact key not found. Closest key is: " 
+                          << candidate->key << "\n";
+                return randomSelect(candidate);
+            }
+            else
+            {
+                std::cout << "Exact key not found. No candidate available.\n";
+                return candidate; // candidate is null
+            }
         }
-        
         // If there is no candidate on the right, return the predecessor.
         if (!candidate)
         {
@@ -272,10 +290,9 @@ Node* SkipList::searchElement(double key)
         }
         
         // Both predecessor and candidate exist. Compare differences.
-        double diffPredecessor = key - current->key;
-        double diffCandidate = candidate->key - key;
-        
-        if (diffPredecessor <= diffCandidate)
+        //double diffPredecessor = key - current->key;
+        //double diffCandidate = candidate->key - key;
+        /*if (diffPredecessor <= diffCandidate)
         {
             std::cout << "Exact key not found. Closest key is: " << current->key << "\n";
             return current;
@@ -285,6 +302,11 @@ Node* SkipList::searchElement(double key)
             std::cout << "Exact key not found. Closest key is: " << candidate->key << "\n";
             return candidate;
         }
+        */
+        
+        //always use candidate because it has higher sim
+        std::cout << "Exact key not found. Closest key is: " << candidate->key << "\n";
+            return randomSelect(candidate);
     }
 
 }
@@ -333,11 +355,31 @@ double chosenKey = chosen->key;
 int chosenA = chosen->VertexA;
 int chosenB = chosen->VertexB;
 
-// Traverse level 0 (the bottom level) of the skip list.
+std::vector<std::tuple<double, int, int>> nodesToDelete;
+Node* current = header->forward[0];
+while (current != nullptr) {
+    if (current->VertexA == chosenA || current->VertexB == chosenB) {
+        //std::cout << "[DEBUG] Processing node key: " << current->key << "\n";
+        //std::cout << "[DEBUG] Forward[0] is at address: " << current->forward[0] << "\n";
+        nodesToDelete.push_back(std::make_tuple(current->key, current->VertexA, current->VertexB));
+    }
+    current = current->forward[0];
+}
+for (const auto& nodeInfo : nodesToDelete) {
+    double key = std::get<0>(nodeInfo);
+    int vA = std::get<1>(nodeInfo);
+    int vB = std::get<2>(nodeInfo);
+    deleteElement(key, vA, vB);
+}
+
+/*// Traverse level 0 (the bottom level) of the skip list.
 Node* current = header->forward[0];
 while (current != nullptr) {
     // Save next pointer, since deletion will affect current->forward[0].
     Node* next = current->forward[0];
+    std::cout << "[DEBUG] Processing node key: " << current->key << "\n";
+    std::cout << "[DEBUG] Forward[0] is at address: " << current->forward[0] << "\n";
+
     // If this node involves either vertex of the chosen node...
     if (current->VertexA == chosenA || current->VertexB == chosenB) {
         // Update the existence matrix accordingly.
@@ -348,9 +390,33 @@ while (current != nullptr) {
     }
     current = next;
 }
+*/
+
+
 
 
     return std::make_tuple(chosenKey, chosenA, chosenB);
 }
 
 
+Node* SkipList::randomSelect(Node* start)
+{
+    // If start is null, return null.
+    if (!start)
+        return nullptr;
+
+    Node* selected = start;
+    int count = 1;
+
+    // Traverse the level-0 chain while the key remains equal to start->key.
+    Node* temp = start->forward[0];
+    while (temp && temp->key == start->key)
+    {
+        count++;
+        // With probability 1/count, select the current node.
+        if (rand() % count == 0)
+            selected = temp;
+        temp = temp->forward[0];
+    }
+    return selected;
+}
