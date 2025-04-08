@@ -21,14 +21,16 @@ std::pair<int, int> dobfs(
     	queue.pop();
     	++nodes;
     	edges += graph.at(src).size();
-    	for(int n : graph.at(src)){
+    	const std::vector<int>&neighbors = graph.at(src);
+	for(std::vector<int>::const_iterator it = neighbors.begin(); it != neighbors.end(); ++it){
+	    int n = *it;
     	    if(std::find(components.begin(), components.end(), n) == components.end()){
-    	    	queue.push(n);
+		queue.push(n);
     		components[n] = cnum;
     	    }
     	}
     }	
-    return {nodes, edges/2};
+    return std::make_pair(nodes, edges/2);
 }
 
 int getcomponents(
@@ -132,8 +134,9 @@ void getprops(const string &input_file_name, int evalues = -1) {
     cout << "Diameter: " << diameter << endl;
 
     cout << "K-hop distribution: ";
-    for (auto &[k, v] : khop) {
-        cout << v << " ";
+    for (std::map<int, int>::iterator it = khop.begin(); it != khop.end(); ++it) {
+        int v = it->second;
+	cout << v << " ";
     }
     cout << endl;
 
@@ -144,14 +147,14 @@ void getprops(const string &input_file_name, int evalues = -1) {
     cout << endl;
 
     cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
-    for (auto it = nbw.BegI(); it != nbw.EndI(); it++) {
+    for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
         TInt nodeid = it.GetKey();
 	TFlt val = it.GetDat();
 	cout << nodeid << " " << val << endl;
     }
 
     cout << "node1 node2 edge_betweenness" << endl;
-    for (auto it = ebw.BegI(); it != ebw.EndI(); it++) {
+    for (TIntPrFltH::TIter it = ebw.BegI(); it != ebw.EndI(); it++) {
 	TIntPr nodepid = it.GetKey();
 	TFlt val = it.GetDat();
         cout << nodepid.GetVal1() << " : " << nodepid.GetVal2() << " " << val << " " << endl;
