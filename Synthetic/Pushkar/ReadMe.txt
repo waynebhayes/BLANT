@@ -7,7 +7,7 @@ Install 7zip if not already on system
 Extract SNAP-6.0.7z with 7zip
 
 Usage:
-Run with command g++ -ISnap-6.0/glib-core main.cpp
+Run with command g++ -std=c++98 -ISnap-6.0/glib-core main.cpp
 ------------------------------------------------------------------
 
 -- Original Readme from Pushkar Gupta, around 2019.--
