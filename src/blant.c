@@ -36,7 +36,7 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're respons
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
 #include "../C++/mt19937.h" // not yet implemented correctly
-__thread MT19937 *mt19937Seed;
+_Thread_local MT19937 *mt19937Seed;
 void RandomSeed(long seed) {
     if(mt19937Seed) Mt19937Free(mt19937Seed);
     mt19937Seed = Mt19937Alloc(seed);
@@ -46,7 +46,7 @@ double RandomUniform(void) {
 }
 #else
 #include "rand48.h"
-__thread unsigned short erand48Seed[3];
+_Thread_local unsigned short erand48Seed[3];
 void RandomSeed(long seed) {
     // split the number seed into 3 portions of 16 bits
     erand48Seed[0] = (unsigned short)(seed & 0xFFFF);         // Lower 16 bits
@@ -519,33 +519,47 @@ void* RunBlantInThread(void* arg) {
     unsigned Varray[varraySize];
     bool earlyAbort = false;
     double weight;
+    unsigned long stuck = 0;
+    SET *prev_node_set = SetAlloc(G->n);
+    SET *intersect_node = SetAlloc(G->n);
+
+    if (_outputMode & graphletDistribution) {
+        SampleGraphlet(G, V, Varray, k, G->n, NULL);
+        // i++;
+        SetCopy(prev_node_set, V);
+        TinyGraphInducedFromGraph(empty_g, G, Varray);
+    }
+
+    int samplesCounter = 0;
 
     // begin sampling
     // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
-    for(int i=0; i<numSamples; i++)
+    while (samplesCounter < numSamples)
     {
-		unsigned long stuck = 0; // might be able to optimize this by making stuck a static shared amongst threads
         if (_window) {
             Fatal("Multithreading not yet implemented for any window related output modes.");
-        } if (_outputMode & graphletDistribution) {
-            Fatal("Multithreading not yet implemented forgraphlet distribution output mode.");
+        } 
+        if (_outputMode & graphletDistribution) {
+            // calls SampleGraphlet internally
+            ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
         } else {
             weight = SampleGraphlet(G, V, Varray, k, G->n, &args->accums);
             if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, &args->accums)) {
-                // some more processing perhaps
+                stuck = 0; // reset stuck counter when finding a newly processed graphlet
             } else {
-                // // processing failed, decrease i to sample another graphlet
-                if (numSamples) i--;
-                ++stuck;
+                // processing failed, ignore sample
+                samplesCounter--;
+                stuck++;
                 if(stuck > MAX(G->n,numSamples)) {
                     if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
                     break; // no new samples able to be found, early abort
                 }
             }
         }
-        // now just have to sort through RunBlantFromGraph for loop to see where to 
+        samplesCounter++;
     }
-    SetFree(V);
+    SetFree(prev_node_set);
+    SetFree(intersect_node);
     TinyGraphFree(empty_g);
     pthread_exit(0);
 }
@@ -592,6 +606,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         }
     } // note that this double allocation of GDV/ODV vectors may slow things down
 
+    // initialize distribution tables if needed
+    if (_outputMode & graphletDistribution) {
+        _graphletDistributionTable = Ocalloc(_numCanon, sizeof(int*));
+        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Ocalloc(_numCanon, sizeof(int));
+        for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
+    }
+
     // initiailize graphlet count/concentrations since they contain garbage
     for (i = 0; i < _numCanon; i++) {
         _graphletConcentration[i] = 0;
@@ -603,9 +624,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
-        // ethan note: not really sure the purpose of this.. going to ask hayes
-        Accumulators REMOVE_TEMP_VAR;
-        SampleGraphlet(G, V, Varray, k, G->n, &REMOVE_TEMP_VAR);
+        SampleGraphlet(G, V, Varray, k, G->n, NULL);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
@@ -615,6 +634,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
     if (_sampleMethod == SAMPLE_INDEX) {
+        if (_NUM_THREADS > 1) {
+            Note("Index sampling must be single threaded, thus only one thread will be ran.");
+            _NUM_THREADS = 1; // this is unecessary since the below code doesn't use _NUM_THREADS at all, but keep anyway
+        }
+
         unsigned prev_nodes_array[_k];
 
         // Get heuristic values based on orbit number, if ODV file provided
@@ -654,7 +678,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 fprintf(stderr, "%d%% done\n", percentToPrint);
                 ++percentToPrint;
             }
-	}
+	    }
     }
     else if (_sampleMethod == SAMPLE_MCMC_EC) {
 	Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
@@ -687,13 +711,16 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     else // sample graphlets from entire graph using either numSamples or confidence
     {
 
-        // IMPORTANT: Apologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
+        // pologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (
             _NUM_THREADS > 1 && (
             !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || _outputMode & indexGraphlets) ||
             !(_sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION)
             )
-        ) Apology("Multithreading (t=%d) not supported for the specified output mode or sampling method (or both).", _NUM_THREADS);
+        ) {
+            Note("Multithreading (t=%d) not supported for the specified output mode or sampling method (or both). Setting number of threads to 1.", _NUM_THREADS);
+            _NUM_THREADS = 1;
+        }
        
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
@@ -1004,13 +1031,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	}
     }
     if(_outputMode & graphletDistribution) {
-	char buf[BUFSIZ];
-	buf[0]='\0'; // ensure it's length 0 to start
         for(i=0; i<_numCanon; i++) {
             for(j=0; j<_numCanon; j++)
-                sprintf(buf+strlen(buf), "%d ", _graphletDistributionTable[i][j]);
-	    assert(strlen(buf) < BUFSIZ);
-            puts(buf);
+                printf("%d ", _graphletDistributionTable[i][j]);
+            printf("\n");
         }
     }
     if(!_outputMode) Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
@@ -1698,8 +1722,7 @@ int main(int argc, char *argv[])
     if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be at least 6 for INDEX sampling method because there are no unambiguous graphlets for k<=5",_k);
 
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
-    if(_freqDisplayMode == freq_display_mode_undef)
-	_freqDisplayMode = freq_display_mode_estimate_absolute; // Default to estimating count
+    if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = freq_display_mode_estimate_absolute; // Default to estimating count
 
     if(numSamples && _desiredPrec) Fatal("cannot specify both -n (sample size) and -[Pp] (desired precision)");
     if(!numSamples && !_desiredPrec) { // default to 2 digits of precision at 99.9% confidence
