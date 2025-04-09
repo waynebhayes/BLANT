@@ -107,7 +107,7 @@ static GRAPH *_G; // local copy of GRAPH *G
 // Also this is NON-RE-ENTRANT.
 // Only does anything if sampling method is MCMC, otherwise returns false. This is because this function is terribly non re-entrant
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
-    if (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_MCMC_EC) return false;
+    if (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_MCMC_EC && _sampleMethod != SAMPLE_INDEX) return false;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
     //if(_JOBS>1 || _MAX_THREADS>1) Apology("NodeSetSeenRecently is not re-entrant (called with %d jobs and %d max threads)", _JOBS, _MAX_THREADS);
@@ -328,8 +328,12 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||
-	    _canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else puts(PrintIndexEntry(buf, Gint, GintOrdinal, Varray, k, weight, perm));
+	    _canonNumEdges[GintOrdinal] < _min_edge_count) {
+            processed=false;
+        }
+	else {
+        puts(PrintIndexEntry(buf, Gint, GintOrdinal, Varray, k, weight, perm));
+    }
     }
     if(_outputMode & predict) {
 	assert(!G->weight);

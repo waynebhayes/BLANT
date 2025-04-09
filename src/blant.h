@@ -185,6 +185,7 @@ typedef struct {
     Accumulators accums;
     long seed;
 } ThreadData;
+
 void* RunBlantInThread(void* arg);
 
 #endif
