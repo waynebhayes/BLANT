@@ -37,6 +37,7 @@ NODES=""
 case "$1" in
 -f) FRAC="$2"; shift 2;;
 -n) NUM="$2"; shift 2; die "-n not yet implemented" ;;
+-) NODES="-"; shift; cat > $TMPDIR/nodes;;
 *) [ -r "$1" ] || die "'$1' needs to be an input file of nodes";
     NODES="$1"; shift;
     cp "$NODES" $TMPDIR/nodes
@@ -78,8 +79,8 @@ awk 'ARGIND==1{
 	++nodes[$1];
     }
     ARGIND==2{
-	if(NF!=2) {
-	    printf "second file \"%s\", line %d: expecting 2 columns (an edge) but got \"%s\"\n",
+	if(NF!=2 && NF!=3) {
+	    printf "second file \"%s\", line %d: expecting 2 or 3 columns (an edge, possibly weighted) but got \"%s\"\n",
 		FILENAME,FNR,$0 >"/dev/fd/2"; exit 1
 	}
 	if(($1 in nodes) && ($2 in nodes)) print;
