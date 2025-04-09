@@ -560,6 +560,7 @@ void* RunBlantInThread(void* arg) {
     }
     SetFree(prev_node_set);
     SetFree(intersect_node);
+    SetFree(V);
     TinyGraphFree(empty_g);
     pthread_exit(0);
 }
@@ -624,7 +625,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
-        SampleGraphlet(G, V, Varray, k, G->n, NULL);
+        // accumulators must be provided but no need for them
+        Accumulators trash;
+        SampleGraphlet(G, V, Varray, k, G->n, &trash);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
@@ -711,7 +714,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     else // sample graphlets from entire graph using either numSamples or confidence
     {
 
-        // pologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
+        // Apologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (
             _NUM_THREADS > 1 && (
             !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || _outputMode & indexGraphlets) ||
@@ -725,7 +728,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        pthread_t threads[_NUM_THREADS];        
+        pthread_t threads[_NUM_THREADS];
         ThreadData threadData[_NUM_THREADS];
         int samplesPerThread = numSamples / _NUM_THREADS;
         int leftover = numSamples - (samplesPerThread * _NUM_THREADS);
