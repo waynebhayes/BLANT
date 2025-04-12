@@ -373,9 +373,7 @@ double PartitionAllScores(PARTITION *P) {
     return total;
 }
 
-double dummyScore(Boolean global, foint f){
-    return 0.0;
-}
+
 
 double ScorePartition(Boolean global, foint f) {
     
@@ -422,13 +420,7 @@ double PerturbPartition(foint f) {
     int choice = drand48() * 3;
     //if(sa) printf("Iter %lu ", sa->iter);
     //printf("Choice = %d\n", choice);
-    /*
-    for(int i = 0; i < P->n; ++i){
-	printf("i = %d\n");
-	for(int j = 0; j < P->C[i]->n; ++j)
-	    printf
-    }
-    */
+    
     if(choice == 0 && P->n > 1){
 	MoveRandomNode(P);
 	_moveOption = 0; 
@@ -539,6 +531,9 @@ void HillClimbing(PARTITION *P, int tries){
     printf("Final score %g\n", P->total);
 }
 
+void simAnnealReport(unsigned long iters, foint currentSolution){
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -644,21 +639,20 @@ int main(int argc, char *argv[])
     f.v = P;
     	
 
-    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, dummyScore, MaybeAcceptPerturb, 100, 0, 0, NULL);
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 100, 0, 0, NULL);
     // Boolean SimAnnealSetSchedule(SIM_ANNEAL *sa, double tInitial, double tDecay);
     // void SimAnnealAutoSchedule(SIM_ANNEAL *sa); // to automatically create schedule
     // The above two functions need the accept/reject function to work
     sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
     SimAnnealRun(sa); // returns >0 if success, 0 if not done and can continue, <0 if error
     // foint SimAnnealSol(SIM_ANNEAL *sa))
-    // void SimAnnealFree(SIM_ANNEAL *sa);
     SimAnnealFree(sa);
 #endif
     for(int k = 0; k < P->n; ++k){
 	if(P->C[k]->n == 0)
 	    printf("ERROR: Com %d has 0 nodes\n", k); 
     }
-
+    printf("Final score = %f\n", P->total);
     printf("Attempting Partition Free\n");
     PartitionFree(P);
     printf("Partition Free completed\n");
