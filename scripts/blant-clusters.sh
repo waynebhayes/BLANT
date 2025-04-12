@@ -77,6 +77,7 @@ VERBOSE=0
 QUIET=-qq
 PRECISION=-p1
 PRINT_MEMBERS=1
+DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 1nr -k 5n"
@@ -114,7 +115,7 @@ done
 [ $# -ne 4 ] && die "expecting exactly 4 mandatory arguments, but you supplied $#"
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
-[ "$TMPDIR" ] || TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
+TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 #echo "TMPDIR is $TMPDIR"
 [ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
@@ -187,7 +188,7 @@ for edgeDensity in "${EDs[@]}"; do
 	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
 		ASSERT(cMode=="g" || cMode=="o", "COMMUNITY_MODE must be o or g, not "cMode);
-		rounded_edC=int(edC); if(rounded_edC < edC) rounded_edC++;
+		rounded_edC=int(edC); if(rounded_edC == edC) --rounded_edC; # allow one edge less than eps
 		minEdges=MAX(rounded_edC, ('$k')-1)
 	    }
 	    ARGIND==1 && FNR>1 && $2 {canonEdges[FNR-2]=$3}
@@ -223,7 +224,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
 		    if(M>0) pVal=M; else pVal=1/choose(n,2)^2; # heuristic to make pVal small enough to get significant clusters
 		    for(e=1;e<m;e++)if(eps^e<pVal) break;
-		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>e) break;
+		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>=e) break;
 		    if('$VERBOSE') printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
 		}
 		ASSERT(minClus>=1,"minClus "minClus" must be >=1");
@@ -234,7 +235,7 @@ for edgeDensity in "${EDs[@]}"; do
 	    }
 	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
 		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
-		for(i=4; i<=NF; i++) if(edge[$2][$i] > '$minEdgeMean'/2) # heuristing: avoid too-weak edges
+		for(i=4; i<=NF; i++) if(edge[$2][$i] > '$minEdgeMean'/2) # heuristic: avoid too-weak edges
 		    graphletNeighbors[$2][$i]=graphletNeighbors[$i][$2]=1;
 	    }
 
@@ -274,6 +275,8 @@ for edgeDensity in "${EDs[@]}"; do
 		PROCINFO["sorted_in"]=oldOrder;
 	    }
 	    END{n=length(degree); # number of nodes in the input network
+		if('$edgeDensity'==1) density_leeway=1;
+		else density_leeway = '$DENSITY_LEEWAY';
 		# make cluster and started empty sets; started is a list of nodes we should NOT start a new BFS on
 		delete cluster; cluster[0]=1; delete cluster[0];
 		delete started; started[0]=1; delete started[0];
@@ -300,14 +303,17 @@ for edgeDensity in "${EDs[@]}"; do
 			wgtEdgeCount += wgtEdgeHits;
 			S[u]=1;
 			Slen = length(S);
+			ASSERT(Slen > 0, "Slen must be > 0 but is "Slen);
 			if(Slen >= '$maxClus') break;
 			# CAREFUL: calling InducedEdges(S) every QueueNext() is VERY expensive; uncommenting the line below
 			# slows the program by more than 100x (NOT an exaggeration)
 			# WARN(edgeCount == InducedEdges(edge,S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(edge,S));
 			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
-			if (Slen>1){
+			if (Slen==1)
+			    AppendNeighbors(u, origin);
+			else {
 			    maxEdges = choose(Slen,2);
-			    if(edgeCount/maxEdges < '$edgeDensity') {
+			    if(edgeCount/maxEdges < '$edgeDensity' * density_leeway) {
 				delete S[u]; # u drops the edge density too low, so nuke it
 				if(edgePredict) {
 				    if((edgeCount+edgePredict)/maxEdges >= '$edgeDensity') {
@@ -326,11 +332,10 @@ for edgeDensity in "${EDs[@]}"; do
 				misses=0;
 				AppendNeighbors(u, orign);
 			    }
-			} else
-			    AppendNeighbors(u, origin);
+			}
 		    }
 		    #printf " |S|=%d edgeMean %g", length(S), wgtEdgeCount/(edgeCount?edgeCount:1) > "/dev/stderr"
-		    if(QueueLength("Q")==0 && length(S) > 1 && '$edgeDensity' < 1) { # irrelevant for cliques
+		    if(QueueLength("Q")==0 && length(S) > 1) {
 			# post-process to remove nodes with too low in-cluster degree---quite relevant for lower density
 			# communities where a node may be added because it does not
 			# reduce the *mean* degree of the cluster, but it does not really have sufficiently strong
@@ -340,7 +345,7 @@ for edgeDensity in "${EDs[@]}"; do
 			# The latter was added in response to our performance on the LFR graphs, but it does not appear
 			# to hurt performance anywhere else.
 			StatReset(""); delete degFreq;
-			tmpEdge = InducedEdges(edge,S, degreeInS);
+			tmpEdge = InducedEdges(edge,S, degreeInS); # this call populates degreeInS
 			ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(1) with InducedEdges of "tmpEdge);
 			for(v in S) { StatAddSample("", degreeInS[v]); ++degFreq[degreeInS[v]];}
 			maxFreq=degMode=0;
@@ -349,14 +354,34 @@ for edgeDensity in "${EDs[@]}"; do
 				maxFreq=degFreq[d]; degMode=d
 			}
 			#printf " deg mean %g stdDev %g maxFreq %d degMode %d; pruning...", StatMean(""), StatStdDev(""), maxFreq, degMode > "/dev/stderr"
-			for(v in S) if(degreeInS[v] < StatMean("") - 3*StatStdDev("") || degreeInS[v] < degMode/3) {
-			    #printf " %s(%d)", v, degreeInS[v] > "/dev/stderr";
-			    delete S[v];
-			    edgeCount -= EdgesIntoS(v);
-			    wgtEdgeCount -= WgtEdgesIntoS(v);
+			PROCINFO["sorted_in"] = "@val_num_asc"; # for loop through in-degrees, smallest first
+			for(v in degreeInS) {
+			    if(degreeInS[v] < StatMean("") - 3*StatStdDev("") || degreeInS[v] < degMode/3) {
+				#printf " %s(%d)", v, degreeInS[v] > "/dev/stderr";
+				delete S[v];
+				edgeCount -= EdgesIntoS(v);
+				wgtEdgeCount -= WgtEdgesIntoS(v);
+			    }
 			}
 			#printf " |S|=%d", _statN[""] > "/dev/stderr"
 		    }
+		    tmpEdge = InducedEdges(edge,S, degreeInS); # this call populates degreeInS
+		    ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(1) with InducedEdges of "tmpEdge);
+		    PROCINFO["sorted_in"] = "@val_num_asc"; # for loop through in-degrees, smallest first
+		    for(v in degreeInS) {
+			if(length(S)<2) break;
+			if(edgeCount / choose(length(S),2) >= '$edgeDensity') break; # break once ED is above threshsold
+			delete S[v];
+			edgeCount -= EdgesIntoS(v);
+			wgtEdgeCount -= WgtEdgesIntoS(v);
+			tmpEdge = InducedEdges(edge,S, degreeInS); # this call populates degreeInS
+			ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(1) with InducedEdges of "tmpEdge);
+		    }
+		    if(length(S)>1) {
+			ed = edgeCount / choose(length(S),2);
+			WARN(ed >= '$edgeDensity',"hmmm, ed is "ed);
+		    }
+		    #printf " |S|=%d", _statN[""] > "/dev/stderr"
 		    Slen=length(S);
 		    if(Slen>=minClus && wgtEdgeCount/edgeCount>='$minEdgeMean') {
 			maxEdges=choose(Slen,2);
