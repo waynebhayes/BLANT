@@ -11,6 +11,7 @@ and will not appear in the edge list."
 # Functions
 die(){ (trap "" 0 1 2 3 15; echo "$USAGE"; echo "FATAL ERROR: $@")>&2; exit 1; }
 warn(){ (echo "WARNING: $@")>&2; }
+note(){ (echo "Note: $@")>&2; }
 not(){ if eval "$@"; then return 1; else return 0; fi; }
 newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
 parse(){ awk "BEGIN{print $@}" </dev/null; }
@@ -37,7 +38,7 @@ NODES=""
 case "$1" in
 -f) FRAC="$2"; shift 2;;
 -n) NUM="$2"; shift 2; die "-n not yet implemented" ;;
--) NODES="-"; shift; cat > $TMPDIR/nodes;;
+-) NODES="-"; shift; cat > $TMPDIR/nodes; note "got nodes from stdin: `wc $TMPDIR/nodes`";;
 *) [ -r "$1" ] || die "'$1' needs to be an input file of nodes";
     NODES="$1"; shift;
     cp "$NODES" $TMPDIR/nodes
@@ -49,6 +50,7 @@ esac
 cp -p "$1" $TMPDIR/graph.el || die "couldn't copy graph file '$1'"
 
 if [ "$FRAC" != "UNDEF" ]; then # create random induced subgraph
+    note "getting frac $FRAC induced"
     awk 'BEGIN{srand(); n=0; FRAC='"$FRAC"';
 	if(FRAC < 0 || FRAC > 1) {
 	    printf "FRAC (%g) must be between 0 and 1\n", FRAC >"/dev/fd/2";
@@ -70,8 +72,8 @@ if [ "$FRAC" != "UNDEF" ]; then # create random induced subgraph
     }' $TMPDIR/graph.el > $TMPDIR/nodes || trap "" 0 1 2 3 15
 fi
 
-#ls -l $TMPDIR/nodes $TMPDIR/graph.el >&2
-awk 'ARGIND==1{
+ls -l $TMPDIR/nodes $TMPDIR/graph.el >&2
+gawk 'ARGIND==1{
 	if(NF!=1){
 	    printf "first file \"%s\", line %d: expecting 1 column (a list of nodes) but got \"%s\"\n",
 		FILENAME,FNR,$0 >"/dev/fd/2"; exit 1
