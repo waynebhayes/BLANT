@@ -10,11 +10,13 @@ typedef struct _community {
     int id, n;
     SET *nodeSet;
     GRAPH *G; // the graph we came from
+    double score; 
 } COMMUNITY;
 
 COMMUNITY *CommunityAlloc(GRAPH *G){
     COMMUNITY *C = Calloc(sizeof(COMMUNITY), 1);
     C->id = 0; // not sure if this will be handy or not...
+    C->score = 0;
     C->n = 0;
     C->G = G;
     C->nodeSet = SetAlloc(G->n);
@@ -108,8 +110,9 @@ typedef struct _communitySet {
     GRAPH *G; // the graph we came from
     COMMUNITY **C; // array of pointers to COMMUNITY
     int *where; // Tells where each node belongs to which community
-    SET *moved; // Records moved nodes in case of rejection
+    SET *moved; // Records moved nodes in case of rejection 
     SET *common; // In case merge of 2 communities have overlap, record them
+    double total; // Cumulative score of partition
 } PARTITION;
 
 // Returns an empty partition containing no communities (they're not even allocated)
@@ -120,6 +123,7 @@ PARTITION *PartitionAlloc(GRAPH *G) {
     P->where = Calloc(sizeof(int), G->n);
     P->moved = SetAlloc(G->n);
     P->common = SetAlloc(G->n);
+    
     return P;
 }
 PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C) {
@@ -141,6 +145,9 @@ PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C) {
 
 PARTITION *PartitionDelCommunity(PARTITION *P, int c){
     if(P->C[c]){
+	//printf("Total = %f ", P->total);
+	P->total -= P->C[c]->score;
+	//printf(" Com %d score %f, after %f\n", c, P->C[c]->score, P->total);
         CommunityFree(P->C[c]);
         P->n--;
         if(c != P->n){
@@ -166,13 +173,15 @@ void PartitionFree(PARTITION *P) {
     Free(P);
 }
 
+			    // oldCom and newCom a bit misleading
+			    // oldCom is where to move the nodes back in case of reject
+			    // newCom is where to get the nodes from
 static int _moveOption = -1, _oldCom = -1, _newCom = -1;
-static int _splitRej = 0;
+
  
 void MoveRandomNode(PARTITION *P){
 
-    //TODO Either allow communities of size 1 OR reject if community is size 2
-
+    
     int u = P->G->n * drand48();
     int old = P->where[u];
     printf("Mv(%d,%d", u, old);
@@ -201,7 +210,10 @@ void MergeCommunities(PARTITION *P, int c1, int c2){
     COMMUNITY *C1 = P->C[c1];
     COMMUNITY *C2 = P->C[c2];
     printf("Mg(%d,%d) |%d,%d| ", c1, c2, C1->n, C2->n);
-    
+    /*printf("C1\n");
+    PrintCommunity(C1);
+    printf("C2\n");
+    PrintCommunity(C2);*/
     SetIntersect(P->common, C1->nodeSet, C2->nodeSet);
     SetUnion(C1->nodeSet, C2->nodeSet, C1->nodeSet);
     int *memberList = Calloc(C2->n, sizeof(int));
@@ -214,20 +226,28 @@ void MergeCommunities(PARTITION *P, int c1, int c2){
     Free(memberList);
     C1->n = SetCardinality(C1->nodeSet);
     SetEmpty(C2->nodeSet);
-    C2->n = 0;
+    // Automatically takes care of P->n--;
     PartitionDelCommunity(P, c2);
+    if(c1 == P->n){
+	// In the case C1 is the last community, to preseve the list of communities
+	// C1 is placed where C2 was previosuly.
+	_newCom = c2;
+	//printf("Special case\n");
+    }
+    else{
+	_newCom = c1;    
+    }
     _oldCom = P->n; 
-    _newCom = c1;
+   
+    //printf("Set o to %d, n to %d\n", _oldCom, _newCom);
 }
 
 void SplitCommunity(PARTITION *P, int c_id, int numNodes){
     // Splits P->C[c_id] into a new community that has numNodes random nodes from the old community
     COMMUNITY *oldCom = P->C[c_id];
-    _splitRej = 0;
-    if(numNodes < 2 || numNodes > oldCom->n - 2){
+    if(numNodes < 1 || numNodes > oldCom->n - 1){
 	// Always reject if split will make communities of size >2 
         fprintf(stderr, "Invalid split size: %d, originally had %d\n", numNodes, P->C[c_id]->n);
-	_splitRej = 1;
         return;
     }
     printf("Sp(%d,|%d|->%d) ", c_id, oldCom->n, numNodes);
@@ -353,23 +373,52 @@ double PartitionAllScores(PARTITION *P) {
     return total;
 }
 
+double dummyScore(Boolean global, foint f){
+    return 0.0;
+}
+
 double ScorePartition(Boolean global, foint f) {
-    assert(global); // ??
+    
     PARTITION *P = (PARTITION*) f.v;
-    double score = 0;
-    //FIXME: you should call the scoring function defined in the SA alloc
-    for(int j = 0; j < P->n; j++){
-        score += HayesScore(P->C[j], CommunityEdgeCount(P->C[j]));
+    //printf("o = %d, n = %d, total n = %d\n", _oldCom, _newCom, P->n);
+    printf("\n");
+    if(_oldCom == -1 && _newCom == -1){
+	printf("No moves have been made yet\n");	    
     }
-    return score;
+    else{
+	// In case of a split/merge reject P->C[n] will no longer exist
+	if(_newCom == P->n){
+	    int swap = _newCom;
+	    _newCom = _oldCom;
+	    _oldCom = swap;
+	    //printf("Swapped newCom\n");
+	}
+	if(_oldCom != P->n){ 
+	    COMMUNITY * old = P->C[_oldCom];
+	    //printf("o->n %d, ", old->n);
+	    double oldBefore = old->score; 
+	    old->score = HayesScore(old, CommunityEdgeCount(old));
+	    P->total += old->score - oldBefore;
+	    //printf("os = %f, ob = %f change = %f ", old->score, oldBefore, old->score - oldBefore);
+	}
+	COMMUNITY * new = P->C[_newCom];
+	//printf("n->n %d\n", new->n);
+	double newBefore = newBefore = new->score; 
+	new->score = HayesScore(new, CommunityEdgeCount(new));
+	P->total += new->score - newBefore;
+	//printf("ns = %f, nb = %f change = %f\n", new->score, newBefore, new->score - newBefore);
+    }
+    //printf("Updated total = %f\n", P->total);
+    return P->total;
 }
 
 
 
 // returns the CHANGE in score due to the move
 double PerturbPartition(foint f) {
+    //printf("Perturb\n");
     PARTITION *P = (PARTITION*) f.v;
-    double before = ScorePartition(true, f);
+    double before = P->total;
     int choice = drand48() * 3;
     //if(sa) printf("Iter %lu ", sa->iter);
     //printf("Choice = %d\n", choice);
@@ -392,18 +441,24 @@ double PerturbPartition(foint f) {
 	    c2 = (int)(drand48() * P->n);
 	}
 	while(c1 == c2);
+	//printf("Merging C1 %d, C2 %d, P->n %d\n", c1, c2, P->n);
 	MergeCommunities(P, c1, c2);
 	_moveOption = 1; 
     }
     else{
-	// Always reject when n = 2 or 3 (No communities of size <2)
+	// Assumes that there are is at least 1 community with n > 1 
+	
 	int c, numNodes;
+	do{
 	c = drand48() * P->n;
-	numNodes = drand48() * P->C[c]->n;
+	}
+	while(P->C[c]->n == 1);
+	numNodes = (drand48() * (P->C[c]->n - 1)) + 1;
+	
 	SplitCommunity(P, c, numNodes);
 	_moveOption = 2;
     }
-    
+    //printf("Finding after in P\n"); 
     double after = ScorePartition(true, f);
     printf("Before = %f, After = %f\n", before, after); 
     return after-before;
@@ -412,10 +467,10 @@ double PerturbPartition(foint f) {
 Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
     printf("Accept? %d\n", accept);
     PARTITION * P = (PARTITION *) f.v;
-    double before = ScorePartition(true, f);
+    double before = P->total;
     //printf("P->n = %d, _newCom = %d, _oldCom = %d\n", P->n, _newCom, _oldCom);
-    //printf("split fail = %d\n", _moveOption == 2 && _splitRej);
-    if(accept || (_moveOption == 2 && _splitRej)) ; // do nothing?
+
+    if(accept) ; // do nothing?
     else {
 	int * memberList = Calloc(sizeof(int), SetCardinality(P->moved));
 	int i, j, n = SetToArray(memberList, P->moved);
@@ -423,41 +478,41 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
 	if(_moveOption == 1){
 	    PartitionAddCommunity(P, CommunityAlloc(P->G));	   
 	}
-	//printf("OLDCOM before\n");
-	//PrintCommunity(P->C[_oldCom]);
-	//printf("NEWCOM before\n");
-	//PrintCommunity(P->C[_newCom]);
+	/*printf("OLDCOM before\n");
+	PrintCommunity(P->C[_oldCom]);
+	printf("NEWCOM before\n");
+	PrintCommunity(P->C[_newCom]);*/
 	for(i = 0; i < n; ++i){
 	    int u = memberList[i];
-	    CommunityDelNode(P->C[_newCom], u);
+	    if(!SetIn(P->common, u)) // Only delete nodes that weren't shared before the change
+		CommunityDelNode(P->C[_newCom], u);
 	    CommunityAddNode(P->C[_oldCom], u);
 	    P->where[u] = _oldCom;
 	    //printf("Moved %d from %d to %d\n", u, _newCom, _oldCom);
 	}
+	/*
+	printf("OLDCOM after\n");
+	PrintCommunity(P->C[_oldCom]);
 
-	//printf("OLDCOM after\n");
-	//PrintCommunity(P->C[_oldCom]);
-	//printf("NEWCOM after\n");
-	//PrintCommunity(P->C[_newCom]);
-
-	if(_moveOption == 1){
-	    // Move any overlapping nodes back into the original community as well
-	    int * commonNodes = Calloc(sizeof(int), SetCardinality(P->common));
-	    int a, b, c = SetToArray(commonNodes, P->common);
-	    for(i = 0; i < c; ++i)
-		CommunityAddNode(P->C[_newCom], commonNodes[i]);
-	    Free(commonNodes);    
-	}
+	printf("NEWCOM after\n");
+	PrintCommunity(P->C[_newCom]);
+	*/
+	
 	Free(memberList);
 	if(_moveOption == 2)
 	    PartitionDelCommunity(P, _newCom);
+    //printf("Finding after in Maybe\n");
+
+    double after = ScorePartition(true, f);
+    //printf("Maybe Before = %f, After = %f\n\n", before, after);
+    if(before > after)
+	fprintf(stderr, "ERROR: Rejection failed, before > after\n");
+
     }
     SetEmpty(P->moved);
     SetEmpty(P->common);
-    double after = ScorePartition(true, f);
-    //printf("\nMaybe Before = %f, After = %f\n", before, after);
-    if(before > after)
-	fprintf(stderr, "ERROR: Rejection failed, before > after\n");
+        
+    //printf("Current total = %f\n", P->total); 
     return accept;
 }
 
@@ -466,7 +521,7 @@ void HillClimbing(PARTITION *P, int tries){
     foint f;
     f.v = (void*)P;
 
-    printf("Beginning score %g\n", ScorePartition(true, f));
+    printf("Beginning score %g\n", P->total);
     for(i = 0; i < tries; i++) {
         //for(int l = 0; l < P->n; l++) printf("%d, %p, size = %d\n", l, P->C[l], P->C[l]->n);
 	double delta = PerturbPartition(f);
@@ -481,7 +536,7 @@ void HillClimbing(PARTITION *P, int tries){
 	    MaybeAcceptPerturb(false, f);
         }
     }
-    printf("Final score %g\n", ScorePartition(true, f));
+    printf("Final score %g\n", P->total);
 }
 
 
@@ -542,6 +597,7 @@ int main(int argc, char *argv[])
 	assert(C->n >0 && C->n < G->n && C->n==numAdded);
 	PartitionAddCommunity(P, C);
         //printf("Size of Community = %d\n", C->n);
+	
     }
     //printf("\n%d communities, score = %g\n", P->n, ScorePartition(P));
     SetFree(nodesUsed);
@@ -557,8 +613,8 @@ int main(int argc, char *argv[])
     
     SET * found = SetAlloc(G->n);    
     for(int k = 0; k < P->n; ++k){
-	if(P->C[k]->n < 2)
-	    printf("ERROR: Com %d has %d nodes\n", k, P->C[k]->n);
+	if(P->C[k]->n == 0)
+	    printf("ERROR: Com %d has 0 nodes\n", k);
 /*	
 	int * memberList = Calloc(sizeof(int), P->C[k]->n);
 	int l, m, n = SetToArray(memberList, P->C[k]->nodeSet);
@@ -573,24 +629,34 @@ int main(int argc, char *argv[])
  
     }
     SetFree(found);
+
+    for(int i = 0; i < P->n; ++i){
+	double s = HayesScore(P->C[i], CommunityEdgeCount(P->C[i])); 
+	P->C[i]->score = s; 
+	P->total += s;
+    }
+
+
 #if 0
     HillClimbing(P, 200);
 #else
     foint f;
     f.v = P;
-    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 100, 0, 0, NULL);
+    	
+
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, dummyScore, MaybeAcceptPerturb, 100, 0, 0, NULL);
     // Boolean SimAnnealSetSchedule(SIM_ANNEAL *sa, double tInitial, double tDecay);
     // void SimAnnealAutoSchedule(SIM_ANNEAL *sa); // to automatically create schedule
     // The above two functions need the accept/reject function to work
     sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
     SimAnnealRun(sa); // returns >0 if success, 0 if not done and can continue, <0 if error
-    // foint SimAnnealSol(SIM_ANNEAL *sa);
+    // foint SimAnnealSol(SIM_ANNEAL *sa))
     // void SimAnnealFree(SIM_ANNEAL *sa);
     SimAnnealFree(sa);
 #endif
     for(int k = 0; k < P->n; ++k){
-	if(P->C[k]->n < 2)
-	    printf("ERROR: Com %d has %d nodes\n", k, P->C[k]->n); 
+	if(P->C[k]->n == 0)
+	    printf("ERROR: Com %d has 0 nodes\n", k); 
     }
 
     printf("Attempting Partition Free\n");
