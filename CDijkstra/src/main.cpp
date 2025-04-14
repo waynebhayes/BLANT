@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include "graph.h"
 #include "skiplist.h" 
+#include "ECScore.h"
 
 int main()
 {
@@ -90,7 +91,20 @@ int main()
     outFile << "Graph mapping time: " << elapsed_mapping.count() << " seconds\n";
     outFile << "Adjacency matrix construction time: " << elapsed_adj_matrix.count() << " seconds\n";
     outFile << "Similarity file reading time: " << elapsed_sim.count() << " seconds\n\n";
-
+    //Newly added: initially calculate EC scores
+    int initialEA = computeEA(SeedNodeGraph1, SeedNodeGraph2, adjMatrix1, adjMatrix2);
+    int initialE1 = computeE(SeedNodeGraph1, adjMatrix1);
+    int initialE2 = computeE(SeedNodeGraph2, adjMatrix2);
+    double initialEC1 = computeEC(initialEA, initialE1);
+    double initialEC2 = computeEC(initialEA, initialE2);
+    double initialS3 = computeS3(initialEA, initialE1, initialE2);
+    std::cout << "EA: " << initialEA << "\n";
+    std::cout << "E1: " << initialE1 << "\n";
+    std::cout << "E2: " << initialE2 << "\n";
+    std::cout<<"The initial EC1: "<<initialEC1<< "\n";
+    std::cout<<"The initial EC2: "<<initialEC2<< "\n";
+    std::cout<<"The initial S3: "<<initialS3<< "\n";
+    std::cout << "Seed size: " << SeedNodeGraph1.size() << "\n";
 
     // 5. Initialize alignment process
     auto start_alignment = std::chrono::high_resolution_clock::now();
@@ -142,23 +156,36 @@ int main()
         double key;
         int first, second;
         std::tie(key, first, second) = tup;
-
         if (key != -1.0) {
+            int increEA = incrementalEA(first, second, SeedNodeGraph1, SeedNodeGraph2, adjMatrix1, adjMatrix2);
+            int incrementalE1 = incrementalE(first, SeedNodeGraph1, adjMatrix1);
+            int incrementalE2 = incrementalE(second, SeedNodeGraph2, adjMatrix2);
+            double updatedEC1 = computeEC(increEA+initialEA, incrementalE1+initialE1);
+            double updatedEC2 = computeEC(increEA+initialEA, incrementalE2+initialE2);
+            double updatedS3 = computeS3(increEA+initialEA, incrementalE1+initialE1, incrementalE2+initialE2);
+            std::cout<<"EC1: "<<updatedEC1<< "\n";
+            std::cout<<"EC2: "<<updatedEC2<< "\n";
+            std::cout<<"S3: "<<updatedS3<< "\n";
         //std::cout << "Popped node => key: " << key
               //<< ", VertexA: " << first
               //<< ", VertexB: " << second << "\n";
-
-        //10. Add to aligned list
-        SeedNodeGraph1.push_back(first);
-        SeedNodeGraph2.push_back(second);
-        //std::cout << "[DEBUG] Using maxNode: (" << first << ", " << second
-        //      << ") with value=" << key << "\n";
-        connectedNodes1 = getConnectedNodes(first, adjMatrix1);
-        connectedNodes2 = getConnectedNodes(second, adjMatrix2);
+            if(updatedEC1 >= 0 && updatedEC2 >= 0 && updatedS3 >= 0){
+                //10. Add to aligned list
+            SeedNodeGraph1.push_back(first);
+            SeedNodeGraph2.push_back(second);
+            //std::cout << "[DEBUG] Using maxNode: (" << first << ", " << second
+            //      << ") with value=" << key << "\n";
+            connectedNodes1 = getConnectedNodes(first, adjMatrix1);
+            connectedNodes2 = getConnectedNodes(second, adjMatrix2);
+            }
+            else{
+                std::cout << "This pair does not have good EC.\n";
+            }
+        
     } else {
     // No more candidates, stop the loop
-    std::cout << "[DEBUG] Skiplist is empty, no candidate pairs.\n";
-    alignmentInProgress = false;
+         std::cout << "[DEBUG] Skiplist is empty, no candidate pairs.\n";
+        alignmentInProgress = false;
     }
     iterationCount++;
 }
