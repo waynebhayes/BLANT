@@ -13,8 +13,8 @@ int main()
 {
     auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
-    std::string Graph1 = "test/RNorvegicus.el";
-    std::string Graph2 = "test/SPombe.el";
+    std::string Graph1 = "../../SANA/networks/RNorvegicus.el";
+    std::string Graph2 = "../../SANA/networks/SPombe.el";
     std::string Seed   = "test/RNorvegicus-SPombe-Seed.txt";
     std::string Sim    = "test/RNorvegicus-SPombe.sim";
     int numNodes1=2330;//number of nodes in graph 1

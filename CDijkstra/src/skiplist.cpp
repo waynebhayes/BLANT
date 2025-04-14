@@ -1,4 +1,4 @@
-#include "SkipList.h"
+#include "skiplist.h"
 
 // Define the global candidateMatrix.
 std::vector<bool> candidateMatrix(ROWS * COLS, false);
