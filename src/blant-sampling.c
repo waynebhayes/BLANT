@@ -285,12 +285,12 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
-		accums->doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+		accums->orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode & outputGDV) {
 	    for (j = 0; j < k; j++) {
-        accums->doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+        accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if(ocount < 0) {
@@ -554,8 +554,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		cumulative[j] = 0;
 	    SetEmpty(internal);
 #else
-	    static __thread int depth; 
-        // static __thread allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
+	    static _Thread_local int depth; 
+        // static _Thread_local allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
 	    depth++;
 	    assert(depth < MAX_TRIES);
 	    SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
@@ -597,8 +597,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		    cumulative[j] = 0;
 		SetEmpty(internal);
 #else
-        static __thread int depth; 
-        // static __thread allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
+        static _Thread_local int depth; 
+        // static _Thread_local allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
         depth++;
         assert(depth < MAX_TRIES);
         SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
@@ -635,12 +635,12 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
-		accums->doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+		accums->orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode & outputGDV) {
 	    for (j = 0; j < k; j++) {
-        accums->doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+        accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if(ocount < 0) {
@@ -915,11 +915,11 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     }
     if (_outputMode & outputODV) {
 	for (j = 0; j < k; j++)
-	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    _orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
     }
     if (_outputMode & outputGDV) {
 	for (j = 0; j < k; j++)
-	    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+	    _graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
     }
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
@@ -1057,11 +1057,11 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 
     if (_outputMode & outputODV) {
 	for (j = 0; j < k; j++)
-	    _doubleOrbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    _orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
     }
     if (_outputMode & outputGDV) {
 	for (j = 0; j < k; j++)
-	    _doubleGraphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+	    _graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
     }
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
@@ -1170,10 +1170,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         // ProcessGraphlet creates the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of
         // low enough multiplicity (<= multiplicity); it will also check that the k nodes you passed it haven't already been
         // printed (although, this system does not work 100% perfectly); it will also print the nodes as output if
-	// the graphlet passes all checks
-        
-        Accumulators REMOVE_TEMP_VAR;
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &REMOVE_TEMP_VAR);
+	    // the graphlet passes all checks
+        static Accumulators trash;
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &trash);
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 

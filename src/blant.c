@@ -36,7 +36,7 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're respons
 #define USE_MarsenneTwister 0
 #if USE_MarsenneTwister
 #include "../C++/mt19937.h" // not yet implemented correctly
-__thread MT19937 *mt19937Seed;
+_Thread_local MT19937 *mt19937Seed;
 void RandomSeed(long seed) {
     if(mt19937Seed) Mt19937Free(mt19937Seed);
     mt19937Seed = Mt19937Alloc(seed);
@@ -46,7 +46,7 @@ double RandomUniform(void) {
 }
 #else
 #include "rand48.h"
-__thread unsigned short erand48Seed[3];
+_Thread_local unsigned short erand48Seed[3];
 void RandomSeed(long seed) {
     // split the number seed into 3 portions of 16 bits
     erand48Seed[0] = (unsigned short)(seed & 0xFFFF);         // Lower 16 bits
@@ -124,9 +124,7 @@ int _numConnectedOrbits;
 // the first dimension, otherwise we'd need to get more funky with the pointer allocation.
 // Only one of these actually get allocated, depending upon outputMode.
 double *_graphletDegreeVector[MAX_CANONICALS];
-double    *_orbitDegreeVector[MAX_ORBITS];
-double *_doubleGraphletDegreeVector[MAX_CANONICALS];
-double *_doubleOrbitDegreeVector[MAX_ORBITS];
+double *_orbitDegreeVector[MAX_ORBITS];
 
 double *_cumulativeProb, _worstPrecision, _meanPrec;
 enum PrecisionMode _precisionMode = mean;
@@ -364,11 +362,11 @@ void finalize(GRAPH *G, unsigned long numSamples) {
     if(_outputMode & outputODV)
 	for(i=0;i<_numOrbits;i++)
 	    for(j=0;j<G->n;j++)
-		_doubleOrbitDegreeVector[i][j] *= numSamples/totalConcentration;
+		_orbitDegreeVector[i][j] *= numSamples/totalConcentration;
     if(_outputMode & outputGDV)
 	for(i=0;i<_numCanon;i++)
 	    for(j=0;j<G->n;j++)
-		_doubleGraphletDegreeVector[i][j] *= numSamples/totalConcentration;
+		_graphletDegreeVector[i][j] *= numSamples/totalConcentration;
 }
 
 #if 0 // unused code, commented out to shut up the compiler
@@ -496,13 +494,16 @@ void* RunBlantInThread(void* arg) {
     // you'd be allocating memory for these vectors, multiplied by the number of threads. Is that a lot? Probably slows it down
     // initialize thread local GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-        for(int i=0; i<_numCanon; i++) args->accums.doubleGraphletDegreeVector[i] = Ocalloc(G->n, sizeof(**args->accums.doubleGraphletDegreeVector));
+        for(int i=0; i<_numCanon; i++) {
+            args->accums.graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**args->accums.graphletDegreeVector));
+            for(int j=0; j<G->n; j++) args->accums.graphletDegreeVector[i][j]=0.0;
+        }
     }
     // initialize thread local ODV vectors if needed
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
         for(int i=0; i<_numOrbits; i++) {
-            args->accums.doubleOrbitDegreeVector[i] = Ocalloc(G->n, sizeof(**args->accums.doubleOrbitDegreeVector));
-            for(int j=0; j<G->n; j++) args->accums.doubleOrbitDegreeVector[i][j]=0.0;
+            args->accums.orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**args->accums.orbitDegreeVector));
+            for(int j=0; j<G->n; j++) args->accums.orbitDegreeVector[i][j]=0.0;
         }
     }
 
@@ -519,32 +520,47 @@ void* RunBlantInThread(void* arg) {
     unsigned Varray[varraySize];
     bool earlyAbort = false;
     double weight;
+    unsigned long stuck = 0;
+    SET *prev_node_set = SetAlloc(G->n);
+    SET *intersect_node = SetAlloc(G->n);
+
+    if (_outputMode & graphletDistribution) {
+        SampleGraphlet(G, V, Varray, k, G->n, NULL);
+        // i++;
+        SetCopy(prev_node_set, V);
+        TinyGraphInducedFromGraph(empty_g, G, Varray);
+    }
+
+    int samplesCounter = 0;
 
     // begin sampling
     // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
-    for(int i=0; i<numSamples; i++)
+    while (samplesCounter < numSamples)
     {
-		unsigned long stuck = 0; // might be able to optimize this by making stuck a static shared amongst threads
         if (_window) {
             Fatal("Multithreading not yet implemented for any window related output modes.");
-        } if (_outputMode & graphletDistribution) {
-            Fatal("Multithreading not yet implemented forgraphlet distribution output mode.");
+        } 
+        if (_outputMode & graphletDistribution) {
+            // calls SampleGraphlet internally
+            ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
         } else {
             weight = SampleGraphlet(G, V, Varray, k, G->n, &args->accums);
             if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, &args->accums)) {
-                // some more processing perhaps
+                stuck = 0; // reset stuck counter when finding a newly processed graphlet
             } else {
-                // // processing failed, decrease i to sample another graphlet
-                if (numSamples) i--;
-                ++stuck;
+                // processing failed, ignore sample
+                samplesCounter--;
+                stuck++;
                 if(stuck > MAX(G->n,numSamples)) {
                     if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
                     break; // no new samples able to be found, early abort
                 }
             }
         }
-        // now just have to sort through RunBlantFromGraph for loop to see where to 
+        samplesCounter++;
     }
+    SetFree(prev_node_set);
+    SetFree(intersect_node);
     SetFree(V);
     TinyGraphFree(empty_g);
     pthread_exit(0);
@@ -580,17 +596,22 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
         for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
-        for(i=0;i<_numCanon;i++) _doubleGraphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleGraphletDegreeVector));
+        for(j=0;j<G->n;j++) _graphletDegreeVector[i][j]=0.0;
     }
     // initialize ODV vectors if needed
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
         for(i=0;i<_numOrbits;i++) {
             _orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
-            for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
-            _doubleOrbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleOrbitDegreeVector));
-            for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
+            for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0.0;
         }
     } // note that this double allocation of GDV/ODV vectors may slow things down
+
+    // initialize distribution tables if needed
+    if (_outputMode & graphletDistribution) {
+        _graphletDistributionTable = Ocalloc(_numCanon, sizeof(int*));
+        for(i=0; i<_numCanon; i++) _graphletDistributionTable[i] = Ocalloc(_numCanon, sizeof(int));
+        for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
+    }
 
     // initiailize graphlet count/concentrations since they contain garbage
     for (i = 0; i < _numCanon; i++) {
@@ -603,18 +624,25 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
-        // ethan note: not really sure the purpose of this.. going to ask hayes
-        Accumulators REMOVE_TEMP_VAR;
-        SampleGraphlet(G, V, Varray, k, G->n, &REMOVE_TEMP_VAR);
+        // accumulators must be provided but no need for them
+        Accumulators trash;
+        SampleGraphlet(G, V, Varray, k, G->n, &trash);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
 
+    // if sample method is SAMPLE_INDEX or MCMC, and NOT index output
     if ((_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC) &&
 	!(_outputMode & indexGraphlets) && !(_outputMode & indexGraphletsRNO) && !(_outputMode & indexOrbits))
 	    Fatal("currently only -mi and -mj output modes are supported for INDEX and EDGE_COVER sampling methods");
 
+    // ethan note: nothing written about SAMPLE_INDEX sampling, but it must be single threaded?
     if (_sampleMethod == SAMPLE_INDEX) {
+        if (_NUM_THREADS > 1) {
+            Note("Index sampling must be single threaded, thus only one thread will be ran.");
+            _NUM_THREADS = 1; // this is unecessary since the below code doesn't use _NUM_THREADS at all, but keep anyway
+        }
+
         unsigned prev_nodes_array[_k];
 
         // Get heuristic values based on orbit number, if ODV file provided
@@ -654,7 +682,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 fprintf(stderr, "%d%% done\n", percentToPrint);
                 ++percentToPrint;
             }
-	}
+	    }
     }
     else if (_sampleMethod == SAMPLE_MCMC_EC) {
 	Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
@@ -687,18 +715,25 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     else // sample graphlets from entire graph using either numSamples or confidence
     {
 
-        // IMPORTANT: Apologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
+        // Apologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (
             _NUM_THREADS > 1 && (
-            !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || _outputMode & indexGraphlets) ||
+            !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || 
+                // index modes have nothing to accumulate, thus work very easily with multithreading
+              _outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits ||
+              _outputMode & indexMotifs || _outputMode & indexMotifOrbits
+            ) ||
             !(_sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION)
             )
-        ) Apology("Multithreading (t=%d) not supported for the specified output mode or sampling method (or both).", _NUM_THREADS);
+        ) {
+            Note("Multithreading (t=%d) not supported for the specified output mode or sampling method (or both). Setting number of threads to 1.", _NUM_THREADS);
+            _NUM_THREADS = 1;
+        }
        
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        pthread_t threads[_NUM_THREADS];        
+        pthread_t threads[_NUM_THREADS];
         ThreadData threadData[_NUM_THREADS];
         int samplesPerThread = numSamples / _NUM_THREADS;
         int leftover = numSamples - (samplesPerThread * _NUM_THREADS);
@@ -732,14 +767,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             if (_outputMode & outputODV) {
                 for(i=0; i<_numOrbits; i++) {
                 for(j=0; j<G->n; j++) {
-                    _doubleOrbitDegreeVector[i][j] = threadData[t].accums.doubleOrbitDegreeVector[i][j];
+                    _orbitDegreeVector[i][j] += threadData[t].accums.orbitDegreeVector[i][j];
                 }
                 }
             }
             if (_outputMode & outputGDV) {
                 for(i=0; i<_numCanon; i++) {
                 for(j=0; j<G->n; j++) {
-                    _doubleGraphletDegreeVector[i][j] = threadData[t].accums.doubleGraphletDegreeVector[i][j];
+                    _graphletDegreeVector[i][j] += threadData[t].accums.graphletDegreeVector[i][j];
                 }
                 }
             }
@@ -750,9 +785,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                             (end.tv_nsec - start.tv_nsec) / 1e9;
         Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _NUM_THREADS); 
 
-        // abort early
-        _earlyAbort = true;
-        // ethan's added code --- end. commented out the single thread ORIGINAL version below
     #if 0
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
@@ -928,7 +960,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
 			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION))
 		    sprintf(buf+strlen(buf), " %.15g", GDV(i,canon));
-		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleGraphletDegreeVector[canon][i]));
+		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _graphletDegreeVector[canon][i]));
 	    assert(strlen(buf) < BUFSIZ);
 	    puts(buf);
 	}
@@ -943,7 +975,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		if(_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
 		    _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION))
 			sprintf(buf+strlen(buf), " %.15g", ODV(i,orbit_index));
-		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _doubleOrbitDegreeVector[orbit_index][i]));
+		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _orbitDegreeVector[orbit_index][i]));
 	    }
 	    assert(strlen(buf) < BUFSIZ);
 	    puts(buf);
@@ -1004,13 +1036,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	}
     }
     if(_outputMode & graphletDistribution) {
-	char buf[BUFSIZ];
-	buf[0]='\0'; // ensure it's length 0 to start
         for(i=0; i<_numCanon; i++) {
             for(j=0; j<_numCanon; j++)
-                sprintf(buf+strlen(buf), "%d ", _graphletDistributionTable[i][j]);
-	    assert(strlen(buf) < BUFSIZ);
-            puts(buf);
+                printf("%d ", _graphletDistributionTable[i][j]);
+            printf("\n");
         }
     }
     if(!_outputMode) Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
@@ -1020,7 +1049,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     if(_outputMode & outputGDV) for(i=0;i<_numCanon;i++) Free(_graphletDegreeVector[i]);
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
 	for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
-    if(_outputMode & outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_doubleOrbitDegreeVector[i]);
+    if(_outputMode & outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT && numSamples)
     	fprintf(stderr,"Average number of tries per sample is %.15g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -1085,18 +1114,18 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+	// for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
 	for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
-	for(i=0;i<_numCanon;i++) _doubleGraphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleGraphletDegreeVector));
     }
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
 	for(i=0;i<_numOrbits;i++) {
-	    _orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
-	    for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
+	    // _orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
+	    // for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
 	}
     }
     if (_outputMode & outputODV) for(i=0;i<_numOrbits;i++){
-	_doubleOrbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_doubleOrbitDegreeVector));
-	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
+	_orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**_orbitDegreeVector));
+	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode & predict) Predict_Init(G);
     if (_outputMode & graphletDistribution) {
@@ -1698,8 +1727,7 @@ int main(int argc, char *argv[])
     if (_sampleMethod == SAMPLE_INDEX && _k <= 5) Fatal("k is %d but must be at least 6 for INDEX sampling method because there are no unambiguous graphlets for k<=5",_k);
 
     if(_outputMode == undef) _outputMode = graphletFrequency; // default to frequency, which is simplest
-    if(_freqDisplayMode == freq_display_mode_undef)
-	_freqDisplayMode = freq_display_mode_estimate_absolute; // Default to estimating count
+    if(_freqDisplayMode == freq_display_mode_undef) _freqDisplayMode = freq_display_mode_estimate_absolute; // Default to estimating count
 
     if(numSamples && _desiredPrec) Fatal("cannot specify both -n (sample size) and -[Pp] (desired precision)");
     if(!numSamples && !_desiredPrec) { // default to 2 digits of precision at 99.9% confidence
