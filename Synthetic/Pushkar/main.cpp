@@ -1,59 +1,88 @@
-#include "../../libwayne/C++/SanaGraphBasis/Graph.hpp"
-#include <filesystem>
-#include <vector>
+#include <omp.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include <queue>
-#include <unordered_map>
-#include <unistd.h>
+#include <vector>
+#include <map>
+#include <set>
+#include <string>
+#include <cstdlib>    // For atoi
+#include <algorithm>
+#include <iomanip>
+#include <unistd.h>   // For getpid
 #include "Snap-6.0/snap-core/Snap.h"
-namespace fs = std::filesystem;
 
-std::pair<int, int> dobfs(
-	const std::unordered_map<int, std::vector<int>>& graph,
-    	int x,
-    	std::vector<int>& components,
-    	int cnum){
-    int nodes = 0, edges = 0;
-    std::queue<int> queue; //bfs queue
-    queue.push(x);
-    components[x] = cnum;
-    while(!queue.empty()){
-    	int src = queue.front();
-    	queue.pop();
-    	++nodes;
-    	edges += graph.at(src).size();
-    	const std::vector<int>&neighbors = graph.at(src);
-	for(std::vector<int>::const_iterator it = neighbors.begin(); it != neighbors.end(); ++it){
-	    int n = *it;
-    	    if(std::find(components.begin(), components.end(), n) == components.end()){
-		queue.push(n);
-    		components[n] = cnum;
-    	    }
-    	}
-    }	
-    return std::make_pair(nodes, edges/2);
+using namespace std;
+using namespace TSnap;
+
+// Define a type alias for the graph structure using std::map (instead of unordered_map)
+typedef map<int, vector<int> > GraphMap;
+
+// A helper function to extract the filename from a path.
+string get_filename(const string &path) {
+    size_t pos = path.find_last_of("/\\");
+    if (pos == string::npos)
+        return path;
+    else
+        return path.substr(pos + 1);
 }
 
-int getcomponents(
-	const std::unordered_map<int, std::vector<int>>& graph,
-	std::vector<std::pair<int, int>>& csize){
+// Modified BFS that works with a GraphMap and a components vector.
+// The membership test is replaced by checking if components[n] == -1.
+pair<int, int> dobfs(const GraphMap &graph, int x, vector<int> &components, int cnum) {
+    int nodes = 0, edges = 0;
+    queue<int> q; // BFS queue
+    q.push(x);
+    components[x] = cnum;
+    while (!q.empty()) {
+        int src = q.front();
+        q.pop();
+        ++nodes;
+        // Use find() because std::map in C++98 does not have at()
+        typename GraphMap::const_iterator it_src = graph.find(src);
+        if (it_src != graph.end()) {
+            edges += it_src->second.size();
+            const vector<int>& neighbors = it_src->second;
+            for (size_t i = 0; i < neighbors.size(); i++) {
+                int n = neighbors[i];
+                if (components[n] == -1) { // If not visited
+                    q.push(n);
+                    components[n] = cnum;
+                }
+            }
+        }
+    }
+    return make_pair(nodes, edges / 2);
+}
+
+// Compute connected components.
+// Here we assume that graph keys range from 0 to n-1.
+int getcomponents(const GraphMap &graph, vector< pair<int, int> > &csize) {
     int n = graph.size();
-    std::vector<int> components(n, -1);
+    vector<int> components(n, -1);
     int cnum = 0;
-    for(int i = 0; i < n; ++i){
-	if(components[i] == -1){
-	    std::pair<int, int> numnodenumedge = dobfs(graph, i, components, cnum);
-	    csize[cnum] = numnodenumedge;
-	    ++cnum;
-	}
+    for (int i = 0; i < n; ++i) {
+        if (components[i] == -1) {
+            pair<int,int> numnodenumedge = dobfs(graph, i, components, cnum);
+            if (csize.size() <= static_cast<unsigned int>(cnum)) {
+                csize.push_back(numnodenumedge);
+            } else {
+                csize[cnum] = numnodenumedge;
+            }
+            ++cnum;
+        }
     }
     return cnum;
 }
 
 void getprops(const string &input_file_name, int evalues = -1) {
-    using namespace TSnap;
-    string output_file_name = "/tmp/" + fs::path(input_file_name).filename().string() + to_string(getpid());
+    // Create an output filename using a helper function and stringstream conversion instead of to_string.
+    ostringstream oss;
+    oss << getpid();
+    string output_file_name = "/tmp/" + get_filename(input_file_name) + oss.str();
 
-    // Load graph dynamically
+    // Load graph dynamically using TSnap.
     PUNGraph snap_graph = LoadEdgeList<PUNGraph>(TStr(input_file_name.c_str()), 0, 1);
     if (snap_graph.Empty()) {
         cerr << "Failed to load graph from " << input_file_name << endl;
@@ -63,9 +92,9 @@ void getprops(const string &input_file_name, int evalues = -1) {
     int nodes = snap_graph->GetNodes();
     int edges = snap_graph->GetEdges();
     
-    vector<set<int>> adj_list_graph(nodes);
-    
-    ifstream infile(input_file_name);
+    // Build an adjacency list graph. Note: we use vector<set<int> > for storing unique neighbors.
+    vector< set<int> > adj_list_graph(nodes);
+    ifstream infile(input_file_name.c_str());
     int a, b;
     while (infile >> a >> b) {
         if (adj_list_graph[a].find(b) == adj_list_graph[a].end()) {
@@ -113,6 +142,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
         for (int i = 0; i < peigv.Len(); i++) {
             ev.push_back(peigv[i]);
         }
+        // Sort eigenvalues in descending order.
         sort(ev.rbegin(), ev.rend());
     }
 
@@ -121,11 +151,11 @@ void getprops(const string &input_file_name, int evalues = -1) {
     TIntPrFltH ebw;
     GetBetweennessCentr(snap_graph, nbw, ebw, 1.0, false);
 
-    // Output results
+    // Output results.
     cout << "\n########################################################### Global" << endl;
     cout << "Eigenvalues " << ev.size() << ": ";
-    for (double v : ev) {
-        cout << fixed << setprecision(4) << v << " ";
+    for (size_t i = 0; i < ev.size(); i++) {
+        cout << fixed << setprecision(4) << ev[i] << " ";
     }
     cout << endl;
     
@@ -134,29 +164,31 @@ void getprops(const string &input_file_name, int evalues = -1) {
     cout << "Diameter: " << diameter << endl;
 
     cout << "K-hop distribution: ";
-    for (std::map<int, int>::iterator it = khop.begin(); it != khop.end(); ++it) {
-        int v = it->second;
-	cout << v << " ";
+    for (map<int, int>::iterator it = khop.begin(); it != khop.end(); ++it) {
+        cout << it->second << " ";
     }
     cout << endl;
 
     cout << "Degree Distribution: ";
-    for (int i = 0; i <= degree_dist.rbegin()->first; i++) {
-        cout << degree_dist[i] << " ";
+    if (!degree_dist.empty()) {
+        int max_deg = degree_dist.rbegin()->first;
+        for (int i = 0; i <= max_deg; i++) {
+            cout << degree_dist[i] << " ";
+        }
     }
     cout << endl;
 
     cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
     for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
         TInt nodeid = it.GetKey();
-	TFlt val = it.GetDat();
-	cout << nodeid << " " << val << endl;
+        TFlt val = it.GetDat();
+        cout << nodeid << " " << val << endl;
     }
 
     cout << "node1 node2 edge_betweenness" << endl;
     for (TIntPrFltH::TIter it = ebw.BegI(); it != ebw.EndI(); it++) {
-	TIntPr nodepid = it.GetKey();
-	TFlt val = it.GetDat();
+        TIntPr nodepid = it.GetKey();
+        TFlt val = it.GetDat();
         cout << nodepid.GetVal1() << " : " << nodepid.GetVal2() << " " << val << " " << endl;
     }
 
@@ -167,10 +199,11 @@ int main(int argc, char* argv[]) {
     if (argc == 2) {
         getprops(argv[1]);
     } else if (argc == 4 && string(argv[1]) == "-e") {
-        int evalues = stoi(argv[2]);
+        int evalues = atoi(argv[2]);
         getprops(argv[3], evalues);
     } else {
         cerr << "Input error! Usage: ./main [-e eigValsToCompute] inputFile" << endl;
         return 1;
     }
+    return 0;
 }

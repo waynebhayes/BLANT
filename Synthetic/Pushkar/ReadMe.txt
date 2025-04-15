@@ -5,9 +5,10 @@ to be updated to a more recent version of Python... but it would be MUCH better 
 Setup:
 Install 7zip if not already on system
 Extract SNAP-6.0.7z with 7zip
+Build SNAP
 
 Usage:
-Run with command g++ -std=c++98 -ISnap-6.0/glib-core main.cpp
+run make using the makefile
 ------------------------------------------------------------------
 
 -- Original Readme from Pushkar Gupta, around 2019.--
