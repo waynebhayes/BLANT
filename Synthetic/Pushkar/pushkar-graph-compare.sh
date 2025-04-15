@@ -21,8 +21,9 @@ named_col_prog() { /home/sana/bin/named-col-prog "$@"
 #K-hop distribution: 1504 11558 272344 1160590 724276 83410 2320 6
 #Degree distribution: 0 361 215 158 130 105 76 56 37 53 38 26 17 17 9 14 13 19 16 15 16 11 7 9 
 pushkar() {
-    python3 main.py -e 0 "$1" > $TMP/$2/out
-	fgrep : $TMP/$2/out | egrep -v 'Eigen|NOT' > $TMP/$2/header.txt
+    #python3 main.py -e 0 "$1" > $TMP/$2/out
+    ./main -e 0 "$1" > $TMP/$2/out
+    fgrep : $TMP/$2/out | egrep -v 'Eigen|NOT' > $TMP/$2/header.txt
     sed -n '/nodeName/,/^node1 node2/p' $TMP/$2/out | sed -e 's/^[# ]*//' -e 's/ /	/g' | fgrep -v edge_betweenness > $TMP/$2/nodeVals.tsv
     sed -n '/node1 node2/,/^###/p' $TMP/$2/out | sed -e 's/^[# ]*//' -e 's/ /	/g' | fgrep -v End-of-output > $TMP/$2/edgeVals.tsv
     awk '/Degree distribution:/{for(i=3;i<=NF;i++)for(c=0;c<$i;c++)print i-3}' $TMP/$2/out > $TMP/$2/deg-dist
