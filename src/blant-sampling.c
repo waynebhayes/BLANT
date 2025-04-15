@@ -524,15 +524,16 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     int vCount = 2;
 
     int outDegree = GraphDegree(G,v1) + GraphDegree(G,v2);
-	int insideEdges = 1, j;
+    int insideEdges = 1, j;
     static int cumulative[MAX_K];
     cumulative[0] = GraphDegree(G,v1); // where v1 = Varray[0]
     cumulative[1] = GraphDegree(G,v2) + cumulative[0];
 
     static SET *internal;	// mark choices of whichNeigh that are discovered to be internal
     static int Gn;
-    if(!internal) {internal = SetAlloc(G->n); Gn = G->n;}
-    else if(Gn != G->n) {SetFree(internal); internal = SetAlloc(G->n); Gn=G->n;}
+    int maxElem =  (G->n-1) * (k-1); // maximum possible outDegree since it includes ALL edges emanating from nodes in V
+    if(!internal) {internal = SetAlloc(maxElem); Gn = G->n;}
+    else if(Gn != G->n) {SetFree(internal); internal = SetAlloc(maxElem); Gn=G->n;}
     else SetEmpty(internal);
 
     numTries = 0;
@@ -542,8 +543,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	int i, whichNeigh, newNode = -1;
 	while(numTries < MAX_TRIES &&
 	    (whichNeigh = outDegree * RandomUniform()) >= 0 && // always true, just setting whichNeigh
-		SetIn(internal, whichNeigh))
-	    ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
+		SetIn(internal, whichNeigh)) ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
 	if(numTries >= MAX_TRIES) {
 #if ALLOW_DISCONNECTED_GRAPHLETS
 	    // get a new node outside this connected component.
@@ -565,8 +565,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    return 1.0;
 #endif
 	}
-	for(i=0; cumulative[i] <= whichNeigh; i++)
-	    ; // figure out whose neighbor it is
+	for(i=0; cumulative[i] <= whichNeigh; i++) ; // figure out whose neighbor it is
 	int localNeigh = whichNeigh-(cumulative[i]-GraphDegree(G,Varray[i])); // which neighbor of node i?
 	if(newNode < 0) newNode = G->neighbor[Varray[i]][localNeigh];
 #if PARANOID_ASSERTS
@@ -614,8 +613,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	Varray[vCount++] = newNode;
 	outDegree += GraphDegree(G,newNode);
 	if(vCount < k) {
-		for(j = 0; j < vCount-1; j++) 
-			if(GraphAreConnected(G, Varray[j], newNode)) insideEdges++;
+	    for(j = 0; j < vCount-1; j++) 
+		if(GraphAreConnected(G, Varray[j], newNode)) insideEdges++;
 	}
 #if PARANOID_ASSERTS
 	assert(SetCardinality(V) == vCount);
