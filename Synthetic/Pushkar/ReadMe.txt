@@ -1,6 +1,16 @@
 Notes from WH: This is Pushkar's code that computes a bunch of standard measures for a given network. It probably needs
 to be updated to a more recent version of Python... but it would be MUCH better if it were re-written in C, C++, or awk.
 
+--|Notes from Akhil Nekkanti: This code has since been converted to C++|--
+Setup:
+Install 7zip if not already on system
+Extract SNAP-6.0.7z with 7zip
+Build SNAP
+
+Usage:
+build executable with make, then run executable with desired edgelist
+------------------------------------------------------------------
+
 -- Original Readme from Pushkar Gupta, around 2019.--
 Runs with Python3.
 May need NetworkX library, and SNAP network database.
