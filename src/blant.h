@@ -92,12 +92,10 @@ char** convertToEL(char* file); // from convert.cpp
 extern const char* _BLANT_DIR;
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
-extern double       *_orbitDegreeVector[MAX_ORBITS];
-extern double *_doubleGraphletDegreeVector[MAX_CANONICALS];
-extern double *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
+extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
-#define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
+#define ODV(node,orbit)          _orbitDegreeVector[orbit][node]
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
 
 // Enable the code that uses C++ to parse input files?
@@ -172,8 +170,8 @@ typedef struct {
     // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
     double graphletCount[MAX_CANONICALS];
     double graphletConcentration[MAX_CANONICALS];
-    double *doubleGraphletDegreeVector[MAX_CANONICALS];
-    double *doubleOrbitDegreeVector[MAX_ORBITS];
+    double *graphletDegreeVector[MAX_CANONICALS];
+    double *orbitDegreeVector[MAX_ORBITS];
 } Accumulators;
 
 // https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
