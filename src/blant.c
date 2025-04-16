@@ -770,14 +770,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             if (_outputMode & outputODV) {
                 for(i=0; i<_numOrbits; i++) {
                 for(j=0; j<G->n; j++) {
-                    _orbitDegreeVector[i][j] += threadData[t].accums.orbitDegreeVector[i][j];
+                    _orbitDegreeVector[i][j] = threadData[t].accums.orbitDegreeVector[i][j];
                 }
                 }
             }
             if (_outputMode & outputGDV) {
                 for(i=0; i<_numCanon; i++) {
                 for(j=0; j<G->n; j++) {
-                    _graphletDegreeVector[i][j] += threadData[t].accums.graphletDegreeVector[i][j];
+                    _graphletDegreeVector[i][j] = threadData[t].accums.graphletDegreeVector[i][j];
                 }
                 }
             }

@@ -814,7 +814,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 
 // foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]),
 // which needs to be returned (but must be a parameter since there's already a return value on the function)
-double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC) {
+double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums) {
     static Boolean setup = false;
     static int currSamples = 0; // Counts how many samples weve done at the current starting point
     static int currEdge = 0; // Current edge we are starting at for uniform sampling
@@ -915,16 +915,16 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     }
     if (_outputMode & outputODV) {
 	for (j = 0; j < k; j++)
-	    _orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    accums->orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
     }
     if (_outputMode & outputGDV) {
 	for (j = 0; j < k; j++)
-	    _graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+	    accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
     }
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
     }
-    _graphletConcentration[GintOrdinal] += ocount;
+    accums->graphletConcentration[GintOrdinal] += ocount;
 
     _g_overcount = ocount;
     return 1.0;
@@ -934,8 +934,8 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 
 // SampleGraphletSequentialEdgeChaining starts with a single edge and always chooses a new edge that shares one node
 // with the previous edge and has another new node. If it get's stuck having no edges with new node to choose, it restarts
-// After And after choosing k-1 edges it returns a graphlet
-double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC) {
+// After And after choosing k-1 edges it returns a graphlet. NON-REENTRANT AND CANNOT BE MULTITHREADED
+double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums) {
     static int Xcurrent[2]; // holds the most recent edge
     static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
     if (!g) {
@@ -1057,16 +1057,16 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 
     if (_outputMode & outputODV) {
 	for (j = 0; j < k; j++)
-	    _orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+	    accums->orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
     }
     if (_outputMode & outputGDV) {
 	for (j = 0; j < k; j++)
-	    _graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+	    accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
     }
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
     }
-    _graphletConcentration[GintOrdinal] += ocount;
+    accums->graphletConcentration[GintOrdinal] += ocount;
 
     _g_overcount = ocount;
     return 1.0;
@@ -1282,7 +1282,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
 	SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc, accums);
 	break;
     case SAMPLE_SEQUENTIAL_CHAINING:
-	SampleGraphletSequentialEdgeChaining(G, V, Varray, k, cc);
+	SampleGraphletSequentialEdgeChaining(G, V, Varray, k, cc, accums);
 	break;
     case SAMPLE_FAYE:
 	SampleGraphletFaye(G, V, Varray, k, cc);
@@ -1295,7 +1295,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
 	break;
     case SAMPLE_MCMC:
         if(!_window) {
-	    SampleGraphletMCMC(G, V, Varray, k, cc);
+	    SampleGraphletMCMC(G, V, Varray, k, cc, accums);
         } else {
             SampleWindowMCMC(G, V, Varray, k, cc);
         }
