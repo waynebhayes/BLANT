@@ -484,6 +484,7 @@ void HillClimbing(PARTITION *P, int tries){
     printf("Final score %g\n", ScorePartition(true, f));
 }
 
+#define RANDOM_START 1
 
 int main(int argc, char *argv[])
 {
@@ -497,9 +498,9 @@ int main(int argc, char *argv[])
     printf("G has %d nodes\n", G->n);
 
     PARTITION *P = PartitionAlloc(G);
-    /*
+#if RANDOM_START
     int numCommunities = 10; // communities numbered 0 through numCommunities-1 inclusive
-    printf("Creating %d random communities: \n", numCommunities);
+    printf("Starting with %d random communities\n", numCommunities);
     for(i=0; i<numCommunities; i++) PartitionAddCommunity(P, CommunityAlloc(G));
 
     for(i=0; i<G->n; i++) {
@@ -509,20 +510,12 @@ int main(int argc, char *argv[])
 	//printf("%d->%d, ", i, which);
     }
 
-
     //double s = ScorePartitionHayes(P);
     //printf("Hayes score = %g\n", s);
     //double s = ScorePartition(P);
     //printf("\nTotal Partition Score = %g\n", s);
-
-
-
-    */
-    PartitionFree(P);
-
-    
+#else
     printf("BFS-based communities: \n");
-    P = PartitionAlloc(G);
     SET *nodesUsed=SetAlloc(G->n); // cumulative set of nodes that have been put into a partition
 
     int nodeArray[G->n], distArray[G->n];
@@ -545,7 +538,7 @@ int main(int argc, char *argv[])
     }
     //printf("\n%d communities, score = %g\n", P->n, ScorePartition(P));
     SetFree(nodesUsed);
-
+#endif
 
     //for(i=0; i<numCommunities; i++) CommunityEdgeCount(P->C[i]);
     //puts("");
@@ -559,7 +552,7 @@ int main(int argc, char *argv[])
     for(int k = 0; k < P->n; ++k){
 	if(P->C[k]->n < 2)
 	    printf("ERROR: Com %d has %d nodes\n", k, P->C[k]->n);
-/*	
+#if STOP_COMMENTING_OUT_LARGE_CHUNKS_OF_CODE // create a well-named macro instead
 	int * memberList = Calloc(sizeof(int), P->C[k]->n);
 	int l, m, n = SetToArray(memberList, P->C[k]->nodeSet);
 	
@@ -569,7 +562,7 @@ int main(int argc, char *argv[])
 	    SetAdd(found, memberList[l]);
 	}
 	Free(memberList);
-*/
+#endif
  
     }
     SetFree(found);
