@@ -86,7 +86,6 @@ Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation 
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
-char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
 Boolean _rawCounts;
@@ -591,12 +590,15 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     InitializeConnectedComponents(G);
     InitializeStarMotifs(G);
 
+
     // these initialize the global accumulators, which are the ones being outputed
     // each thread also has it's own copy of accumulators, which are then "summed up" into this global copy we initialize below
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-        for(i=0;i<_numCanon;i++) _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
-        for(j=0;j<G->n;j++) _graphletDegreeVector[i][j]=0.0;
+        for(i=0;i<_numCanon;i++) {
+            _graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**_graphletDegreeVector));
+            for(j=0;j<G->n;j++) _graphletDegreeVector[i][j]=0.0;
+        }
     }
     // initialize ODV vectors if needed
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
@@ -605,6 +607,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0.0;
         }
     } // note that this double allocation of GDV/ODV vectors may slow things down
+
 
     // initialize distribution tables if needed
     if (_outputMode & graphletDistribution) {
@@ -767,14 +770,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             if (_outputMode & outputODV) {
                 for(i=0; i<_numOrbits; i++) {
                 for(j=0; j<G->n; j++) {
-                    _orbitDegreeVector[i][j] += threadData[t].accums.orbitDegreeVector[i][j];
+                    _orbitDegreeVector[i][j] = threadData[t].accums.orbitDegreeVector[i][j];
                 }
                 }
             }
             if (_outputMode & outputGDV) {
                 for(i=0; i<_numCanon; i++) {
                 for(j=0; j<G->n; j++) {
-                    _graphletDegreeVector[i][j] += threadData[t].accums.graphletDegreeVector[i][j];
+                    _graphletDegreeVector[i][j] = threadData[t].accums.graphletDegreeVector[i][j];
                 }
                 }
             }
@@ -1035,6 +1038,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	default: Fatal("unknown _communityMode %c", _communityMode);
 	}
     }
+
     if(_outputMode & graphletDistribution) {
         for(i=0; i<_numCanon; i++) {
             for(j=0; j<_numCanon; j++)
@@ -1716,6 +1720,7 @@ int main(int argc, char *argv[])
 	}
     }
 
+
     if (_orbitNumber != -1) {
         if (_odvFile != NULL) {
             parseOdvFromFile(_odvFile);
@@ -1746,6 +1751,8 @@ int main(int argc, char *argv[])
 	_confidence = (1-_desiredPrec/10);
     if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
 	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
+    
+
 
     FILE *fpGraph;
     int piped = 0;
@@ -1883,13 +1890,14 @@ int main(int argc, char *argv[])
 	    SetAdd(_startNodeSet, l);
 	}
     }
-
+    
     if(_outputMode & communityDetection) {
 	if(_communityMode == 'o' || _communityMode=='g') // allocate sets for [node][orbit], but 2nd dimension only when needed
 	    _communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**)); // elements are only allocated when needed
 	else
 	    Fatal("unknown _communityMode %c",_communityMode);
     }
+
 
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) {
         FILE *fp;

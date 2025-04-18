@@ -45,7 +45,8 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k);
 double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums);
 double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
 double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k);
-double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
+double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums);
+double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums);
 double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k);
 double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k);
 void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr); // returns void instead of double because this function isn't called in SampleGraphlet
