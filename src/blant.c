@@ -147,6 +147,8 @@ static unsigned int **_componentList; // list of lists of components, largest to
 static double _totalCombinations, *_combinations, *_probOfComponent;
 SET **_componentSet;
 
+Accumulators _trashAccumulator = {};
+
 double GetCPUseconds(void) {
     struct rusage usg;
     double res = 0;
@@ -508,7 +510,7 @@ void* RunBlantInThread(void* arg) {
 
     RandomSeed(seed);
 
-#if PARANOID_ASSERTS || true
+#if PARANOID_ASSERTS
     for (int i = 0; i < _numCanon; i++) {
         assert(args->accums.graphletConcentration[i] == 0);
     }
@@ -524,7 +526,7 @@ void* RunBlantInThread(void* arg) {
     SET *intersect_node = SetAlloc(G->n);
 
     if (_outputMode & graphletDistribution) {
-        SampleGraphlet(G, V, Varray, k, G->n, NULL);
+        SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
         // i++;
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
@@ -628,8 +630,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
         // accumulators must be provided but no need for them
-        Accumulators trash;
-        SampleGraphlet(G, V, Varray, k, G->n, &trash);
+        SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
@@ -770,6 +771,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             if (_outputMode & outputODV) {
                 for(i=0; i<_numOrbits; i++) {
                 for(j=0; j<G->n; j++) {
+                    // assert(_orbitDegreeVector[i][j] == 0);
                     _orbitDegreeVector[i][j] = threadData[t].accums.orbitDegreeVector[i][j];
                 }
                 }
@@ -777,6 +779,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             if (_outputMode & outputGDV) {
                 for(i=0; i<_numCanon; i++) {
                 for(j=0; j<G->n; j++) {
+                    // assert(_graphletDegreeVector[i][j] == 0);
                     _graphletDegreeVector[i][j] = threadData[t].accums.graphletDegreeVector[i][j];
                 }
                 }
