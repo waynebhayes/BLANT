@@ -231,7 +231,7 @@ std::cout << "[TIME] Alignment process: " << elapsed_alignment.count() << " seco
     auto end_total = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_total = end_total - start_total;
     std::cout << "[TIME] Total execution time: " << elapsed_total.count() << " seconds\n";
-
+    std::cout<<"total number of edges used in the alignment EA E1 E2:"<<globalEA<<" "<<globalE1<<" "<<globalE2;
     outFile << "[TIME] Alignment process: " << elapsed_alignment.count() << " seconds\n";
     outFile << "===== End of Run ===== ";
     outFile.close();
