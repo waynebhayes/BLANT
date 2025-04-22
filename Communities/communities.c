@@ -5,6 +5,8 @@
 #include "sets.h"
 #include "sim_anneal.h"
 
+#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+
 /************************** Community routines *******************/
 typedef struct _community {
     int id, n;
@@ -39,7 +41,7 @@ COMMUNITY *CommunityAddNode(COMMUNITY *C, int i) {
 	assert(C->n <= C->G->n);
 	assert(SetCardinality(C->nodeSet) == C->n);
     }
-    else
+    else if(VERBOSE > 2)
 	printf("%d Already in\n", i);
     return C;
 }
@@ -51,7 +53,7 @@ COMMUNITY *CommunityDelNode(COMMUNITY *C, int i) {
 	SetDelete(C->nodeSet, i);
 	C->n--;
     }
-    else
+    else if(VERBOSE>2)
 	printf("Cannot find %d\n", i);
     return C;
 }
@@ -72,7 +74,9 @@ void CommunityUpdate(COMMUNITY * oldCom, COMMUNITY * newCom, SET * nodes){
     GRAPH * G = oldCom->G;
     int * memberList = Calloc(SetCardinality(nodes), sizeof(int));
     int i, j, n = SetToArray(memberList, nodes);
+#if VERBOSE > 2
     printf("BEFORE: oc in %d, oc out %d, nc in %d, nc out %d\n", oldCom->edgesIn, oldCom->edgesOut, newCom->edgesIn, newCom->edgesOut);
+#endif
     int * visited = Calloc(G->n, sizeof(int));     
     for(i = 0; i < G->n; ++i){
 	visited[i] = 0; 
@@ -109,11 +113,15 @@ void CommunityUpdate(COMMUNITY * oldCom, COMMUNITY * newCom, SET * nodes){
 	    }
 	}
     }
+#if VERBOSE > 2
     printf("\nwithin %d, old %d, new %d, neither %d\n", within, old, new, neither);
+#endif
     int diff = old-new;
     oldCom->edgesOut += diff;
     newCom->edgesOut += diff;
+#if VERBOSE > 2
     printf("AFTER: oc in %d, oc out %d, nc in %d, nc out %d\n", oldCom->edgesIn, oldCom->edgesOut, newCom->edgesIn, newCom->edgesOut);
+#endif
     Free(memberList);
     Free(visited);    
 }
@@ -245,7 +253,9 @@ void MoveRandomNode(PARTITION *P){
     CommunityDelNode(oc, u);    
     CommunityAddNode(nc, u);
     P->where[u] = newCom;
+#if VERBOSE >= 2
     printf("Mv(%d,%d->%d) ", u, oldCom, newCom);
+#endif
     _newCom = newCom;
 
     if(oc->n == 0){
