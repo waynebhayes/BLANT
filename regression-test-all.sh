@@ -60,7 +60,8 @@ cpus() {
 BLANT_HOME=`/bin/pwd`
 LIBWAYNE_HOME="$BLANT_HOME/libwayne"
 PATH="$BLANT_HOME:$BLANT_HOME/scripts:$BLANT_HOME/libwayne/bin:$PATH"
-export PATH BLANT_HOME LIBWAYNE_HOME
+NUM_THREADS=$(getconf _NPROCESSORS_ONLN)
+export PATH BLANT_HOME LIBWAYNE_HOME NUM_THREADS
 
 if [ ! -f libwayne/Makefile ]; then
     echo "you need the submodule libwayne; trying to get it now" >&2
@@ -106,7 +107,7 @@ echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
 
 if [ "$NO8" != "" ]; then unset EIGHT; fi
-make -j$MAKE_CORES $WHAT || die "failed to make"
+# make -j$MAKE_CORES $WHAT || die "failed to make"
 # The gzip below is now done in the Makefile
 #F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -9 $F &
 
