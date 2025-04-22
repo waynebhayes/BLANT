@@ -94,9 +94,9 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<string,int> idmap;
     int nextId = 0;
 
-    ifstream infile(input_file_name.c_str());
+    ifstream gfile(input_file_name.c_str());
     string su, sv;
-    while (infile >> su >> sv) {
+    while (gfile >> su >> sv) {
         // assign each unique node-string an integer ID
         if (!idmap.count(su)) {
             idmap[su] = nextId;
@@ -109,7 +109,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
         // add the undirected edge
         snap_graph->AddEdge(idmap[su], idmap[sv]);
     }
-    infile.close();
+    gfile.close();
 
     // Now it’s safe to call TSnap routines on snap_graph:
     int nodes = snap_graph->GetNodes();
