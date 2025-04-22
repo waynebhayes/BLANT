@@ -83,7 +83,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
     string output_file_name = "/tmp/" + get_filename(input_file_name) + oss.str();
 
     // Load graph dynamically using TSnap.
-#if 0
+#if OLD_SNAP_CODE_FOR_INT_ONLY
     PUNGraph snap_graph = LoadEdgeList<PUNGraph>(TStr(input_file_name.c_str()), 0, 1);
     if (snap_graph.Empty()) {
         cerr << "Failed to load graph from " << input_file_name << endl;
@@ -92,6 +92,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
 #endif
     PUNGraph snap_graph = TUNGraph::New();
     map<string,int> idmap;
+    vector<string> id2name;
     int nextId = 0;
 
     ifstream gfile(input_file_name.c_str());
@@ -100,10 +101,12 @@ void getprops(const string &input_file_name, int evalues = -1) {
         // assign each unique node-string an integer ID
         if (!idmap.count(su)) {
             idmap[su] = nextId;
+	    id2name.push_back(su);
             snap_graph->AddNode(nextId++);
         }
         if (!idmap.count(sv)) {
             idmap[sv] = nextId;
+	    id2name.push_back(sv);
             snap_graph->AddNode(nextId++);
         }
         // add the undirected edge
@@ -205,14 +208,14 @@ void getprops(const string &input_file_name, int evalues = -1) {
     for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
         TInt nodeid = it.GetKey();
         TFlt val = it.GetDat();
-        cout << nodeid << " " << val << endl;
+        cout << id2name[nodeid] << " " << val << endl;
     }
 
     cout << "node1 node2 edge_betweenness" << endl;
     for (TIntPrFltH::TIter it = ebw.BegI(); it != ebw.EndI(); it++) {
         TIntPr nodepid = it.GetKey();
         TFlt val = it.GetDat();
-        cout << nodepid.GetVal1() << " : " << nodepid.GetVal2() << " " << val << " " << endl;
+        cout << id2name[nodepid.GetVal1()] << " : " << id2name[nodepid.GetVal2()] << " " << val << " " << endl;
     }
 
     cout << "########################################################### End-of-output\n";
