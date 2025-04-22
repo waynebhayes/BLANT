@@ -83,12 +83,35 @@ void getprops(const string &input_file_name, int evalues = -1) {
     string output_file_name = "/tmp/" + get_filename(input_file_name) + oss.str();
 
     // Load graph dynamically using TSnap.
+#if 0
     PUNGraph snap_graph = LoadEdgeList<PUNGraph>(TStr(input_file_name.c_str()), 0, 1);
     if (snap_graph.Empty()) {
         cerr << "Failed to load graph from " << input_file_name << endl;
         return;
     }
+#endif
+    PUNGraph snap_graph = TUNGraph::New();
+    map<string,int> idmap;
+    int nextId = 0;
 
+    ifstream infile(input_file_name.c_str());
+    string su, sv;
+    while (infile >> su >> sv) {
+        // assign each unique node-string an integer ID
+        if (!idmap.count(su)) {
+            idmap[su] = nextId;
+            snap_graph->AddNode(nextId++);
+        }
+        if (!idmap.count(sv)) {
+            idmap[sv] = nextId;
+            snap_graph->AddNode(nextId++);
+        }
+        // add the undirected edge
+        snap_graph->AddEdge(idmap[su], idmap[sv]);
+    }
+    infile.close();
+
+    // Now it’s safe to call TSnap routines on snap_graph:
     int nodes = snap_graph->GetNodes();
     int edges = snap_graph->GetEdges();
     
