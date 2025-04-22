@@ -46,12 +46,12 @@ SkipList::~SkipList(){
 // Generate a random level for node.
 int SkipList::randomLevel()
 {
-    float r = (float)rand()/RAND_MAX;
+    float r = drand48();
     int lvl = 0;
     while(r < P && lvl < MAXLVL)
     {
         lvl++;
-        r = (float)rand()/RAND_MAX;
+        r = drand48();
     }
     return lvl;
 }
@@ -343,7 +343,7 @@ int SkipList::topValue(){
 std::tuple<double, int, int> SkipList::pop(double delta)
 {
 double threshold = topValue() - delta;
-double randomKey = threshold + ((topValue() - threshold) * (rand() / (double)RAND_MAX));
+double randomKey = threshold + ((topValue() - threshold) * drand48());
 Node* chosen = searchElement(randomKey);
 if (!chosen) {
     // If no node exists, return a sentinel tuple.
@@ -414,7 +414,7 @@ Node* SkipList::randomSelect(Node* start)
     {
         count++;
         // With probability 1/count, select the current node.
-        if (rand() % count == 0)
+        if (drand48() < 1.0/count)
             selected = temp;
         temp = temp->forward[0];
     }
