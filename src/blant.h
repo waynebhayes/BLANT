@@ -95,6 +95,10 @@ extern double *_graphletDegreeVector[MAX_CANONICALS];
 extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
+// THESE NEED TO BE WHOLLY DEPRECATED TO WORK SAFELY WITH MULTITHREADING.
+// UTILIZING THESE ACCESSES THE GLOBAL VARIABLES, NOT THE THREAD LOCAL ACCUMULATOR VALUES
+// THUS IF IN THE SAMPLING PROCESS YOU CALL THESE (AS IT DOES IN ProcessNodeGraphletNeighbors, WHICH MUST BE FIXED))
+// INACCURATE RESULTS WILL BE RETURNED
 #define ODV(node,orbit)          _orbitDegreeVector[orbit][node]
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
 

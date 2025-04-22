@@ -51,7 +51,7 @@ void RandomSeed(long seed) {
     // split the number seed into 3 portions of 16 bits
     erand48Seed[0] = (unsigned short)(seed & 0xFFFF);         // Lower 16 bits
     erand48Seed[1] = (unsigned short)((seed >> 16) & 0xFFFF); // Middle 16 bits
-    erand48Seed[2] = (unsigned short)((seed >> 32) & 0xFFFF); // Upper 16 bits
+    erand48Seed[2] = 0x330E; // Upper 16 bits, set to this to mimic srand48
 }
 double RandomUniform(void) {
     return erand48(erand48Seed);
@@ -718,7 +718,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     }
     else // sample graphlets from entire graph using either numSamples or confidence
     {
-
         // Apologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (
             _NUM_THREADS > 1 && (
@@ -730,7 +729,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             !(_sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION)
             )
         ) {
-            Note("Multithreading (t=%d) not supported for the specified output mode or sampling method (or both). Setting number of threads to 1.", _NUM_THREADS);
+            Note("Multithreading (t=%d) not supported for the specified output mode or sampling method (%s). Setting number of threads to 1.",  _NUM_THREADS, SampleMethodStr());
             _NUM_THREADS = 1;
         }
        
@@ -771,16 +770,20 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             if (_outputMode & outputODV) {
                 for(i=0; i<_numOrbits; i++) {
                 for(j=0; j<G->n; j++) {
-                    // assert(_orbitDegreeVector[i][j] == 0);
-                    _orbitDegreeVector[i][j] = threadData[t].accums.orbitDegreeVector[i][j];
+                    // if (t == 0) assert(_orbitDegreeVector[i][j] == 0);
+                    _orbitDegreeVector[i][j] += threadData[t].accums.orbitDegreeVector[i][j];
                 }
                 }
             }
             if (_outputMode & outputGDV) {
                 for(i=0; i<_numCanon; i++) {
                 for(j=0; j<G->n; j++) {
-                    // assert(_graphletDegreeVector[i][j] == 0);
-                    _graphletDegreeVector[i][j] = threadData[t].accums.graphletDegreeVector[i][j];
+                    // if (t == 0) assert(_graphletDegreeVector[i][j] == 0);
+                    // if (t == 0 &&_graphletDegreeVector[i][j] != 0) {
+                    //     Note("BAD VALUE: %f", _graphletDegreeVector[i][j]);
+                    //     assert(false);
+                    // }
+                    _graphletDegreeVector[i][j] += threadData[t].accums.graphletDegreeVector[i][j];
                 }
                 }
             }
@@ -1754,8 +1757,6 @@ int main(int argc, char *argv[])
 	_confidence = (1-_desiredPrec/10);
     if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
 	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
-    
-
 
     FILE *fpGraph;
     int piped = 0;
