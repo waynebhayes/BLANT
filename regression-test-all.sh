@@ -60,7 +60,8 @@ cpus() {
 BLANT_HOME=`/bin/pwd`
 LIBWAYNE_HOME="$BLANT_HOME/libwayne"
 PATH="$BLANT_HOME:$BLANT_HOME/scripts:$BLANT_HOME/libwayne/bin:$PATH"
-export PATH BLANT_HOME LIBWAYNE_HOME
+NUM_THREADS=$(getconf _NPROCESSORS_ONLN)
+export PATH BLANT_HOME LIBWAYNE_HOME NUM_THREADS
 
 if [ ! -f libwayne/Makefile ]; then
     echo "you need the submodule libwayne; trying to get it now" >&2
@@ -102,6 +103,7 @@ else
     : #echo '$CI'" = '$CI'; NOT doing continuous integration" >&2
 fi
 
+# this will probably need to be updated to reflect accurate information; CORES is supposed to be NUM_THREADS
 echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
 

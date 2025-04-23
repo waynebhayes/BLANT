@@ -353,16 +353,30 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm);
 	else Fatal("unkwown _communityMode %c", _communityMode);
     }
+
+
+ #if 0
+     // ETHAN: I DON'T THINK THE BELOW IS ACCURATE; 
+     // DESPITE BEING COMMENTED OUT, ALL REGRESSION TESTS PASS
+     // ALL THIS DOES IS JUST ADD "weight", WHICH IS EITHER 1 or 0, TO THE ACCUMULATORS (global or local)
+     // PERHAPS THIS WENT UNNOTICED DURING SINGLETHREADING SINCE IT WAS ONLY A +1 VALUE WHICH MAY HAVE SEEMED MINIMAL
+     // WITH MULTITHREADING, THIS MAY OCCUR SEVERAL TIMES (ONE FOR EACH THREAD)
+     // SKEWING THE RESULTS ENOUGH TO AFFECT THE REGRESSION TESTS
+
     if(_outputMode & outputGDV) {
-	for(j=0;j<k;j++) GDV(Varray[j], GintOrdinal)+=weight;
+    // for(j=0;j<k;j++) GDV(Varray[j], GintOrdinal)+=weight;
+	for(j=0;j<k;j++) accums->graphletDegreeVector[GintOrdinal][Varray[j]] += weight;
     }
     if(_outputMode & outputODV) {
 #if PERMS_CAN2NON
-	for(j=0;j<k;j++) ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ])+=weight;
+    // for(j=0;j<k;j++) ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ])+=weight;
+	for(j=0;j<k;j++) accums->orbitDegreeVector[_orbitList[GintOrdinal][           j]][Varray[(int)perm[j]]]+=weight;
 #else
-	for(j=0;j<k;j++) ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]])+=weight;
+    // for(j=0;j<k;j++) ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]])+=weight;
+    for(j=0;j<k;j++) accums->orbitDegreeVector[_orbitList[GintOrdinal][(int)perm[j]]][Varray[(int)perm[j]]]+=weight;
 #endif
     }
+#endif
 
     if(!_outputMode) Abort("ProcessGraphlet: unknown or un-implemented outputMode %d", _outputMode);
 
