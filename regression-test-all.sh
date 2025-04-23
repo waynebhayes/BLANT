@@ -60,8 +60,7 @@ cpus() {
 BLANT_HOME=`/bin/pwd`
 LIBWAYNE_HOME="$BLANT_HOME/libwayne"
 PATH="$BLANT_HOME:$BLANT_HOME/scripts:$BLANT_HOME/libwayne/bin:$PATH"
-NUM_THREADS=$(getconf _NPROCESSORS_ONLN)
-export PATH BLANT_HOME LIBWAYNE_HOME NUM_THREADS
+export PATH BLANT_HOME LIBWAYNE_HOME
 
 if [ ! -f libwayne/Makefile ]; then
     echo "you need the submodule libwayne; trying to get it now" >&2
@@ -81,7 +80,8 @@ while [ $# -gt -0 ]; do
 done
 [ -x "$EXE" -o "$MAKE" = true ] || die "Executable '$EXE' must exist or you must specify -make"
 
-CORES=${CORES:=1} # cores =1 for now since I broke threading. :-(
+NUM_THREADS=$(getconf _NPROCESSORS_ONLN)
+CORES=$(( NUM_THREADS < 4 ? NUM_THREADS : 4 ))
 #CORES=${CORES:=`cpus 2>/dev/null | awk '{c2=int($1/2); if(c2>0)print c2; else print 1}'`}
 [ "$CORES" -gt 0 ] || die "can't figure out how many cores this machine has"
 MAKE_CORES=1 # for BLANT, we don't want or need paralellism during make

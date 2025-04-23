@@ -54,7 +54,7 @@ for OUTPUT_METHOD in "${OUTPUT_METHODS[@]}"; do
         
         DIFFERENT=0
 
-        CMD="./blant -r $SEED -m $OUTPUT_METHOD -s $SAMPLING_METHOD -t $NUM_THREADS -n $N -k $K $GRAPH_FILE"
+        CMD="./blant -t $CORES -r $SEED -m $OUTPUT_METHOD -s $SAMPLING_METHOD -n $N -k $K $GRAPH_FILE"
 
         # we must sort the outputs because when multithreading for indexing modes,
         # the program will produce all the same results, but in a different order due to race conditions

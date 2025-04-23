@@ -7,7 +7,7 @@ fi
 export PATH="`pwd`/libwayne/bin:$PATH" # for hawk
 k=5 # only test the 5.el network
 G=$k.el # network
-ARGS="-t $NUM_THREADS -mo -s NBE -n 100000 regression-tests/orcaNumbering/$G" # all ORCA-based BLANT args except -k
+ARGS="-t $CORES -mo -s NBE -n 100000 regression-tests/orcaNumbering/$G" # all ORCA-based BLANT args except -k
 
 # Paste the BLANT outputs for 3,4,5 beside each other (stripping out the leading node names after sorting numerically),
 # and then send the output to awk, which will ensure the binary values (zero or nonzero) are identical

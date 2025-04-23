@@ -15,7 +15,7 @@ SAMPLING_METHOD=EBE
 for i in "${arr[@]}"
 do
    echo "Testing compressed edglist $i"
-   lines=`./blant -t $NUM_THREADS -s $SAMPLING_METHOD -k 3 -mi -n100 $TEST_DIR/$i | wc -l | awk '{print $1}'`;
+   lines=`./blant -t $CORES -s $SAMPLING_METHOD -k 3 -mi -n100 $TEST_DIR/$i | wc -l | awk '{print $1}'`;
    if [ $lines -ne 100 ]
    then
        echo "Test 1: Failed to load network $i"
