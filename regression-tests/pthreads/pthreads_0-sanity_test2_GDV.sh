@@ -17,7 +17,7 @@ for S in MCMC SEC NBE EBE; do
     for k in 3 4 5 6 7 8
     do
 	CORRECT=regression-tests/0-sanity/syeast.$S.gdv.abs.3e9.k$k.txt.xz
-    for t in $NUM_THREADS; do
+    for t in $CORES; do
         if [ -f canon_maps/canon_map$k.bin -a -f $CORRECT ]; then
             /bin/echo -n "$S:$k:$t "
             ./blant -q -R -s $S -mg -n $N -k $k -t $t networks/syeast.el |
