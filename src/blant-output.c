@@ -329,7 +329,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	if(NodeSetSeenRecently(G, Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal)) ||
 	    _canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else puts(PrintIndexEntry(Gint, GintOrdinal, Varray, k, weight, perm));
+	else puts(PrintIndexEntry(buf, Gint, GintOrdinal, Varray, k, weight, perm));
     }
     if(_outputMode & predict) {
 	assert(!G->weight);
