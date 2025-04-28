@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <string>
 #include <cstdlib>   
+#include "rand48.h"
 #include "graph.h"
 #include "skiplist.h" 
 #include "ECScore.h"

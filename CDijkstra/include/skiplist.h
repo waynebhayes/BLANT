@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <cmath>
+#include "rand48.h"
 
 // Define constants.
 const int ROWS = 41456; // human protein
