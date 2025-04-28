@@ -5,19 +5,42 @@
 #include <chrono>
 #include <unordered_map>
 #include <unordered_set>
+#include <string>
+#include <cstdlib>   
 #include "graph.h"
 #include "skiplist.h" 
 #include "ECScore.h"
 
-int main()
-{
+#define SKIPLIST_MAX_LEVEL 20 //define the max level of skip list
+#define SKIPLIST_PROB 0.5 //define the probability of promote to upper level for a node
+#define MAX_DISCARD_TIMES 10 //define the how many times we can discard bad pairs if they have bad EC scores until we stop
+
+int main(int argc, char* argv[])
+{   
+    //command line input
+    double delta = 0.1;
+    double ECthresh = 0.5;
+    std::string Sim = "";
+    std::string Seed = "";
+    std::string Graph1 = "";
+    std::string Graph2 = "";
+
+    if(argc!= 7){
+        std::cerr<<"try again: delta ECthresh simFile seedFile g1.el g2.el\n";
+        return 1;
+    }
+    else{
+        delta = std::stod(argv[1]);
+        ECthresh = std::stod(argv[2]);
+        Sim = argv[3];
+        Seed = argv[4];
+        Graph1 = argv[5];
+        Graph2 = argv[6];
+    }
     srand48(time(NULL));
     auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
-    std::string Graph1 = "../../SANA/networks/RNorvegicus.el";
-    std::string Graph2 = "../../SANA/networks/SPombe.el";
-    std::string Seed   = "test/RNorvegicus-SPombe-Seed.txt";
-    std::string Sim    = "../../SANA/sequence/graphlet+seq.1/RNorvegicus-SPombe.sim";
+    //./build/cdijkstra 0.1 0.5 ../../SANA/sequence/graphlet+seq.1/RNorvegicus-SPombe.sim test/RNorvegicus-SPombe-Seed.txt ../../SANA/networks/RNorvegicus.el ../../SANA/networks/SPombe.el
     int numNodes1=2330;//number of nodes in graph 1
     int numNodes2=4711;//number of nodes in graph 2
 
@@ -78,7 +101,7 @@ int main()
     std::cout<<SeedNodeGraph2;
     //// 4. Read similarity file
     auto start_sim = std::chrono::high_resolution_clock::now();
-    std::vector<std::vector<float>> similarityMatrix = ReadSimFile(nameToIndex1, nameToIndex2, Sim);
+    std::vector<std::vector<double>> similarityMatrix = ReadSimFile(nameToIndex1, nameToIndex2, Sim);
     auto end_sim = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_sim = end_sim - start_sim;
     std::cout << "[TIME] Reading similarity file: " << elapsed_sim.count() << " seconds\n";
@@ -111,11 +134,15 @@ int main()
     // 5. Initialize alignment process
     auto start_alignment = std::chrono::high_resolution_clock::now();
     bool alignmentInProgress = true;
-    SkipList skiplist(20, 0.5);
+    SkipList skiplist(SKIPLIST_MAX_LEVEL, SKIPLIST_PROB);
     int iterationCount = 0;
     //const int maxIterations = 10;
+    int discardCount = 0;
+    int alignCount = 0;
     std::vector<int> connectedNodes1;
     std::vector<int> connectedNodes2;
+    std::vector<int> discardedNodes1;
+    std::vector<int> discardedNodes2;
     // Main loop: continue until no candidates meet the threshold
     while (alignmentInProgress) {
         if(iterationCount == 0){
@@ -130,10 +157,13 @@ int main()
 
         //7. Calculating natural product and insert into skiplist
         //   throw away already aligned nodes when doing so
+        //auto insert_start = std::chrono::high_resolution_clock::now();
         for (int n1 : connectedNodes1)
         {
         // Check if n1 is already in the seed set
         if (std::find(SeedNodeGraph1.begin(), SeedNodeGraph1.end(), n1) != SeedNodeGraph1.end())
+            continue;
+        if (std::find(discardedNodes1.begin(), discardedNodes1.end(), n1) != discardedNodes1.end())
             continue;
 
             for (int n2 : connectedNodes2)
@@ -141,20 +171,27 @@ int main()
             // Check if n2 is already in the seed set
             if (std::find(SeedNodeGraph2.begin(), SeedNodeGraph2.end(), n2) != SeedNodeGraph2.end()) 
                 continue;
+            if (std::find(discardedNodes2.begin(), discardedNodes2.end(), n2) != discardedNodes2.end()) 
+                continue;
             double sim = similarityMatrix[n1][n2];
             //std::cout << "Candidate pair (" << n1 << ", " << n2 << ") has similarity " << sim << "\n";
             if (sim >0){
                 //std::cout << "Inserting: (" << n1 << ", " << n2 << ") with similarity " << sim << "\n";
                 skiplist.insertElement(sim, n1, n2);
+                //for debug randomness
+                //skiplist.displayList();
+
                 }
             }
         }
-
+        //auto insert_end = std::chrono::high_resolution_clock::now();
+        //std::chrono::duration<double> elapsed_insertion = insert_end - insert_start;
+        //std::cout << "Time taken for insertion: " << elapsed_insertion.count() << " seconds\n";
         // 8. Display skip list
         //skiplist.displayList();
 
         // 9. Pop one candidate from skip list
-        auto tup = skiplist.pop(1.0);  // returns (key, first, second) // call this constant DELTA above
+        auto tup = skiplist.pop(delta);  // returns (key, first, second) // call this constant DELTA above
         double key;
         int first, second;
         std::tie(key, first, second) = tup;
@@ -168,20 +205,20 @@ int main()
             std::cout<<"The number of node2 add back to the graph2 is"<<localE2<<"\n";
             std::cout<<"The number of aligned edges is"<<localEA<<"\n";
             std::cout<<"localEC1:"<<double(localEA)/localE1<<"; localEC2:"<<double(localEA)/localE2<<"\n";
-            globalEA = localEA+globalEA;
-            globalE1 = localE1+globalE1;
-            globalE2 = localE2+globalE2;
-            GlobalEC1 = computeEC(globalEA,globalE1);
-            GlobalEC2 = computeEC(globalEA, globalE2);
-            GlobalS3 = computeS3(globalEA, globalE1, globalE2);
-            std::cout<<"EC1: "<<GlobalEC1<< "\n";
-            std::cout<<"EC2: "<<GlobalEC2<< "\n";
-            std::cout<<"S3: "<<GlobalS3<< "\n";
+            int current_globalEA = localEA+globalEA;
+            int current_globalE1 = localE1+globalE1;
+            int current_globalE2 = localE2+globalE2;
+            double current_GlobalEC1 = computeEC(current_globalEA,current_globalE1);
+            double current_GlobalEC2 = computeEC(current_globalEA, current_globalE2);
+            double current_GlobalS3 = computeS3(current_globalEA, current_globalE1, current_globalE2);
+            std::cout<<"current_EC1: "<<current_GlobalEC1<< "\n";
+            std::cout<<"current_EC2: "<<current_GlobalEC2<< "\n";
+            std::cout<<"current_S3: "<<current_GlobalS3<< "\n";
 
         //std::cout << "Popped node => key: " << key
               //<< ", VertexA: " << first
               //<< ", VertexB: " << second << "\n";
-            if(GlobalEC1 >= 0 && GlobalEC2 >= 0 && GlobalS3 >= 0){
+            if(current_GlobalEC1 >= ECthresh && current_GlobalEC2 >= ECthresh){
                 //10. Add to aligned list
             SeedNodeGraph1.push_back(first);
             SeedNodeGraph2.push_back(second);
@@ -189,11 +226,26 @@ int main()
             //      << ") with value=" << key << "\n";
             connectedNodes1 = getConnectedNodes(first, adjMatrix1);
             connectedNodes2 = getConnectedNodes(second, adjMatrix2);
+            globalEA = current_globalEA;
+            globalE1 = current_globalE1;
+            globalE2 = current_globalE2;
+            GlobalEC1 = current_GlobalEC1;
+            GlobalEC2 = current_GlobalEC2;
+            GlobalS3 = current_GlobalS3;
+            alignCount++;
+            discardCount = 0;
             }
             else{
                 std::cout << "This pair does not have good EC.\n";
+                discardedNodes1.push_back(first);
+                discardedNodes2.push_back(second);
+                discardCount++;
+                alignCount = 0;
+                if(iterationCount > 500 && discardCount >=MAX_DISCARD_TIMES && alignCount == 0){
+                    alignmentInProgress = false;
+                }
             }
-        
+            
     } else {
     // No more candidates, stop the loop
     if(key == -1.0){
@@ -205,6 +257,9 @@ int main()
     }
     }
     iterationCount++;
+    std::cout<<"EC1: "<<GlobalEC1<< "\n";
+    std::cout<<"EC2: "<<GlobalEC2<< "\n";
+    std::cout<<"S3: "<<GlobalS3<< "\n";
 }
 
 auto end_alignment = std::chrono::high_resolution_clock::now();

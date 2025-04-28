@@ -1,5 +1,5 @@
 #include "skiplist.h"
-
+#include <chrono>
 // Define the global candidateMatrix.
 std::vector<bool> candidateMatrix(ROWS * COLS, false);
 
@@ -65,6 +65,8 @@ Node* SkipList::createNode(double key, int level, int vA, int vB)
 // Insert given key in skip list
 void SkipList::insertElement(double key, int vA, int vB)
 {
+    //auto start = std::chrono::high_resolution_clock::now();
+
     int index = vA*COLS + vB;
     if (candidateMatrix[index]){
         return;
@@ -159,10 +161,15 @@ void SkipList::insertElement(double key, int vA, int vB)
         current->forward[i] = n;
         }
     }
+    //auto end = std::chrono::high_resolution_clock::now();
+    //std::chrono::duration<double> elapsed = end - start;
+
+    //std::cout << "Time taken: " << elapsed.count() << " seconds\n";
 }
 // Delete an element from the skip list.
 void SkipList::deleteElement(double key, int vA, int vB)
 {
+    //auto start = std::chrono::high_resolution_clock::now();
     Node *current = header;
 
     // create update array and initialize it
@@ -180,7 +187,7 @@ void SkipList::deleteElement(double key, int vA, int vB)
         while(current->forward[i] != NULL  &&
               current->forward[i]->key < key)
             current = current->forward[i];
-        //update[i] = current;
+            update[i] = current;
     }
 
     /* reached level 0 and forward pointer to 
@@ -200,7 +207,7 @@ void SkipList::deleteElement(double key, int vA, int vB)
 
         //compute the update
            for (int i = level; i >= 0; i--) {
-            Node* cur = header;
+            Node* cur = update[i];
             while (cur->forward[i] != NULL && cur->forward[i] != current) {
                 cur = cur->forward[i];
             }
@@ -228,6 +235,10 @@ void SkipList::deleteElement(double key, int vA, int vB)
         if (index >= 0 && index < (int)candidateMatrix.size())
             candidateMatrix[index] = false;
     }
+    //auto end = std::chrono::high_resolution_clock::now();
+    //std::chrono::duration<double> elapsed = end - start;
+
+    //std::cout << "Time taken for deletion: " << elapsed.count() << " seconds\n";
 }
 
 // Search for element in skip list
@@ -255,7 +266,7 @@ Node* SkipList::searchElement(double key)
 
     // If current node have key equal to
     // search key, we have found our target node
-    if (candidate && candidate->key == key)
+    if (candidate && std::fabs(candidate->key - key) < 1e-5)
     {
         //randomly select among all candiate with the same keys during traversal
         std::cout << "Found exact key: " << key << "\n";
@@ -331,7 +342,7 @@ void SkipList::displayList()
 int SkipList::currentLevel(){
     return level;
 }
-int SkipList::topValue(){
+double SkipList::topValue(){
     Node *current = header;
     for(int i = level; i >= 0; i--){
         while(current->forward[i] != NULL)
@@ -344,6 +355,7 @@ std::tuple<double, int, int> SkipList::pop(double delta)
 {
 double threshold = topValue() - delta;
 double randomKey = threshold + ((topValue() - threshold) * drand48());
+std::cout<<randomKey;
 Node* chosen = searchElement(randomKey);
 if (!chosen) {
     // If no node exists, return a sentinel tuple.
@@ -410,7 +422,7 @@ Node* SkipList::randomSelect(Node* start)
 
     // Traverse the level-0 chain while the key remains equal to start->key.
     Node* temp = start->forward[0];
-    while (temp && temp->key == start->key)
+    while (temp && fabs(temp->key - start->key) < 1e-5)
     {
         count++;
         // With probability 1/count, select the current node.
@@ -420,3 +432,4 @@ Node* SkipList::randomSelect(Node* start)
     }
     return selected;
 }
+
