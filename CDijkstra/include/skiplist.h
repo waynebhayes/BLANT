@@ -8,6 +8,7 @@
 #include <cstdint>  // For int8_t
 #include <cstdlib>
 #include <algorithm>
+#include <cmath>
 
 // Define constants.
 const int ROWS = 41456; // human protein
@@ -50,7 +51,7 @@ public:
     Node* searchElement(double key);
     Node* randomSelect(Node* start);
     void displayList();
-    int topValue();
+    double topValue();
     int currentLevel();
     std::tuple<double, int, int> pop(double delta);
 };
