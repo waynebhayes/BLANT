@@ -127,8 +127,7 @@
 7	6
 624	6
 445	6
-575	7>
-autocmd VimLeave * silent !echo -ne "\033]12;white\007"
+575	7
 102	7
 132	7
 169	7

@@ -178,12 +178,12 @@ void getprops(const string &input_file_name, int evalues = -1) {
     GetBetweennessCentr(snap_graph, nbw, ebw, 1.0, false);
 
     // Output results.
-    //cout << "\n########################################################### Global" << endl;
-    //cout << "Eigenvalues " << ev.size() << ": ";
-    //for (size_t i = 0; i < ev.size(); i++) {
-    //    cout << fixed << setprecision(4) << ev[i] << " ";
-    //}
-    //cout << endl;
+    cout << "\n########################################################### Global" << endl;
+    cout << "Eigenvalues " << ev.size() << ": ";
+    for (size_t i = 0; i < ev.size(); i++) {
+        cout << fixed << setprecision(4) << ev[i] << " ";
+    }
+    cout << endl;
     
     cout << "Nodes: " << nodes << " Edges: " << edges << endl;
     cout << "Avg. Clustering Coefficient: " << cc_sum / nodes << endl;
