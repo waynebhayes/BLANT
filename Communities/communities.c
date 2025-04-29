@@ -5,7 +5,7 @@
 #include "sets.h"
 #include "sim_anneal.h"
 
-#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+#define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -194,8 +194,6 @@ PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C) {
         if(!P->C[i]) {
             P->C[i] = C;
             P->n++;
-	    //C->edgesIn = CommunityEdgeCount(C);
-	    //C->edgesOut = CommunityEdgeOutwards(C);
 	    int * memberList = Calloc(sizeof(int), C->n);
 	    int j, k, n = SetToArray(memberList, C->nodeSet);
 	    for(j = 0; j < n; ++j)
@@ -240,7 +238,7 @@ void PartitionFree(PARTITION *P) {
 static int _moveOption = -1, _oldCom = -1, _newCom = -1, _moveDel = 0;
 
 void MoveRandomNode(PARTITION *P){ 
-    int u = 0;//P->G->n * drand48();
+    int u = P->G->n * drand48();
     int oldCom = P->where[u];
     COMMUNITY * oc = P->C[oldCom]; 
     _oldCom = oldCom;
@@ -253,13 +251,12 @@ void MoveRandomNode(PARTITION *P){
     CommunityDelNode(oc, u);    
     CommunityAddNode(nc, u);
     P->where[u] = newCom;
-#if VERBOSE >= 2
+#if VERBOSE > 1
     printf("Mv(%d,%d->%d) ", u, oldCom, newCom);
 #endif
     _newCom = newCom;
 
     if(oc->n == 0){
-	printf("Deleting because of move |1|\n");
 	PartitionDelCommunity(P, oldCom);
 	if(_newCom != P->n){
 	    _oldCom = P->n; 
@@ -267,14 +264,18 @@ void MoveRandomNode(PARTITION *P){
 	// In case oc only had 1 node and we moved it away, delete oc
 	_moveDel = 1;
     }
+#if VERBOSE > 2
     printf("o %d, n %d, P->n %d\n", _oldCom, _newCom, P->n);
+#endif
 }
 
 // Merges C1 and C2 into just C1
 void MergeCommunities(PARTITION *P, int c1, int c2){   
     COMMUNITY *C1 = P->C[c1];
     COMMUNITY *C2 = P->C[c2];
+#if VERBOSE > 1    
     printf("Mg(%d,%d) |%d,%d| ", c1, c2, C1->n, C2->n);
+#endif    
     int *memberList = Calloc(C2->n, sizeof(int));
     int i, j, n = SetToArray(memberList, C2->nodeSet);
     for(i = 0; i < C2->n; i++){
@@ -309,9 +310,9 @@ void SplitCommunity(PARTITION *P, int c_id, int numNodes){
     COMMUNITY *oldCom = P->C[c_id];
     assert(numNodes > 0);
     assert(numNodes < oldCom->n);
-
+#if VERBOSE > 1
     printf("Sp(%d,|%d|->%d) ", c_id, oldCom->n, numNodes);
-
+#endif
     COMMUNITY *newCom = CommunityAlloc(P->G);
 
     int *memberList = Calloc(sizeof(int), oldCom->n);
@@ -345,6 +346,7 @@ void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 
     Measures
 
+    TODO: Make it easier to swap out scoring functions, remove COMMUNITY * C requirement.
 */
 
 double IntraEdgeDensity(COMMUNITY *C, int inEdges){
@@ -368,11 +370,14 @@ double Conductance(int edgesIn, int edgesOut){
      return (double)(edgesOut/(edgesOut + edgesIn));
 }
 
-double HayesScore(COMMUNITY *C, int inEdges){
+double HayesScore(COMMUNITY *C, int inEdges){ 
     //printf("inEdges = %d, C->n = %d\n", inEdges, C->n);
     if(C->n < 2)
         return 0;
-    return inEdges * inEdges / ((C->n * C->n-1)/2.0);
+    double score = inEdges * inEdges / ((C->n * C->n-1)/2.0); 
+    if(score > 0.5)
+	return score;
+    return 0;
 }
 
 
@@ -422,9 +427,13 @@ double ScorePartition(Boolean global, foint f){
 	printf("Com %d, %d\n", i, P->C[i]->n);
     }
 #endif
+#if VERBOSE > 0
     printf("o = %d, n = %d, total n = %d\n", _oldCom, _newCom, P->n);
+#endif
     if(_oldCom == -1 && _newCom == -1){
+#if VERBOSE > 0
 	printf("No moves have been made yet\n");	    
+#endif
     }
     else{
 	// In case of a split/merge reject P->C[n] will no longer exist
@@ -436,35 +445,20 @@ double ScorePartition(Boolean global, foint f){
 	int in, out, fail = 1;
 	if(_oldCom != P->n){ 
 	    COMMUNITY * old = P->C[_oldCom];
-	    printf("o->n %d, ", old->n);
 	    double oldBefore = old->score;
 	    old->score = HayesScore(old, old->edgesIn);
 	    P->total += old->score - oldBefore;
+#if VERBOSE > 0	    
 	    printf("os = %f, ob = %f change = %f ", old->score, oldBefore, old->score - oldBefore);
-#if DEBUG
-	    in = CommunityEdgeCount(old);
-	    out = CommunityEdgeOutwards(old);
-	    printf("\nFROM GROUND, In %d Out %d os %f\n", in, out, HayesScore(old, out));
-	    if(in != old->edgesIn){
-		fail = 0;
-		printf("ERROR: Old in %d vs %d\n", in, old->edgesIn);
-	    }
-	    if(out != old->edgesOut){
-		fail = 0;
-		printf("ERROR: Old out %d vs %d\n", out, old->edgesOut);
-
-	    }
 #endif
 	}
 	COMMUNITY * new = P->C[_newCom];
-	printf("n->n %d\n", new->n);
 	double newBefore = newBefore = new->score;
 	new->score = HayesScore(new, new->edgesIn);
 	P->total += new->score - newBefore;
 #if DEBUG
 	in = CommunityEdgeCount(new);
 	out = CommunityEdgeOutwards(new);
-	
 	printf("ns = %f, nb = %f change = %f\n", new->score, newBefore, new->score - newBefore);
 	printf("FROM GROUND, In %d Out %d ns %f\n", CommunityEdgeCount(new), CommunityEdgeOutwards(new), HayesScore(new, CommunityEdgeCount(new)));
 	if(in != new->edgesIn){
@@ -478,26 +472,15 @@ double ScorePartition(Boolean global, foint f){
 	assert(fail);
 #endif
     }
+#if VERBOSE > 0
     printf("Updated total = %f\n\n", P->total);
+#endif
 #if DEBUG   
     // This test basically defeats the purpose of incremental updating
     // Only use when ensuring robustness
-    double ground = 0, withInfo, stored = 0;
-    for(int i = 0; i < P->n; ++i){
-	stored += P->C[i]->score;
-	ground += HayesScore(P->C[i], CommunityEdgeCount(P->C[i]));
-	withInfo += HayesScore(P->C[i], P->C[i]->edgesIn);
-	//printf("Com %p, %d s %f, g %f, w %f\n", P->C[i], i, stored, ground, withInfo);
-    }
-    //printf("t = %f\n", P->total);
-    assert(P->total - stored < 0.001 && stored - P->total < 0.001);
-    assert(P->total - ground < 0.001 && ground - P->total < 0.001);
-    assert(P->total - withInfo < 0.001 && withInfo - P->total < 0.001);
-#endif
+    #endif
     return P->total;
 }
-
-
 
 // returns the CHANGE in score due to the move
 double PerturbPartition(foint f) {
@@ -533,12 +516,16 @@ double PerturbPartition(foint f) {
 	_moveOption = 2;
     }
     double after = ScorePartition(true, f);
+#if VERBOSE > 0    
     printf("Before = %f, After = %f\n", before, after); 
+#endif    
     return after-before;
 }
 
 Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
+#if VERBOSE > 0    
     printf("Accept? %d\n", accept);
+#endif    
     PARTITION * P = (PARTITION *) f.v;
     double before = P->total;
     //printf("P->n = %d, _newCom = %d, _oldCom = %d\n", P->n, _newCom, _oldCom);
@@ -579,9 +566,9 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
     SetEmpty(P->moved);
     SetEmpty(P->common);
     _moveDel = 0;
-   
+#if VERBOSE > 0   
     printf("Current total = %f\n\n", P->total);
-
+#endif
     return accept;
 }
 
@@ -607,6 +594,42 @@ void HillClimbing(PARTITION *P, int tries){
     }
     printf("Final score %g\n", P->total);
 }
+
+// EXTRA_ASSERTS will significantly degrade performance
+#define EXTRA_ASSERTS 0
+void SAR(int iters, foint f){
+
+    PARTITION * P = f.v;
+    int fail = 1, in, out;
+    double ground = 0, withInfo, stored = 0;
+    for(int i = 0; i < P->n; ++i){
+	COMMUNITY * com = P->C[i];
+	in = CommunityEdgeCount(com);
+	out = CommunityEdgeOutwards(com);
+#if VERBOSE > 2
+	printf("\nCom %d FROM GROUND, In %d Out %d\n", i, in, out);
+#endif
+	if(in != com->edgesIn){
+	    fail = 0;
+	    printf("Com %d ERROR: Old from ground in %d vs stored in %d\n", i, in, com->edgesIn);
+	}
+	if(out != com->edgesOut){
+	    fail = 0;
+	    printf("Com %d ERROR: Old from ground out %d vs stored out %d\n", i, out, com->edgesOut);
+	}
+#if EXTRA_ASSERTS
+	stored += com->score;
+	ground += HayesScore(com, CommunityEdgeCount(com));
+	withInfo += HayesScore(com, com->edgesIn);
+	assert(P->total - stored < 0.001 && stored - P->total < 0.001);
+	assert(P->total - ground < 0.001 && ground - P->total < 0.001);
+	assert(P->total - withInfo < 0.001 && withInfo - P->total < 0.001);
+#endif
+    }
+    assert(fail);
+
+}
+
 
 #define RANDOM_START 1
 #define CHECK_OVERLAP 1
@@ -685,23 +708,25 @@ int main(int argc, char *argv[])
     f.v = P;
     	
 
-    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 500000, 0, 0, NULL);
-    // Boolean SimAnnealSetSchedule(SIM_ANNEAL *sa, double tInitial, double tDecay);
-    // void SimAnnealAutoSchedule(SIM_ANNEAL *sa); // to automatically create schedule
-    // The above two functions need the accept/reject function to work
-    sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 5000000, 0, 0, SAR);
+    //SimAnnealSetSchedule(sa, 50, 10);
+    SimAnnealAutoSchedule(sa); // to automatically create schedule
+    //sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
     SimAnnealRun(sa); // returns >0 if success, 0 if not done and can continue, <0 if error
     // foint SimAnnealSol(SIM_ANNEAL *sa))
     SimAnnealFree(sa);
 #endif
-#if 1
-    int nodes = 0;
+    int nodes = 0, biggest = 0, num;
     for(int k = 0; k < P->n; ++k){
-	printf("Com %d has %d nodes\n", k, P->C[k]->n);
+	num = P->C[k]->n;
+	printf("Com %d has %d nodes\n", k, num);
 	nodes += P->C[k]->n;
+	if(biggest < num)
+	    biggest = num;
+	
     }
     assert(nodes == G->n);
-#endif
+    printf("Biggest community = %d\n", biggest);
     printf("Final score = %f\n", P->total);
     printf("Attempting Partition Free\n");
     PartitionFree(P);
