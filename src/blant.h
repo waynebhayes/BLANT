@@ -11,29 +11,14 @@
 #include "Oalloc.h"
 // #include "mem-debug.h" // need this if you use ENABLE_MEMORY_TRACKING() at the top of main().
 
-#define USE_MarsenneTwister 0
-#if USE_MarsenneTwister
-#include "libwayne/MT19937/mt19937.h"
-static MT19937 *_mt19937;
-#define RandomSeed SeedMt19937
-void SeedMt19937(int seed) {
-    if(_mt19937) Mt19937Free(_mt19937);
-    _mt19937 = Mt19937Alloc(seed);
-}
-double RandomUniform(void) {
-    return Mt19937NextDouble(_mt19937);
-}
-#else
-#include "rand48.h"
-#define RandomUniform drand48
-#define RandomSeed srand48
-#endif
+void RandomSeed(long seed);
+double RandomUniform(void);
 
 #define USE_INSERTION_SORT 0
 #define GEN_SYN_GRAPH 0
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
-extern int _JOBS, _MAX_THREADS;
+extern int _NUM_THREADS, _MAX_THREADS;
 extern unsigned long _numSamples;
 extern double _confidence; // for confidence intervals
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
@@ -107,12 +92,14 @@ char** convertToEL(char* file); // from convert.cpp
 extern const char* _BLANT_DIR;
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
-extern double       *_orbitDegreeVector[MAX_ORBITS];
-extern double *_doubleGraphletDegreeVector[MAX_CANONICALS];
-extern double *_doubleOrbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
+extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
-#define ODV(node,orbit)       _orbitDegreeVector[orbit][node]
+// THESE NEED TO BE WHOLLY DEPRECATED TO WORK SAFELY WITH MULTITHREADING.
+// UTILIZING THESE ACCESSES THE GLOBAL VARIABLES, NOT THE THREAD LOCAL ACCUMULATOR VALUES
+// THUS IF IN THE SAMPLING PROCESS YOU CALL THESE (AS IT DOES IN ProcessNodeGraphletNeighbors, WHICH MUST BE FIXED))
+// INACCURATE RESULTS WILL BE RETURNED
+#define ODV(node,orbit)          _orbitDegreeVector[orbit][node]
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
 
 // Enable the code that uses C++ to parse input files?
@@ -180,5 +167,31 @@ extern int _quiet; // suppress notes and/or warnings, higher value = more quiet
 #define SPARSE true // do not try false at the moment, it's broken
 
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
+
+
+// Headers for multithreading
+typedef struct {
+    // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
+    double graphletCount[MAX_CANONICALS];
+    double graphletConcentration[MAX_CANONICALS];
+    double *graphletDegreeVector[MAX_CANONICALS];
+    double *orbitDegreeVector[MAX_ORBITS];
+} Accumulators;
+
+// Anytime a function must take an Accumulator as a parameter, but you don't intend on actually using the data, pass it this. 
+// The data here is never used, and maintaining only one copy of this saves memory.
+extern Accumulators _trashAccumulator;
+
+// https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
+typedef struct {
+    int numSamples;
+    int k;
+    GRAPH *G;
+    int varraySize;
+    Accumulators accums;
+    long seed;
+} ThreadData;
+
+void* RunBlantInThread(void* arg);
 
 #endif
