@@ -297,7 +297,7 @@ test_stamp: blant blant-sanity $(canon_all) $(subcanon_txts)
 
 test_fast: blant blant-sanity
 	# Run blant sanity test only for MCMC tables. If this fails, chances are EVERYTHING ELSE is wrong. These tests will run every time base is made
-	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo basic sanity check sampling method MCMC indexing k=$$k; ./blant -q -s MCMC -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
+	for k in $(K); do if [ -f canon_maps/canon_map$$k.bin ]; then echo FAST basic sanity for ONLY MCMC with k=$$k; ./blant -q -s MCMC -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done
 
 canon_maps/test_index_mode: test_stamp
 	touch canon_maps/test_index_mode
