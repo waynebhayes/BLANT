@@ -370,19 +370,14 @@ double Conductance(int edgesIn, int edgesOut){
      return (double)(edgesOut/(edgesOut + edgesIn));
 }
 
-double HayesScore(COMMUNITY *C, int inEdges){
-
-    double score = inEdges/(C->n *(C->n - 1) / 2.0);
-
-    if(score > 0.5)
-	return score;
-    return 0;
-    
-    /*
+double HayesScore(COMMUNITY *C, int inEdges){ 
     //printf("inEdges = %d, C->n = %d\n", inEdges, C->n);
     if(C->n < 2)
         return 0;
-    return inEdges * inEdges / ((C->n * C->n-1)/2.0);*/
+    double score = inEdges * inEdges / ((C->n * C->n-1)/2.0); 
+    if(score > 0.5)
+	return score;
+    return 0;
 }
 
 
@@ -600,10 +595,10 @@ void HillClimbing(PARTITION *P, int tries){
     printf("Final score %g\n", P->total);
 }
 
-// EXTRA_ASSERTS will significantly slow down performance
+// EXTRA_ASSERTS will significantly degrade performance
 #define EXTRA_ASSERTS 0
 void SAR(int iters, foint f){
-/*
+
     PARTITION * P = f.v;
     int fail = 1, in, out;
     double ground = 0, withInfo, stored = 0;
@@ -632,7 +627,7 @@ void SAR(int iters, foint f){
 #endif
     }
     assert(fail);
-*/
+
 }
 
 
@@ -713,9 +708,9 @@ int main(int argc, char *argv[])
     f.v = P;
     	
 
-    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 500000, 0, 0, SAR);
-    SimAnnealSetSchedule(sa, 50, 10);
-    //SimAnnealAutoSchedule(sa); // to automatically create schedule
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 5000000, 0, 0, SAR);
+    //SimAnnealSetSchedule(sa, 50, 10);
+    SimAnnealAutoSchedule(sa); // to automatically create schedule
     //sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
     SimAnnealRun(sa); // returns >0 if success, 0 if not done and can continue, <0 if error
     // foint SimAnnealSol(SIM_ANNEAL *sa))
