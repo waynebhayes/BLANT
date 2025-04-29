@@ -2,10 +2,10 @@
 PATH=/home/sana/bin:$PATH
 die() { echo "$@" >&2; exit 1
 }
-[ $# -eq 2 ] || die "Must be exactly 2 input files"
+[ $# -eq 2 ] || die "Must be exactly 2 input files: the edge lists of the two networks to compare"
 
 TMP=/tmp/pushkar$$
-trap "/bin/rm -rf $TMP" 0 1 2 3 15
+ trap "/bin/rm -rf $TMP" 0 1 2 3 15
 mkdir -p $TMP/1 $TMP/2
 echo $TMP
 
@@ -13,7 +13,7 @@ K_Stest() { /home/sana/bin/K-Stest "$@"
 }
 parse() { /home/sana/bin/parse.awk "$@"
 }
-named_col_prog() { /home/sana/bin/named-col-prog "$@"
+awkcel() { /home/sana/bin/awkcel "$@"
 }
 #Eigenvalues 0:
 #Avg. clustering coefficient: 0.055996418392625084
@@ -35,12 +35,12 @@ pushkar "$2" 2
 
 for nodeVal in clusCoff eccentricity node_betweenness; do
     for g in 1 2; do
-		named_col_prog "print $nodeVal" $TMP/$g/nodeVals.tsv > $TMP/$g/$nodeVal
+	awkcel "{print $nodeVal}" $TMP/$g/nodeVals.tsv > $TMP/$g/$nodeVal
     done
 done
 for edgeVal in edge_betweenness; do
     for g in 1 2; do
-		named_col_prog "print $edgeVal" $TMP/$g/edgeVals.tsv > $TMP/$g/$edgeVal
+	awkcel "{print $edgeVal}" $TMP/$g/edgeVals.tsv > $TMP/$g/$edgeVal
     done
 done
 
@@ -62,9 +62,9 @@ paste $TMP/?/header.txt |
 		/^Avg. clust/{printf "Avg. ClustCoff %g %g\n", $4,$8}
 		/^Diam/{print $1,$2,$4}'
 for val in 'CC byNode' 'CC byEdge' 'K-hop' Degree; do
-	for i in 1 2; do
-		grep "^$val" $TMP/$i/header.txt
-	done
+    for i in 1 2; do
+	grep "^$val" $TMP/$i/header.txt
+    done
 done
 for val in clusCoff eccentricity node_betweenness edge_betweenness deg-dist k-hop; do
     echo -n "$val "
