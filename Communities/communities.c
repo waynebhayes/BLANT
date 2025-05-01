@@ -711,8 +711,8 @@ int main(int argc, char *argv[])
 #else
     foint f;
     f.v = P;
-    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, G->n * G->numEdges, 0, 0, SAR);
-    //SimAnnealSetSchedule(sa, 50, 10);
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 10*G->n*G->numEdges,0,0,SAR);
+    //SimAnnealSetSchedule(sa, 64, 16);
     SimAnnealAutoSchedule(sa); // to automatically create schedule
     //sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
     SimAnnealRun(sa); // returns >0 if success, 0 if not done and can continue, <0 if error
@@ -733,7 +733,7 @@ int main(int argc, char *argv[])
     }
     assert(nodes == G->n);
     printf("Final score = %f\n", P->total);
-    printf("Biggest community is %d, with %d nodes:\n", which, biggest);
+    printf("Biggest community is #%d, with %d nodes:\n", which, biggest);
     PrintCommunity(P->C[which]);
     printf("Attempting Partition Free\n");
     PartitionFree(P);
