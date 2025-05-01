@@ -139,7 +139,7 @@ void SetGlobalCanonMaps(void)
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
     _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
-    sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k);
+    sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
     if(pfd>=0) {
 	Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);

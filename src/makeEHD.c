@@ -25,7 +25,7 @@ void SetGlobalCanonMaps(int k){
     _numCanon = _connectedCanonicals->maxElem;
     _K = (Gordinal_type*) mapCanonMap(BUF, _K, k);
 
-    sprintf(BUF, CANON_DIR "/perm_map%d.bin", k);
+    sprintf(BUF, "%s/perm_map%d.bin", _CANON_DIR, k);
 }
 
 int getHammingDistance(int a, int b){

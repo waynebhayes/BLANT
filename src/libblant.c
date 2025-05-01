@@ -1,10 +1,21 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <assert.h>
+#include <string.h>
 #include "blant.h"
 #include "tinygraph.h"
 
 const char* _BLANT_DIR = DEFAULT_BLANT_DIR;
+const char* _CANON_DIR = DEFAULT_CANON_DIR;
+
+void SetBlantDirs(void) {
+    char* temp = getenv("BLANT_DIR");
+    if (temp)
+	_BLANT_DIR = Strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
+    temp = getenv("BLANT_CANON_DIR");
+    if (temp)
+	_CANON_DIR = Strdup(temp);
+}
 
 // Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
@@ -77,7 +88,7 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
 #else
     int Bk = (1U <<(k*(k-1)/2));
 #endif
-    sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, CANON_DIR, k);
+    sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, _CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
     if(Kfd <= 0) return NULL;
     //short int *Kf = Mmap(K, Bk*sizeof(short int), Kfd); // Using Mmap will cause error due to MAP_FIXED flag
@@ -87,7 +98,7 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
 }
 
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges) {
-    sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, CANON_DIR, k);
+    sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     Gordinal_type numCanon=0, i;
@@ -113,7 +124,7 @@ Gint_type orbitListPopulate(char *BUF,
 	Gordinal_type orbit_canon_mapping[MAX_ORBITS],
 	char orbit_canon_node_mapping[MAX_ORBITS],
 	Gordinal_type numCanon, int k) {
-    sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, CANON_DIR, k);
+    sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, _CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     Gint_type o, numOrbits;

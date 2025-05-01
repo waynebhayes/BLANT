@@ -101,7 +101,7 @@ void SetGlobalCanonMaps(void){
         _K[_k[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
         assert(_K[_k[i]-1] != NULL);
         mapCanonMap(BUF, _K[_k[i]-1], _k[i]);
-        sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, CANON_DIR, _k[i]);
+        sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k[i]);
         int pfd = open(BUF, 0*O_RDONLY);
         kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
         assert(Pf == Permutations);
@@ -1307,7 +1307,7 @@ int main(int argc, char *argv[]){
         int k = _k[i];
         if(k == -1) break;
         char FILENAME[100];
-        sprintf(FILENAME, "%s/%s/canon_list%d.txt", _BLANT_DIR, CANON_DIR, k);
+        sprintf(FILENAME, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
         FILE* fp = fopen(FILENAME, "r");
         assert(fp);
 
@@ -1335,7 +1335,7 @@ int main(int argc, char *argv[]){
         if(_k[i] == -1) break;
         int k = _k[i];
         char FILENAME[100];
-        sprintf(FILENAME, "%s/%s/EdgeHammingDistance%d.txt", _BLANT_DIR, CANON_DIR, k);
+        sprintf(FILENAME, "%s/%s/EdgeHammingDistance%d.txt", _BLANT_DIR, _CANON_DIR, k);
         FILE* fp = fopen(FILENAME, "r");
         if(!fp) Fatal("cannot open file %s\n", FILENAME);
         int c1,c2, x,y,z;

@@ -75,6 +75,7 @@ extern char _canonNumEdges[MAX_CANONICALS];
 extern double _totalStarMotifs;
 extern Gint_type _canonList[MAX_CANONICALS];
 
+void SetBlantDirs(void);
 double GetCPUseconds(void);
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
@@ -85,11 +86,9 @@ Gint_type orbitListPopulate(char *BUF, Gint_type orbit_list[MAX_CANONICALS][MAX_
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
 
-#define CANON_DIR "canon_maps"
-//#define CANON_DIR "/var/preserve/Graphette/canon_maps" // if you happen to put it there...
-
 #define DEFAULT_BLANT_DIR "."
-extern const char* _BLANT_DIR;
+#define DEFAULT_CANON_DIR "canon_maps"
+extern const char* _BLANT_DIR, *_CANON_DIR;
 
 extern double *_graphletDegreeVector[MAX_CANONICALS];
 extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;

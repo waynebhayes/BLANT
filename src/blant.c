@@ -100,8 +100,6 @@ Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (inclu
 char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 int *_whichComponent;
 
-// char* _BLANT_DIR;
-
 enum OutputMode _outputMode = undef;
 unsigned long _numSamples;
 int **_graphletDistributionTable;
@@ -165,12 +163,6 @@ double GetCPUseconds(void) {
         return -1;
     }
     return res;
-}
-
-void SetBlantDir(void) {
-    char* temp = getenv("BLANT_DIR");
-    if (temp != NULL)
-	_BLANT_DIR = strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
 }
 
 #define O_ALLOC 1
@@ -291,11 +283,11 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
     }
 
     if(_sampleMethod == SAMPLE_NODE_EXPANSION) {
-	    sprintf(BUF, "%s/%s/alpha_list_NBE%d.txt", _BLANT_DIR, CANON_DIR, k);
+	    sprintf(BUF, "%s/%s/alpha_list_NBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
     } else if(_sampleMethod == SAMPLE_EDGE_EXPANSION) {
-	    sprintf(BUF, "%s/%s/alpha_list_EBE%d.txt", _BLANT_DIR, CANON_DIR, k);
+	    sprintf(BUF, "%s/%s/alpha_list_EBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
     } else {
-	    sprintf(BUF, "%s/%s/alpha_list_MCMC%d.txt", _BLANT_DIR, CANON_DIR, k);
+	    sprintf(BUF, "%s/%s/alpha_list_MCMC%d.txt", _BLANT_DIR, _CANON_DIR, k);
     }
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
@@ -1770,7 +1762,7 @@ int main(int argc, char *argv[])
     }
     assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
 
-    SetBlantDir(); // Needs to be done before reading any files in BLANT directory
+    SetBlantDirs(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
     LoadMagicTable(); // needs _k to be set
 

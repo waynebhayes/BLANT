@@ -343,9 +343,7 @@ void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 
 
 /*
-
     Measures
-
     TODO: Make it easier to swap out scoring functions, remove COMMUNITY * C requirement.
 */
 
@@ -706,8 +704,6 @@ int main(int argc, char *argv[])
 #else
     foint f;
     f.v = P;
-    	
-
     SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 5000000, 0, 0, SAR);
     //SimAnnealSetSchedule(sa, 50, 10);
     SimAnnealAutoSchedule(sa); // to automatically create schedule
