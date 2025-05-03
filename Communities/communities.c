@@ -5,6 +5,8 @@
 #include "sets.h"
 #include "sim_anneal.h"
 
+
+#define TARGET_EDGE_DENSITY 0.5
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 
 /************************** Community routines *******************/
@@ -157,9 +159,13 @@ int CommunityEdgeOutwards(COMMUNITY *C){
 void PrintCommunity(COMMUNITY * C){
     int * memberList = Calloc(sizeof(int), C->n);
     int i, j, n = SetToArray(memberList, C->nodeSet);
-    for(i = 0; i < n; ++i)
-	printf("%d ", memberList[i]);
-    printf("\nEnd list\n");
+    char space = '\0';
+    for(i = 0; i < n; ++i) {
+	if(space) putchar(space);
+	printf("%s", C->G->name[memberList[i]]);
+	space=' ';
+    }
+    printf("\n");
     Free(memberList);
 }
 
@@ -232,9 +238,9 @@ void PartitionFree(PARTITION *P) {
     Free(P);
 }
 
-			    // oldCom is where to move the nodes back in case of reject
-			    // newCom is where to get the nodes from
-			    // moveDel is if MoveRandomNode deletes a community if it moves a node where it is the only node in the community
+// oldCom is where to move the nodes back in case of reject
+// newCom is where to get the nodes from
+// moveDel is if MoveRandomNode deletes a community if it moves a node where it is the only node in the community
 static int _moveOption = -1, _oldCom = -1, _newCom = -1, _moveDel = 0;
 
 void MoveRandomNode(PARTITION *P){ 
@@ -343,7 +349,6 @@ void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 
 
 /*
-
     Measures
 
     TODO: Make it easier to swap out scoring functions, remove COMMUNITY * C requirement.
@@ -374,10 +379,11 @@ double HayesScore(COMMUNITY *C, int inEdges){
     //printf("inEdges = %d, C->n = %d\n", inEdges, C->n);
     if(C->n < 2)
         return 0;
-    double score = inEdges * inEdges / ((C->n * C->n-1)/2.0); 
-    if(score > 0.5)
-	return score;
-    return 0;
+    double eps = inEdges / ((C->n * (C->n-1))/2.0); 
+    if(eps <= TARGET_EDGE_DENSITY)
+	return 0;
+    else
+	return inEdges * (TARGET_EDGE_DENSITY); // inEdges*eps * (target/eps), to down-weight if eps is above the target
 }
 
 
@@ -637,7 +643,7 @@ int main(int argc, char *argv[])
 {
 
     int i, j;
-    srand48(time(0));
+    srand48(GetFancySeed(false));
 
     Boolean sparse=maybe, supportNames = true;
     FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line
@@ -710,12 +716,15 @@ int main(int argc, char *argv[])
 
     SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 5000000, 0, 0, SAR);
     //SimAnnealSetSchedule(sa, 50, 10);
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 10*G->n*G->numEdges,0,0,SAR);
+    //SimAnnealSetSchedule(sa, 64, 16);
     SimAnnealAutoSchedule(sa); // to automatically create schedule
     //sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
     SimAnnealRun(sa); // returns >0 if success, 0 if not done and can continue, <0 if error
     // foint SimAnnealSol(SIM_ANNEAL *sa))
     SimAnnealFree(sa);
 #endif
+
     int nodes = 0, biggest = 0, num;
     for(int k = 0; k < P->n; ++k){
 	num = P->C[k]->n;
@@ -727,7 +736,23 @@ int main(int argc, char *argv[])
     }
     assert(nodes == G->n);
     printf("Biggest community = %d\n", biggest);
+
+    int nodes = 0, biggest = 0, num, which=-1;
+    for(int j = 0; j < P->n; ++j){
+	num = P->C[j]->n;
+	int inEdges = CommunityEdgeCount(P->C[j]);
+	printf("Com %d has %d nodes, %d edges, with edge density %g\n", j, num, inEdges, inEdges/(num*(num-1)/2.0));
+	nodes += num;
+	if(HayesScore(P->C[j], inEdges) && num > biggest) {
+	    biggest = num;
+	    which = j;
+	}
+	
+    }
+    assert(nodes == G->n);
     printf("Final score = %f\n", P->total);
+    printf("Biggest community is #%d, with %d nodes:\n", which, biggest);
+    PrintCommunity(P->C[which]);
     printf("Attempting Partition Free\n");
     PartitionFree(P);
     printf("Partition Free completed\n");

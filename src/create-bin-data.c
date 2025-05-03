@@ -76,10 +76,11 @@ int main(int argc, char *argv[])
 #if SELF_LOOPS
     if (kk>7) Fatal("cannot create_bin_data for k>7 when SELF_LOOPS is 1");
 #endif
+    SetBlantDirs();
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges);
     int numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);
-    sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, CANON_DIR, kString);
+    sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, _CANON_DIR, kString);
     FILE *fp=fopen(buf,"r");
     assert(fp);
     int line;
@@ -115,11 +116,11 @@ int main(int argc, char *argv[])
     }
     fprintf(stderr, "Finished reading ASCII files; now writing binary ones\n"); fflush(stderr);
     fclose(fp);
-    sprintf(buf, "%s/%s/canon_map%s.bin", _BLANT_DIR, CANON_DIR, kString);
+    sprintf(buf, "%s/%s/canon_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
     fp=fopen(buf,"wb");
     fwrite((void*)K,sizeof(K[0]),Bk,fp);
     fclose(fp);
-    sprintf(buf, "%s/%s/perm_map%s.bin", _BLANT_DIR, CANON_DIR, kString);
+    sprintf(buf, "%s/%s/perm_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
     fp=fopen(buf,"wb");
     fwrite((void*)Permutations,sizeof(Permutations[0]),Bk,fp);
     fclose(fp);

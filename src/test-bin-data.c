@@ -37,6 +37,7 @@ int N=10;
 int main(int argc, char *argv[])
 {
     char BUF[BUFSIZ];
+    SetBlantDirs();
     _connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
     int numCanon = _connectedCanonicals->maxElem;
     SetFree(_connectedCanonicals);

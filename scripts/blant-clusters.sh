@@ -261,18 +261,24 @@ for edgeDensity in "${EDs[@]}"; do
 		if (v in count) return count[v]/count[u]>=0.5;
 		else return 1/count[u]>=0.5;
 	    }
-	    function AppendNeighbors(u,origin,    v,oldOrder) {
+	    function AppendNeighbors(u,origin,    v,oldOrder, edgesIntoS) {
 		oldOrder=PROCINFO["sorted_in"];
-		PROCINFO["sorted_in"]="randsort";
 		if(u in graphletNeighbors) {
+		    # The following three lines will append the neighbors in order of most edges back into S
+		    # It seems reasonable, but is more expensive seems to have no significant difference. :-(
+		    #for (v in graphletNeighbors[u]) edgesIntoS[v] = EdgesIntoS(v);
+		    #PROCINFO["sorted_in"] = "@val_num_desc"; # for loop through edgesIntoS, largest first
+		    #for (v in edgesIntoS) {
+		    # The default is to append them in random order... no significant difference on small networks
+		    PROCINFO["sorted_in"]="randsort";
 		    for (v in graphletNeighbors[u]) {
 			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelClusCount(u, v)) {
 			    QueueAdd("Q", v);
 			    visitedQ[v]=1;
 			}
 		    }
+		    PROCINFO["sorted_in"]=oldOrder;
 		}
-		PROCINFO["sorted_in"]=oldOrder;
 	    }
 	    END{n=length(degree); # number of nodes in the input network
 		if('$edgeDensity'==1) density_leeway=1;
