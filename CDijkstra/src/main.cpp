@@ -16,6 +16,8 @@
 #define SKIPLIST_PROB 0.5 //define the probability of promote to upper level for a node
 #define MAX_DISCARD_TIMES 10 //define the how many times we can discard bad pairs if they have bad EC scores until we stop
 
+#include "GetFancySeed.c"
+
 int main(int argc, char* argv[])
 {   
     //command line input
@@ -38,7 +40,7 @@ int main(int argc, char* argv[])
         Graph1 = argv[5];
         Graph2 = argv[6];
     }
-    srand48(time(NULL));
+    srand48(GetFancySeed(false));
     auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
     //./build/cdijkstra 0.1 0.5 ../../SANA/sequence/graphlet+seq.1/RNorvegicus-SPombe.sim test/RNorvegicus-SPombe-Seed.txt ../../SANA/networks/RNorvegicus.el ../../SANA/networks/SPombe.el
