@@ -19,7 +19,7 @@
 int main(int argc, char* argv[])
 {   
     //command line input
-    double delta = 0.1;
+    float delta = 0.1;
     double ECthresh = 0.5;
     std::string Sim = "";
     std::string Seed = "";
@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
     std::cout<<SeedNodeGraph2;
     //// 4. Read similarity file
     auto start_sim = std::chrono::high_resolution_clock::now();
-    std::vector<std::vector<double>> similarityMatrix = ReadSimFile(nameToIndex1, nameToIndex2, Sim);
+    std::vector<std::vector<float>> similarityMatrix = ReadSimFile(nameToIndex1, nameToIndex2, Sim);
     auto end_sim = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_sim = end_sim - start_sim;
     std::cout << "[TIME] Reading similarity file: " << elapsed_sim.count() << " seconds\n";
@@ -174,7 +174,7 @@ int main(int argc, char* argv[])
                 continue;
             if (std::find(discardedNodes2.begin(), discardedNodes2.end(), n2) != discardedNodes2.end()) 
                 continue;
-            double sim = similarityMatrix[n1][n2];
+            float sim = similarityMatrix[n1][n2];
             //std::cout << "Candidate pair (" << n1 << ", " << n2 << ") has similarity " << sim << "\n";
             if (sim >0){
                 //std::cout << "Inserting: (" << n1 << ", " << n2 << ") with similarity " << sim << "\n";
@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
 
         // 9. Pop one candidate from skip list
         auto tup = skiplist.pop(delta);  // returns (key, first, second) // call this constant DELTA above
-        double key;
+        float key;
         int first, second;
         std::tie(key, first, second) = tup;
         if (key != -1.0) {
