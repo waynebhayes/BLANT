@@ -230,7 +230,7 @@ void displayConnectedNodes(const std::vector<int>& connectedNodes)
 }
 
 // ReadSimFIle
-std::vector<std::vector<double>> ReadSimFile(
+std::vector<std::vector<float>> ReadSimFile(
     const std::unordered_map<std::string, int>& nodeIndexMapping1,
     const std::unordered_map<std::string, int>& nodeIndexMapping2,
     const std::string& filename)
@@ -238,7 +238,7 @@ std::vector<std::vector<double>> ReadSimFile(
     // Initialize matrix with default value -1 (indicating no similarity)
     size_t size1 = nodeIndexMapping1.size();
     size_t size2 = nodeIndexMapping2.size();
-    std::vector<std::vector<double>> similarityMatrix(size1, std::vector<double>(size2, -1.0));
+    std::vector<std::vector<float>> similarityMatrix(size1, std::vector<float>(size2, -1.0));
 
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -250,7 +250,7 @@ std::vector<std::vector<double>> ReadSimFile(
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         std::string node1_name, node2_name;
-        double similarity;
+        float similarity;
         ss >> node1_name >> node2_name >> similarity;
 
         int idx1 = findIndex(nodeIndexMapping1, node1_name);

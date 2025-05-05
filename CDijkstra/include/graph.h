@@ -54,7 +54,7 @@ void displayConnectedNodes(int SeedNodeGraph1, const std::vector<int>& connected
 void displayConnectedNodes(const std::vector<int>& connectedNodes);
 
 // Read similarity file and return vector of (idx1, idx2, similarity)
-std::vector<std::vector<double>> ReadSimFile(
+std::vector<std::vector<float>> ReadSimFile(
     const std::unordered_map<std::string, int>& nodeIndexMapping1,
     const std::unordered_map<std::string, int>& nodeIndexMapping2,
     const std::string& filename);
@@ -70,7 +70,7 @@ void PrintNameToIndex(const std::unordered_map<std::string, int>& nameToIndex);
 void PrintIndexToName(const std::vector<std::string>& indexToName);
 void PrintAdjMatrix(const std::vector<std::vector<bool>>& adjMatrix);
 
-std::vector<std::vector<double>> ReadSimFile(
+std::vector<std::vector<float>> ReadSimFile(
     const std::unordered_map<std::string, int>& nodeIndexMapping1,
     const std::unordered_map<std::string, int>& nodeIndexMapping2,
     const std::string& filename);

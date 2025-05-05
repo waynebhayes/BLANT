@@ -6,11 +6,12 @@ std::vector<bool> candidateMatrix(ROWS * COLS, false);
 // ------------------ Node Member Functions ------------------
 
 // Constructor: Allocate forward array and initialize.
-Node::Node(double key, int level, int vA, int vB)
+Node::Node(float key, int level, int vA, int vB)
 {
     this->key = key;
     this->VertexA=vA;
     this->VertexB=vB;
+    this->mylevel = level;
     // Allocate memory to forward 
     forward = new Node*[level+1];
     // Fill forward array with 0(NULL)
@@ -56,14 +57,14 @@ int SkipList::randomLevel()
     return lvl;
 }
 // create new node
-Node* SkipList::createNode(double key, int level, int vA, int vB)
+Node* SkipList::createNode(float key, int level, int vA, int vB)
 {
     Node *n = new Node(key, level, vA, vB);
     return n;
 }
 
 // Insert given key in skip list
-void SkipList::insertElement(double key, int vA, int vB)
+void SkipList::insertElement(float key, int vA, int vB)
 {
     //auto start = std::chrono::high_resolution_clock::now();
 
@@ -166,8 +167,58 @@ void SkipList::insertElement(double key, int vA, int vB)
 
     //std::cout << "Time taken: " << elapsed.count() << " seconds\n";
 }
-// Delete an element from the skip list.
-void SkipList::deleteElement(double key, int vA, int vB)
+void SkipList::deleteVector(const std::vector<std::tuple<float, int, int>>& deletions){
+    //auto start = std::chrono::high_resolution_clock::now();
+    Node *update[MAXLVL+1];
+    memset(update, 0, sizeof(Node*)*(MAXLVL+1));
+    for (int i = 0; i <= level; ++i) {
+        update[i] = header;
+    }
+    for (const auto& nodeInfo : deletions) {
+    float key = std::get<0>(nodeInfo);
+    int vA = std::get<1>(nodeInfo);
+    int vB = std::get<2>(nodeInfo);
+
+    for (int i = level; i >= 0; --i) {
+        while (update[i]->forward[i] != nullptr &&
+               update[i]->forward[i]->key < key) {
+            update[i] = update[i]->forward[i];
+        }
+    }
+    Node* current = update[0]->forward[0];
+
+    while (current != nullptr && current->key) {
+        if (current->VertexA == vA && current->VertexB == vB) {
+            // Found exact match: update forward pointers at all levels
+            for (int i = 0; i <= current->mylevel; i++) {
+                while (update[i]->forward[i] != nullptr &&
+                       update[i]->forward[i] != current) {
+                    update[i] = update[i]->forward[i];
+                }
+
+                if (update[i]->forward[i] == current)
+                    update[i]->forward[i] = current->forward[i];
+            }
+            while (level > 0 && header->forward[level] == nullptr)
+                level--;
+
+            delete current;
+
+            int index = vA * COLS + vB;
+            if (index >= 0 && index < (int)candidateMatrix.size())
+                candidateMatrix[index] = false;
+            //std::cout << "[SkipList] delete success: key=" << key << " (vA=" << vA << ", vB=" << vB << ")\n";
+            break;
+        }
+        update[0] = current;
+        current = current->forward[0];
+    }
+
+}
+}
+
+/*
+void SkipList::deleteElement(float key, int vA, int vB)
 {
     //auto start = std::chrono::high_resolution_clock::now();
     Node *current = header;
@@ -176,73 +227,60 @@ void SkipList::deleteElement(double key, int vA, int vB)
     Node *update[MAXLVL+1];
     memset(update, 0, sizeof(Node*)*(MAXLVL+1));
 
-    /*    start from highest level of skip list
-        move the current pointer forward while key 
-        is greater than key of node next to current
-        Otherwise inserted current in update and 
-        move one level down and continue search
-    */
+       //start from highest level of skip list
+        //move the current pointer forward while key 
+        //is greater than key of node next to current
+        //Otherwise inserted current in update and 
+        //move one level down and continue search
+    
     for(int i = level; i >= 0; i--)
     {
-        while(current->forward[i] != NULL  &&
-              current->forward[i]->key < key)
+        while(current->forward[i] != NULL  and current->forward[i]->key < key){
             current = current->forward[i];
-            update[i] = current;
+        }
+        update[i] = current;
     }
 
-    /* reached level 0 and forward pointer to 
-       right, which is possibly our desired node.*/
+    // reached level 0 and forward pointer to 
+    //right, traverse until we find the desired node
     current = current->forward[0];
-    while (current != NULL and current->key){
-        if(current->VertexA == vA and current->VertexB == vB)
-            break;
-        current = current ->forward[0];
-    }
-    // If current node is target node
-    if(current != NULL and current->key == key and current->VertexA == vA and current->VertexB == vB)
-    {
-        /* start from lowest level and rearrange
-           pointers just like we do in singly linked list
-           to remove target node */
+    while (current != nullptr && current->key) {
+        if (current->VertexA == vA && current->VertexB == vB) {
+            // Found exact match: update forward pointers at all levels
+            for (int i = 0; i <= level; i++) {
+                while (update[i]->forward[i] != nullptr &&
+                       update[i]->forward[i] != current) {
+                    update[i] = update[i]->forward[i];
+                }
 
-        //compute the update
-           for (int i = level; i >= 0; i--) {
-            Node* cur = update[i];
-            while (cur->forward[i] != NULL && cur->forward[i] != current) {
-                cur = cur->forward[i];
+                if (update[i]->forward[i] == current)
+                    update[i]->forward[i] = current->forward[i];
             }
-            update[i] = cur;
-        }
-    
-        for(int i=0;i<=level;i++)
-        {
-            /* If at level i, next node is not target 
-               node, break the loop, no need to move 
-              further level */
-            if(update[i]->forward[i] != current)
-                break;
 
-            update[i]->forward[i] = current->forward[i];
+            // Clean up empty levels
+            while (level > 0 && header->forward[level] == nullptr)
+                level--;
+
+            delete current;
+
+            int index = vA * COLS + vB;
+            if (index >= 0 && index < (int)candidateMatrix.size())
+                candidateMatrix[index] = false;
+
+            return;
         }
 
-        // Remove levels having no elements 
-        while(level>0 &&
-              header->forward[level] == 0)
-            level--;
-         //cout<<"Successfully deleted key "<<key<<"\n";
-        delete current;
-        int index = vA * COLS + vB;
-        if (index >= 0 && index < (int)candidateMatrix.size())
-            candidateMatrix[index] = false;
+        // Advance update[0] and current together
+        update[0] = current;
+        current = current->forward[0];
     }
-    //auto end = std::chrono::high_resolution_clock::now();
-    //std::chrono::duration<double> elapsed = end - start;
-
-    //std::cout << "Time taken for deletion: " << elapsed.count() << " seconds\n";
+    std::cout << "[SkipList] Node not found: key=" << key
+              << " (vA=" << vA << ", vB=" << vB << ")\n";
 }
+*/
 
 // Search for element in skip list
-Node* SkipList::searchElement(double key)
+Node* SkipList::searchElement(float key)
 {
     Node *current = header;
 
@@ -342,7 +380,7 @@ void SkipList::displayList()
 int SkipList::currentLevel(){
     return level;
 }
-double SkipList::topValue(){
+float SkipList::topValue(){
     Node *current = header;
     for(int i = level; i >= 0; i--){
         while(current->forward[i] != NULL)
@@ -351,10 +389,10 @@ double SkipList::topValue(){
     return(current->key);
 }
 
-std::tuple<double, int, int> SkipList::pop(double delta)
+std::tuple<float, int, int> SkipList::pop(float delta)
 {
-double threshold = topValue() - delta;
-double randomKey = threshold + ((topValue() - threshold) * drand48());
+float threshold = topValue() - delta;
+float randomKey = threshold + ((topValue() - threshold) * drand48());
 std::cout<<randomKey;
 Node* chosen = searchElement(randomKey);
 if (!chosen) {
@@ -363,11 +401,11 @@ if (!chosen) {
 }
 
 // Record the vertex pair of the chosen node.
-double chosenKey = chosen->key;
+float chosenKey = chosen->key;
 int chosenA = chosen->VertexA;
 int chosenB = chosen->VertexB;
 
-std::vector<std::tuple<double, int, int>> nodesToDelete;
+std::vector<std::tuple<float, int, int>> nodesToDelete;
 Node* current = header->forward[0];
 while (current != nullptr) {
     if (current->VertexA == chosenA || current->VertexB == chosenB) {
@@ -377,12 +415,15 @@ while (current != nullptr) {
     }
     current = current->forward[0];
 }
-for (const auto& nodeInfo : nodesToDelete) {
-    double key = std::get<0>(nodeInfo);
+deleteVector(nodesToDelete);
+/*for (const auto& nodeInfo : nodesToDelete) {
+    float key = std::get<0>(nodeInfo);
     int vA = std::get<1>(nodeInfo);
     int vB = std::get<2>(nodeInfo);
     deleteElement(key, vA, vB);
 }
+
+*/
 
 /*// Traverse level 0 (the bottom level) of the skip list.
 Node* current = header->forward[0];
@@ -408,6 +449,7 @@ while (current != nullptr) {
 
 
     return std::make_tuple(chosenKey, chosenA, chosenB);
+    
 }
 
 
