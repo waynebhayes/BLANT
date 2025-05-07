@@ -117,7 +117,7 @@ done
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
-#echo "TMPDIR is $TMPDIR"
+echo "TMPDIR is $TMPDIR"
 [ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
 
 BLANT_CMD="$1 ${PRECISION}L $QUIET";
@@ -216,7 +216,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    ORS="\n"; print "";
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
-	sort -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
+	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
 		M=1*'$minClusArg'; if(M>=1) minClus=M;
@@ -410,7 +410,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    #else print " REJECTED" > "/dev/stderr";
 		}
 	    }' "$TMPDIR/net4awk.el$W" - | # dash is the output of the above pipe (sorted cluster counts)
-	sort -nr |
+	sort -T $TMPDIR -nr |
 	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
 	    {
@@ -440,7 +440,7 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }
 	    ' | # sort by number of nodes, then by first node in the list:
-	sort $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
+	sort -T $TMPDIR $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
     done
     for k in "${Ks[@]}"; do
 	    wait; (( BLANT_EXIT_CODE += $? ))
@@ -448,7 +448,7 @@ for edgeDensity in "${EDs[@]}"; do
 done
 
 # we can use the --merge option because the subfinal files are already sorted in SUBFINAL_SORT order
-sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
+sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
     hawk 'BEGIN{ numClus=0 } # post-process to remove/merge duplicates
 	{
 	    delete S;
@@ -499,6 +499,6 @@ sort --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 		}
 		print ""
 	    }
-	}' | sort -k 1nr -k 3nr -k 9n # sort order: edge density, number of nodes, value of k
+	}' | sort -T $TMPDIR -k 1nr -k 3nr -k 9n # sort order: edge density, number of nodes, value of k
 #set -x
 exit $BLANT_EXIT_CODE
