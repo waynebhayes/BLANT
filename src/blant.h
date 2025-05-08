@@ -196,6 +196,7 @@ extern Accumulators _trashAccumulator;
 
 // https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
 typedef struct {
+    int samplesPerThread;
     int k;
     GRAPH *G;
     int varraySize;

@@ -503,7 +503,9 @@ void* RunBlantInThread(void* arg) {
     int varraySize = args->varraySize;
     long seed = args->seed;
     int threadId = args->threadId;
+    int samplesPerThread = args->samplesPerThread;
     Accumulators *accums = &_threadAccumulators[threadId];
+    bool stopThread = false;
 
     // ODV/GDV vector initializations concern: 
     // you'd be allocating memory for these vectors, multiplied by the number of threads. Is that a lot? Probably slows it down
@@ -535,7 +537,6 @@ void* RunBlantInThread(void* arg) {
     SET *V = SetAlloc(G->n);
     TINY_GRAPH *empty_g = TinyGraphAlloc(k);
     unsigned Varray[varraySize];
-    bool earlyAbort = false;
     double weight;
     unsigned long stuck = 0;
     SET *prev_node_set = SetAlloc(G->n);
@@ -549,9 +550,13 @@ void* RunBlantInThread(void* arg) {
 
     int samplesCounter = 0;
     int batchSize = G->numEdges*10;
+
+    // with the index modes, we want specifically the -n number of samples; checkDoneSampling cannot stop after an exact number, so we must handle these seperately
+    if ((_outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits) && samplesCounter >= samplesPerThread) stopThread = true;
+
     // begin sampling
     // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
-    while (!_doneSampling) {
+    while (!_doneSampling && !stopThread) {
         if (_window) {
             Fatal("Multithreading not yet implemented for any window related output modes.");
         } 
@@ -573,13 +578,16 @@ void* RunBlantInThread(void* arg) {
             }
         }
         samplesCounter++;
-        accums->numSamples++;
-        // check if it's timet o stop samlping
-        if (samplesCounter && 
-            ((_stopMode == precision && samplesCounter % batchSize == 0) || 
-             (_stopMode == num_samples && samplesCounter >= _numSamples/_numThreads)) &&
-            checkDoneSampling()
-        ) _doneSampling = true;
+        accums->numSamples = samplesCounter; // update the accumulator data, since it's used in global checkDoneSampling()
+        // two ways to check if done
+        if (_stopMode == precision && samplesCounter && samplesCounter % batchSize == 0 && checkDoneSampling()) {
+            _doneSampling = true;
+        }
+        if (_stopMode == num_samples) {
+            if ((_outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits) &&
+                samplesCounter >= samplesPerThread) stopThread = true; // stop THIS thread
+            else if (checkDoneSampling()) _doneSampling = true; // stop ALL threads
+        }
     }
     SetFree(prev_node_set);
     SetFree(intersect_node);
@@ -771,6 +779,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
         for (unsigned t = 0; t < _numThreads; t++)
         {
+            threadData[t].samplesPerThread = samplesPerThread;
+            if (t == _numThreads - 1) threadData[t].samplesPerThread += (leftover);
             threadData[t].k = k;
             threadData[t].G = G;
             threadData[t].varraySize = varraySize;
