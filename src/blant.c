@@ -775,7 +775,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         // seed the threads with a base seed that may or may not be specified
         long base_seed = _seed == -1 ? GetFancySeed(true) : _seed;
 
-        Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _numThreads, samplesPerThread, samplesPerThread * _numThreads + leftover);
+        Note("Running BLANT in %d threads", _numThreads);
 
         for (unsigned t = 0; t < _numThreads; t++)
         {
