@@ -1,8 +1,8 @@
 #ifndef BLANT_H
 #define BLANT_H
 
+#include <stdbool.h>
 #include "blant-fundamentals.h" // defining k related constants, including SELF_LOOPS
-
 #include "misc.h"
 #include "sets.h"
 #include "tinygraph.h"
@@ -18,7 +18,7 @@ double RandomUniform(void);
 #define GEN_SYN_GRAPH 0
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
-extern int _NUM_THREADS, _MAX_THREADS;
+extern int _numThreads, _maxThreads;
 extern unsigned long _numSamples;
 extern double _confidence; // for confidence intervals
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
@@ -167,15 +167,28 @@ extern int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 
-
 // Headers for multithreading
+extern int _numThreads;
+extern int _maxThreads;
+extern _Atomic bool _doneSampling;
+// keeps track of if the stop mode is specified with number of samples (-n) or precision (-p)
+enum StopMode {num_samples, precision};
+extern enum StopMode _stopMode;
+
+// Checks if the threads should stop sampling via information gathered from global batch data and the thread local batch data
+bool checkDoneSampling(void);
+
 typedef struct {
     // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
     double graphletCount[MAX_CANONICALS];
     double graphletConcentration[MAX_CANONICALS];
     double *graphletDegreeVector[MAX_CANONICALS];
     double *orbitDegreeVector[MAX_ORBITS];
+    int numSamples;
 } Accumulators;
+
+// a global array of accumulators, one for each thread, updated in batches
+extern Accumulators *_threadAccumulators;
 
 // Anytime a function must take an Accumulator as a parameter, but you don't intend on actually using the data, pass it this. 
 // The data here is never used, and maintaining only one copy of this saves memory.
@@ -183,11 +196,10 @@ extern Accumulators _trashAccumulator;
 
 // https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
 typedef struct {
-    int numSamples;
     int k;
     GRAPH *G;
     int varraySize;
-    Accumulators accums;
+    int threadId; // thread number, starting from 0
     long seed;
 } ThreadData;
 

@@ -11,6 +11,8 @@
 #include <limits.h>
 #include <signal.h>
 #include <pthread.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include "misc.h"
 #include "tinygraph.h"
 #include "graph.h"
@@ -130,8 +132,6 @@ int _worstCanon=-1;
 
 double _desiredDigits, _desiredPrec, _confidence;
 
-// number of parallel threads required, and the maximum allowed at one time (set to sysconf(_SC_NPROCESSORS_ONLN) later in main).
-int _NUM_THREADS, _MAX_THREADS;
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
@@ -145,7 +145,12 @@ static unsigned int **_componentList; // list of lists of components, largest to
 static double _totalCombinations, *_combinations, *_probOfComponent;
 SET **_componentSet;
 
+// number of parallel threads required, and the maximum allowed at one time (set to sysconf(_SC_NPROCESSORS_ONLN) later in main).
+int _numThreads, _maxThreads;
+_Atomic bool _doneSampling = false;
 Accumulators _trashAccumulator = {};
+Accumulators *_threadAccumulators;
+enum StopMode _stopMode;
 
 double GetCPUseconds(void) {
     struct rusage usg;
@@ -474,29 +479,46 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
     return total;
 }
 
+bool checkDoneSampling(void) {
+    if (_stopMode == num_samples) {
+        int totalSamples = 0;
+        for (int i = 0; i < _numThreads; i++) totalSamples += _threadAccumulators[i].numSamples;
+        if (totalSamples >= _numSamples) return true;
+    } else if (_stopMode == precision) {
+        Apology("Precision stopping not yet supported");
+        // Gurjot's code would go here
+    } else {
+        Apology("No stop mode specified. Specify a number of samples to take (-n) or a precision level to reach (-p) in order to designate how to stop sampling.");
+    }
+    return false;
+}
+
+
 void* RunBlantInThread(void* arg) {
     // variable unpacking
     ThreadData* args = (ThreadData*)arg;
-    int numSamples = args->numSamples; // refers to the number of samples dedicated for THIS thread
+    // honestly some of this data can just be accessed via global variables
     int k = args->k;
     GRAPH *G = args->G;
     int varraySize = args->varraySize;
     long seed = args->seed;
+    int threadId = args->threadId;
+    Accumulators *accums = &_threadAccumulators[threadId];
 
     // ODV/GDV vector initializations concern: 
     // you'd be allocating memory for these vectors, multiplied by the number of threads. Is that a lot? Probably slows it down
     // initialize thread local GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
         for(int i=0; i<_numCanon; i++) {
-            args->accums.graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**args->accums.graphletDegreeVector));
-            for(int j=0; j<G->n; j++) args->accums.graphletDegreeVector[i][j]=0.0;
+            accums->graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**accums->graphletDegreeVector));
+            for(int j=0; j<G->n; j++) accums->graphletDegreeVector[i][j]=0.0;
         }
     }
     // initialize thread local ODV vectors if needed
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
         for(int i=0; i<_numOrbits; i++) {
-            args->accums.orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**args->accums.orbitDegreeVector));
-            for(int j=0; j<G->n; j++) args->accums.orbitDegreeVector[i][j]=0.0;
+            accums->orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**accums->orbitDegreeVector));
+            for(int j=0; j<G->n; j++) accums->orbitDegreeVector[i][j]=0.0;
         }
     }
 
@@ -504,8 +526,10 @@ void* RunBlantInThread(void* arg) {
 
 #if PARANOID_ASSERTS
     for (int i = 0; i < _numCanon; i++) {
-        assert(args->accums.graphletConcentration[i] == 0);
+        // printf("graphletConcentration[%d] = %g\n", i, accums->graphletConcentration[i]);
+        assert(accums->graphletConcentration[i] == 0);
     }
+
 #endif
 
     SET *V = SetAlloc(G->n);
@@ -519,16 +543,15 @@ void* RunBlantInThread(void* arg) {
 
     if (_outputMode & graphletDistribution) {
         SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
-        // i++;
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
 
     int samplesCounter = 0;
-
+    int batchSize = G->numEdges*10;
     // begin sampling
     // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
-    while (samplesCounter < numSamples) {
+    while (!_doneSampling) {
         if (_window) {
             Fatal("Multithreading not yet implemented for any window related output modes.");
         } 
@@ -536,20 +559,27 @@ void* RunBlantInThread(void* arg) {
             // calls SampleGraphlet internally
             ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
         } else {
-            weight = SampleGraphlet(G, V, Varray, k, G->n, &args->accums);
-            if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, &args->accums)) {
+            weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
+            if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
                 stuck = 0; // reset stuck counter when finding a newly processed graphlet
             } else {
                 // processing failed, ignore sample
                 samplesCounter--;
                 stuck++;
-                if(stuck > MAX(G->n,numSamples)) {
+                if(stuck > MAX(G->n, _numSamples)) {
                     if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
-                    break; // no new samples able to be found, early abort
+                    _doneSampling = true; // no new samples to be found, stop sampling
                 }
             }
         }
         samplesCounter++;
+        accums->numSamples++;
+        // check if it's timet o stop samlping
+        if (samplesCounter && 
+            ((_stopMode == precision && samplesCounter % batchSize == 0) || 
+             (_stopMode == num_samples && samplesCounter >= _numSamples/_numThreads)) &&
+            checkDoneSampling()
+        ) _doneSampling = true;
     }
     SetFree(prev_node_set);
     SetFree(intersect_node);
@@ -633,9 +663,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
     // ethan note: nothing written about SAMPLE_INDEX sampling, but it must be single threaded?
     if (_sampleMethod == SAMPLE_INDEX) {
-        if (_NUM_THREADS > 1) {
+        if (_numThreads > 1) {
             Note("Index sampling must be single threaded, thus only one thread will be ran.");
-            _NUM_THREADS = 1; // this is unecessary since the below code doesn't use _NUM_THREADS at all, but keep anyway
+            _numThreads = 1; // this is unecessary since the below code doesn't use _numThreads at all, but keep anyway
         }
 
         unsigned prev_nodes_array[_k];
@@ -709,9 +739,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     }
     else // sample graphlets from entire graph using either numSamples or confidence
     {
-        // Apologize if _NUM_THREADS > 1 for a sampling method or output mode that isn't yet supported by multithreading
+        // Apologize if _numThreads > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (
-            _NUM_THREADS > 1 && (
+            _numThreads > 1 && (
             !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || 
                 // index modes have nothing to accumulate, thus work very easily with multithreading
               _outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits ||
@@ -720,49 +750,51 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             !(_sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION)
             )
         ) {
-            Note("Multithreading (t=%d) not supported for the specified output mode or sampling method (%s). Setting number of threads to 1.",  _NUM_THREADS, SampleMethodStr());
-            _NUM_THREADS = 1;
+            Note("Multithreading (t=%d) not supported for the specified output mode or sampling method (%s). Setting number of threads to 1.",  _numThreads, SampleMethodStr());
+            _numThreads = 1;
         }
+
+        _threadAccumulators = Ocalloc(_numThreads, sizeof(Accumulators));
+        memset(_threadAccumulators, 0, _numThreads * sizeof(Accumulators));
        
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        pthread_t threads[_NUM_THREADS];
-        ThreadData threadData[_NUM_THREADS];
-        int samplesPerThread = numSamples / _NUM_THREADS;
-        int leftover = numSamples - (samplesPerThread * _NUM_THREADS);
+        pthread_t threads[_numThreads];
+        ThreadData threadData[_numThreads];
+        int samplesPerThread = numSamples / _numThreads;
+        int leftover = numSamples - (samplesPerThread * _numThreads);
         // seed the threads with a base seed that may or may not be specified
         long base_seed = _seed == -1 ? GetFancySeed(true) : _seed;
 
-        Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _NUM_THREADS, samplesPerThread, samplesPerThread * _NUM_THREADS + leftover);
+        Note("Running BLANT in %d threads, with about %d samples per thread, for a total of %d samples.", _numThreads, samplesPerThread, samplesPerThread * _numThreads + leftover);
 
-        for (unsigned t = 0; t < _NUM_THREADS; t++)
+        for (unsigned t = 0; t < _numThreads; t++)
         {
-            threadData[t].numSamples = samplesPerThread;
-            if (t == _NUM_THREADS - 1) threadData[t].numSamples += (leftover);
             threadData[t].k = k;
             threadData[t].G = G;
             threadData[t].varraySize = varraySize;
-            Accumulators accums = {0};
-            threadData[t].accums = accums;
+            threadData[t].threadId = t;
             threadData[t].seed = base_seed + t; // each thread has it's own unique seed
             pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
         }
 
         // join threads and then summate the accumulators from each thread
-        for (unsigned t = 0; t < _NUM_THREADS; t++)
-        {
+        for (unsigned t = 0; t < _numThreads; t++) {
             pthread_join(threads[t], NULL);
+        }
+
+        for (unsigned t = 0; t < _numThreads; t++) {
             for (i = 0; i < _numCanon; i++) {
-                _graphletConcentration[i] += threadData[t].accums.graphletConcentration[i];
-                _graphletCount[i] += threadData[t].accums.graphletCount[i];
+                _graphletConcentration[i] += _threadAccumulators[t].graphletConcentration[i];
+                _graphletCount[i] += _threadAccumulators[t].graphletCount[i];
             }
 
             if (_outputMode & outputODV) {
                 for(i=0; i<_numOrbits; i++) {
                 for(j=0; j<G->n; j++) {
                     // if (t == 0) assert(_orbitDegreeVector[i][j] == 0);
-                    _orbitDegreeVector[i][j] += threadData[t].accums.orbitDegreeVector[i][j];
+                    _orbitDegreeVector[i][j] += _threadAccumulators[t].orbitDegreeVector[i][j];
                 }
                 }
             }
@@ -774,7 +806,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                     //     Note("BAD VALUE: %f", _graphletDegreeVector[i][j]);
                     //     assert(false);
                     // }
-                    _graphletDegreeVector[i][j] += threadData[t].accums.graphletDegreeVector[i][j];
+                    _graphletDegreeVector[i][j] += _threadAccumulators[t].graphletDegreeVector[i][j];
                 }
                 }
             }
@@ -783,7 +815,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
                             (end.tv_nsec - start.tv_nsec) / 1e9;
-        Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _NUM_THREADS); 
+        Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _numThreads); 
 
     #if 0
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
@@ -1133,21 +1165,21 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
-    if(_NUM_THREADS == 1)
+    if(_numThreads == 1)
 	return RunBlantFromGraph(k, numSamples, G);
 
     if (_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC)
         Fatal("The sampling methods INDEX and EDGE_COVER do not yet support multithreading (feel free to add it!)");
 
     // At this point, _JOBS must be greater than 1.
-    assert(_NUM_THREADS>1 && _NUM_THREADS <= _MAX_THREADS);
+    assert(_numThreads>1 && _numThreads <= _maxThreads);
     unsigned long totalSamples = numSamples;
-    double meanSamplesPerJob = totalSamples/(double)_NUM_THREADS;
-    if(!_quiet) Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _NUM_THREADS, (int)meanSamplesPerJob);
+    double meanSamplesPerJob = totalSamples/(double)_numThreads;
+    if(!_quiet) Note("Parent %d starting about %d jobs of about %d samples each", getpid(), _numThreads, (int)meanSamplesPerJob);
 
     int procsRunning = 0, jobsDone = 0, proc, job=0;
     unsigned long lineNum = 0;
-    for(i=0; numSamples > 0 && i<_MAX_THREADS;i++) {
+    for(i=0; numSamples > 0 && i<_maxThreads;i++) {
 	unsigned long samples = meanSamplesPerJob;
 	assert(samples>0);
 	if(samples > numSamples) samples = numSamples;
@@ -1160,7 +1192,7 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
     do // this loop reads lines from the parallel child procs, one line read per proc per loop iteration
     {
 	char line[1000 * BUFSIZ]; // this is just supposed to be really large
-	for(proc=0;proc<_MAX_THREADS;proc++)	// process one line from each proc
+	for(proc=0;proc<_maxThreads;proc++)	// process one line from each proc
 	{
 	    if(!fpProcs[proc]) continue;
 	    char *tmp = fgets(line, sizeof(line), fpProcs[proc]);
@@ -1262,7 +1294,7 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
     } while(procsRunning > 0);
 
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
-    unsigned long leftovers = numSamples % _NUM_THREADS;
+    unsigned long leftovers = numSamples % _numThreads;
     int result = RunBlantFromGraph(_k, leftovers, G);
     if(_outputMode & predict) Predict_Shutdown(G);
     return result;
@@ -1449,8 +1481,8 @@ int main(int argc, char *argv[])
 
     signal(SIGUSR1, SigEarlyAbort);
 
-    _NUM_THREADS = 1;
-    _MAX_THREADS = sysconf(_SC_NPROCESSORS_ONLN);
+    _numThreads = 1;
+    _maxThreads = sysconf(_SC_NPROCESSORS_ONLN);
 
     _k = 0; _k_small = 0;
 
@@ -1531,8 +1563,8 @@ int main(int argc, char *argv[])
 	    }
 	    break;
 	case 't': 
-        _NUM_THREADS = atoi(optarg);
-        if(_NUM_THREADS > _MAX_THREADS) Fatal("More threads specified than available on system.");
+        _numThreads = atoi(optarg);
+        if(_numThreads > _maxThreads) Fatal("More threads specified than available on system.");
 	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
 	    break;
@@ -1606,6 +1638,7 @@ int main(int argc, char *argv[])
 		default: Fatal("unknown precision weighting %c", wChar);
 		}
 	    }
+        _stopMode = precision;
 	    break;
 	case 'c': _confidence = atof(optarg);
 	    if(_confidence <= 0) Fatal("confidence must be in (0,1), not %g", _confidence);
@@ -1677,6 +1710,8 @@ int main(int argc, char *argv[])
 		case 'm': case 'M': numSamples *= 1024; // do NOT break, fall through
 		case 'k': case 'K': numSamples *= 1024; break;
 		default: Fatal("%s\nERROR: numSamples can be appended by k, m, b, or g but not %c\n%s", USAGE_SHORT, lastChar);
+        _stopMode = num_samples;
+        _numSamples = numSamples;
 		break;
 	    }
 	    //fprintf(stderr, "numSamples set to %d\n", numSamples);
