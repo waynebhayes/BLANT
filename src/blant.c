@@ -523,6 +523,10 @@ void* RunBlantInThread(void* arg) {
             for(int j=0; j<G->n; j++) accums->orbitDegreeVector[i][j]=0.0;
         }
     }
+    // initialize thread local communityNeighbors if needed
+    if(_outputMode & communityDetection) {
+        accums->communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**));
+    }
 
     RandomSeed(seed);
 
@@ -753,7 +757,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || 
                 // index modes have nothing to accumulate, thus work very easily with multithreading
               _outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits ||
-              _outputMode & indexMotifs || _outputMode & indexMotifOrbits
+              _outputMode & indexMotifs || _outputMode & indexMotifOrbits || _outputMode & communityDetection
             ) ||
             !(_sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION)
             )
@@ -819,6 +823,41 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                     _graphletDegreeVector[i][j] += _threadAccumulators[t].graphletDegreeVector[i][j];
                 }
                 }
+            }
+            // Consolidate community neighbors
+            if (_outputMode & communityDetection) {
+				switch(_communityMode) {
+					case 'o':
+						for(i=0; i<_numOrbits; i++) {
+							for(j=0; j<G->n; j++) {
+									_orbitDegreeVector[i][j] += _threadAccumulators->orbitDegreeVector[i][j];
+							}
+						}
+						break;
+					case 'g':
+						for(i=0; i<_numCanon; i++) {
+							for(j=0; j<G->n; j++) {
+									_graphletDegreeVector[i][j] += _threadAccumulators->graphletDegreeVector[i][j];
+							}
+						}
+						break;
+				}
+				int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
+				for(i=0; i<G->n; i++) {
+					if(_threadAccumulators->communityNeighbors[i]) {
+						if(!_communityNeighbors[i]) {
+							_communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
+						}
+						for(j=0; j<numCommunities; j++) {
+							if(_threadAccumulators->communityNeighbors[i][j]) {
+								if(!_communityNeighbors[i][j]) {
+									_communityNeighbors[i][j] = SetAlloc(G->n);
+								}
+								_communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], _threadAccumulators->communityNeighbors[i][j]);
+							}
+						}
+					}
+				}
             }
         }
 
@@ -1030,7 +1069,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	    for(u=0; u<G->n; u++) {
 		for(c=0; c<_numConnectedOrbits; c++) {
 		    orbit_index = _connectedOrbits[c];
-		    double odv=ODV(u,orbit_index);
+		    double odv=_orbitDegreeVector[orbit_index][u];
 		    int numPrinted = 0;
 		    char buf[BUFSIZ];
 		    if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
@@ -1053,7 +1092,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	case 'g':
 	    for(u=0; u<G->n; u++) {
 		for(c=0; c<_numCanon; c++) if(SetIn(_connectedCanonicals,c)) {
-		    double gdv=GDV(u,c);
+		    double gdv=_graphletDegreeVector[c][u];
 		    int numPrinted = 0;
 		    char buf[BUFSIZ];
 		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
