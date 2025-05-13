@@ -7,7 +7,7 @@
 
 
 #define TARGET_EDGE_DENSITY 0.5
-#define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -181,8 +181,8 @@ PARTITION *PartitionAlloc(GRAPH *G) {
     P->common = SetAlloc(G->n);
     P->visited = Calloc(sizeof(int), G->n);
     P->marked = Calloc(sizeof(int), G->n);
-	P->numMoved = 0;
-	return P;  
+    P->numMoved = 0;
+    return P;  
 }
 
 PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C) {
@@ -202,6 +202,7 @@ PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C) {
 	    return P;// find empty community slot
         }
     }
+    printf("Updated P->n %d\n", P->n);
     return NULL;
 }
 
@@ -228,6 +229,8 @@ PARTITION *PartitionDelCommunity(PARTITION *P, int c){
 	    P->C[c]->edgesOut = lastCom->edgesOut;
 	    P->C[c]->id = c;
 	}
+	else
+	    CommunityFree(C);
 
 	P->C[P->n] = NULL;
     }
@@ -244,6 +247,7 @@ void PartitionFree(PARTITION *P) {
     SetFree(P->moved);
     SetFree(P->common);
     Free(P->visited);
+    Free(P->marked);
     Free(P);
 }
 
@@ -663,7 +667,7 @@ int main(int argc, char *argv[])
 
     PARTITION *P = PartitionAlloc(G);
 #if RANDOM_START
-    int numCommunities = 20; // communities numbered 0 through numCommunities-1 inclusive
+    int numCommunities = 2; // communities numbered 0 through numCommunities-1 inclusive
     printf("Starting with %d random communities\n", numCommunities);
     for(i=0; i<numCommunities; i++) PartitionAddCommunity(P, CommunityAlloc(G, i));
 
