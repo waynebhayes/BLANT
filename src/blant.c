@@ -826,38 +826,38 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             }
             // Consolidate community neighbors
             if (_outputMode & communityDetection) {
-                switch(_communityMode) {
-                    case 'o':
-                        for(i=0; i<_numOrbits; i++) {
-                            for(j=0; j<G->n; j++) {
-                                _orbitDegreeVector[i][j] += _threadAccumulators->orbitDegreeVector[i][j];
-                            }
-                        }
-                        break;
-                    case 'g':
-                        for(i=0; i<_numCanon; i++) {
-                            for(j=0; j<G->n; j++) {
-                                _graphletDegreeVector[i][j] += _threadAccumulators->graphletDegreeVector[i][j];
-                            }
-                        }
-                        break;
-                }
-                int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
-                for(i=0; i<G->n; i++) {
-                    if(_threadAccumulators->communityNeighbors[i]) {
-                        if(!_communityNeighbors[i]) {
-                            _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
-                        }
-                        for(j=0; j<numCommunities; j++) {
-                            if(_threadAccumulators->communityNeighbors[i][j]) {
-                                if(!_communityNeighbors[i][j]) {
-                                    _communityNeighbors[i][j] = SetAlloc(G->n);
-                                }
-                                _communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], _threadAccumulators->communityNeighbors[i][j]);
-                            }
-                        }
-                    }
-                }
+				switch(_communityMode) {
+					case 'o':
+						for(i=0; i<_numOrbits; i++) {
+							for(j=0; j<G->n; j++) {
+									_orbitDegreeVector[i][j] += _threadAccumulators->orbitDegreeVector[i][j];
+							}
+						}
+						break;
+					case 'g':
+						for(i=0; i<_numCanon; i++) {
+							for(j=0; j<G->n; j++) {
+									_graphletDegreeVector[i][j] += _threadAccumulators->graphletDegreeVector[i][j];
+							}
+						}
+						break;
+				}
+				int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
+				for(i=0; i<G->n; i++) {
+					if(_threadAccumulators->communityNeighbors[i]) {
+						if(!_communityNeighbors[i]) {
+							_communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
+						}
+						for(j=0; j<numCommunities; j++) {
+							if(_threadAccumulators->communityNeighbors[i][j]) {
+								if(!_communityNeighbors[i][j]) {
+									_communityNeighbors[i][j] = SetAlloc(G->n);
+								}
+								_communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], _threadAccumulators->communityNeighbors[i][j]);
+							}
+						}
+					}
+				}
             }
         }
 
