@@ -185,6 +185,7 @@ typedef struct {
     double *graphletDegreeVector[MAX_CANONICALS];
     double *orbitDegreeVector[MAX_ORBITS];
     int numSamples;
+    SET*** communityNeighbors;
 } Accumulators;
 
 // a global array of accumulators, one for each thread, updated in batches

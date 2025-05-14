@@ -12,8 +12,8 @@ char *PrintGraphletID(char buf[], Gint_type Gint);
 char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal);
 
 // For _outputMode = communityDetection, process the graphlet/orbit counts and neighbors
-void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm);
-void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm);
+void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators* accums);
+void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators* accums);
 
 // You should print a node EXCLUSIVELY with this function; it automatically determines if we're supporting names or not.
 // If c is non-zero, the character is prepended, using putchar(), before the node is printed (eg ' ', ';' or '\t').
