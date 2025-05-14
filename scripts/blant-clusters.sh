@@ -117,7 +117,7 @@ done
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
  trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
-echo "TMPDIR is $TMPDIR"
+echo "TMPDIR is $TMPDIR" >&2
 [ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
 
 BLANT_CMD="$1 ${PRECISION}L $QUIET";
