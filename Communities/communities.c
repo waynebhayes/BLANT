@@ -7,7 +7,7 @@
 
 
 #define TARGET_EDGE_DENSITY 0.5
-#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+#define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -398,11 +398,6 @@ double HayesScore(COMMUNITY *C, int inEdges){
 #define DEBUG 0
 double ScorePartition(Boolean global, foint f){
     PARTITION *P = (PARTITION*) f.v;
-#if 0   
-    for(int i = 0; i < P->n; ++i){
-	printf("Com %d, %d\n", i, P->C[i]->n);
-    }
-#endif
 #if VERBOSE > 0
     printf("o = %d, n = %d, total n = %d\n", _oldCom, _newCom, P->n);
 #endif
@@ -428,42 +423,11 @@ double ScorePartition(Boolean global, foint f){
 	    printf("os = %f, ob = %f change = %f ", old->score, oldBefore, old->score - oldBefore);
 #endif
 
-#if DEBUG
-	in = CommunityEdgeCount(old);
-	out = CommunityEdgeOutwards(P, old);
-	printf("FROM GROUND, In %d Out %d ns %f\n", in, out, HayesScore(old, CommunityEdgeCount(old)));
-	if(in != old->edgesIn){
-	    fail = 0;
-	    printf("ERROR: Old in %d vs stored %d\n", in, old->edgesIn);
-	}
-	if(out != old->edgesOut){
-	    fail = 0;
-	    printf("ERROR: Old out %d vs stored %d\n", out, old->edgesOut);
-	}
-	
-
-#endif
-
 	}
 	COMMUNITY * new = P->C[_newCom];
 	double newBefore = new->score;
 	new->score = HayesScore(new, new->edgesIn);
 	P->total += new->score - newBefore;
-#if DEBUG
-	in = CommunityEdgeCount(new);
-	out = CommunityEdgeOutwards(P, new);
-	printf("ns = %f, nb = %f change = %f\n", new->score, newBefore, new->score - newBefore);
-	printf("FROM GROUND, In %d Out %d ns %f\n", in, out, HayesScore(new, CommunityEdgeCount(new)));
-	if(in != new->edgesIn){
-	    fail = 0;
-	    printf("ERROR: New in %d vs stored %d\n", in, new->edgesIn);
-	}
-	if(out != new->edgesOut){
-	    fail = 0;
-	    printf("ERROR: New out %d vs stored %d\n", out, new->edgesOut);
-	}
-	assert(fail);
-#endif
     }
 #if VERBOSE > 0
     printf("Updated total = %f\n\n", P->total);
@@ -620,14 +584,17 @@ void HillClimbing(PARTITION *P, int tries){
 // EXTRA_ASSERTS will significantly degrade performance
 #define EXTRA_ASSERTS 0
 void SAR(int iters, foint f){
-
     PARTITION * P = f.v;
-    int fail = 1, in, out;
+    int fail = 1, in, out, biggest = 0, big_id = -1;
     double ground = 0, withInfo, stored = 0;
     for(int i = 0; i < P->n; ++i){
 	COMMUNITY * com = P->C[i];
 	in = CommunityEdgeCount(com);
 	out = CommunityEdgeOutwards(P, com);
+	if(com->n > biggest){
+	    biggest = com->n;
+	    big_id = com->id;
+	}
 #if VERBOSE > 2
 	printf("\nCom %d FROM GROUND, In %d Out %d\n", i, in, out);
 #endif
@@ -649,7 +616,7 @@ void SAR(int iters, foint f){
 #endif
     }
     assert(fail);
-
+    printf("Biggest: Com %d, with n %d, score %g", biggest, big_id, P->C[big_id]->score);
 }
 
 
@@ -673,7 +640,7 @@ int main(int argc, char *argv[])
 
     for(i=0; i<G->n; i++) {
 	int which = (int)(drand48() * numCommunities);
-	printf("%d->%d, ", i, which);
+	//printf("%d->%d, ", i, which);
 	CommunityAddNode(P->C[which], P->whichMember, i);
         P->whichCommunity[i] = which;
     }
