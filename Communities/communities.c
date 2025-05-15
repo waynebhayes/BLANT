@@ -24,12 +24,12 @@ typedef struct _communitySet {
     GRAPH *G; // the graph we came from
     COMMUNITY **C; // array of pointers to COMMUNITY
     int *whichCommunity; // Tells where each node belongs to which community
-    int *whichMember; // Within the community, tells at which index the node is located at
-    SET *moved; // Records moved nodes in case of rejection 
-    SET *common; // In case merge of 2 communities have overlap, record them (Only for useful for overlapping communities)
+    int *whichMember; // Within the community, tells at which index the node is located at 
+    //SET *common; // In case merge of 2 communities have overlap, record them (Only for useful for overlapping communities)
     double total; // Cumulative score of partition
     int * visited; // A bool vector for community update (Moved here to stop allocating and freeing repeadetly) 
     int * marked; // Marking which ones will be moved (Essentially SET * moved but in int * format)  
+    int * toMove; // Marking, but only holds which ones to move instead of marking them to move 
     int numMoved; // Number of nodes that will be moved
 } PARTITION;
 
@@ -177,10 +177,10 @@ PARTITION *PartitionAlloc(GRAPH *G) {
     P->C = Calloc(sizeof(COMMUNITY**), G->n);
     P->whichCommunity = Calloc(sizeof(int), G->n);
     P->whichMember = Calloc(sizeof(int), G->n);
-    P->moved = SetAlloc(G->n);
-    P->common = SetAlloc(G->n);
     P->visited = Calloc(sizeof(int), G->n);
     P->marked = Calloc(sizeof(int), G->n);
+//  P->common = SetAlloc(G->n);
+    P->toMove = Calloc(sizeof(int), G->n);
     P->numMoved = 0;
     return P;  
 }
@@ -244,10 +244,10 @@ void PartitionFree(PARTITION *P) {
     Free(P->C);
     Free(P->whichCommunity);
     Free(P->whichMember);
-    SetFree(P->moved);
-    SetFree(P->common);
+    //SetFree(P->common);
     Free(P->visited);
     Free(P->marked);
+    Free(P->toMove);
     Free(P);
 }
 
@@ -547,8 +547,7 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
 	}
 
     }
-    SetEmpty(P->moved);
-    SetEmpty(P->common);
+    //SetEmpty(P->common);
     _moveDel = 0;
 #if VERBOSE > 0   
     printf("Current total = %f\n\n", P->total);
@@ -585,17 +584,17 @@ void HillClimbing(PARTITION *P, int tries){
 #define EXTRA_ASSERTS 0
 void SAR(int iters, foint f){
     PARTITION * P = f.v;
-    int fail = 1, in, out, biggest = 0, big_id = -1;
-    double ground = 0, withInfo, stored = 0;
+    int fail = 1, in, out, best_id = -1;
+    double ground = 0, withInfo, stored = 0, best = -1;
     for(int i = 0; i < P->n; ++i){
 	COMMUNITY * com = P->C[i];
 	in = CommunityEdgeCount(com);
 	out = CommunityEdgeOutwards(P, com);
-	if(com->n > biggest){
-	    biggest = com->n;
-	    big_id = com->id;
+	if(com->score > best){
+	    best = com->score;
+	    best_id = com->id;
 	}
-#if VERBOSE > 2
+#if VERBOSE > 2 
 	printf("\nCom %d FROM GROUND, In %d Out %d\n", i, in, out);
 #endif
 	if(in != com->edgesIn){
@@ -616,7 +615,7 @@ void SAR(int iters, foint f){
 #endif
     }
     assert(fail);
-    printf("Biggest: Com %d, with n %d, score %g", biggest, big_id, P->C[big_id]->score);
+    printf("\tBest: Com %d, with n %d, score %g  \tP->n = %d, Total score = %g", best_id, P->C[best_id]->n, best, P->n, P->total);
 }
 
 
@@ -634,7 +633,7 @@ int main(int argc, char *argv[])
 
     PARTITION *P = PartitionAlloc(G);
 #if RANDOM_START
-    int numCommunities = 2; // communities numbered 0 through numCommunities-1 inclusive
+    int numCommunities = 20; // communities numbered 0 through numCommunities-1 inclusive
     printf("Starting with %d random communities\n", numCommunities);
     for(i=0; i<numCommunities; i++) PartitionAddCommunity(P, CommunityAlloc(G, i));
 
