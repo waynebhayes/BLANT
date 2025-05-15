@@ -20,38 +20,35 @@ double _g_overcount; // MCMC overcount, needs to be global for simplicity
 // Update the most recent d-graphlet to a random neighbor of it
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
 {
-    if (mcmc_d == 2)
-    {
-	int oldu = Xcurrent[0];
-	int oldv = Xcurrent[1];
-	while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
-	    double p = RandomUniform();
-	    // if 0 < p < 1, p < deg(u) + deg(v) then
-	    if (p < ((double)GraphDegree(G,Xcurrent[0])/(GraphDegree(G,Xcurrent[0]) + GraphDegree(G,Xcurrent[1])))) {
-		// select randomly from Neigh(u) and swap
-		Xcurrent[1] = GraphRandomNeighbor(G, Xcurrent[0]);
-	    }
-	    else {
-		// select randomly from Neigh(v) and swap
-		Xcurrent[0] = GraphRandomNeighbor(G,Xcurrent[1]);
-	    }
-	    if(_sampleSubmethod == SAMPLE_MCMC_EC) {
-		if(!GraphAreConnected(_EDGE_COVER_G, Xcurrent[0], Xcurrent[1]) && RandomUniform() < 0.9) { // undo the attempt
-		    Xcurrent[0] = oldu;
-		    Xcurrent[1] = oldv;
-		}
+    assert(mcmc_d == 2);
+    int oldu = Xcurrent[0];
+    int oldv = Xcurrent[1];
+    while (oldu == Xcurrent[0] && oldv == Xcurrent[1]) {
+	double p = RandomUniform();
+	// if 0 < p < 1, p < deg(u) + deg(v) then
+	if (p < ((double)GraphDegree(G,oldu)/(GraphDegree(G,oldu) + GraphDegree(G,oldv)))) {
+	    // select randomly from Neigh(u) and swap
+	    Xcurrent[1] = GraphRandomNeighbor(G, oldu);
+	}
+	else {
+	    // select randomly from Neigh(v) and swap
+	    Xcurrent[0] = GraphRandomNeighbor(G,oldv);
+	}
+	if(_sampleSubmethod == SAMPLE_MCMC_EC) {
+	    if(!GraphAreConnected(_EDGE_COVER_G, Xcurrent[0], Xcurrent[1]) && RandomUniform() < 0.9) { // undo the attempt
+		Xcurrent[0] = oldu;
+		Xcurrent[1] = oldv;
 	    }
 	}
+    }
 #if PARANOID_ASSERTS
 #if !SELF_LOOPS
-	assert(Xcurrent[0] != Xcurrent[1]);
+    assert(Xcurrent[0] != Xcurrent[1]);
 #endif
-	assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
-	assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
+    assert(oldu != Xcurrent[0] || oldv != Xcurrent[1]);
+    assert(oldu != Xcurrent[1] || oldv != Xcurrent[0]);
 #endif
-    }
-    else Fatal("Not implemented. Set d to 2");
-	return Xcurrent;
+    return Xcurrent;
 }
 
 // Crawls one step along the graph updating our sliding window
@@ -826,7 +823,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	XLS = MultisetAlloc(G->n);
 	g = TinyGraphAlloc(k);
     }
-
+    // SYNTH: currentOrdinal =....
     // The first time we run this, or when we restart. We want to find our initial L d graphlets.
     if (!setup && !_MCMC_EVERY_EDGE) {
 	setup = true;
@@ -890,6 +887,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     unsigned char perm[k];
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+    // SYNTH: this is where the new ordinal graphlet ID is computed
 
     assert(numNodes == k); // Ensure we are returning k nodes
     Boolean found=false;
@@ -924,6 +922,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     }
     accums->graphletConcentration[GintOrdinal] += ocount;
 
+    // SYNTH: increment row[old], column[new] by 1
     _g_overcount = ocount;
     return 1.0;
 }
