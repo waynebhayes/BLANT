@@ -24,10 +24,11 @@ public:
     double key;
     int VertexA;
     int VertexB; // node pair info
+    int mylevel;
     Node **forward; // pointer array for forward links
 
     // Constructor and destructor.
-    Node(double key, int level, int vA, int vB);
+    Node(float key, int level, int vA, int vB);
     ~Node();
 };
 
@@ -46,15 +47,16 @@ public:
 
     // Member functions.
     int randomLevel();
-    Node* createNode(double key, int level, int vA, int vB);
-    void insertElement(double key, int vA, int vB);
-    void deleteElement(double key, int vA, int vB);
-    Node* searchElement(double key);
+    Node* createNode(float key, int level, int vA, int vB);
+    void insertElement(float key, int vA, int vB);
+    void deleteElement(float key, int vA, int vB);
+    Node* searchElement(float key);
     Node* randomSelect(Node* start);
     void displayList();
-    double topValue();
+    float topValue();
     int currentLevel();
-    std::tuple<double, int, int> pop(double delta);
+    void deleteVector(const std::vector<std::tuple<float, int, int>>& deletions);
+    std::tuple<float, int, int> pop(float delta);
 };
 
 

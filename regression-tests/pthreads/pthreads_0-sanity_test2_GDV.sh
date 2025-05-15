@@ -31,15 +31,16 @@ for S in MCMC SEC NBE EBE; do
             $LIBWAYNE_HOME/bin/stats -g | # the -g option means "geometric mean"
             sed -e 's/#/num/' -e 's/[	 ][	 ]*/ /g' |
             $LIBWAYNE_HOME/bin/named-next-col '
-                BEGIN{k='$k'}
+                BEGIN{k='$k'; numBad=0}
                 {
-                diff=ABS(1-mean)/(k*stdDev)^'$exp';
-                if(diff > '"$TOL"') {
-                    printf "BEYOND TOLERANCE: %g\n%s\n", diff, $0;
-                    exit 1
-                } else
-                    printf "diff %.4e\t%s\n", diff, $0;
-                }' || exit 1
+		    diff=ABS(1-mean)/(k*stdDev)^'$exp';
+		    if(diff > '"$TOL"') {
+			printf "BEYOND TOLERANCE: %g\n%s\n", diff, $0;
+			numBad++;
+		    } else
+			printf "diff %.4e\t%s\n", diff, $0;
+                }
+		END{exit(numBad)}' || exit 1
         fi
     done || exit 1
     done || exit 1

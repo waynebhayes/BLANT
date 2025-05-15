@@ -227,8 +227,10 @@ char *PrintIndexOrbitsEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdin
     return obuf;
 }
 
-void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm)
+void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators *accums)
 {
+    if(!accums->communityNeighbors) accums->communityNeighbors=(SET***) Calloc(G->n, sizeof(SET**)); // if communityNeighbors is a null pointer allocate it
+    SET*** _tCommunityNeighbors=accums->communityNeighbors;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
     assert(TinyGraphDFSConnected(g,0));
@@ -241,21 +243,21 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
 #endif
     for(c=0;c<k;c++)
     {
-	// FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
-	int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
-	ODV(u, u_orbit)+=w;
-	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
-	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
-	    // FIXME: this should be pre-computed ONCE
-	    TINY_GRAPH gg; TinyGraphCopy(&gg, g);
-	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
-	    if(TinyGraphDFSConnected(&gg,d)) {
-		int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
-		if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
-		if(!_communityNeighbors[u][u_orbit]) _communityNeighbors[u][u_orbit] = SetAlloc(G->n);
-		SetAdd(_communityNeighbors[u][u_orbit], v);
-	    }
-	}
+        // FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
+        int u=Varray[(int)perm[c]], u_orbit=_orbitList[GintOrdinal][c];
+        accums->orbitDegreeVector[u_orbit][u]+=w;
+        for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
+            // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
+            // FIXME: this should be pre-computed ONCE
+            TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+            TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
+            if(TinyGraphDFSConnected(&gg,d)) {
+                int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
+                if(!_tCommunityNeighbors[u]) _tCommunityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
+                if(!_tCommunityNeighbors[u][u_orbit]) _tCommunityNeighbors[u][u_orbit] = SetAlloc(G->n);
+                SetAdd(_tCommunityNeighbors[u][u_orbit], v);
+            }
+        }
     }
 }
 
@@ -267,8 +269,10 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
 	int item = (_communityMode=='o' ? u_connectedOrb : _canon2connectedIndex[GintOrdinal]);
 #endif
 
-void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm)
+void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators *accums)
 {
+    if(!accums->communityNeighbors) accums->communityNeighbors=(SET***) Calloc(G->n, sizeof(SET**)); // if communityNeighbors is a null pointer allocate it
+    SET*** _tCommunityNeighbors=accums->communityNeighbors;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
     assert(TinyGraphDFSConnected(g,0));
@@ -282,21 +286,21 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
 #endif
     for(c=0;c<k;c++)
     {
-	// FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
-	int u=Varray[(int)perm[c]];
-	GDV(u, GintOrdinal)+=w;
-	for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
-	    // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
-	    // FIXME: this should be pre-computed ONCE
-	    TINY_GRAPH gg; TinyGraphCopy(&gg, g);
-	    TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
-	    if(TinyGraphDFSConnected(&gg,d)) {
-		int v=Varray[(int)perm[d]];
-		if(!_communityNeighbors[u]) _communityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
-		if(!_communityNeighbors[u][GintOrdinal]) _communityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
-		SetAdd(_communityNeighbors[u][GintOrdinal], v);
-	    }
-	}
+        // FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
+        int u=Varray[(int)perm[c]];
+        accums->graphletDegreeVector[GintOrdinal][u]+=w;
+        for(d=c+1;d<k;d++) if(TinyGraphAreConnected(g,c,d)) {
+            // to avoid crossing a cut edge, make sure d can get us everywhere in g without using c
+            // FIXME: this should be pre-computed ONCE
+            TINY_GRAPH gg; TinyGraphCopy(&gg, g);
+            TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
+            if(TinyGraphDFSConnected(&gg,d)) {
+                int v=Varray[(int)perm[d]];
+                if(!_tCommunityNeighbors[u]) _tCommunityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
+                if(!_tCommunityNeighbors[u][GintOrdinal]) _tCommunityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
+                SetAdd(_tCommunityNeighbors[u][GintOrdinal], v);
+            }
+        }
     }
 }
 
@@ -345,8 +349,8 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     }
     if(_outputMode & communityDetection) {
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm);
-	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm);
+	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm, accums);
+	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm, accums);
 	else Fatal("unkwown _communityMode %c", _communityMode);
     }
 
