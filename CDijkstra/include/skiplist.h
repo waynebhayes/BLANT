@@ -11,12 +11,6 @@
 #include <cmath>
 #include "rand48.h"
 
-// Define constants.
-const int ROWS = 41456; // human protein
-const int COLS = 16127; // yeast protein
-
-// Declare candidateMatrix externally.
-extern std::vector<bool> candidateMatrix;
 
 // Class declaration for Node.
 class Node {
@@ -39,10 +33,11 @@ private:
     float P;      // fraction of nodes with level i pointers that also have level i+1 pointers
     int level;    // current level of skip list
     Node *header; // pointer to header node
-
+    std::vector<bool> candidateMatrix;
+    int ROWS, COLS;
 public:
     // Constructor and destructor.
-    SkipList(int MAXLVL, float P);
+    SkipList(int maxlvl, float prob, int matrix_rows, int matrix_cols);
     ~SkipList();
 
     // Member functions.

@@ -1,7 +1,6 @@
 #include "skiplist.h"
 #include <chrono>
 // Define the global candidateMatrix.
-std::vector<bool> candidateMatrix(ROWS * COLS, false);
 
 // ------------------ Node Member Functions ------------------
 
@@ -25,13 +24,16 @@ Node::~Node(){
 // ------------------ SkipList Member Functions ------------------
 
 // Constructor: Initialize skip list with header node.
-SkipList::SkipList(int MAXLVL, float P)
+SkipList::SkipList(int maxlvl, float prob, int matrix_rows, int matrix_cols)
+:candidateMatrix(matrix_rows * matrix_cols, false)
 {
-    this->MAXLVL = MAXLVL;
-    this->P = P;
+    MAXLVL = maxlvl;
+    P = prob;
     level = 0;
     // create header node and initialize key to -1
     header = new Node(-1, MAXLVL, -1, -1);
+    ROWS = matrix_rows;
+    COLS = matrix_cols;
 }
 // Destructor: Delete all nodes.
 SkipList::~SkipList(){
@@ -307,7 +309,7 @@ Node* SkipList::searchElement(float key)
     if (candidate && std::fabs(candidate->key - key) < 1e-5)
     {
         //randomly select among all candiate with the same keys during traversal
-        std::cout << "Found exact key: " << key << "\n";
+        std::cerr << "Found exact key: " << key << "\n";
         return randomSelect(candidate);
     }
     else
@@ -321,20 +323,20 @@ Node* SkipList::searchElement(float key)
         {
             if (candidate)
             {
-                std::cout << "Exact key not found. Closest key is: " 
+                std::cerr << "Exact key not found. Closest key is: " 
                           << candidate->key << "\n";
                 return randomSelect(candidate);
             }
             else
             {
-                std::cout << "Exact key not found. No candidate available.\n";
+                std::cerr << "Exact key not found. No candidate available.\n";
                 return candidate; // candidate is null
             }
         }
         // If there is no candidate on the right, return the predecessor.
         if (!candidate)
         {
-            std::cout << "Exact key not found. Closest key is: " << current->key << "\n";
+            std::cerr << "Exact key not found. Closest key is: " << current->key << "\n";
             return current;
         }
         
@@ -354,7 +356,7 @@ Node* SkipList::searchElement(float key)
         */
         
         //always use candidate because it has higher sim
-        std::cout << "Exact key not found. Closest key is: " << candidate->key << "\n";
+        std::cerr << "Exact key not found. Closest key is: " << candidate->key << "\n";
             return randomSelect(candidate);
     }
 
@@ -363,17 +365,17 @@ Node* SkipList::searchElement(float key)
 // Display skip list level wise
 void SkipList::displayList()
 {
-    std::cout<<"\n*****Skip List*****"<<"\n";
+    std::cerr<<"\n*****Skip List*****"<<"\n";
     for(int i=0;i<=level;i++)
     {
         Node *node = header->forward[i];
-        std::cout<<"Level "<<i<<": ";
+        std::cerr<<"Level "<<i<<": ";
         while(node != NULL)
         {
-            std::cout<<node->key<<" ";
+            std::cerr<<node->key<<" ";
             node = node->forward[i];
         }
-        std::cout<<"\n";
+        std::cerr<<"\n";
     }
 }
 
@@ -393,7 +395,7 @@ std::tuple<float, int, int> SkipList::pop(float delta)
 {
 float threshold = topValue() - delta;
 float randomKey = threshold + ((topValue() - threshold) * drand48());
-std::cout<<randomKey;
+std::cerr<<randomKey;
 Node* chosen = searchElement(randomKey);
 if (!chosen) {
     // If no node exists, return a sentinel tuple.
