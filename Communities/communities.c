@@ -9,6 +9,8 @@
 #define TARGET_EDGE_DENSITY 0.5
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 #define DEBUG 0
+
+
 /************************** Community routines *******************/
 typedef struct _community {
     int id, n;
@@ -17,6 +19,8 @@ typedef struct _community {
     double score;
     int edgesIn, edgesOut;
 } COMMUNITY;
+
+double (*pCommunityScore)(COMMUNITY * C) = NULL;  
 
 /******************** Sets of non-overlapping Communities (partition) ***********/
 typedef struct _communitySet {
@@ -368,40 +372,42 @@ void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 /*
     Measures
 
-    TODO: Make it easier to swap out scoring functions, remove COMMUNITY * C requirement.
+    TODO: Make it easier to swap out scoring functions
 	  Prototypes
 */
 
-double IntraEdgeDensity(COMMUNITY *C, int inEdges){
-   return inEdges/(C->n *(C->n - 1) / 2.0);
+
+double IntraEdgeDensity(COMMUNITY *C){
+   return C->edgesIn / (C->n *(C->n - 1) / 2.0);
 }
 
-double InterEdgeDensity(COMMUNITY *C, int edgesOut){
+double InterEdgeDensity(COMMUNITY *C){
     int tot = C->G->n - C->n;
     //printf("tot = %d, edgesOut = %d\n", tot, edgesOut);
-    return (double)edgesOut/(C->n * tot);
+    return (double)C->edgesOut/(C->n * tot);
 }
 
-double NewmanAndGirvan(int edgesOut, int edgesIn, int gDegree){
+double NewmanAndGirvan(COMMUNITY * C){
     // Eq 15 on Pg 16 on the pdf viewer
-    int inEdges = edgesIn;
-    int cDegree = inEdges + edgesOut;
-    return inEdges/gDegree - (cDegree/(2.0*gDegree) * cDegree/(2.0*gDegree));
+   
+    // FIXME: Double check what exactly is needed
+    return 0;
+    //return C->inEdges/C->gDegree - (cDegree/(2.0*gDegree) * cDegree/(2.0*gDegree));
 }
 
-double Conductance(int edgesIn, int edgesOut){
-     return (double)(edgesOut/(edgesOut + edgesIn));
+double Conductance(COMMUNITY * C){
+     return (double)(C->edgesOut/(C->edgesOut + C->edgesIn));
 }
 
-double HayesScore(COMMUNITY *C, int inEdges){ 
+double HayesScore(COMMUNITY *C){ 
     //printf("inEdges = %d, C->n = %d\n", inEdges, C->n);
     if(C->n < 2)
         return 0;
-    double eps = inEdges / ((C->n * (C->n-1))/2.0); 
+    double eps = C->edgesIn / ((C->n * (C->n-1))/2.0); 
     if(eps <= TARGET_EDGE_DENSITY)
 	return 0;
     else
-	return inEdges * (TARGET_EDGE_DENSITY); // inEdges*eps * (target/eps), to down-weight if eps is above the target
+	return C->edgesIn * (TARGET_EDGE_DENSITY); // inEdges*eps * (target/eps), to down-weight if eps is above the target
 }
 
 
@@ -426,7 +432,7 @@ double ScorePartition(Boolean global, foint f){
 	if(_oldCom != P->n){ 
 	    COMMUNITY * old = P->C[_oldCom];
 	    double oldBefore = old->score;
-	    old->score = HayesScore(old, old->edgesIn);
+	    old->score = pCommunityScore(old);
 	    P->total += old->score - oldBefore;
 #if VERBOSE > 0	    
 	    printf("os = %f, ob = %f change = %f ", old->score, oldBefore, old->score - oldBefore);
@@ -435,7 +441,7 @@ double ScorePartition(Boolean global, foint f){
 	}
 	COMMUNITY * new = P->C[_newCom];
 	double newBefore = new->score;
-	new->score = HayesScore(new, new->edgesIn);
+	new->score = pCommunityScore(new);
 	P->total += new->score - newBefore;
     }
 #if VERBOSE > 0
@@ -614,8 +620,8 @@ void SAR(int iters, foint f){
 	}
 #if EXTRA_ASSERTS
 	stored += com->score;
-	ground += HayesScore(com, CommunityEdgeCount(com));
-	withInfo += HayesScore(com, com->edgesIn);
+	ground += pCommunityScore(com);
+	withInfo += pCommunityScore(com);
 	assert(P->total - stored < 0.001 && stored - P->total < 0.001);
 	assert(P->total - ground < 0.001 && ground - P->total < 0.001);
 	assert(P->total - withInfo < 0.001 && withInfo - P->total < 0.001);
@@ -630,9 +636,12 @@ void SAR(int iters, foint f){
 #define CHECK_OVERLAP 1
 int main(int argc, char *argv[])
 {
+
+    pCommunityScore = HayesScore;
     int i, j;
     srand48(GetFancySeed(false));
 
+   
     Boolean sparse=maybe, supportNames = true;
     FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line
     GRAPH *G = GraphReadEdgeList(fp, sparse, supportNames, false);
@@ -687,7 +696,7 @@ int main(int argc, char *argv[])
 
     for(int i = 0; i < P->n; ++i){
 	COMMUNITY * C = P->C[i];
-	double s = HayesScore(C, CommunityEdgeCount(C)); 
+	double s = pCommunityScore(C); 
 	C->score = s;
 	C->edgesIn = CommunityEdgeCount(C);
 	C->edgesOut = CommunityEdgeOutwards(P, C);
@@ -716,7 +725,7 @@ int main(int argc, char *argv[])
 	int inEdges = CommunityEdgeCount(P->C[j]);
 	printf("Com %d has %d nodes, %d edges, with edge density %g\n", j, num, inEdges, inEdges/(num*(num-1)/2.0));
 	nodes += num;
-	if(HayesScore(P->C[j], inEdges) && num > biggest) {
+	if(HayesScore(P->C[j]) && num > biggest) {
 	    biggest = num;
 	    which = j;
 	}
