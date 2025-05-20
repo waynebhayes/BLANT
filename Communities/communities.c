@@ -8,7 +8,7 @@
 
 #define TARGET_EDGE_DENSITY 0.5
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-
+#define DEBUG 0
 /************************** Community routines *******************/
 typedef struct _community {
     int id, n;
@@ -78,44 +78,55 @@ void MoveOneNode(PARTITION * P, int node, int dest){
     COMMUNITY * oldCom = P->C[P->whichCommunity[node]];
     COMMUNITY * newCom = P->C[dest];
     GRAPH * G = P->G; 
-    //printf("node %d, org %d, dest %d\n", node, P->whichCommunity[node], dest);
 #if VERBOSE > 2
+    printf("node %d, org %d, dest %d\n", node, P->whichCommunity[node], dest);
     printf("BEFORE\noc in %d, oc out %d, nc in %d, nc out %d\n", oldCom->edgesIn, oldCom->edgesOut, newCom->edgesIn, newCom->edgesOut); 
 #endif
     int old = 0, new = 0;
     for(int i = 0; i < G->degree[node]; ++i){
 	int neighbor = G->neighbor[node][i];
-	//printf("%d ", neighbor);
+    #if DEBUG
+	printf("%d ", neighbor);
+    #endif
 	if(neighbor == node){
-	    //printf("SELF LOOP!");
-	    //++oldCom->edgesIn;
-	    //--newCom->edgesIn;
+	    // Self loops
+	    // This works but I'm not entirely sure why
 	    continue;
 	}
 	if(!P->visited[neighbor]){
 	    if(P->marked[neighbor]){
-	//	printf("W ");
+	    #if DEBUG	
+		printf("W ");
+	    #endif
 		--oldCom->edgesIn;
 		++newCom->edgesIn;
 	    }
 	    else if(P->whichCommunity[neighbor] == oldCom->id){
-	//	printf("O ");
+	    #if DEBUG
+		printf("O ");
+	    #endif
 		--oldCom->edgesIn;
 		++old;
 	    }
 	    else if(P->whichCommunity[neighbor] == newCom->id){
-	//	printf("N ");
+	    #if DEBUG
+		printf("N ");
+	    #endif
 		++newCom->edgesIn;
 		++new;
 	    }
 	    else{
-	//	printf("- ");
+	    #if DEBUG
+		printf("- ");
+	    #endif
 		++newCom->edgesOut;
 		--oldCom->edgesOut;
 	    }
 	}
-	//else
-	  //  printf("visited");
+#if DEBUG
+	else
+	    printf("visited");
+#endif
     }
     int diff = old - new;
     oldCom->edgesOut += diff;
@@ -258,8 +269,7 @@ static int _moveOption = -1, _oldCom = -1, _newCom = -1, _moveDel = 0;
 
 // THESE MOVE OPTIONS ASSUME NO OVERLAPPING COMMUNITIES
 
-void MoveRandomNode(PARTITION *P){ 
-    // Will fail if it can't find a new community to move to 
+void MoveRandomNode(PARTITION *P){  
     int u = P->G->n * drand48();
     int oldCom = P->whichCommunity[u];
     COMMUNITY * oc = P->C[oldCom]; 
@@ -269,6 +279,7 @@ void MoveRandomNode(PARTITION *P){
     while(newCom == P->whichCommunity[u]); 
     COMMUNITY * nc = P->C[newCom];	
     P->marked[u] = 1;
+    P->toMove[P->numMoved++] = u;
     MoveOneNode(P, u, newCom);     
 #if VERBOSE > 1
     printf("Mv(%d,%d->%d) ", u, oldCom, newCom);
@@ -301,12 +312,12 @@ void MergeCommunities(PARTITION *P, int c1, int c2){
 	int u = C2->nodeSet[i]; 
 	//printf("Marked %d ", u);
 	P->marked[u] = 1;
+	P->toMove[P->numMoved++] = u;
     }
     int iters = C2->n;
     for(int i = 0; i < iters; ++i){
 	MoveOneNode(P, C2->nodeSet[i], c1);
     }
-    
     // Automatically takes care of P->n--;
     PartitionDelCommunity(P, c2);
     if(c1 == P->n){
@@ -341,17 +352,16 @@ void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 	}
 	while(P->marked[u]);
 	P->marked[u] = 1;
-    }
+	P->toMove[P->numMoved++] = u;
+    } 
  
-    // Is optimization possible here????
-    for(int i = 0; i < P->G->n; ++i){
-	if(P->marked[i]){
-	    MoveOneNode(P, i, P->n - 1);
-	}
+    for(int i = 0; i < P->numMoved; ++i){
+	MoveOneNode(P, P->toMove[i], P->n - 1);
     }
 
     _oldCom = c_id; 
     _newCom = P->n-1;
+    assert(P->numMoved == numNodes);
 }
 
 
@@ -395,7 +405,6 @@ double HayesScore(COMMUNITY *C, int inEdges){
 }
 
 
-#define DEBUG 0
 double ScorePartition(Boolean global, foint f){
     PARTITION *P = (PARTITION*) f.v;
 #if VERBOSE > 0
@@ -421,7 +430,7 @@ double ScorePartition(Boolean global, foint f){
 	    P->total += old->score - oldBefore;
 #if VERBOSE > 0	    
 	    printf("os = %f, ob = %f change = %f ", old->score, oldBefore, old->score - oldBefore);
-#endif
+#endif 
 
 	}
 	COMMUNITY * new = P->C[_newCom];
@@ -441,19 +450,18 @@ double PerturbPartition(foint f) {
     PARTITION *P = (PARTITION*) f.v;
     double before = P->total;
     
-
     int choice = drand48() * 3;
-   
+    P->numMoved = 0;    
     for(int i = 0; i < P->G->n; ++i){
 	P->visited[i] = 0;
 	P->marked[i] = 0;
     }
-/*
+#if DEBUG
     for(int i = 0; i < P->n; ++i){ 
     	COMMUNITY * temp = P->C[i];
 	printf("Com %d, has %d nodes, in %d, out %d\n", i, temp->n, temp->edgesIn, temp->edgesOut);
     }
-*/
+#endif
     int comNums = 1;
     for(int i = 0; i < P->G->n; ++i){	    
 	if(P->whichCommunity[i] >= P->n){
@@ -526,11 +534,11 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
 	    P->visited[i] = 0; // Make visited a set?
 	}
 
-	for(int i = 0; i < P->G->n; ++i){
-	    if(P->marked[i]){
-		//printf("%d->%d\n", i, _oldCom);
-		MoveOneNode(P, i, _oldCom);
-	    }
+	for(int i = 0; i < P->numMoved; ++i){
+	#if DEBUG
+	    printf("%d->%d\n", i, _oldCom);
+	#endif
+	    MoveOneNode(P, P->toMove[i], _oldCom);
 	}
 	if(_moveOption == 2)
 	    PartitionDelCommunity(P, _newCom);
@@ -553,7 +561,6 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
     printf("Current total = %f\n\n", P->total);
 #endif
 
-    
     return accept;
 }
 
@@ -633,7 +640,7 @@ int main(int argc, char *argv[])
 
     PARTITION *P = PartitionAlloc(G);
 #if RANDOM_START
-    int numCommunities = 20; // communities numbered 0 through numCommunities-1 inclusive
+    int numCommunities = 2; // communities numbered 0 through numCommunities-1 inclusive
     printf("Starting with %d random communities\n", numCommunities);
     for(i=0; i<numCommunities; i++) PartitionAddCommunity(P, CommunityAlloc(G, i));
 
