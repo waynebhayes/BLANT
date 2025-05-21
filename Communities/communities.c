@@ -33,7 +33,7 @@ typedef struct _communitySet {
     double total; // Cumulative score of partition
     int * visited; // A bool vector for community update (Moved here to stop allocating and freeing repeadetly) 
     int * marked; // Marking which ones will be moved (Essentially SET * moved but in int * format)  
-    int * toMove; // Marking, but only holds which ones to move instead of marking them to move 
+    int * toMove; // Marking, but only holds which ones to move instead of marking which nodes in the graph to move 
     int numMoved; // Number of nodes that will be moved
 } PARTITION;
 
@@ -77,8 +77,7 @@ COMMUNITY *CommunityDelNode(COMMUNITY *C, int * whichMember, int node) {
 }
 
 // Potential move one node function that I should have probably thought of 6 months ago
-void MoveOneNode(PARTITION * P, int node, int dest){ 
-     
+void MoveOneNode(PARTITION * P, int node, int dest){  
     COMMUNITY * oldCom = P->C[P->whichCommunity[node]];
     COMMUNITY * newCom = P->C[dest];
     GRAPH * G = P->G; 
@@ -372,13 +371,13 @@ void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 /*
     Measures
 
-    TODO: Make it easier to swap out scoring functions
-	  Prototypes
 */
 
 
 double IntraEdgeDensity(COMMUNITY *C){
-   return C->edgesIn / (C->n *(C->n - 1) / 2.0);
+    if(C->n < 2)
+	return 0;
+    return C->edgesIn / (C->n *(C->n - 1) / 2.0);
 }
 
 double InterEdgeDensity(COMMUNITY *C){
@@ -488,7 +487,10 @@ double PerturbPartition(foint f) {
 	    c2 = (int)(drand48() * P->n);
 	}
 	while(c1 == c2);
-	MergeCommunities(P, c1, c2);
+	if(P->C[c1]->n > P->C[c2]->n)
+	    MergeCommunities(P, c1, c2);
+	else
+	    MergeCommunities(P, c2, c1);
 	_moveOption = 1; 
     }
     else{ 	
@@ -506,7 +508,7 @@ double PerturbPartition(foint f) {
 	    _moveOption = 0;
 	}
 	else{
-	    numNodes = (drand48() * (P->C[c]->n - 1)) + 1;	
+	    numNodes = (int)(drand48() * (P->C[c]->n / 2)) + 1;	
 	    SplitCommunity(P, c, numNodes);
 	    _moveOption = 2;
 	}
@@ -593,8 +595,7 @@ void HillClimbing(PARTITION *P, int tries){
     printf("Final score %g\n", P->total);
 }
 
-// EXTRA_ASSERTS will significantly degrade performance
-#define EXTRA_ASSERTS 0
+#define EXTRA_ASSERTS 1
 void SAR(int iters, foint f){
     PARTITION * P = f.v;
     int fail = 1, in, out, best_id = -1;
@@ -621,12 +622,12 @@ void SAR(int iters, foint f){
 #if EXTRA_ASSERTS
 	stored += com->score;
 	ground += pCommunityScore(com);
-	withInfo += pCommunityScore(com);
-	assert(P->total - stored < 0.001 && stored - P->total < 0.001);
-	assert(P->total - ground < 0.001 && ground - P->total < 0.001);
-	assert(P->total - withInfo < 0.001 && withInfo - P->total < 0.001);
 #endif
     }
+#if EXTRA_ASSERTS
+    assert(fabs(P->total - stored) < 0.001);
+    assert(fabs(P->total - ground) < 0.001);
+#endif
     assert(fail);
     printf("\tBest: Com %d, with n %d, score %g  \tP->n = %d, Total score = %g", best_id, P->C[best_id]->n, best, P->n, P->total);
 }
@@ -636,12 +637,11 @@ void SAR(int iters, foint f){
 #define CHECK_OVERLAP 1
 int main(int argc, char *argv[])
 {
-
+    // Set which measure to use here
     pCommunityScore = HayesScore;
     int i, j;
     srand48(GetFancySeed(false));
 
-   
     Boolean sparse=maybe, supportNames = true;
     FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line
     GRAPH *G = GraphReadEdgeList(fp, sparse, supportNames, false);
