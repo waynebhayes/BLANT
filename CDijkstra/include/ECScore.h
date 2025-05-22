@@ -20,6 +20,11 @@ int incrementalEA(
 int computeE(
     const std::vector<int>& alignedG,
     const std::vector<std::vector<bool>>& adj);
+
+int computeGraphE(
+    int numNode,
+    const std:: vector<std::vector<bool>>& adj
+);
     
 int incrementalE(
     int newNodeG,

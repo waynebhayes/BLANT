@@ -1574,6 +1574,7 @@ int main(int argc, char *argv[])
 	    if(_outputMode != undef) Fatal("tried to define output mode twice");
 	    switch(*optarg)
 	    {
+	    // SYNTH case 's': _outputMode |= synthetic;
 	    case 'c': _outputMode |= communityDetection;
 		switch(*(optarg+1)) {
 		case 'o': _communityMode='o'; break;

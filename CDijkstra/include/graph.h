@@ -11,8 +11,8 @@
 bool buildNameMappings(
     const std::string& filename,
     std::unordered_map<std::string, int>& nameToIndex,
-    std::vector<std::string>& indexToName,
-    int estimatedNodeCount
+    std::vector<std::string>& indexToName
+    //int estimatedNodeCount
 );
 
 bool AdjMatrix(const std::string& filename,

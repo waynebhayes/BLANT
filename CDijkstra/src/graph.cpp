@@ -6,12 +6,12 @@
 bool buildNameMappings(
     const std::string& filename,
     std::unordered_map<std::string, int>& nameToIndex,
-    std::vector<std::string>& indexToName,
-    int estimatedNodeCount
+    std::vector<std::string>& indexToName
+    //int estimatedNodeCount
 ) {
     // Reserve space if you know roughly how many nodes to expect
-    nameToIndex.reserve(estimatedNodeCount);
-    indexToName.reserve(estimatedNodeCount);
+    //nameToIndex.reserve(estimatedNodeCount);
+    //indexToName.reserve(estimatedNodeCount);
 
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -199,9 +199,9 @@ file.close();
 void DisplayNodetoIndex(std::vector<std::pair<std::string, int>> nodeIndexMapping,
                         const std::string& filename)
 {
-    std::cout << "\nNode Name->Index Mapping: " << filename << std::endl;
+    std::cerr << "\nNode Name->Index Mapping: " << filename << std::endl;
     for (auto& p : nodeIndexMapping) {
-        std::cout << "Node " << p.first << " has Index " << p.second << std::endl;
+        std::cerr << "Node " << p.first << " has Index " << p.second << std::endl;
     }
 }
 
@@ -209,24 +209,24 @@ void DisplayNodetoIndex(std::vector<std::pair<std::string, int>> nodeIndexMappin
 void displayConnectedNodes(int SeedNodeGraph1, const std::vector<int>& connectedNodes1,
                            int SeedNodeGraph2, const std::vector<int>& connectedNodes2)
 {
-    std::cout << "\nConnected Nodes of Node " << SeedNodeGraph1 << ":\n";
+    std::cerr << "\nConnected Nodes of Node " << SeedNodeGraph1 << ":\n";
     for (auto cn : connectedNodes1) {
-        std::cout << cn << " ";
+        std::cerr << cn << " ";
     }
-    std::cout << "\n\nConnected Nodes of Node " << SeedNodeGraph2 << ":\n";
+    std::cerr << "\n\nConnected Nodes of Node " << SeedNodeGraph2 << ":\n";
     for (auto cn : connectedNodes2) {
-        std::cout << cn << " ";
+        std::cerr << cn << " ";
     }
-    std::cout << std::endl;
+    std::cerr << std::endl;
 }
 
 // displayConnectedNodes (single set)
 void displayConnectedNodes(const std::vector<int>& connectedNodes)
 {
     for (auto cn : connectedNodes) {
-        std::cout << cn << " ";
+        std::cerr << cn << " ";
     }
-    std::cout << std::endl;
+    std::cerr << std::endl;
 }
 
 // ReadSimFIle
@@ -300,20 +300,20 @@ std::ostream& operator<<(std::ostream& os,
 
 void PrintNameToIndex(const std::unordered_map<std::string, int>& nameToIndex)
 {
-    std::cout << "\n=== nameToIndex Map ===\n";
+    std::cerr << "\n=== nameToIndex Map ===\n";
     for (const auto& pair : nameToIndex) {
         // pair.first is the node name (std::string)
         // pair.second is the index (int)
-        std::cout << "Node \"" << pair.first 
+        std::cerr << "Node \"" << pair.first 
                   << "\" => index " << pair.second << '\n';
     }
 }
 
 void PrintIndexToName(const std::vector<std::string>& indexToName)
 {
-    std::cout << "\n=== indexToName Vector ===\n";
+    std::cerr << "\n=== indexToName Vector ===\n";
     for (int i = 0; i < (int)indexToName.size(); ++i) {
-        std::cout << "Index " << i 
+        std::cerr << "Index " << i 
                   << " => Node \"" << indexToName[i] << "\"\n";
     }
 }
@@ -321,21 +321,21 @@ void PrintIndexToName(const std::vector<std::string>& indexToName)
 void PrintAdjMatrix(const std::vector<std::vector<bool>>& adjMatrix)
 {
     // If you want to show column indices:
-    std::cout << "    ";
+    std::cerr << "    ";
     for (int col = 0; col < (int)adjMatrix.size(); ++col) {
-        std::cout << col << " ";
+        std::cerr << col << " ";
     }
-    std::cout << "\n";
+    std::cerr << "\n";
 
     // Print each row
     for (int row = 0; row < (int)adjMatrix.size(); ++row) {
         // Print row index
-        std::cout << row << ":  ";
+        std::cerr << row << ":  ";
 
         for (int col = 0; col < (int)adjMatrix[row].size(); ++col) {
             // Convert the bool to 1 or 0
-            std::cout << (adjMatrix[row][col] ? 1 : 0) << " ";
+            std::cerr << (adjMatrix[row][col] ? 1 : 0) << " ";
         }
-        std::cout << "\n";
+        std::cerr << "\n";
     }
 }
