@@ -64,6 +64,22 @@ int computeE(
     return E;
 }
 
+int computeGraphE(
+    int numNode,
+    const std::vector<std::vector<bool>>& adj)
+{
+    int E = 0;
+    int n = numNode;
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = i + 1; j < n; ++j) {
+            if (adj[i][j] ) {
+                ++E;
+            }
+        }
+    }
+    return E;
+}
 int incrementalE(
     int newNodeG,
     const std::vector<int>& alignedG,
