@@ -633,7 +633,7 @@ void SAR(int iters, foint f){
 }
 
 
-#define RANDOM_START 1
+#define RANDOM_START 0
 #define CHECK_OVERLAP 1
 int main(int argc, char *argv[])
 {
@@ -661,19 +661,36 @@ int main(int argc, char *argv[])
     }
     
 #else
-    for(int i = 0; i < ){
-	COMMUNITY *C = CommunityAlloc(G);
-	for(i=0; i<n; i++) if(!SetIn(nodesUsed,nodeArray[i]) || drand48() > 0.5) {
-	    SetAdd(nodesUsed,nodeArray[i]); CommunityAddNode(C,nodeArray[i]); ++numAdded;
+    
+    printf("BFS-based communities: \n");
+    SET *nodesUsed=SetAlloc(G->n); // cumulative set of nodes that have been put into a partition
+
+    int nodeArray[G->n], distArray[G->n], numCom = 0;
+    while(SetCardinality(nodesUsed) < G->n) {
+	int seed;
+	do { seed = (int)(drand48() * G->n); }
+	while(SetIn(nodesUsed, seed));
+	int numAdded=0, distance = 4; // should be far enough
+	int n=GraphBFS(G, seed, distance, nodeArray, distArray); // list of nodes within "distance" of seed
+	//printf("BFS(%d[%d])=%d", seed, G->degree[seed], n);
+	assert(n>0 && nodeArray[0]==seed && distArray[seed]==0);
+	COMMUNITY *C = CommunityAlloc(G, numCom);
+	for(i=0; i<n; i++) if(!SetIn(nodesUsed,nodeArray[i]) && drand48() > 0.5) {
+	    SetAdd(nodesUsed,nodeArray[i]); CommunityAddNode(C,P->whichMember, nodeArray[i]); ++numAdded;
 	}
 	//printf("%d ", numAdded); fflush(stdout);
-	assert(C->n >0 && C->n < G->n && C->n==numAdded);
-	PartitionAddCommunity(P, C);
+	//assert(C->n >0 && C->n < G->n && C->n==numAdded);
+	if(C->n > 0){
+	    PartitionAddCommunity(P, C);
+	    ++numCom;
+	}
+	else
+	    CommunityFree(C);
         //printf("Size of Community = %d\n", C->n);
-	
     }
-    //printf("\n%d communities, score = %g\n", P->n, ScorePartition(P));
+    
     SetFree(nodesUsed);
+    
 #endif
     printf("%d\n", P->n);
     
