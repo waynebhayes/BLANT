@@ -888,6 +888,12 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
     // SYNTH: this is where the new ordinal graphlet ID is computed
+#if SYNTHETIC // Akhil: hints here
+    static int prevOrdinal;
+    printf("ordinal transition %d -> %d\n", prevOrdinal, GintOrdhinal);
+    ++transitionCount[prevOrdinal][GintOrdinal];
+    prevOrdinal = GintOrdinal;
+#endif
 
     assert(numNodes == k); // Ensure we are returning k nodes
     Boolean found=false;
