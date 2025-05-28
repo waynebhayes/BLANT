@@ -170,13 +170,9 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 // Headers for multithreading
 extern int _numThreads;
 extern int _maxThreads;
-extern _Atomic bool _doneSampling;
 // keeps track of if the stop mode is specified with number of samples (-n) or precision (-p)
 enum StopMode {num_samples, precision};
 extern enum StopMode _stopMode;
-
-// Checks if the threads should stop sampling via information gathered from global batch data and the thread local batch data
-bool checkDoneSampling(void);
 
 typedef struct {
     // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
@@ -184,9 +180,11 @@ typedef struct {
     double graphletConcentration[MAX_CANONICALS];
     double *graphletDegreeVector[MAX_CANONICALS];
     double *orbitDegreeVector[MAX_ORBITS];
-    int numSamples;
     SET*** communityNeighbors;
 } Accumulators;
+
+Accumulators* InitializeAccumulatorStruct(GRAPH* G);
+void FreeAccumulatorStruct(Accumulators *accums);
 
 // a global array of accumulators, one for each thread, updated in batches
 extern Accumulators *_threadAccumulators;
@@ -203,7 +201,10 @@ typedef struct {
     int varraySize;
     int threadId; // thread number, starting from 0
     long seed;
+    Accumulators *accums;
 } ThreadData;
+
+void SampleNGraphletsInThreads(int k, GRAPH *G, int varraySize, int numSamples, int numThreads);
 
 void* RunBlantInThread(void* arg);
 

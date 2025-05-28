@@ -325,6 +325,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     }
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     accums->graphletCount[GintOrdinal]+=weight;
+    // TODO: TO WORK WITH PRECISION BASED SAMPLING, THIS MUST BE MADE NON-REENTRANT, ADDED TO THE GLOBAL ACCUMULATORS
     ++_batchRawCount[GintOrdinal]; ++_batchRawTotalSamples;
 
     // case graphletFrequency: break; // already counted above
