@@ -147,7 +147,6 @@ SET **_componentSet;
 
 // number of parallel threads required, and the maximum allowed at one time (set to sysconf(_SC_NPROCESSORS_ONLN) later in main).
 int _numThreads, _maxThreads;
-_Atomic bool _doneSampling = false;
 Accumulators _trashAccumulator = {};
 Accumulators *_threadAccumulators;
 enum StopMode _stopMode;
@@ -479,18 +478,103 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
     return total;
 }
 
-bool checkDoneSampling(void) {
-    if (_stopMode == num_samples) {
-        int totalSamples = 0;
-        for (int i = 0; i < _numThreads; i++) totalSamples += _threadAccumulators[i].numSamples;
-        if (totalSamples >= _numSamples) return true;
-    } else if (_stopMode == precision) {
-        Apology("Precision stopping not yet supported");
-        // Gurjot's code would go here
-    } else {
-        Apology("No stop mode specified. Specify a number of samples to take (-n) or a precision level to reach (-p) in order to designate how to stop sampling.");
+Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
+    // memory NEEDS to be optimized- but to do this we need to understand Ocalloc. Why is it used here? What's its purpose? Why not use malloc?
+    Accumulators *accums = calloc(1, sizeof(Accumulators)); // I don't really know how libwayne's Omalloc and Ofree works, confer during meeting later
+    // initialize GDV vectors if needed
+    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
+        for(int i=0; i<_numCanon; i++) accums->graphletDegreeVector[i] = calloc(G->n, sizeof(**accums->graphletDegreeVector));
+    // initialize ODV vectors if needed
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
+        for(int i=0; i<_numOrbits; i++) accums->orbitDegreeVector[i] = calloc(G->n, sizeof(**accums->orbitDegreeVector));
+    // initialize communityNeighbors if needed
+    if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
+
+    return accums;
+}
+
+void FreeAccumulatorStruct(Accumulators *accums) {
+    assert(_numCanon <= MAX_CANONICALS);
+    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
+        for (int i=0; i<_numCanon; i++) free(accums->graphletDegreeVector[i]);
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
+        for(int i=0; i<_numOrbits; i++) if (accums->orbitDegreeVector[i] != NULL) free(accums->orbitDegreeVector[i]);
+    if(_outputMode & communityDetection) free(accums->communityNeighbors);
+    free(accums);
+}
+
+void SampleNGraphletsInThreads(int k, GRAPH *G, int varraySize, int numSamples, int numThreads) {
+    pthread_t threads[numThreads];
+    ThreadData threadData[numThreads];
+    int samplesPerThread = numSamples / numThreads;
+    int leftover = numSamples - (samplesPerThread * numThreads);
+    // seed the threads with a base seed that may or may not be specified
+    long base_seed = _seed == -1 ? GetFancySeed(true) : _seed;
+
+    // initialize the threads and their data
+    for (unsigned t = 0; t < numThreads; t++)
+    {
+        threadData[t].samplesPerThread = samplesPerThread;
+        // distribute the leftover samples
+        if (leftover-- > 0) threadData[t].samplesPerThread++;
+        threadData[t].k = k;
+        threadData[t].G = G;
+        threadData[t].varraySize = varraySize;
+        threadData[t].threadId = t;
+        threadData[t].seed = base_seed + t; // each thread has it's own unique seed
+        threadData[t].accums = InitializeAccumulatorStruct(G);
+
+        pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
     }
-    return false;
+
+    // wait for each thread to finishe execution, then accumulate data from the thead into the passed accumulator
+    for (unsigned t = 0; t < _numThreads; t++) {
+        pthread_join(threads[t], NULL);
+        for (int i = 0; i < _numCanon; i++) {
+            _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
+            _graphletCount[i] += threadData[t].accums->graphletCount[i];
+        }
+
+        if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
+            for(int i=0; i<_numOrbits; i++) {
+            for(int j=0; j<G->n; j++) {
+                _orbitDegreeVector[i][j] += threadData[t].accums->orbitDegreeVector[i][j];
+            }
+            }
+        }
+        if (_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+            for(int i=0; i<_numCanon; i++) {
+            for(int j=0; j<G->n; j++) {
+                _graphletDegreeVector[i][j] += threadData[t].accums->graphletDegreeVector[i][j];
+            }
+            }
+        }
+        if (_outputMode & communityDetection) {
+            int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
+            for(int i=0; i<G->n; i++) {
+                if(threadData[t].accums->communityNeighbors[i]) {
+                if(!_communityNeighbors[i]) {
+                    _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
+                }
+                for(int j=0; j<numCommunities; j++) {
+                    if(threadData[t].accums->communityNeighbors[i][j]) {
+                    if(!_communityNeighbors[i][j]) {
+                        _communityNeighbors[i][j] = SetAlloc(G->n);
+                    }
+                    _communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], threadData[t].accums->communityNeighbors[i][j]);
+                    }
+                }
+                }
+            }
+        }
+    }
+
+    // In each threadData[t] accumulator, the GDV and ODV vectors are allocated with Ocalloc, and must be freed with Ofree
+    // However, if anything else has been allocated with Ocalloc or Omalloc with libwayne BETWEEN the time this function starts and ends
+    // same goodbye to that memory and say hello to segfault -Ethan
+    for (unsigned t = 0; t < numThreads; t++) {
+        FreeAccumulatorStruct(threadData[t].accums);
+    }
 }
 
 
@@ -504,31 +588,11 @@ void* RunBlantInThread(void* arg) {
     long seed = args->seed;
     int threadId = args->threadId;
     int samplesPerThread = args->samplesPerThread;
-    Accumulators *accums = &_threadAccumulators[threadId];
-    bool stopThread = false;
+    Accumulators *accums = args->accums;
 
-    // ODV/GDV vector initializations concern: 
-    // you'd be allocating memory for these vectors, multiplied by the number of threads. Is that a lot? Probably slows it down
-    // initialize thread local GDV vectors if needed
-    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-        for(int i=0; i<_numCanon; i++) {
-            accums->graphletDegreeVector[i] = Ocalloc(G->n, sizeof(**accums->graphletDegreeVector));
-            for(int j=0; j<G->n; j++) accums->graphletDegreeVector[i][j]=0.0;
-        }
-    }
-    // initialize thread local ODV vectors if needed
-    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
-        for(int i=0; i<_numOrbits; i++) {
-            accums->orbitDegreeVector[i] = Ocalloc(G->n, sizeof(**accums->orbitDegreeVector));
-            for(int j=0; j<G->n; j++) accums->orbitDegreeVector[i][j]=0.0;
-        }
-    }
-    // initialize thread local communityNeighbors if needed
-    if(_outputMode & communityDetection) {
-        accums->communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**));
-    }
-
+    // initialize the random number generator
     RandomSeed(seed);
+    RandomUniform();
 
 #if PARANOID_ASSERTS
     for (int i = 0; i < _numCanon; i++) {
@@ -552,15 +616,7 @@ void* RunBlantInThread(void* arg) {
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
 
-    int samplesCounter = 0;
-    int batchSize = G->numEdges*10;
-
-    // with the index modes, we want specifically the -n number of samples; checkDoneSampling cannot stop after an exact number, so we must handle these seperately
-    if ((_outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits) && samplesCounter >= samplesPerThread) stopThread = true;
-
-    // begin sampling
-    // printf("Running BLANT in threads to compute %d samples, for k=%d.\n", args->numSamples, k);
-    while (!_doneSampling && !stopThread) {
+    for (int i = 0; i < samplesPerThread; i++) {
         if (_window) {
             Fatal("Multithreading not yet implemented for any window related output modes.");
         } 
@@ -573,24 +629,13 @@ void* RunBlantInThread(void* arg) {
                 stuck = 0; // reset stuck counter when finding a newly processed graphlet
             } else {
                 // processing failed, ignore sample
-                samplesCounter--;
+                i--;
                 stuck++;
                 if(stuck > MAX(G->n, _numSamples)) {
                     if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
-                    _doneSampling = true; // no new samples to be found, stop sampling
+                    break;
                 }
             }
-        }
-        samplesCounter++;
-        accums->numSamples = samplesCounter; // update the accumulator data, since it's used in global checkDoneSampling()
-        // two ways to check if done
-        if (_stopMode == precision && samplesCounter && samplesCounter % batchSize == 0 && checkDoneSampling()) {
-            _doneSampling = true;
-        }
-        if (_stopMode == num_samples) {
-            if ((_outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits) &&
-                samplesCounter >= samplesPerThread) stopThread = true; // stop THIS thread
-            else if (checkDoneSampling()) _doneSampling = true; // stop ALL threads
         }
     }
     SetFree(prev_node_set);
@@ -766,105 +811,42 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             _numThreads = 1;
         }
 
-        _threadAccumulators = Ocalloc(_numThreads, sizeof(Accumulators));
-        memset(_threadAccumulators, 0, _numThreads * sizeof(Accumulators));
-       
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        pthread_t threads[_numThreads];
-        ThreadData threadData[_numThreads];
-        int samplesPerThread = numSamples / _numThreads;
-        int leftover = numSamples - (samplesPerThread * _numThreads);
-        // seed the threads with a base seed that may or may not be specified
-        long base_seed = _seed == -1 ? GetFancySeed(true) : _seed;
+        int samplesCounter = 0;
+        int batchCounter = 0;
+        Boolean confMet = false;
 
-        Note("Running BLANT in %d threads", _numThreads);
-
-        for (unsigned t = 0; t < _numThreads; t++)
-        {
-            threadData[t].samplesPerThread = samplesPerThread;
-            if (t == _numThreads - 1) threadData[t].samplesPerThread += (leftover);
-            threadData[t].k = k;
-            threadData[t].G = G;
-            threadData[t].varraySize = varraySize;
-            threadData[t].threadId = t;
-            threadData[t].seed = base_seed + t; // each thread has it's own unique seed
-            pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
-        }
-
-        // join threads and then summate the accumulators from each thread
-        for (unsigned t = 0; t < _numThreads; t++) {
-            pthread_join(threads[t], NULL);
-        }
-
-        for (unsigned t = 0; t < _numThreads; t++) {
-            for (i = 0; i < _numCanon; i++) {
-                _graphletConcentration[i] += _threadAccumulators[t].graphletConcentration[i];
-                _graphletCount[i] += _threadAccumulators[t].graphletCount[i];
+        while (!confMet && !_earlyAbort) {
+            if (_stopMode == num_samples) {
+                // one and done, distribute the -n samples amongst the threads and stop there
+                SampleNGraphletsInThreads(k, G, varraySize, numSamples, _numThreads);
+                samplesCounter += numSamples;
+                break;
+            } else if (_stopMode == precision) {
+                // code to compute the confidence interval and precision would go here.
+                // see the #if 0 block below for the previous loop, and implement the precision/confidence logic here
+                // Because this loop is no longer incremented by i, we no longer have to do i%batchSize==0, instead can just tell SampleNGraphletsInThreads to sample batchSize samples
+                // psuedo:
+                // SampleNGraphletsInThreads(k, G, varraySize, batchSize, _numThreads);
+                // compute the precision and see if the confidence is met
+			    // int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
+			    // int maxNumBatches = 1000*minNumBatches; // huge
+                // ...
+                // samplesCounter += batchSize;
+                // batchSize++;
+                Apology("Precision based sampling is not yet implemented.");
+            } else {
+                Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
             }
-
-            if (_outputMode & outputODV) {
-                for(i=0; i<_numOrbits; i++) {
-                for(j=0; j<G->n; j++) {
-                    // if (t == 0) assert(_orbitDegreeVector[i][j] == 0);
-                    _orbitDegreeVector[i][j] += _threadAccumulators[t].orbitDegreeVector[i][j];
-                }
-                }
-            }
-            if (_outputMode & outputGDV) {
-                for(i=0; i<_numCanon; i++) {
-                for(j=0; j<G->n; j++) {
-                    // if (t == 0) assert(_graphletDegreeVector[i][j] == 0);
-                    // if (t == 0 &&_graphletDegreeVector[i][j] != 0) {
-                    //     Note("BAD VALUE: %f", _graphletDegreeVector[i][j]);
-                    //     assert(false);
-                    // }
-                    _graphletDegreeVector[i][j] += _threadAccumulators[t].graphletDegreeVector[i][j];
-                }
-                }
-            }
-            // Consolidate community neighbors
-            if (_outputMode & communityDetection) {
-		switch(_communityMode) {
-		    case 'o':
-			for(i=0; i<_numOrbits; i++) {
-			    for(j=0; j<G->n; j++) {
-				_orbitDegreeVector[i][j] += _threadAccumulators->orbitDegreeVector[i][j];
-			    }
-			}
-			break;
-		    case 'g':
-			for(i=0; i<_numCanon; i++) {
-			    for(j=0; j<G->n; j++) {
-				_graphletDegreeVector[i][j] += _threadAccumulators->graphletDegreeVector[i][j];
-			    }
-			}
-			break;
-		}
-		int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
-		for(i=0; i<G->n; i++) {
-		    if(_threadAccumulators->communityNeighbors[i]) {
-			if(!_communityNeighbors[i]) {
-			    _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
-			}
-			for(j=0; j<numCommunities; j++) {
-			    if(_threadAccumulators->communityNeighbors[i][j]) {
-				if(!_communityNeighbors[i][j]) {
-				    _communityNeighbors[i][j] = SetAlloc(G->n);
-				}
-				_communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], _threadAccumulators->communityNeighbors[i][j]);
-			    }
-			}
-		    }
-		}
-            }
+   // 
         }
 
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
                             (end.tv_nsec - start.tv_nsec) / 1e9;
-        Note("Took %f seconds to sample %d with %d threads.", elapsed_time, numSamples, _numThreads); 
+        Note("Took %f seconds to sample %d with %d threads in %d batches.", elapsed_time, samplesCounter, _numThreads, batchCounter); 
 
     #if 0
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
@@ -901,8 +883,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    stuck = 0;
 		    if(_desiredPrec) {
 			if(i && i%batchSize==0) { // we just finished a batch
-			    int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
-			    int maxNumBatches = 1000*minNumBatches; // huge
+			    // int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
+			    // int maxNumBatches = 1000*minNumBatches; // huge
 			    double worstInterval=0, intervalSum=0;
 			    _worstCanon = -1;
 			    if(_batchRawTotalSamples) { // in rare cases a batch may finish with no actual samples

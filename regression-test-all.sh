@@ -82,7 +82,7 @@ done
 
 NUM_THREADS=$(getconf _NPROCESSORS_ONLN)
 MAX_THREADS=4  # we don't want to hog all the threads when unit testing
-CORES=$(( NUM_THREADS > MAX_THREADS ? NUM_THREADS : MAX_THREADS ))
+CORES=$(( NUM_THREADS > MAX_THREADS ? MAX_THREADS : NUM_THREADS ))
 #CORES=${CORES:=`cpus 2>/dev/null | awk '{c2=int($1/2); if(c2>0)print c2; else print 1}'`}
 [ "$CORES" -gt 0 ] || die "can't figure out how many cores this machine has"
 MAKE_CORES=1 # for BLANT, we don't want or need paralellism during make
