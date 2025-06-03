@@ -489,6 +489,8 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
         for(int i=0; i<_numOrbits; i++) accums->orbitDegreeVector[i] = calloc(G->n, sizeof(**accums->orbitDegreeVector));
     // initialize communityNeighbors if needed
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
+        
+    for (int i = 0; i < _numCanon; i++) accums->canonNumStarMotifs[i] = -1; // initialize to -1, meaning "not yet initialized"
 
     return accums;
 }
@@ -533,6 +535,7 @@ void SampleNGraphletsInThreads(int k, GRAPH *G, int varraySize, int numSamples, 
         for (int i = 0; i < _numCanon; i++) {
             _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
             _graphletCount[i] += threadData[t].accums->graphletCount[i];
+            if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i];
         }
 
         if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {

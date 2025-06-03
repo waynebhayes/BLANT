@@ -181,6 +181,7 @@ typedef struct {
     double *graphletDegreeVector[MAX_CANONICALS];
     double *orbitDegreeVector[MAX_ORBITS];
     SET*** communityNeighbors;
+    double canonNumStarMotifs[MAX_CANONICALS];
 } Accumulators;
 
 Accumulators* InitializeAccumulatorStruct(GRAPH* G);
