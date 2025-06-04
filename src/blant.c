@@ -1814,21 +1814,6 @@ int main(int argc, char *argv[])
     if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
 	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
 
-    FILE *fpGraph;
-    int piped = 0;
-    if(!argv[optind])
-    {
-	fpGraph = stdin;
-	if(isatty(0) && !_quiet) Warning("reading graph input file from terminal, press ^D to finish");
-    }
-    else {
-	char *graphFileName = argv[optind];
-	fpGraph = readFile(graphFileName, &piped);
-	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
-	optind++;
-    }
-    assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
-
     SetBlantDirs(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
     LoadMagicTable(); // needs _k to be set
@@ -1897,7 +1882,24 @@ int main(int argc, char *argv[])
 	    Fatal("must specify either desired precision using -[Pp] (preferred) or number of samples (less preferred)");
     }
 
-    // Read network using native Graph routine.
+    // Derik: start here
+    FILE *fpGraph;
+    int piped = 0;
+    if(!argv[optind])
+    {
+	fpGraph = stdin;
+	if(isatty(0) && !_quiet) Warning("reading graph input file from terminal, press ^D to finish");
+    }
+    else {
+	char *graphFileName = argv[optind];
+	// readFile doesn't actually READ anything, it only prepares the file for reading by, for example, uncompressing it if it's name ends in ".gz"
+	fpGraph = readFile(graphFileName, &piped);
+	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
+	optind++;
+    }
+    assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
+
+    // Read network using native Graph routine. Derik: this is where you can add other graph reading functions
     GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, _weighted);
     if(_useComplement) G->useComplement = true;
 
@@ -1907,6 +1909,8 @@ int main(int argc, char *argv[])
 	_nodeNames = G->name;
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
+
+    //Derik: end here
 
     // Always allocate this set; if there are no "nodes of interest" then every node is a possible start done
     _startNodes = Calloc(G->n, sizeof(unsigned));
