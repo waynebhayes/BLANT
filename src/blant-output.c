@@ -317,22 +317,12 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
-#if 0
-    // _canonNumStarMotifs was previously computed during sampling rather than pre-computed
-    if(_canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
-	int i;
-	_canonNumStarMotifs[GintOrdinal] = 0;
-	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++_canonNumStarMotifs[GintOrdinal];
-    }
-#endif
-#if 1
     // _canonNumStarMotifs was previously computed during sampling rather than pre-computed
     if(accums->canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
 	int i;
 	accums->canonNumStarMotifs[GintOrdinal] = 0;
 	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
     }
-#endif
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     accums->graphletCount[GintOrdinal]+=weight;
     // TODO: TO WORK WITH PRECISION BASED SAMPLING, THIS MUST BE MADE NON-REENTRANT, ADDED TO THE GLOBAL ACCUMULATORS
@@ -365,29 +355,25 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	else Fatal("unkwown _communityMode %c", _communityMode);
     }
 
+    // the macros GDV and ODV access the global array and are thus only used in single thread (_MCMC_EVERY_EDGE) modes
+    if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
+        _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) {
+        if(_outputMode & outputGDV) {
+        for(j=0;j<k;j++) GDV(Varray[j], GintOrdinal)+=weight;
+        // for(j=0;j<k;j++) accums->graphletDegreeVector[GintOrdinal][Varray[j]] += weight;
+        }
 
- #if 0
-     // ETHAN: I DON'T THINK THE BELOW IS ACCURATE; 
-     // DESPITE BEING COMMENTED OUT, ALL REGRESSION TESTS PASS
-     // ALL THIS DOES IS JUST ADD "weight", WHICH IS EITHER 1 or 0, TO THE ACCUMULATORS (global or local)
-     // PERHAPS THIS WENT UNNOTICED DURING SINGLETHREADING SINCE IT WAS ONLY A +1 VALUE WHICH MAY HAVE SEEMED MINIMAL
-     // WITH MULTITHREADING, THIS MAY OCCUR SEVERAL TIMES (ONE FOR EACH THREAD)
-     // SKEWING THE RESULTS ENOUGH TO AFFECT THE REGRESSION TESTS
+        if(_outputMode & outputODV) {
+        #if PERMS_CAN2NON
+        // for(j=0;j<k;j++) ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ])+=weight;
+        for(j=0;j<k;j++) accums->orbitDegreeVector[_orbitList[GintOrdinal][           j]][Varray[(int)perm[j]]]+=weight;
+        #else
+        for(j=0;j<k;j++) ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]])+=weight;
+        // for(j=0;j<k;j++) accums->orbitDegreeVector[_orbitList[GintOrdinal][(int)perm[j]]][Varray[(int)perm[j]]]+=weight;
+        #endif
+        }
+    }
 
-    if(_outputMode & outputGDV) {
-    // for(j=0;j<k;j++) GDV(Varray[j], GintOrdinal)+=weight;
-	for(j=0;j<k;j++) accums->graphletDegreeVector[GintOrdinal][Varray[j]] += weight;
-    }
-    if(_outputMode & outputODV) {
-#if PERMS_CAN2NON
-    // for(j=0;j<k;j++) ODV(Varray[(int)perm[j]], _orbitList[GintOrdinal][          j ])+=weight;
-	for(j=0;j<k;j++) accums->orbitDegreeVector[_orbitList[GintOrdinal][           j]][Varray[(int)perm[j]]]+=weight;
-#else
-    // for(j=0;j<k;j++) ODV(Varray[          j ], _orbitList[GintOrdinal][(int)perm[j]])+=weight;
-    for(j=0;j<k;j++) accums->orbitDegreeVector[_orbitList[GintOrdinal][(int)perm[j]]][Varray[(int)perm[j]]]+=weight;
-#endif
-    }
-#endif
 
     if(!_outputMode) Abort("ProcessGraphlet: unknown or un-implemented outputMode %d", _outputMode);
 

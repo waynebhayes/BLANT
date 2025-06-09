@@ -2,6 +2,7 @@
 #define BLANT_OUTPUT_H
 
 #include "blant.h"
+#include "blant-pthreads.h"
 
 // ProcessGraphlet returns true if the graphlet was processed, and false if it was removed due to being a duplicate
 Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums);
