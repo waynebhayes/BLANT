@@ -23,6 +23,7 @@
 #include "sorts.h"
 #include "combin.h"
 #include "blant-window.h"
+#include "blant-input.h"
 #include "blant-output.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
@@ -1882,35 +1883,7 @@ int main(int argc, char *argv[])
 	    Fatal("must specify either desired precision using -[Pp] (preferred) or number of samples (less preferred)");
     }
 
-    // Derik: start here
-    FILE *fpGraph;
-    int piped = 0;
-    if(!argv[optind])
-    {
-	fpGraph = stdin;
-	if(isatty(0) && !_quiet) Warning("reading graph input file from terminal, press ^D to finish");
-    }
-    else {
-	char *graphFileName = argv[optind];
-	// readFile doesn't actually READ anything, it only prepares the file for reading by, for example, uncompressing it if it's name ends in ".gz"
-	fpGraph = readFile(graphFileName, &piped);
-	if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
-	optind++;
-    }
-    assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
-
-    // Read network using native Graph routine. Derik: this is where you can add other graph reading functions
-    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, _weighted);
-    if(_useComplement) G->useComplement = true;
-
-    if(_supportNodeNames)
-    {
-	assert(G->name);
-	_nodeNames = G->name;
-    }
-    if(fpGraph != stdin) closeFile(fpGraph, &piped);
-
-    //Derik: end here
+    GRAPH *G = ReadGraph(argc, argv, &optind, _supportNodeNames, _GRAPH_GEN, _weighted, _useComplement);
 
     // Always allocate this set; if there are no "nodes of interest" then every node is a possible start done
     _startNodes = Calloc(G->n, sizeof(unsigned));

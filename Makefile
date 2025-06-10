@@ -60,7 +60,7 @@ LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 SRCDIR = src
 
 # All the headers (except synthetic ones which are orthogonal to blant itself)
-RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h importance.h odv.h uthash.h
+RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h blant-input.h importance.h odv.h uthash.h
 BLANT_HEADERS = $(addprefix $(SRCDIR)/, $(RAW_HEADERS))
 
 # Put all c files in SRCDIR below.
@@ -71,6 +71,7 @@ BLANT_SRCS = blant.c \
 			 blant-sampling.c \
 			 blant-predict.o \
 			 blant-synth-graph.c \
+			 blant-input.c \
 			 importance.c \
 			 odv.c
 
