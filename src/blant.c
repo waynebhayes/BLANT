@@ -730,16 +730,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 samplesCounter += numSamples;
                 break;
             } else if (_stopMode == stopOnPrecision) {
-             
-
                 // code to compute the confidence interval and precision would go here.
                 // see the #if 0 block below for the previous loop, and implement the precision/confidence logic here
                 // Because this loop is no longer incremented by i, we no longer have to do i%batchSize==0, instead can just tell SampleNGraphletsInThreads to sample batchSize samples
                 // psuedo:
                 // SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
                 // compute the precision and see if the confidence is met
-			    // int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
-			    // int maxNumBatches = 1000*minNumBatches; // huge
+		// int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
+		// int maxNumBatches = 1000*minNumBatches; // huge
                 // ...
                 // samplesCounter += batchSize;
                 // batchSize++;
@@ -789,8 +787,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    stuck = 0;
 		    if(_desiredPrec) {
 			if(i && i%batchSize==0) { // we just finished a batch
-			    // int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
-			    // int maxNumBatches = 1000*minNumBatches; // huge
+			    int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
+			    int maxNumBatches = 1000*minNumBatches; // huge
 			    double worstInterval=0, intervalSum=0;
 			    _worstCanon = -1;
 			    if(_batchRawTotalSamples) { // in rare cases a batch may finish with no actual samples
@@ -1574,7 +1572,7 @@ int main(int argc, char *argv[])
 		default: Fatal("unknown precision weighting %c", wChar);
 		}
 	    }
-        _stopMode = stopOnPrecision;
+	    _stopMode = stopOnPrecision;
 	    break;
 	case 'c': _confidence = atof(optarg);
 	    if(_confidence <= 0) Fatal("confidence must be in (0,1), not %g", _confidence);
