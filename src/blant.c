@@ -750,7 +750,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
                             (end.tv_nsec - start.tv_nsec) / 1e9;
-        Note("Took %f seconds to sample %d with %d threads in %d batches.", elapsed_time, samplesCounter, _numThreads, batchCounter); 
+        if(!_quiet) Note("Took %f seconds to sample %d with %d threads in %d batches.",
+		elapsed_time, samplesCounter, _numThreads, batchCounter); 
     }
     else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
     {
