@@ -79,11 +79,12 @@ OBJDIR = _objs
 BLANT_CANON_DIR = canon_maps
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
-ifneq ("$(wildcard $(blant-predict.c))","")
+#ifneq ("$(wildcard $(blant-predict.c))","")
+ifneq ("$(wildcard $(SRCDIR)/EdgePredict/blant-predict.c)","")
     BLANT_PREDICT_SRC = $(SRCDIR)/EdgePredict/blant-predict.c
 else
     BLANT_PREDICT_SRC = $(SRCDIR)/blant-predict-stub.c
-$(info BLANT EdgePredict not found, and edge prediction will not be supported. Utilizing stub at $(BLANT_PREDICT_SRC) instead.)
+    $(info BLANT EdgePredict not found, and edge prediction will not be supported. Utilizing stub at $(BLANT_PREDICT_SRC) instead.)
 endif
 
 
