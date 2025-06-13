@@ -645,7 +645,8 @@ int main(int argc, char *argv[])
     Boolean sparse=maybe, supportNames = true;
     FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line
     GRAPH *G = GraphReadEdgeList(fp, sparse, supportNames, false);
-    printf("G has %d nodes\n", G->n);
+    fclose(fp);
+    printf("G has %d nodes, %d edges\n", G->n, G->numEdges);
 
     PARTITION *P = PartitionAlloc(G);
 #if RANDOM_START
@@ -756,6 +757,5 @@ int main(int argc, char *argv[])
     PartitionFree(P);
     printf("Partition Free completed\n");
     GraphFree(G);
-    fclose(fp);
     return 0;
 }
