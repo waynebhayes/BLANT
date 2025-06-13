@@ -916,22 +916,24 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	_outputMode &= ~(outputGDV|outputODV);
     }
     // Note: the test for predict mode output MUST be above the test for ODV/GDV output, to turn them off if we're predicting
+    const int printBuf = _numCanon*16; // %.15g below, plus a space
     if(_outputMode & outputGDV) {
 	for(i=0; i < G->n; i++)
 	{
-	    char buf[BUFSIZ];
+	    char buf[printBuf];
 	    PrintNode(buf, 0,i);
 	    for(canon=0; canon < _numCanon; canon++)
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
 			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) 
             sprintf(buf+strlen(buf), " %.15g", GDV(i,canon));
 		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _graphletDegreeVector[canon][i]));
-	    assert(strlen(buf) < BUFSIZ);
+	    if(strlen(buf) >= printBuf)
+		Fatal("strlen(buf) is %d, compared to printBuf size %d", strlen(buf), printBuf);
 	    puts(buf);
 	}
     }
     if(_outputMode & outputODV) {
-	    char buf[BUFSIZ];
+	char buf[printBuf];
         for(i=0; i<G->n; i++) {
 	    PrintNode(buf,0,i);
 	    for(j=0; j<_numConnectedOrbits; j++) {
@@ -942,7 +944,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 			sprintf(buf+strlen(buf), " %.15g", ODV(i,orbit_index));
 		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _orbitDegreeVector[orbit_index][i]));
 	    }
-	    assert(strlen(buf) < BUFSIZ);
+	    if(strlen(buf) >= printBuf)
+		Fatal("strlen(buf) is %d, compared to printBuf size %d", strlen(buf), printBuf);
 	    puts(buf);
 	}
     }
