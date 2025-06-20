@@ -19,8 +19,9 @@ OPTIONS (added BEFORE the blant.exe name)
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
     -v: verbose output
-    -n: suppress list of nodes in the community
+    -nm: 'no members': suppress list of nodes in the community
     -pD: tell BLANT to estimate graphlet counts with D digits of precision (default 1)
+    -nN: tell BLANT to take exactly N samples (mutually exclusive with -p above)
     -r SEED: use the integer SEED as the random seed
     -emt value: minimum edge mean threshold: the smallest average-over-edgeWeights for a cluster to be included [default 0.5]
     -m smallest: if m>=1, ignore clusters/cliques/communities with fewer than this number of nodes; otherwise if m<1, treat
@@ -75,7 +76,7 @@ TURAN=false
 DEBUG=false # set to true to store BLANT output
 VERBOSE=0
 QUIET=-qq
-PRECISION=-p1
+PRECISION=-p1L
 PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
 
@@ -96,8 +97,10 @@ while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     -A) TURAN=true; shift;;
     -C) COMPLEMENT=-C; shift;;
     -v) VERBOSE=1; QUIET=''; shift;;
-    -n) PRINT_MEMBERS=0; shift;;
-    -p[0-9]*) PRECISION="$1"; shift;;
+    -nm) PRINT_MEMBERS=0; shift;;
+    -n) PRECISION="-n $2"; shift 2;;
+    -n[0-9]*) PRECISION="$1"; shift;;
+    -p[0-9]*) PRECISION="$1"L; shift;;
     -r) RANDOM_SEED="-r $2"; shift 2;;
     -emt) minEdgeMean="$2"; shift 2;;
     -r[0-9]*) RANDOM_SEED="$1"; shift 1;; # allow seed to be same or separate argument
@@ -120,7 +123,7 @@ TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
 echo "TMPDIR is $TMPDIR" >&2
 [ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
 
-BLANT_CMD="$1 ${PRECISION}L $QUIET";
+BLANT_CMD="$1 ${PRECISION} $QUIET";
 BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
 Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
@@ -399,7 +402,6 @@ for edgeDensity in "${EDs[@]}"; do
 			for(u in S) {cluster[numClus][u]=1; printf " %s", u; StatAddSample("", degreeInS[u]);}
 			#printf "final |S|=%d mean %g stdDev %g min %d max %d:\n", _statN[""], StatMean(""), StatStdDev(""), StatMin(""), StatMax("") > "/dev/stderr"
 			print "";
-			if('$ONLY_ONE') exit;
 			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
 			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be less stringent as it
 			# approaches 1, which in the case of THIS loop means that if OVERLAP is close to 1, we want
@@ -413,6 +415,7 @@ for edgeDensity in "${EDs[@]}"; do
 	sort -T $TMPDIR -nr |
 	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
+	    FNR>1 && '$ONLY_ONE'{exit}
 	    {
 		delete S;
 		numNodes=$1
