@@ -6,7 +6,8 @@ echo 'testing Graphlet (not orbit) Degree Vectors [MULTITHREADED]'
 N=9000000
 
 export k=1
-for S in MCMC SEC NBE EBE; do
+echo "Skipping MCMC and SEC sampling since it cannot run in threads"
+for S in NBE EBE; do
     case $S in
     MCMC) TOL=0.006; exp=2;;
     SEC)  TOL=1.1e-4; exp=3;;

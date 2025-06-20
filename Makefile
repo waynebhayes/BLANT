@@ -60,7 +60,7 @@ LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 SRCDIR = src
 
 # All the headers (except synthetic ones which are orthogonal to blant itself)
-RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h importance.h odv.h uthash.h
+RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h importance.h odv.h uthash.h blant-pthreads.h
 BLANT_HEADERS = $(addprefix $(SRCDIR)/, $(RAW_HEADERS))
 
 # Put all c files in SRCDIR below.
@@ -72,17 +72,19 @@ BLANT_SRCS = blant.c \
 			 blant-predict.o \
 			 blant-synth-graph.c \
 			 importance.c \
-			 odv.c
+			 odv.c \
+			 blant-pthreads.c
 
 OBJDIR = _objs
 BLANT_CANON_DIR = canon_maps
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
-ifneq ("$(wildcard $(blant-predict.c))","")
+#ifneq ("$(wildcard $(blant-predict.c))","")
+ifneq ("$(wildcard $(SRCDIR)/EdgePredict/blant-predict.c)","")
     BLANT_PREDICT_SRC = $(SRCDIR)/EdgePredict/blant-predict.c
 else
     BLANT_PREDICT_SRC = $(SRCDIR)/blant-predict-stub.c
-$(info BLANT EdgePredict not found, and edge prediction will not be supported. Utilizing stub at $(BLANT_PREDICT_SRC) instead.)
+    $(info BLANT EdgePredict not found, and edge prediction will not be supported. Utilizing stub at $(BLANT_PREDICT_SRC) instead.)
 endif
 
 

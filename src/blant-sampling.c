@@ -526,7 +526,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     cumulative[0] = GraphDegree(G,v1); // where v1 = Varray[0]
     cumulative[1] = GraphDegree(G,v2) + cumulative[0];
 
-    SET *internal = SetAlloc(G->n);	// mark choices of whichNeigh that are discovered to be internal
+    SET *internal = SetAlloc(G->n);	// short-cut set that "remembers" which edges are internal as we discover them
     int Gn = Gn = G->n;
 
     numTries = 0;
@@ -535,8 +535,9 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     {
 	int i, whichNeigh, newNode = -1;
 	while(numTries < MAX_TRIES &&
-	    (whichNeigh = outDegree * RandomUniform()) >= 0 && // always true, just setting whichNeigh
-		SetIn(internal, whichNeigh)) ++numTries; // which edge to choose among all edges leaving all nodes in V so far?
+		(whichNeigh = outDegree * RandomUniform()) >= 0 && // always true, just setting whichNeigh
+		SetIn(internal, whichNeigh) // "internal" is not complete, but stores edges already known to head back into V
+	    ) ++numTries;
 	if(numTries >= MAX_TRIES) {
 #if ALLOW_DISCONNECTED_GRAPHLETS
 	    // get a new node outside this connected component.
@@ -568,9 +569,9 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	assert(0 <= localNeigh && localNeigh < GraphDegree(G,Varray[i]));
 	assert(0 <= newNode && newNode < G->n);
 #endif
-	if(SetIn(V, newNode))
+	if(SetIn(V, newNode)) // we've failed to find a new node, it's already in V
 	{
-	    SetAdd(internal, whichNeigh);
+	    SetAdd(internal, whichNeigh); // add "whichNeigh" to the list of "known" internal edges
 	    if(++numTries < MAX_TRIES)
 		continue;
 	    else // graph is too disconnected
@@ -592,8 +593,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		    cumulative[j] = 0;
 		SetEmpty(internal);
 #else
+        // _Thread_local gives each thread their own copy of the depth variable
         static _Thread_local int depth; 
-        // static _Thread_local allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
         depth++;
         assert(depth < MAX_TRIES);
         SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);

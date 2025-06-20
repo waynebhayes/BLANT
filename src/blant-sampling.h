@@ -1,6 +1,7 @@
 #ifndef BLANT_SAMPLING_H
 #define BLANT_SAMPLING_H
 #include "blant.h"
+#include "blant-pthreads.h"
 #include "heap.h"
 #include "graph.h"
 #include "queue.h"
@@ -39,6 +40,8 @@ extern Boolean _MCMC_EVERY_EDGE; // Should MCMC restart at each edge
 extern GRAPH *_EDGE_COVER_G;
 
 // Each of these samples a graphlet and return its weight (default 1 unless _weighted)
+// Any of the sampling functinos that takes Accumulators as a parameter has been made non-reentrant; work on making them all this way
+// Do this regardless of whether or not the function can only conceptually work in one thread anyway (ie MCMC)
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums);
 double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC);
 double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k);
