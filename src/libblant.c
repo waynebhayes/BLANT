@@ -11,10 +11,10 @@ const char* _CANON_DIR = DEFAULT_CANON_DIR;
 void SetBlantDirs(void) {
     char* temp = getenv("BLANT_DIR");
     if (temp)
-    _BLANT_DIR = Strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
+	_BLANT_DIR = Strdup(temp); // can't assume the string returned by getetv never changes, so copy it.
     temp = getenv("BLANT_CANON_DIR");
     if (temp)
-    _CANON_DIR = Strdup(temp);
+	_CANON_DIR = Strdup(temp);
 }
 
 // Given a TINY_GRAPH and k, return the integer ID created from one triangle (upper or lower) of the adjacency matrix.
@@ -92,50 +92,47 @@ SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_
     if(1!=fscanf(fp_ord, GORDINAL_FMT "\n",&numCanon) || numCanon==0) Fatal("canonListPopulate failed to read numCanon");
     SET *connectedCanonicals = SetAlloc(numCanon);
     for(i=0; i<numCanon; i++) {
-    char buf[BUFSIZ], *tmp;
-    tmp = fgets(buf, sizeof(buf), fp_ord);
-    assert(tmp == buf);
-    int len = strlen(buf);
-    assert(buf[len] == '\0' && buf[len-1] == '\n');
-    if(3!=sscanf(buf, GINT_FMT "\t%d %hhd", &canon_list[i], &connected, &canon_num_edges[i]))
-	Fatal("canonListPopulate: failed to read 3 inputs from line %d", i);
-    if(connected) SetAdd(connectedCanonicals, i);
+	char buf[BUFSIZ], *tmp;
+	tmp = fgets(buf, sizeof(buf), fp_ord);
+	assert(tmp == buf);
+	int len = strlen(buf);
+	assert(buf[len] == '\0' && buf[len-1] == '\n');
+	if(3!=sscanf(buf, GINT_FMT "\t%d %hhd", &canon_list[i], &connected, &canon_num_edges[i]))
+	    Fatal("canonListPopulate: failed to read 3 inputs from line %d", i);
+	if(connected) SetAdd(connectedCanonicals, i);
     }
     fclose(fp_ord);
     return connectedCanonicals;
 }
 
 Gint_type orbitListPopulate(char *BUF,
-    Gint_type orbit_list[MAX_CANONICALS][MAX_K],
-    Gordinal_type orbit_canon_mapping[MAX_ORBITS],
-    char orbit_canon_node_mapping[MAX_ORBITS],
-    Gordinal_type numCanon, int k) {
+	Gint_type orbit_list[MAX_CANONICALS][MAX_K],
+	Gordinal_type orbit_canon_mapping[MAX_ORBITS],
+	char orbit_canon_node_mapping[MAX_ORBITS],
+	Gordinal_type numCanon, int k) {
     sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, _CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     Gint_type o, numOrbits;
     if(1!=fscanf(fp_ord, GINT_FMT, &numOrbits)) Fatal("orbitListPopulate failed to read numOrbits");
     for(o=0;o<numOrbits;o++)
-    orbit_canon_node_mapping[o] = -1;
+	orbit_canon_node_mapping[o] = -1;
     Gordinal_type c; int j;
     for(c=0; c<numCanon; c++) for(j=0; j<k; j++) {
-    if(1!=fscanf(fp_ord, GINT_FMT, &orbit_list[c][j])) Fatal("orbitListPopulate: failed to read canon %d", c);
-    orbit_canon_mapping[orbit_list[c][j]] = c;
-    if(orbit_canon_node_mapping[orbit_list[c][j]] < 0)
-	orbit_canon_node_mapping[orbit_list[c][j]] = j;
+	if(1!=fscanf(fp_ord, GINT_FMT, &orbit_list[c][j])) Fatal("orbitListPopulate: failed to read canon %d", c);
+	orbit_canon_mapping[orbit_list[c][j]] = c;
+	if(orbit_canon_node_mapping[orbit_list[c][j]] < 0)
+	    orbit_canon_node_mapping[orbit_list[c][j]] = j;
     }
     fclose(fp_ord);
     return numOrbits;
-}
-
-void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
-    assert(k<=5);
+	@@ -147,9 +133,9 @@ void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
     sprintf(BUF, "%s/%s/orca_orbit_mapping%d.txt", _BLANT_DIR, "orca_jesse_blant_table", k);
     FILE *fp_ord=fopen(BUF, "r");
     if(fp_ord) {
-    int numOrbits, i;
-    if(1!=fscanf(fp_ord, "%d", &numOrbits)) Fatal("orcaOrbitMappingPopulate: failed to read numOrbits");
-    for(i=0; i<numOrbits; i++) if(1!=fscanf(fp_ord, "%d", &orca_orbit_mapping[i]))
-	Fatal("orcaOrbitMappingPopulate: failed to read mapping %d", i);
+	int numOrbits, i;
+	if(1!=fscanf(fp_ord, "%d", &numOrbits)) Fatal("orcaOrbitMappingPopulate: failed to read numOrbits");
+	for(i=0; i<numOrbits; i++) if(1!=fscanf(fp_ord, "%d", &orca_orbit_mapping[i]))
+	    Fatal("orcaOrbitMappingPopulate: failed to read mapping %d", i);
     }
 }

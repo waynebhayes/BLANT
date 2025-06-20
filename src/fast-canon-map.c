@@ -25,11 +25,11 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
 
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
     for(int i=k-1; i>=0; i--)
-    for(int j=k-1; j>=0; j--){
-	if(i==j) continue;
-	bitMatrix[i][j] = D%2;
-	D = D/2;
-    }
+	for(int j=k-1; j>=0; j--){
+	    if(i==j) continue;
+	    bitMatrix[i][j] = D%2;
+	    D = D/2;
+	}
 }
 
 
@@ -50,8 +50,8 @@ unsigned long power(int x, int y){
 void encodeChar(xChar ch, long indexD, long indexP){ 
     unsigned long x=(unsigned long)indexD+(unsigned long)indexP*(1<<20);//2^20 > 1e6 (placeholder values, enough for k=5)
     for(int i=4; i>=0; i--){
-    ch[i]=(char)(x%(1<<8));
-    x>>=8;
+	ch[i]=(char)(x%(1<<8));
+	x>>=8;
     }
 }
 
@@ -61,10 +61,10 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
     int y=0,w;
 
     for(int i=4; i>=0; i--){
-    w=(int)ch[i];
-    m=(1<<y);
-    x+=w*m;
-    y+=8;
+	w=(int)ch[i];
+	m=(1<<y);
+	x+=w*m;
+	y+=8;
     }
     unsigned long z=(1<<20);
     *indexD=x%z;
@@ -79,26 +79,26 @@ long factorial(int n) {
 
 bool nextPermutation(int permutation[]) {
     for(int i=k-1;i>0;i--) {
-    if(permutation[i]>permutation[i-1]) { 
-	for(int j=k-1;j>i-1;j--){
-	if(permutation[i-1]<permutation[j]){ 
-	    int t=permutation[i-1];
-	    permutation[i-1]=permutation[j];
-	    permutation[j]=t;
-	    break;
-	}
-	}
-	int l=i;
-	for(int j=k-1;j>l;j--) {
-	if(i<j){
-	    int t=permutation[i];
-	    permutation[i]=permutation[j];
-	    permutation[j]=t;
-	    i++;
-	}
-	}
+	if(permutation[i]>permutation[i-1]) { 
+	    for(int j=k-1;j>i-1;j--){
+		if(permutation[i-1]<permutation[j]){ 
+		    int t=permutation[i-1];
+		    permutation[i-1]=permutation[j];
+		    permutation[j]=t;
+		break;
+		}
+	    }
+	    int l=i;
+	    for(int j=k-1;j>l;j--) {
+		if(i<j){
+		    int t=permutation[i];
+		    permutation[i]=permutation[j];
+		    permutation[j]=t;
+		    i++;
+		}
+	    }
 	return 1;
-    }
+	}
     }
     return 0; 
 }
@@ -118,10 +118,10 @@ void canon_map(bool directed){
 
     //saving all permutations
     for(int i=0;i<f;i++){
-    assert(i>=0);
-    for(int j=0; j<k; j++)
-	Permutations[i][j]=tmpPerm[j];
-    nextPermutation(tmpPerm);
+	assert(i>=0);
+	for(int j=0; j<k; j++)
+	    Permutations[i][j]=tmpPerm[j];
+	nextPermutation(tmpPerm);
     }
     done[0]=1;
     encodeChar(data[0],0,0);
@@ -185,7 +185,7 @@ void canon_map(bool directed){
 	    fprintf(fcanon, "\t%c", TinyGraphNumEdges(G));
 	    int u,v,sep='\t';
 	    for(u=0;u<k;u++)for(v=(1-directed)*u;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
-	    fprintf(fcanon, "%c%d,%d",sep,u,v); sep=' ';
+		fprintf(fcanon, "%c%d,%d",sep,u,v); sep=' ';
 	    }
 	}
 	putc('\n', fcanon);
