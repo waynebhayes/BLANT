@@ -5,7 +5,7 @@ export LANG=C # to ensure sort is not fucked up by stupid POSIX standards
 if [ "$RUNNING_UNDER_TIME" != true ]; then
     export RUNNING_UNDER_TIME=true
     #echo "restarting with timing" >&2
-    time $0 "$@"
+    exec time $0 "$@"
 fi
 
 case "$1" in

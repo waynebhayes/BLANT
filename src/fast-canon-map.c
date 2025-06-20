@@ -85,7 +85,7 @@ bool nextPermutation(int permutation[]) {
 		    int t=permutation[i-1];
 		    permutation[i-1]=permutation[j];
 		    permutation[j]=t;
-		break;
+		    break;
 		}
 	    }
 	    int l=i;
@@ -143,8 +143,8 @@ void canon_map(bool directed){
 	    num=bitArrayToDecimal(bitMatrix, Permutations[nP], numBits);
 	    assert(num>=0);
 	    if(!done[num]){
-	    done[num]=true;
-	    encodeChar(data[num],num_canon,nP);
+		done[num]=true;
+		encodeChar(data[num],num_canon,nP);
 	    }
 	}
 
@@ -156,13 +156,13 @@ void canon_map(bool directed){
     // our time thinking in "canonical space", and if we want to know where to find canonical
     // node j in a particular non-canonical, we use perm[j].
     if(PERMS_CAN2NON){
-    int tmp[k];
-    for(int i=0; i<f; i++){
-	for(int j=0; j<k; j++)
-	tmp[(int)Permutations[i][j]]=j;
-	for(int j=0; j<k; j++)
-	Permutations[i][j]=tmp[j];
-    }
+	int tmp[k];
+	for(int i=0; i<f; i++){
+	    for(int j=0; j<k; j++)
+	    tmp[(int)Permutations[i][j]]=j;
+	    for(int j=0; j<k; j++)
+	    Permutations[i][j]=tmp[j];
+	}
     }
     fprintf(stderr, "Finished computing... now writing out canon_map file\n"); fflush(stderr);
 
