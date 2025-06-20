@@ -83,6 +83,7 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
     return Kf;
 }
 
+
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges) {
     sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
@@ -126,7 +127,9 @@ Gint_type orbitListPopulate(char *BUF,
     }
     fclose(fp_ord);
     return numOrbits;
-	@@ -147,9 +133,9 @@ void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
+}
+void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
+    assert(k<=5);
     sprintf(BUF, "%s/%s/orca_orbit_mapping%d.txt", _BLANT_DIR, "orca_jesse_blant_table", k);
     FILE *fp_ord=fopen(BUF, "r");
     if(fp_ord) {
