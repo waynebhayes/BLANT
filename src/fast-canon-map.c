@@ -159,9 +159,9 @@ void canon_map(bool directed){
 	int tmp[k];
 	for(int i=0; i<f; i++){
 	    for(int j=0; j<k; j++)
-	    tmp[(int)Permutations[i][j]]=j;
+		tmp[(int)Permutations[i][j]]=j;
 	    for(int j=0; j<k; j++)
-	    Permutations[i][j]=tmp[j];
+		Permutations[i][j]=tmp[j];
 	}
     }
     fprintf(stderr, "Finished computing... now writing out canon_map file\n"); fflush(stderr);

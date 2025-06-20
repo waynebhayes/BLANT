@@ -59,7 +59,7 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 	    bitPos++;
 	    //assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
 	}
-    if(!Gint2) break;
+    	if(!Gint2) break;
     }
 }
 
