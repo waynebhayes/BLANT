@@ -23,15 +23,9 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
     int i, j, bitPos=0;
     Gint_type Gint = 0, bit;
 
-#if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
     for(i=k-1;i>0;i--)
     {
-        for(j=i-1;j>=0;j--)
-#else   // UPPER_TRIANGLE // this is what we used in the original faye code and paper with Adib Hasan and Po-Chien Chung.
-    for(i=k-2;i>=0;i--)
-    {
-        for(j=k-1;j>i;j--)
-#endif
+        for(j=k-1-i*(1-g->directed);j>=0;j--)
         {
 	    if(TinyGraphAreConnected(g,i,j))
 	    {
@@ -46,33 +40,25 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 }
 
 /*
-** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
-** Handles either upper or lower triangle representation depending upon compile-time option below.
+** Int to directed graph 
 */
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 {
     int i, j, bitPos=0, k = G->n;
     Gint_type Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
     TinyGraphEdgesAllDelete(G);
-#if LOWER_TRIANGLE
-    for(i=k-1;i>(0-SELF_LOOPS);i--) // note that when SELF_LOOPS, the loop condition i (-1), so i must be signed.
-    {
-	for(j=i-!SELF_LOOPS;j>=0;j--)
-#else	// UPPER_TRIANGLE
-    assert(!SELF_LOOPS);
-    for(i=k-2;i>=0;i--)
-    {
-	for(j=k-1;j>i;j--)
-#endif
-	{
-	    if(!Gint2) break;
-	    Gint_type bit = ((Gint_type)1 << bitPos);
-	    if(Gint & bit)
-		TinyGraphConnect(G,i,j);
-	    Gint2 &= ~bit;
-	    bitPos++;
-	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
-	}
+
+    for(i=k-1;i>=0;i--){
+        for(j=k-1;j>=i*(1-G->directed);j--){
+            if(i==j&&!SELF_LOOPS) continue;
+	        if(!Gint2) break;
+	        Gint_type bit = ((Gint_type)1 << bitPos);
+	        if(Gint & bit) TinyGraphConnect(G,i,j);
+
+	        Gint2 &= ~bit;
+	        bitPos++;
+	        //assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
+	    }
 	if(!Gint2) break;
     }
 }
