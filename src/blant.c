@@ -730,18 +730,85 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 samplesCounter += numSamples;
                 break;
             } else if (_stopMode == stopOnPrecision) {
-                // code to compute the confidence interval and precision would go here.
-                // see the #if 0 block below for the previous loop, and implement the precision/confidence logic here
-                // Because this loop is no longer incremented by i, we no longer have to do i%batchSize==0, instead can just tell SampleNGraphletsInThreads to sample batchSize samples
-                // psuedo:
-                // SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
-                // compute the precision and see if the confidence is met
-		// int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
-		// int maxNumBatches = 1000*minNumBatches; // huge
-                // ...
-                // samplesCounter += batchSize;
-                // batchSize++;
-                Apology("Precision based sampling is not yet implemented.");
+                int batchSize = G->numEdges * 10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+
+                STAT *sTotal[MAX_CANONICALS];
+				if(_desiredPrec && _quiet<2)
+					Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+					batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
+				
+				unsigned long i;
+                for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
+
+                SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
+
+                samplesCounter += batchSize; // Correctly increment samples counter only once.
+                batchCounter++;
+
+                int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
+                int maxNumBatches = 1000*minNumBatches; // huge
+                double worstInterval=0, intervalSum=0;
+                _worstCanon = -1;
+
+                if(_batchRawTotalSamples) { // in rare cases a batch may finish with no actual samples
+                    // Even though the samples may not be Normally distributed, the Law of Large Numbers
+                    // guarantees that for sufficiently large batches, the batch means *are* Normally
+                    // distributed, so we can compute confidence intervals.
+                    for(int l=0;l<_numCanon;l++) if(SetIn(_connectedCanonicals,l) && _batchRawCount[l]) {
+                        double sample = _batchRawCount[l];
+                        if(_precisionWt == PrecWtNone) 
+                            StatAddSample(sTotal[l], sample);
+                        else {
+                            double w = sample;
+                            if(_precisionWt == PrecWtLog) {if(w>1) w = log(w);}
+                            else assert(_precisionWt == PrecWtRaw);
+                            StatAddWeightedSample(sTotal[l], w, sample);
+                        }
+                        if(StatN(sTotal[l]) > 1) {
+                            double relInterval = StatConfInterval(sTotal[l], _confidence) / StatMean(sTotal[l]);
+                            intervalSum += relInterval;
+                            // under-sampled graphlets (<=2) don't count towards "worst"
+                            if( _graphletCount[l] > 2 && relInterval > worstInterval) {
+                                worstInterval = relInterval;
+                                _worstCanon=l;
+                            }
+                        }
+                    }
+                    _meanPrec = intervalSum/_numConnectedCanon;
+                    if(worstInterval) 
+                        _worstPrecision = worstInterval;
+
+                    double currentBatchPrecision;
+                    switch(_precisionMode) {
+                        case mean: currentBatchPrecision = _meanPrec; break;
+                        case worst: currentBatchPrecision = _worstPrecision; break;
+                        default: Fatal("unknown precision mode"); break;
+                    }
+
+                    if(_quiet<1) {
+                        FILE *fp;
+                        fp = popen("date -Iseconds | sed -e 's/T/ /' -e 's/,/./' -e 's/-..:..$//'", "r");
+                        char buf[BUFSIZ];
+                        if(fp && buf == fgets(buf, sizeof(buf)-1, fp)) {
+                            pclose(fp);
+                            buf[strlen(buf)-1] = '\0'; // nuke the newline
+                        }
+                        else strcpy(buf, "(time failed)");
+                        // Note: batchCounter is used here instead of the non-effective batchSize increment
+                        Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batchCounter,
+                        GetCPUseconds(), samplesCounter, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
+                    }
+
+                    if(batchCounter >= maxNumBatches || (batchCounter >= minNumBatches && currentBatchPrecision < _desiredPrec))
+                        confMet=true; // don't reset the counts if we're done
+                    else {
+                        _batchRawTotalSamples = 0;
+                        for(j=0;j<_numCanon;j++) _batchRawCount[j] = 0;
+                    }
+                }
+                else {
+                    if(_quiet<3) Warning("invalid batch %d, batchTotal is zero", batchCounter);
+                }
             } else {
                 Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
             }
@@ -753,7 +820,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         if(!_quiet) Note("Took %f seconds to sample %d with %d threads in %d batches.",
 		elapsed_time, samplesCounter, _numThreads, batchCounter); 
     }
-    else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
+    /*
+	//THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
+	//by making some modifications to make it work in multithreading
+	else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
     {
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
@@ -874,7 +944,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    100*_confidence, numSamples, batch);
 	}
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
-    }
+    }*/
 
     // Sampling done. Now generate output for output modes that require it.
 
