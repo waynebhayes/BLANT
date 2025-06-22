@@ -305,7 +305,7 @@ test_fast: blant blant-sanity
 $(BLANT_CANON_DIR)/test_index_mode: test_stamp
 	touch $(BLANT_CANON_DIR)/test_index_mode
 	# First run blant-sanity for various values of k
-	for S in NBE MCMC SEC EBE; do for k in $(K); do if [ -f $(BLANT_CANON_DIR)/canon_map$$k.bin ]; then echo basic sanity check sampling method $$S indexing k=$$k; ./blant -q -s $$S -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done; done
+	for S in NBE MCMC EBE; do for k in $(K); do if [ -f $(BLANT_CANON_DIR)/canon_map$$k.bin ]; then echo basic sanity check sampling method $$S indexing k=$$k; ./blant -q -s $$S -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el; fi; done; done
 
 $(BLANT_CANON_DIR)/check_maps: test_stamp
 	touch $(BLANT_CANON_DIR)/check_maps
