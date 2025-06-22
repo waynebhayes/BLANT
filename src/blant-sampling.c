@@ -936,6 +936,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 
 
 
+#if 0 // SEC no longer supported
 // SampleGraphletSequentialEdgeChaining starts with a single edge and always chooses a new edge that shares one node
 // with the previous edge and has another new node. If it get's stuck having no edges with new node to choose, it restarts
 // After And after choosing k-1 edges it returns a graphlet. NON-REENTRANT AND CANNOT BE MULTITHREADED
@@ -1075,6 +1076,7 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     _g_overcount = ocount;
     return 1.0;
 }
+#endif
 
 
 double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k) { return 1.0; } // slower
@@ -1285,9 +1287,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
     case SAMPLE_NODE_EXPANSION:
 	SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc, accums);
 	break;
-    case SAMPLE_SEQUENTIAL_CHAINING:
-	SampleGraphletSequentialEdgeChaining(G, V, Varray, k, cc, accums);
-	break;
+    // case SAMPLE_SEQUENTIAL_CHAINING: Apology("SEC is no longer supported due to fundamentally unfixable problems with the method"); break;
     case SAMPLE_FAYE:
 	SampleGraphletFaye(G, V, Varray, k, cc);
 	break;

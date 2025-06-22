@@ -196,13 +196,13 @@ compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libbla
 Draw: Draw/graphette2dot
 
 Draw/graphette2dot: libwayne Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ -std=c++11 $(LIBWAYNE_BOTH)
+	$(CXX) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ -std=gnu++11 $(LIBWAYNE_BOTH)
 
 make-subcanon-maps: libwayne $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
 	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 make-orca-jesse-blant-table: libwayne $(SRCDIR)/blant-fundamentals.h $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
-	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=c++11 $(LIBWAYNE_BOTH)
+	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=gnu++11 $(LIBWAYNE_BOTH)
 
 cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
@@ -214,7 +214,7 @@ $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
 
 $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=c++11
+	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=gnu++11
 
 $(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	cd $(LIBWAYNE_HOME)/C++ && $(MAKE)

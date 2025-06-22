@@ -260,7 +260,7 @@ static void InitializeStarMotifs(GRAPH *G) {
 const char *SampleMethodStr(void) {
     switch(_sampleMethod) {
     case SAMPLE_NODE_EXPANSION: return "NBE"; break;
-    case SAMPLE_SEQUENTIAL_CHAINING: return "SEC"; break;
+    // case SAMPLE_SEQUENTIAL_CHAINING: return "SEC"; break;
     case SAMPLE_FAYE: return "FAYE"; break;
     case SAMPLE_EDGE_EXPANSION: return "EBE"; break;
     case SAMPLE_MCMC:
@@ -306,7 +306,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
     return numAlphas;
 }
 
-// Loads alpha values(overcounting ratios) for NBE/SEC/EBE/MCMC sampling from files
+// Loads alpha values(overcounting ratios) for NBE/EBE/MCMC sampling from files
 // The alpha value represents the number of ways to get that graphlet
 // Concentrations are initialized to 0
 void initialize(GRAPH* G, int k, unsigned long numSamples) {
@@ -436,7 +436,7 @@ void convertFrequencies(unsigned long numSamples)
     int i;
     assert(numSamples);
     switch(_sampleMethod) {
-    case SAMPLE_MCMC: case SAMPLE_NODE_EXPANSION: case SAMPLE_SEQUENTIAL_CHAINING: case SAMPLE_EDGE_EXPANSION:
+    case SAMPLE_MCMC: case SAMPLE_NODE_EXPANSION: case SAMPLE_EDGE_EXPANSION: //case SAMPLE_SEQUENTIAL_CHAINING:
 	if (_freqDisplayMode == freq_display_mode_count || _freqDisplayMode == freq_display_mode_estimate_absolute) {
 	    double totalConcentration = 0;
 	    for (i = 0; i < _numCanon; i++) assert(_graphletConcentration[i] >= 0.0 && !isinf(_graphletConcentration[i]));
@@ -460,7 +460,7 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
 {
     int i;
     double total=0;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_EDGE_EXPANSION) {
 	long double foundStars = 0;
 	for (i = 0; i < _numCanon; i++)
 	    if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
@@ -605,7 +605,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
-    else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
+    else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
         // accumulators must be provided but no need for them
@@ -699,7 +699,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         // sampling methods in which non-reentrancy has been implemented with the Accumulators struct
         // doesn't necessarily mean that they can be ran in multiple threads (MCMC)
         _sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION ||
-        _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_MCMC
+        _sampleMethod == SAMPLE_MCMC
     ) {
         // Apologize if _numThreads > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (
@@ -953,7 +953,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) &&
+    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || SAMPLE_EDGE_EXPANSION) &&
 	    !_window)
 	finalize(G, numSamples);
 
@@ -994,7 +994,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	    PrintNode(buf, 0,i);
 	    for(canon=0; canon < _numCanon; canon++)
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) 
+			_sampleMethod != SAMPLE_EDGE_EXPANSION)) 
             sprintf(buf+strlen(buf), " %.15g", GDV(i,canon));
 		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _graphletDegreeVector[canon][i]));
 	    if(strlen(buf) >= printBuf)
@@ -1010,7 +1010,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
 		if(_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-		    _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION))
+		    _sampleMethod != SAMPLE_EDGE_EXPANSION))
 			sprintf(buf+strlen(buf), " %.15g", ODV(i,orbit_index));
 		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _orbitDegreeVector[orbit_index][i]));
 	    }
@@ -1360,7 +1360,7 @@ const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
 "USAGE: blant [OPTIONS] -k graphletNodes graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
-"    -s samplingMethod (default MCMC; SEC, NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
+"    -s samplingMethod (default MCMC; NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
 "       Note: exclamation mark required after some method names to supress warnings about them.\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binary, d=decimal, n=noncanonical)\n"\
@@ -1397,8 +1397,6 @@ const char * const USAGE_LONG =
 "         nodes to S using an MCMC graph walking algorithm with restarts; gives asymptotically correct relative frequencies\n"\
 "         when using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
 "         duplicates in indexing modes.)\n"\
-"	SEC (Sequential Edge Chaining): like MCMC but instead of a walk, reset the walk for every sampled graphlet.\n"\
-"         Note: SEC is the default when using precision (-[Pp] on the command line), otherwise MCMC is the default.\n"\
 "	NBE (Node-Based Expansion): pick an edge at random and add it to the node set S; add new nodes by choosing\n"\
 "         uniformly at random from all nodes one step outside S. (slow, but correct)\n"\
 "	EBE (Edge-Based Expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
@@ -1582,8 +1580,8 @@ int main(int argc, char *argv[])
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 	    else if (strncmp(optarg, "NBE", 3) == 0)
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
-	    else if (strncmp(optarg, "SEC", 3) == 0)
-		_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
+	    else if (strncmp(optarg, "SEC", 3) == 0) //_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
+		Apology("SEC is no longer supported due to fundamentally unfixable problems with the method");
 	    else if (strncmp(optarg, "FAYE", 4) == 0) {
 		if (strncmp(optarg, "FAYE!",5) != 0) Warning("FAYE is an ancient variant of NBE and produces counts with potentially large biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_FAYE;
@@ -1618,7 +1616,7 @@ int main(int argc, char *argv[])
 		if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
 		else _sampleFile = fopen(_sampleFileName, "r");
 		if(!_sampleFile)
-		    Fatal("Unrecognized sampling method '%s'; recognized options are NBE, MCMC, SEC, EBE, RES, FAYE, AR, or a filename (that can be 'STDIN'), but file '%s' cannot be opened", optarg, _sampleFileName);
+		    Fatal("Unrecognized sampling method '%s'; recognized options are NBE, MCMC, EBE, RES, FAYE, AR, or a filename (that can be 'STDIN'), but file '%s' cannot be opened", optarg, _sampleFileName);
 		_sampleMethod = SAMPLE_FROM_FILE;
 	    }
 	    break;
@@ -1778,17 +1776,14 @@ int main(int argc, char *argv[])
 	_desiredPrec = pow(10, -_desiredDigits);
     }
     if (_sampleMethod == -1) {
-	if(_desiredPrec)
-	    _sampleMethod = SAMPLE_SEQUENTIAL_CHAINING; // MCMC samples are not independent, so use SEC for CI's
-	else
-	    _sampleMethod = SAMPLE_MCMC;
+	_sampleMethod = SAMPLE_EDGE_EXPANSION;
     }
     if(!_quiet && !(_outputMode & predict_merge)) Note("Sampling method is %s", SampleMethodStr());
 
     if(_desiredPrec && _confidence == 0)
 	_confidence = (1-_desiredPrec/10);
     if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
-	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
+	Warning("you've chosen MCMC sampling with confidence intervals; EBE is recommended since adjacent MCMC samples are not independent");
 
     SetBlantDirs(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set
