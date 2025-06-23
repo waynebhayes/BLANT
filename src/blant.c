@@ -1708,7 +1708,7 @@ int main(int argc, char *argv[])
 	    break;
 	case 'n': sscanf(optarg, "%lu", &nSampArg);
 	    if(nSampArg < 0) Fatal("%s\nFatal Error: numSamples [%s] must be a non-negative integer", USAGE_SHORT, optarg);
-	    Note("got numSamples %ld from string \"%s\"", nSampArg, optarg);
+	    //Note("got numSamples %ld from string \"%s\"", nSampArg, optarg);
 	    numSamples = nSampArg;
 	    char lastChar = optarg[strlen(optarg)-1];
 	    if(!isdigit(lastChar))
