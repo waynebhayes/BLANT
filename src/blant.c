@@ -340,7 +340,7 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 
 	_numSamples = numSamples;
 	if(!_window) {
-		initialize(G, k, numSamples);
+	    initialize(G, k, numSamples);
 	}
 }
 
@@ -719,7 +719,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        int samplesCounter = 0;
+        unsigned long samplesCounter = 0;
         int batchCounter = 0;
         Boolean confMet = false;
 
@@ -730,14 +730,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 samplesCounter += numSamples;
                 break;
             } else if (_stopMode == stopOnPrecision) {
-                int batchSize = G->numEdges * 10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+                int batchSize = G->numEdges * 10;
 
                 STAT *sTotal[MAX_CANONICALS];
-				if(_desiredPrec && _quiet<2)
-					Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
-					batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
-				
-				unsigned long i;
+		if(_desiredPrec && _quiet<2)
+		    Note("using batchSize %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 
                 SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
@@ -778,7 +777,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                     if(worstInterval) 
                         _worstPrecision = worstInterval;
 
-                    double currentBatchPrecision;
+                    double currentBatchPrecision=-1;
                     switch(_precisionMode) {
                         case mean: currentBatchPrecision = _meanPrec; break;
                         case worst: currentBatchPrecision = _worstPrecision; break;
@@ -795,8 +794,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                         }
                         else strcpy(buf, "(time failed)");
                         // Note: batchCounter is used here instead of the non-effective batchSize increment
-                        Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batchCounter,
-                        GetCPUseconds(), samplesCounter, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
+                        Note("%s batch %d CPU %gs samples %lu prec mean %.3g worst %.3g (g%d count %.0f)",
+			    buf, batchCounter, GetCPUseconds(), samplesCounter, _meanPrec,
+			    worstInterval, _worstCanon, _graphletCount[_worstCanon]);
                     }
 
                     if(batchCounter >= maxNumBatches || (batchCounter >= minNumBatches && currentBatchPrecision < _desiredPrec))
@@ -817,13 +817,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
                             (end.tv_nsec - start.tv_nsec) / 1e9;
-        if(!_quiet) Note("Took %f seconds to sample %d with %d threads in %d batches.",
+        if(!_quiet) Note("Took %f seconds to sample %lu with %d threads in %d batches.",
 		elapsed_time, samplesCounter, _numThreads, batchCounter); 
     }
     /*
-	//THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
-	//by making some modifications to make it work in multithreading
-	else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
+    //THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
+    //by making some modifications to make it work in multithreading
+    else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
     {
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
@@ -1500,7 +1500,7 @@ int main(int argc, char *argv[])
     {
 	switch(opt)
 	{
-	long nSampArg;
+	unsigned long nSampArg;
 	case 'q': do ++_quiet; while(optarg && *optarg++);
 	    break;
 	case 'h':
@@ -1706,8 +1706,9 @@ int main(int argc, char *argv[])
 	    if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
 	    _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
 	    break;
-	case 'n': nSampArg = atol(optarg);
+	case 'n': sscanf(optarg, "%lu", &nSampArg);
 	    if(nSampArg < 0) Fatal("%s\nFatal Error: numSamples [%s] must be a non-negative integer", USAGE_SHORT, optarg);
+	    Note("got numSamples %ld from string \"%s\"", nSampArg, optarg);
 	    numSamples = nSampArg;
 	    char lastChar = optarg[strlen(optarg)-1];
 	    if(!isdigit(lastChar))
