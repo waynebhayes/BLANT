@@ -21,7 +21,7 @@ declare -a fnames=("SCerevisiae.el" "AThaliana.el" "CElegans.el")
 for k in {3..6}; do
     for nnw in "${fnames[@]}"
     do
-	CMD="./blant -q -k$k -md -sMCMC -t $CORES -n$n networks/$nnw"
+	CMD="./blant -q -k$k -md -sMCMC -n$n networks/$nnw"
 	outLines=`$CMD | tr ' ' '\n' | awk '{sum+=$1} END {print 1*sum}'`
 	if [ $outLines -ne $n ]
 	then
@@ -29,7 +29,7 @@ for k in {3..6}; do
 	    echo "cmd was: $CMD" >&2
 	    exit 1
 	fi
-	CMD="./blant -q -k$k -md -sMCMC -t $CORES -r$seed -n$n networks/$nnw"
+	CMD="./blant -q -k$k -md -sMCMC -r$seed -n$n networks/$nnw"
 	$CMD > $TEST_DIR/blant_distr1.txt
 	$CMD > $TEST_DIR/blant_distr2.txt
 	if ! [ `diff $TEST_DIR/blant_distr1.txt $TEST_DIR/blant_distr2.txt | wc -l` -eq 0 ]; then
