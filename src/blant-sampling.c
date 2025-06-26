@@ -505,7 +505,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     // short-cut set that "remembers" which Vedges are internal as we discover them. Technically this set can be as large
     // as k*maxDegree, but the number of edges in G is also an upper bound.
     static _Thread_local SET *internal;
-    if(!internal) internal = SetAlloc(GraphNumEdges(G));
+    if(internal) SetEmpty(internal);
+    else internal = SetAlloc(GraphNumEdges(G));
 
     if(G->useComplement) Fatal("Sorry, EBE not implemented for complemented graphs");
     int edge, v1, v2, numTries = 0;
