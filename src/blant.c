@@ -597,6 +597,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
+    if(_outputMode & predict) Predict_Init(G);
+
     // initiailize graphlet count/concentrations since they contain garbage
     for (i = 0; i < _numCanon; i++) {
         _graphletConcentration[i] = 0;
@@ -725,7 +727,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
         while (!confMet && !_earlyAbort) {
             if (_stopMode == stopOnSamples) {
-                // one and done, distribute the -n samples amongst the threads and stop there
+                // one and done, distribute the n samples amongst the threads and stop there
                 SampleNGraphletsInThreads(_seed, k, G, varraySize, numSamples, _numThreads);
                 samplesCounter += numSamples;
                 break;
@@ -820,7 +822,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         if(!_quiet) Note("Took %f seconds to sample %lu with %d threads in %d batches.",
 		elapsed_time, samplesCounter, _numThreads, batchCounter); 
     }
-    /*
+#if 0
     //THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
     //by making some modifications to make it work in multithreading
     else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
@@ -944,7 +946,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    100*_confidence, numSamples, batch);
 	}
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
-    }*/
+    }
+#endif
 
     // Sampling done. Now generate output for output modes that require it.
 
@@ -953,8 +956,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || SAMPLE_EDGE_EXPANSION) &&
-	    !_window)
+    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || SAMPLE_EDGE_EXPANSION) && !_window)
 	finalize(G, numSamples);
 
     if ((_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV) && !_window)
