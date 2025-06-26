@@ -472,7 +472,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 ** going to remember the total number of edges emanating from every node in
 ** V *including* edges heading back into V, which are techically useless to us.
 ** This sum is just the sum of all the degrees of all the nodes in V.  Call this
-** number "outDegree".  Then, among all the edges emanating out of every node in
+** number "Vdegree".  Then, among all the edges emanating out of every node in
 ** V, we pick a random node from V where the probablity of picking any node v is
 ** proportional to its degree.  Then we pick one of the edges emanating out of v
 ** uniformly at random.  Thus, every edge leaving every node in V has equal
@@ -502,6 +502,11 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 */
 double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums)
 {
+    // short-cut set that "remembers" which Vedges are internal as we discover them. Technically this set can be as large
+    // as k*maxDegree, but the number of edges in G is also an upper bound.
+    static _Thread_local SET *internal;
+    if(!internal) internal = SetAlloc(GraphNumEdges(G));
+
     if(G->useComplement) Fatal("Sorry, EBE not implemented for complemented graphs");
     int edge, v1, v2, numTries = 0;
     assert(V && V->maxElem >= G->n);
@@ -512,31 +517,29 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	v1 = G->edgeList[2*edge];
 	if(numTries++ > 2*G->numEdges) Fatal("EBE is taking suspiciously long");
     } while(!SetIn(_componentSet[whichCC], v1) || !SetIn(_startNodeSet, v1));
+    assert(edge < G->numEdges);
     v1 = G->edgeList[2*edge];
     v2 = G->edgeList[2*edge+1];
-    assert(edge < G->numEdges);
+    assert(v1 != v2);
     assert(SetIn(_startNodeSet, v1) || SetIn(_startNodeSet, v2));
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
     int vCount = 2;
 
-    int outDegree = GraphDegree(G,v1) + GraphDegree(G,v2);
-	int insideEdges = 1, j;
+    int Vdegree = GraphDegree(G,v1) + GraphDegree(G,v2); // total number of edges emanating out of V so far
+    int insideEdges = 1, j;
     int cumulative[MAX_K];
     cumulative[0] = GraphDegree(G,v1); // where v1 = Varray[0]
     cumulative[1] = GraphDegree(G,v2) + cumulative[0];
-
-    SET *internal = SetAlloc(G->n);	// short-cut set that "remembers" which edges are internal as we discover them
-    int Gn = Gn = G->n;
 
     numTries = 0;
     double multiplier = 1;
     while(vCount < k)
     {
-	int i, whichNeigh, newNode = -1;
+	int i, whichVedge, newNode = -1;
 	while(numTries < MAX_TRIES &&
-		(whichNeigh = outDegree * RandomUniform()) >= 0 && // always true, just setting whichNeigh
-		SetIn(internal, whichNeigh) // "internal" is not complete, but stores edges already known to head back into V
+		(whichVedge = Vdegree * RandomUniform()) >= 0 && // always true, just setting whichVedge
+		SetIn(internal, whichVedge) // "internal" is not complete, but stores edges already known to head back into V
 	    ) ++numTries;
 	if(numTries >= MAX_TRIES) {
 #if ALLOW_DISCONNECTED_GRAPHLETS
@@ -545,7 +548,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    while(SetIn(V, (newNode = G->n*RandomUniform())))
 		; // must terminate since k <= G->n
 	    numTries = 0;
-	    outDegree = 0;
+	    Vdegree = 0;
 	    int j;
 	    for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
 		cumulative[j] = 0;
@@ -560,9 +563,10 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    return 1.0;
 #endif
 	}
-	for(i=0; cumulative[i] <= whichNeigh; i++) ; // figure out whose neighbor it is
-	int localNeigh = whichNeigh-(cumulative[i]-GraphDegree(G,Varray[i])); // which neighbor of node i?
-	if(newNode < 0) newNode = G->neighbor[Varray[i]][localNeigh];
+	for(i=0; cumulative[i] <= whichVedge; i++) ; // figure out whose neighbor it is
+	int localNeigh = whichVedge-(cumulative[i]-GraphDegree(G,Varray[i])); // which neighbor of node i?
+	assert(newNode == -1);
+	newNode = G->neighbor[Varray[i]][localNeigh];
 #if PARANOID_ASSERTS
 	// really should check some of these a few lines higher but let's group all the paranoia in one place.
 	assert(i < vCount);
@@ -571,7 +575,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #endif
 	if(SetIn(V, newNode)) // we've failed to find a new node, it's already in V
 	{
-	    SetAdd(internal, whichNeigh); // add "whichNeigh" to the list of "known" internal edges
+	    SetAdd(internal, whichVedge); // add "whichVedge" to the list of "known" internal edges
 	    if(++numTries < MAX_TRIES)
 		continue;
 	    else // graph is too disconnected
@@ -587,7 +591,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		while(SetIn(V, (newNode = G->n*RandomUniform())))
 		    ; // must terminate since k <= G->n
 		numTries = 0;
-		outDegree = 0;
+		Vdegree = 0;
 		int j;
 		for(j=0; j<vCount; j++)	// avoid picking these nodes ever again.
 		    cumulative[j] = 0;
@@ -603,18 +607,15 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #endif
 	    }
 	}
-	multiplier *= (outDegree - 2*insideEdges);
+	multiplier *= (Vdegree - 2*insideEdges);
 	SetAdd(V, newNode);
 	cumulative[vCount] = cumulative[vCount-1] + GraphDegree(G,newNode);
 	Varray[vCount++] = newNode;
-	outDegree += GraphDegree(G,newNode);
-	if(vCount < k) {
-	    for(j = 0; j < vCount-1; j++) 
-		if(GraphAreConnected(G, Varray[j], newNode)) insideEdges++;
-	}
+	Vdegree += GraphDegree(G,newNode);
+	if(vCount < k) for(j = 0; j < vCount-1; j++) if(GraphAreConnected(G, Varray[j], newNode)) insideEdges++;
 #if PARANOID_ASSERTS
 	assert(SetCardinality(V) == vCount);
-	assert(outDegree == cumulative[vCount-1]);
+	assert(Vdegree == cumulative[vCount-1]);
 #endif
     }
 #if PARANOID_ASSERTS
@@ -647,7 +648,6 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	_g_overcount = ocount;
     }
 
-    SetFree(internal);
     return 1.0;
 }
 
