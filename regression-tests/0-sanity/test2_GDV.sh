@@ -6,7 +6,7 @@ echo 'testing Graphlet (not orbit) Degree Vectors'
 N=9000000
 
 export k=1
-for S in MCMC NBE EBE; do
+for S in MCMC SEC NBE EBE; do
     case $S in
     MCMC) TOL=0.006; exp=2;;
     SEC)  TOL=1.1e-4; exp=3;;

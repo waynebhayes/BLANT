@@ -357,7 +357,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 
     // the macros GDV and ODV access the global array and are thus only used in single thread (_MCMC_EVERY_EDGE) modes
     if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-        _sampleMethod != SAMPLE_EDGE_EXPANSION)) {
+        _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) {
         if(_outputMode & outputGDV) {
         for(j=0;j<k;j++) GDV(Varray[j], GintOrdinal)+=weight;
         // for(j=0;j<k;j++) accums->graphletDegreeVector[GintOrdinal][Varray[j]] += weight;
