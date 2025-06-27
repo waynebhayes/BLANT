@@ -5,8 +5,7 @@
 # For now, NBE is the only sampling method that seems to get the bias bang on.
 
 N=3000000
-# S=MCMC
-for S in NBE MCMC; do
+for S in EBE NBE; do
 for k in 3 4 5 6 7 8; do
     if [ -f canon_maps/canon_map$k.bin ]; then
 	echo "Checking $S's raw frequency of $k-graphlets is Poisson using $N samples from networks/syeast.el"

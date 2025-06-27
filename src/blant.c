@@ -260,7 +260,7 @@ static void InitializeStarMotifs(GRAPH *G) {
 const char *SampleMethodStr(void) {
     switch(_sampleMethod) {
     case SAMPLE_NODE_EXPANSION: return "NBE"; break;
-    case SAMPLE_SEQUENTIAL_CHAINING: return "SEC"; break;
+    // case SAMPLE_SEQUENTIAL_CHAINING: return "SEC"; break;
     case SAMPLE_FAYE: return "FAYE"; break;
     case SAMPLE_EDGE_EXPANSION: return "EBE"; break;
     case SAMPLE_MCMC:
@@ -306,7 +306,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
     return numAlphas;
 }
 
-// Loads alpha values(overcounting ratios) for NBE/SEC/EBE/MCMC sampling from files
+// Loads alpha values(overcounting ratios) for NBE/EBE/MCMC sampling from files
 // The alpha value represents the number of ways to get that graphlet
 // Concentrations are initialized to 0
 void initialize(GRAPH* G, int k, unsigned long numSamples) {
@@ -340,7 +340,7 @@ void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 
 	_numSamples = numSamples;
 	if(!_window) {
-		initialize(G, k, numSamples);
+	    initialize(G, k, numSamples);
 	}
 }
 
@@ -436,7 +436,7 @@ void convertFrequencies(unsigned long numSamples)
     int i;
     assert(numSamples);
     switch(_sampleMethod) {
-    case SAMPLE_MCMC: case SAMPLE_NODE_EXPANSION: case SAMPLE_SEQUENTIAL_CHAINING: case SAMPLE_EDGE_EXPANSION:
+    case SAMPLE_MCMC: case SAMPLE_NODE_EXPANSION: case SAMPLE_EDGE_EXPANSION: //case SAMPLE_SEQUENTIAL_CHAINING:
 	if (_freqDisplayMode == freq_display_mode_count || _freqDisplayMode == freq_display_mode_estimate_absolute) {
 	    double totalConcentration = 0;
 	    for (i = 0; i < _numCanon; i++) assert(_graphletConcentration[i] >= 0.0 && !isinf(_graphletConcentration[i]));
@@ -460,7 +460,7 @@ double computeAbsoluteMultiplier(unsigned long numSamples)
 {
     int i;
     double total=0;
-    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) {
+    if (_sampleMethod == SAMPLE_MCMC || _sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_EDGE_EXPANSION) {
 	long double foundStars = 0;
 	for (i = 0; i < _numCanon; i++)
 	    if(_canonNumStarMotifs[i] != -1) foundStars += _graphletCount[i]*_canonNumStarMotifs[i];
@@ -597,6 +597,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         for(i=0; i<_numCanon; i++) for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
     }
 
+    if(_outputMode & predict) Predict_Init(G);
+
     // initiailize graphlet count/concentrations since they contain garbage
     for (i = 0; i < _numCanon; i++) {
         _graphletConcentration[i] = 0;
@@ -605,7 +607,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     
     if (_sampleMethod == SAMPLE_MCMC)
 	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
-    else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION)
+    else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_EDGE_EXPANSION)
 	initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
         // accumulators must be provided but no need for them
@@ -699,7 +701,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         // sampling methods in which non-reentrancy has been implemented with the Accumulators struct
         // doesn't necessarily mean that they can be ran in multiple threads (MCMC)
         _sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION ||
-        _sampleMethod == SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_MCMC
+        _sampleMethod == SAMPLE_MCMC
     ) {
         // Apologize if _numThreads > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (
@@ -719,25 +721,24 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
 
-        int samplesCounter = 0;
+        unsigned long samplesCounter = 0;
         int batchCounter = 0;
         Boolean confMet = false;
 
         while (!confMet && !_earlyAbort) {
             if (_stopMode == stopOnSamples) {
-                // one and done, distribute the -n samples amongst the threads and stop there
+                // one and done, distribute the n samples amongst the threads and stop there
                 SampleNGraphletsInThreads(_seed, k, G, varraySize, numSamples, _numThreads);
                 samplesCounter += numSamples;
                 break;
             } else if (_stopMode == stopOnPrecision) {
-                int batchSize = G->numEdges * 10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+                int batchSize = G->numEdges * 10;
 
                 STAT *sTotal[MAX_CANONICALS];
-				if(_desiredPrec && _quiet<2)
-					Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
-					batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
-				
-				unsigned long i;
+		if(_desiredPrec && _quiet<2)
+		    Note("using batchSize %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 
                 SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
@@ -778,7 +779,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                     if(worstInterval) 
                         _worstPrecision = worstInterval;
 
-                    double currentBatchPrecision;
+                    double currentBatchPrecision=-1;
                     switch(_precisionMode) {
                         case mean: currentBatchPrecision = _meanPrec; break;
                         case worst: currentBatchPrecision = _worstPrecision; break;
@@ -795,8 +796,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                         }
                         else strcpy(buf, "(time failed)");
                         // Note: batchCounter is used here instead of the non-effective batchSize increment
-                        Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batchCounter,
-                        GetCPUseconds(), samplesCounter, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
+                        Note("%s batch %d CPU %gs samples %lu prec mean %.3g worst %.3g (g%d count %.0f)",
+			    buf, batchCounter, GetCPUseconds(), samplesCounter, _meanPrec,
+			    worstInterval, _worstCanon, _graphletCount[_worstCanon]);
                     }
 
                     if(batchCounter >= maxNumBatches || (batchCounter >= minNumBatches && currentBatchPrecision < _desiredPrec))
@@ -817,13 +819,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
                             (end.tv_nsec - start.tv_nsec) / 1e9;
-        if(!_quiet) Note("Took %f seconds to sample %d with %d threads in %d batches.",
+        if(!_quiet) Note("Took %f seconds to sample %lu with %d threads in %d batches.",
 		elapsed_time, samplesCounter, _numThreads, batchCounter); 
     }
-    /*
-	//THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
-	//by making some modifications to make it work in multithreading
-	else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
+#if 0
+    //THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
+    //by making some modifications to make it work in multithreading
+    else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
     {
 	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
@@ -944,7 +946,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    100*_confidence, numSamples, batch);
 	}
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) StatFree(sTotal[i]);
-    }*/
+    }
+#endif
 
     // Sampling done. Now generate output for output modes that require it.
 
@@ -953,8 +956,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_SEQUENTIAL_CHAINING || _sampleMethod == SAMPLE_EDGE_EXPANSION) &&
-	    !_window)
+    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || SAMPLE_EDGE_EXPANSION) && !_window)
 	finalize(G, numSamples);
 
     if ((_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV) && !_window)
@@ -994,7 +996,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	    PrintNode(buf, 0,i);
 	    for(canon=0; canon < _numCanon; canon++)
 		if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-			_sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION)) 
+			_sampleMethod != SAMPLE_EDGE_EXPANSION)) 
             sprintf(buf+strlen(buf), " %.15g", GDV(i,canon));
 		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _graphletDegreeVector[canon][i]));
 	    if(strlen(buf) >= printBuf)
@@ -1010,7 +1012,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		if (k == 4 || k == 5) orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
 		else orbit_index = _connectedOrbits[j];
 		if(_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
-		    _sampleMethod != SAMPLE_SEQUENTIAL_CHAINING && _sampleMethod != SAMPLE_EDGE_EXPANSION))
+		    _sampleMethod != SAMPLE_EDGE_EXPANSION))
 			sprintf(buf+strlen(buf), " %.15g", ODV(i,orbit_index));
 		else sprintf(buf+strlen(buf), " %llu", (unsigned long long) llround(_absoluteCountMultiplier * _orbitDegreeVector[orbit_index][i]));
 	    }
@@ -1360,7 +1362,7 @@ const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
 "USAGE: blant [OPTIONS] -k graphletNodes graphInputFile\n"\
 " Common options: (use -h for longer help)\n"\
-"    -s samplingMethod (default MCMC; SEC, NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
+"    -s samplingMethod (default MCMC; NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
 "       Note: exclamation mark required after some method names to supress warnings about them.\n"\
 "    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
 "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binary, d=decimal, n=noncanonical)\n"\
@@ -1397,8 +1399,6 @@ const char * const USAGE_LONG =
 "         nodes to S using an MCMC graph walking algorithm with restarts; gives asymptotically correct relative frequencies\n"\
 "         when using purely counting modes like -m{o|g|f}, but biased counts in indexing modes like -m{i|j} since we remove\n"\
 "         duplicates in indexing modes.)\n"\
-"	SEC (Sequential Edge Chaining): like MCMC but instead of a walk, reset the walk for every sampled graphlet.\n"\
-"         Note: SEC is the default when using precision (-[Pp] on the command line), otherwise MCMC is the default.\n"\
 "	NBE (Node-Based Expansion): pick an edge at random and add it to the node set S; add new nodes by choosing\n"\
 "         uniformly at random from all nodes one step outside S. (slow, but correct)\n"\
 "	EBE (Edge-Based Expansion): pick an edge at random and add its two nodes to S; add nodes to S by picking an edge\n"\
@@ -1502,7 +1502,7 @@ int main(int argc, char *argv[])
     {
 	switch(opt)
 	{
-	long nSampArg;
+	unsigned long nSampArg;
 	case 'q': do ++_quiet; while(optarg && *optarg++);
 	    break;
 	case 'h':
@@ -1582,8 +1582,8 @@ int main(int argc, char *argv[])
 	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
 	    else if (strncmp(optarg, "NBE", 3) == 0)
 		_sampleMethod = SAMPLE_NODE_EXPANSION;
-	    else if (strncmp(optarg, "SEC", 3) == 0)
-		_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
+	    else if (strncmp(optarg, "SEC", 3) == 0) //_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
+		Apology("SEC is no longer supported due to fundamentally unfixable problems with the method");
 	    else if (strncmp(optarg, "FAYE", 4) == 0) {
 		if (strncmp(optarg, "FAYE!",5) != 0) Warning("FAYE is an ancient variant of NBE and produces counts with potentially large biases; suppress this warning by appending an exclamation mark");
 		_sampleMethod = SAMPLE_FAYE;
@@ -1618,7 +1618,7 @@ int main(int argc, char *argv[])
 		if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
 		else _sampleFile = fopen(_sampleFileName, "r");
 		if(!_sampleFile)
-		    Fatal("Unrecognized sampling method '%s'; recognized options are NBE, MCMC, SEC, EBE, RES, FAYE, AR, or a filename (that can be 'STDIN'), but file '%s' cannot be opened", optarg, _sampleFileName);
+		    Fatal("Unrecognized sampling method '%s'; recognized options are NBE, MCMC, EBE, RES, FAYE, AR, or a filename (that can be 'STDIN'), but file '%s' cannot be opened", optarg, _sampleFileName);
 		_sampleMethod = SAMPLE_FROM_FILE;
 	    }
 	    break;
@@ -1708,8 +1708,9 @@ int main(int argc, char *argv[])
 	    if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
 	    _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
 	    break;
-	case 'n': nSampArg = atol(optarg);
+	case 'n': sscanf(optarg, "%lu", &nSampArg);
 	    if(nSampArg < 0) Fatal("%s\nFatal Error: numSamples [%s] must be a non-negative integer", USAGE_SHORT, optarg);
+	    //Note("got numSamples %ld from string \"%s\"", nSampArg, optarg);
 	    numSamples = nSampArg;
 	    char lastChar = optarg[strlen(optarg)-1];
 	    if(!isdigit(lastChar))
@@ -1778,17 +1779,14 @@ int main(int argc, char *argv[])
 	_desiredPrec = pow(10, -_desiredDigits);
     }
     if (_sampleMethod == -1) {
-	if(_desiredPrec)
-	    _sampleMethod = SAMPLE_SEQUENTIAL_CHAINING; // MCMC samples are not independent, so use SEC for CI's
-	else
-	    _sampleMethod = SAMPLE_MCMC;
+	_sampleMethod = SAMPLE_EDGE_EXPANSION;
     }
     if(!_quiet && !(_outputMode & predict_merge)) Note("Sampling method is %s", SampleMethodStr());
 
     if(_desiredPrec && _confidence == 0)
 	_confidence = (1-_desiredPrec/10);
     if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
-	Warning("you've chosen MCMC sampling with confidence intervals; SEC is recommended since adjacent MCMC samples are not independent");
+	Warning("you've chosen MCMC sampling with confidence intervals; EBE is recommended since adjacent MCMC samples are not independent");
 
     SetBlantDirs(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set

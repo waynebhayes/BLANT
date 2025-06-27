@@ -212,11 +212,11 @@ for edgeDensity in "${EDs[@]}"; do
 	    }
 	    END {
 		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
-		    ORS=" "
+		    ORS=" " # Output Record Separator = space, so all the following goes on one line
 		    if('$SQR_NORM') print Kc[u][item]^2/T[u], u, item
 		    else            print Kc[u][item], u, item # print the cluster membership count, and the node
 		    for(v in graphletNeighbors[u][item]) print v
-		    ORS="\n"; print "";
+		    ORS="\n"; print ""; # finally print the newline
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
@@ -225,7 +225,7 @@ for edgeDensity in "${EDs[@]}"; do
 		M=1*'$minClusArg'; if(M>=1) minClus=M;
 		else {
 		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
-		    if(M>0) pVal=M; else pVal=1/choose(n,2)^2; # heuristic to make pVal small enough to get significant clusters
+		    if(M>0)pVal=M;else pVal=1/choose(n,2)^2; # heuristic to make pVal small enough to get significant clusters
 		    for(e=1;e<m;e++)if(eps^e<pVal) break;
 		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>=e) break;
 		    if('$VERBOSE') printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
@@ -236,8 +236,8 @@ for edgeDensity in "${EDs[@]}"; do
 		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns");
 		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
 	    }
-	    ARGIND==2 && !($2 in count){ # are we really SURE we should take only the first occurence?
-		item=$3; count[$2]=$1; node[FNR]=$2; line[$2]=FNR;
+	    ARGIND==2 { # && !($2 in count) # uncomment to take only first occurence--faster but worse result
+		item=$3; count[$2]+=$1; node[FNR]=$2; line[$2]=FNR;
 		for(i=4; i<=NF; i++) if(edge[$2][$i] > '$minEdgeMean'/2) # heuristic: avoid too-weak edges
 		    graphletNeighbors[$2][$i]=graphletNeighbors[$i][$2]=1;
 	    }
@@ -261,7 +261,7 @@ for edgeDensity in "${EDs[@]}"; do
 	    function highRelClusCount(u, v) { # Heuristic
 		if(!(u in count) || count[u]==0) return 1;
 		if(!(v in count) || count[v]==0) return 0;
-		if (v in count) return count[v]/count[u]>=0.5;
+		if (v in count) return count[v]/count[u]>=sqrt('$edgeDensity')*0.9; # 0.7 seems about optimal, but 0.5 to 0.9 also work well
 		else return 1/count[u]>=0.5;
 	    }
 	    function AppendNeighbors(u,origin,    v,oldOrder, edgesIntoS) {

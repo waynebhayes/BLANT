@@ -26,7 +26,7 @@
 #define SAMPLE_FAYE 6
 #define SAMPLE_INDEX 7 // Use deterministic walk to find seeds which are used for extensions
 #define SAMPLE_MCMC_EC 8 // cover all edges in G at least once, then stop
-#define SAMPLE_SEQUENTIAL_CHAINING 9 // sample by performing edge chaining
+// #define SAMPLE_SEQUENTIAL_CHAINING 9 // sample by performing edge chaining
 
 extern int _sampleMethod, _sampleSubmethod;
 extern FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
