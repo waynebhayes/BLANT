@@ -9,30 +9,7 @@
 static int k; // number of bits required to store ints up to 2^(k^2)
 static long numBitValues; // the actual value 2^(k^2)
 
-#if LOWER_TRIANGLE
 
-unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
-    unsigned long num=0;
-    int lf=0;
-    for(int i = 1; i < k; i++)
-	for(int j=0; j < i; j++){
-	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
-	    lf++;
-	}
-    return num;
-}
-
-void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
-    for(int i=k-1; i>=1; i--)
-	for(int j=i-1; j>=0; j--){
-	    bitMatrix[i][j] = D%2;
-	    bitMatrix[j][i]=bitMatrix[i][j];
-	    D = D/2;
-	}
-}
-
-
-#else
 
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long num=0;
@@ -55,7 +32,7 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 	}
 }
 
-#endif
+
 
 
 typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal and permutation
