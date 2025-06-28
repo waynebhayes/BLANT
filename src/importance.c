@@ -6,7 +6,7 @@ void getDoubleDegreeArr(double *double_degree_arr, GRAPH *G) {
     int i;
 
     for (i = 0; i < G->n; ++i) {
-        double_degree_arr[i] = (double)G->degree[i];
+        double_degree_arr[i] = (double)GraphDegree(G,i);
     }
 }
 
@@ -78,22 +78,22 @@ void getImportances(double *importances, GRAPH *G) {
     fillSortedNodes(sortedNodes, G);
     
     for (i = 0; i < n; ++i) {
-        assert(G->degree[i] == adjList->sizes[i]);
+        assert(GraphDegree(G,i) == adjList->sizes[i]);
 
-        for (j = 0; j < G->degree[i]; ++j) {
-            assert(G->neighbor[i][j] == adjList->lists[i][j]);
+        for (j = 0; j < GraphDegree(G,i); ++j) {
+            assert(GraphNeighbor(G, i,j) == adjList->lists[i][j]);
         }
     }
 
     for (i = 0; i < n; ++i) {
-        if (G->degree[sortedNodes[i]] > IMPORTANCE_DEG) {
+        if (GraphDegree(G,sortedNodes[i]) > IMPORTANCE_DEG) {
             break;
         }
 
         int u = sortedNodes[i];
 
         // update neighbors' weights
-        if (G->degree[u] == 1) {
+        if (GraphDegree(G,u) == 1) {
             for (j = 0; j < adjList->sizes[u]; ++j) {
                 int v = adjList->lists[u][j];
                 nodeWeights[v] += nodeWeights[u] + edgeWeights[u][v];
@@ -149,8 +149,8 @@ void getImportances(double *importances, GRAPH *G) {
 
     for (u = 0; u < n; ++u) {
         edgeWeightSum = 0;
-        for (i = 0; i < G->degree[u]; ++i) {
-            int v = G->neighbor[u][i];
+        for (i = 0; i < GraphDegree(G,u); ++i) {
+            int v = GraphNeighbor(G, u, i);
             edgeWeightSum += edgeWeights[u][v];
         }
         importances[u] = nodeWeights[u] + edgeWeightSum;
@@ -168,11 +168,11 @@ ADJ_LIST *generateAdjacencyList(GRAPH *G) {
     int basei, neighi;
 
     for (basei = 0; basei < G->n; ++basei) {
-        adjList->lists[basei] = malloc(G->degree[basei] * sizeof(int));
-        adjList->sizes[basei] = G->degree[basei];
+        adjList->lists[basei] = malloc(GraphDegree(G,basei) * sizeof(int));
+        adjList->sizes[basei] = GraphDegree(G,basei);
 
-        for (neighi = 0; neighi < G->degree[basei]; ++neighi) {
-            adjList->lists[basei][neighi] = G->neighbor[basei][neighi];
+        for (neighi = 0; neighi < GraphDegree(G,basei); ++neighi) {
+            adjList->lists[basei][neighi] = GraphNeighbor(G, basei, neighi);
         }
     }
 
@@ -196,7 +196,7 @@ void fillSortedNodes(int *sortedNodes, GRAPH *G) {
 
     for (i = 0; i < G->n; ++i) {
         arrForSorting[i].node = i;
-        arrForSorting[i].heur = G->degree[i];
+        arrForSorting[i].heur = GraphDegree(G,i);
         arrForSorting[i].name = _nodeNames[i];
     }
 

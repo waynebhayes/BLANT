@@ -239,7 +239,7 @@ int getRandomNodeAtHops(GRAPH* G, int src, int d){
 
     while(i<j){
         i += 1;
-        for(k=0; k < G->degree[queue[i]]; k++){
+        for(k=0; k < GraphDegree(G,queue[i]); k++){
             if(!SetIn(visited, (G->neighbor[queue[i]])[k])){
                 j += 1;
                 queue[j] = (G->neighbor[queue[i]])[k];
@@ -271,7 +271,7 @@ int getRandomNodeAtHops(GRAPH* G, int src, int d){
 
 // returns a random neighbor
 int getRandomConnectedNode(GRAPH* G, int src){
-    int degree = G->degree[src];
+    int degree = GraphDegree(G,src);
     if (degree == 0)
         return -1;
     int random = drand48() * degree;
@@ -341,7 +341,7 @@ void sampleKHop(GRAPH* G, Dictionary* khop, double quality, int nodesBySp[G->n])
         while(i<j){
             i += 1;
             this = queue[i];
-            for(k=0; k < G->degree[this]; k++){
+            for(k=0; k < GraphDegree(G,this); k++){
                 neigh = (G->neighbor[queue[i]])[k];
                 if(!SetIn(visited, neigh)){
                     j += 1;

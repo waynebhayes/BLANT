@@ -328,9 +328,9 @@ void initialize(GRAPH* G, int k, unsigned long numSamples) {
 void initializeMCMC(GRAPH* G, int k, unsigned long numSamples) {
 	_MCMC_L = k - mcmc_d  + 1;
 	// Count the number of valid edges to start from
-	int i, validEdgeCount = 0;
-	for (i = 0; i < G->numEdges; i++)
-	    if (_componentSize[_whichComponent[G->edgeList[2*i]]] >= k)
+	int i, j, validEdgeCount = 0;
+	for (i = 0; i < G->n; i++) for(j=i+1; j < G->n; j++) if(i!=j && GraphAreConnected(G,i,j))
+	    if (_componentSize[_whichComponent[i]] >= k)
 		validEdgeCount++;
 	_samplesPerEdge = (numSamples + (validEdgeCount / 2)) / validEdgeCount; // Division rounding up for samples per edge
 	if(_sampleSubmethod == SAMPLE_MCMC_EC) {
@@ -398,7 +398,7 @@ static int StateDegree(GRAPH *G, SET *S)
     memset(connectCount, 0, G->n * sizeof(int)); // set them all to zero
 
     int i, j, numOut = 0;
-    for(i=0;i<_k;i++) for(j=0; j<G->degree[Varray[i]]; j++)
+    for(i=0;i<_k;i++) for(j=0; j<GraphDegree(G,Varray[i]); j++)
     {
 	int neighbor = G->neighbor[Varray[i]][j];
 	if(!SetIn(S, neighbor))
@@ -673,7 +673,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
 #if 0
 	int e;
-	for(e=0; e<G->numEdges; e++) if(SetIn(needEdge, e)) {
+	for(e=0; e<G->m; e++) if(SetIn(needEdge, e)) {
 	    int whichCC = -(e+1); // encoding edge number in whichCC
 	    double weight = SampleGraphlet(G, V, Varray, k, whichCC);
 	    ProcessGraphlet(G, V, Varray, k, empty_g, weight);
@@ -684,7 +684,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		int u=Varray[i], v=Varray[j];
 		if(GraphAreConnected(G,u,v)) { // find (u,v) in the edgeList and remove it from needEdge
 		    Boolean found=false;
-		    for(f=0;f<G->numEdges;f++) {
+		    for(f=0;f<G->m;f++) {
 			if((G->edgeList[2*f]==u && G->edgeList[2*f+1]==v) || (G->edgeList[2*f]==v && G->edgeList[2*f+1]==u)) {
 			    found=true;
 			    SetDelete(needEdge, f);
@@ -733,7 +733,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 break;
             } else if (_stopMode == stopOnPrecision) {
 		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
-                int batchSize = G->numEdges * 10;
+                int batchSize = G->m * 10;
 
                 STAT *sTotal[MAX_CANONICALS];
 		if(_desiredPrec && _quiet<2)
@@ -827,7 +827,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     //by making some modifications to make it work in multithreading
     else // all other sampling methods in which non-reentrancy has not been implemented are ran here; eventually this will be gone
     {
-	int batchSize = G->numEdges*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
+	int batchSize = G->m*10; // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
 	if(_desiredPrec && _quiet<2)
 	    Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 		batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
@@ -1336,26 +1336,6 @@ void BlantAddEdge(int v1, int v2, double weight)
     }
     assert(_pairs[2*_numEdges] < _pairs[2*_numEdges+1]);
     _numEdges++;
-}
-
-int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **nodeNames)
-{
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, _weights);
-    Free(_pairs);
-    _nodeNames = nodeNames;
-    return RunBlantInForks(k, numSamples, G);
-}
-
-// Initialize the graph G from an edgelist; the user must allocate the pairs array
-// to have 2*numEdges elements (all integers), and each entry must be between 0 and
-// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
-// we are going to free it right after creating G (ie., before returning to the caller.)
-int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, unsigned *pairs, float *weights)
-{
-    assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, weights);
-    Free(pairs);
-    return RunBlantInForks(k, numSamples, G);
 }
 
 const char * const USAGE_SHORT =
@@ -1874,7 +1854,7 @@ int main(int argc, char *argv[])
     assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
 
     // Read network using native Graph routine. Derik: this is where you can add other graph reading functions
-    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, _weighted);
+    GRAPH *G = GraphReadEdgeList(fpGraph, false, false, _weighted);
     if(_useComplement) G->useComplement = true;
 
     if(_supportNodeNames)
@@ -1965,7 +1945,7 @@ int main(int argc, char *argv[])
         if (numSamples == 0) Fatal("Haven't specified sample size (-n sampled_size)");
         if (_confidence == 0) _confidence = 0.05;
         if (_KS_NUMSAMPLES == 0) _KS_NUMSAMPLES = 1000;
-        if (_GRAPH_GEN_EDGES == 0) _GRAPH_GEN_EDGES = G->numEdges;
+        if (_GRAPH_GEN_EDGES == 0) _GRAPH_GEN_EDGES = G->m;
         if((optind + 1) == argc) {
             fpSynGraph = fopen(argv[optind++], "w");
             if (fpSynGraph == NULL) Fatal("cannot open synthetic graph outputfile.");

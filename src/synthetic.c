@@ -260,22 +260,22 @@ double AdjustDegree(const int x, const int y, const int connected, GRAPH* G, int
     double newcost, olddelta, change;
 
     // for node x
-    int old_deg_x = G->degree[x] - connected;
+    int old_deg_x = GraphDegree(G,x) - connected;
     olddelta = Degree[1][old_deg_x] - Degree[0][old_deg_x];
     newcost = FastEuclideanObjective(oldcost, olddelta, -1);
-    olddelta = Degree[1][G->degree[x]] - Degree[0][G->degree[x]];
+    olddelta = Degree[1][GraphDegree(G,x)] - Degree[0][GraphDegree(G,x)];
     newcost = FastEuclideanObjective(newcost, olddelta, 1);
     Degree[1][old_deg_x] -= 1;
-    Degree[1][G->degree[x]] += 1;
+    Degree[1][GraphDegree(G,x)] += 1;
 
     // for node y
-    int old_deg_y = G->degree[y] - connected;
+    int old_deg_y = GraphDegree(G,y) - connected;
     olddelta = Degree[1][old_deg_y] - Degree[0][old_deg_y];
     newcost = FastEuclideanObjective(newcost, olddelta, -1);
-    olddelta = Degree[1][G->degree[y]] - Degree[0][G->degree[y]];
+    olddelta = Degree[1][GraphDegree(G,y)] - Degree[0][GraphDegree(G,y)];
     newcost = FastEuclideanObjective(newcost, olddelta, 1);
     Degree[1][old_deg_y] -= 1;
-    Degree[1][G->degree[y]] += 1;
+    Degree[1][GraphDegree(G,y)] += 1;
 
     // sanity check
     // number of elements
@@ -311,17 +311,17 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
     assert((newcost == newcost) && (newcost >= 0));
 
     SET* xn = SetAlloc(G->n);
-    for(i=0; i < G->degree[x]; i++)
+    for(i=0; i < GraphDegree(G,x); i++)
         if (G->neighbor[x][i] != y)
             SetAdd(xn, G->neighbor[x][i]);
 
     nodecount = 0;  // nodes which are connected both to x & y
-    for(i=0; i < G->degree[y]; i++){
+    for(i=0; i < GraphDegree(G,y); i++){
         node = G->neighbor[y][i];
         if ((node!=x) && (SetIn(xn, node))){
             nodecount += 1;
-            assert(G->degree[node] >= 2);
-            nc2 = (G->degree[node] * (G->degree[node] - 1))/2;
+            assert(GraphDegree(G,node) >= 2);
+            nc2 = (GraphDegree(G,node) * (GraphDegree(G,node) - 1))/2;
             c = localConnections[1][node];  // the original num of connections
             localConnections[1][node] = c + connected;  // the new num of connections
             if (nc2 > 0){
@@ -353,25 +353,25 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
 
 
     // for x
-    if ((G->degree[x] - connected) < 2){ // original degree
+    if ((GraphDegree(G,x) - connected) < 2){ // original degree
         c = localConnections[1][x];  // the old connections
         assert(c == 0);
         oldcc = 0;
         oldkey = 0;
     }else{
-        nc2 = ((G->degree[x] - connected) * ((G->degree[x] - connected) - 1))/2;
+        nc2 = ((GraphDegree(G,x) - connected) * ((GraphDegree(G,x) - connected) - 1))/2;
         c = localConnections[1][x];  // the old connections
         oldcc = ((double) c) / ((double) nc2);
         oldkey = (int) (oldcc / ccstate->histograms_bin_size[1]);
     }
 
-    if(G->degree[x] < 2){  // current degree
+    if(GraphDegree(G,x) < 2){  // current degree
         c += (connected * nodecount);
         assert(c == 0);
         newcc = 0;
         newkey = 0;
     }else{
-        nc2 = (G->degree[x] * (G->degree[x] - 1))/2;
+        nc2 = (GraphDegree(G,x) * (GraphDegree(G,x) - 1))/2;
         c += (connected * nodecount);
         newcc = ((double) c) / ((double) nc2);
         newkey = (int) (newcc / ccstate->histograms_bin_size[1]);
@@ -390,25 +390,25 @@ double AdjustClustCoff(const int x, const int y, const int connected, GRAPH* G, 
 
 
     // for y
-    if ((G->degree[y] - connected) < 2){ // original degree
+    if ((GraphDegree(G,y) - connected) < 2){ // original degree
         c = localConnections[1][y];  // the old connections
         assert(c == 0);
         oldcc = 0;
         oldkey = 0;
     }else{
-        nc2 = ((G->degree[y] - connected) * ((G->degree[y] - connected) - 1))/2;
+        nc2 = ((GraphDegree(G,y) - connected) * ((GraphDegree(G,y) - connected) - 1))/2;
         c = localConnections[1][y];  // the old connections
         oldcc = ((double) c) / ((double) nc2);
         oldkey = (int) (oldcc / ccstate->histograms_bin_size[1]);
     }
 
-    if(G->degree[y] < 2){  // current degree
+    if(GraphDegree(G,y) < 2){  // current degree
         c += (connected * nodecount);
         assert(c == 0);
         newcc = 0;
         newkey = 0;
     }else{
-        nc2 = (G->degree[y] * (G->degree[y] - 1))/2;
+        nc2 = (GraphDegree(G,y) * (GraphDegree(G,y) - 1))/2;
         c += (connected * nodecount);
         newcc = ((double) c) / ((double) nc2);
         newkey = (int) (newcc / ccstate->histograms_bin_size[1]);
@@ -809,7 +809,7 @@ void GetConnections(GRAPH *G, int localConnections[G->n]){
 
     for(n=0; n < G->n; n++){
         edges = 0;
-        degree = G->degree[n];
+        degree = GraphDegree(G,n);
 
         if (degree < 2){
             localConnections[n] = 0;
@@ -822,7 +822,7 @@ void GetConnections(GRAPH *G, int localConnections[G->n]){
         for(i=0; i<degree; i++){
             node = (G->neighbor[n])[i];
             assert(node != n);
-            for(j=0; j < G->degree[node]; j++){
+            for(j=0; j < GraphDegree(G,node); j++){
                 x = (G->neighbor[node])[j];
                 if ((x!=n) && (scratch[x] == n))
                     edges += 1;
@@ -910,7 +910,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
         do {
             x = drand48()*G->n;
             y = getRandomConnectedNode(G, x);
-        } while((G->degree[x] <= 1) || (G->degree[y] <= 1));
+        } while((GraphDegree(G,x) <= 1) || (GraphDegree(G,y) <= 1));
         assert(GraphAreConnected(G, x, y));
         assert(x!=y);
         memcpy(v1, &x, sizeof(int));
@@ -937,7 +937,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
         do{
             x = drand48()*G->n;
             y = getRandomConnectedNode(G, x);
-        } while((G->degree[x] <= 1) || (G->degree[y] <= 1));
+        } while((GraphDegree(G,x) <= 1) || (GraphDegree(G,y) <= 1));
         assert(GraphAreConnected(G, x, y));
         assert(x!=y);
         memcpy(v1, &x, sizeof(int));
@@ -980,7 +980,7 @@ void GetNodes(GRAPH* G, const SmallWorld sw, int nodesBySp[G->n], int index_in_n
             y = getRandomConnectedNode(G, x);
             yi = index_in_nodesBySp[y];
             assert((yi>=0) && (yi<G->n));
-        }while((G->degree[x] <= 1) || (G->degree[y] <= 1) || (yi<l) || (yi>u));
+        }while((GraphDegree(G,x) <= 1) || (GraphDegree(G,y) <= 1) || (yi<l) || (yi>u));
         assert(GraphAreConnected(G, x, y));
         assert(x!=y);
         memcpy(v1, &x, sizeof(int));
@@ -1380,7 +1380,7 @@ int main(int argc, char *argv[]){
     maxdegree = MAX(G[0]->n, G[1]->n);
     for (i=0; i<2; i++)
         for (j=0; j < G[i]->n; j++)
-            assert((G[i]->degree[j]) < (G[i]->n));
+            assert((GraphDegree(G[i],j)) < (G[i]->n));
 
     int Degree[2][maxdegree+1];   // indexing: nodes with degree=5, are at index 5
     for (i=0; i<2; i++)
@@ -1388,7 +1388,7 @@ int main(int argc, char *argv[]){
             Degree[i][j] = 0;
     for (i=0; i<2; i++)
         for (j=0; j < G[i]->n; j++)
-            Degree[i][G[i]->degree[j]] += 1;
+            Degree[i][GraphDegree(G[i],j]) += 1;
 
     // degree dist sanity check
     for (i=0; i<2; i++){
@@ -1411,7 +1411,7 @@ int main(int argc, char *argv[]){
         double local_cc, b, localClustCoff[G[i]->n], scratchspace[G[i]->n];
 
         for(j=0; j < G[i]->n; j++){
-            degree = G[i]->degree[j];
+            degree = GraphDegree(G[i],j);
             nc2 = (degree * (degree-1))/2;
             if (nc2 <= 0) local_cc = 0;
             else local_cc = (double) localConnections[i][j] / (double) nc2;
@@ -1629,6 +1629,6 @@ int main(int argc, char *argv[]){
     ++sa_iter;
     }
     fprintf(stderr,"\n");
-    for(i=0; i < G[1]->numEdges; i++)
+    for(i=0; i < G[1]->m; i++)
         printf("%d %d\n", G[1]->edgeList[2*i], G[1]->edgeList[2*i+1]);
 }

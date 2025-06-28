@@ -122,15 +122,16 @@ void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numE
 	else if (_windowRep_limit_method == WINDOW_LIMIT_DEGREE)
 	{
 		int indegree=0;
-		for(i=0; i<_k; i++) indegree += G->degree[WArray[VArray[i]]]; // should remove 2*numEdges to get the exact indegree but the scale is the same.
+		for(i=0; i<_k; i++) indegree += GraphDegree(G,WArray[VArray[i]]); // should remove 2*numEdges to get the exact indegree but the scale is the same.
 		updateWindowRepLimitHeap(WArray, VArray, perm, indegree);
 	}
 	else if (_windowRep_limit_method == WINDOW_LIMIT_EDGES)
 	{
 		SET *NeighborNodes = SetAlloc(G->n);
-		for(i=0; i<_k; i++) for(j=0; j<G->degree[WArray[VArray[i]]]; j++) SetAdd(NeighborNodes, G->neighbor[WArray[VArray[i]]][j]);
+		Apology("sorry no blant-window");
+		//for(i=0; i<_k; i++) for(j=0; j<GraphDegree(G,WArray[VArray[i]]); j++) SetAdd(NeighborNodes, G->neighbor[WArray[VArray[i]]][j]);
 		GRAPH *GNeighbor = GraphInduced(G, NeighborNodes);
-		updateWindowRepLimitHeap(WArray, VArray, perm, GNeighbor->numEdges - numEdges);
+		updateWindowRepLimitHeap(WArray, VArray, perm, GNeighbor->m - numEdges);
 
 	}
 	else
@@ -229,16 +230,20 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, unsigned *WArray, unsigned *VArray, SET
             w = Vextension->smallestElement;
             SetDelete(Vextension, (int)w);
             // Add exlusive neighbor u of w and u > v
-            for(i=0; i<Gi->degree[w]; i++)
+            for(i=0; i<GraphDegree(Gi,w); i++)
             {
+	    #if 0
+		Apology("sorry no blant-window");
                 u = Gi->neighbor[w][i]; inclusive = false;
                 if(u > v)
                 {
                     SetEmpty(uNeighbors);
-                    SetFromArray(uNeighbors, Gi->degree[u], Gi->neighbor[u]);
+		    Apology("sorry no blant-window");
+                    SetFromArray(uNeighbors, GraphDegree(Gi,u), Gi->neighbor[u]);
                     for(j=0; j<*varraySize; j++) if(SetIn(uNeighbors, VArray[j])) {inclusive = true; break;}
                     if(!inclusive && u > v) SetAdd(Vext, u);
                 }
+	    #endif
             }
             unsigned *VArrayCopy = Calloc(_k, sizeof(int));
             for(i=0; i<_k; i++) VArrayCopy[i] = VArray[i];
@@ -263,7 +268,7 @@ int FindHighestDegNeighbor(GRAPH *Gi, SET *foundNode, SET *searchNodeSet, unsign
     SetToArray(searchNodeArr, searchNodeSet);
     for(i=0; i<numSearch; i++)
     {
-	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[searchNodeArr[i]]] : Gi->degree[searchNodeArr[i]];
+	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[searchNodeArr[i]]] : GraphDegree(Gi,searchNodeArr[i]);
 	    if (curr_deg > prev_deg && !SetIn(foundNode, searchNodeArr[i])) {largestNode = searchNodeArr[i]; prev_deg = curr_deg;}
     }
     return largestNode;
@@ -279,7 +284,7 @@ void FindWindowRepByDeg(GRAPH *Gi, unsigned *WArray)
     TINY_GRAPH *g = TinyGraphAlloc(_k);
     for (i=0; i < _windowSize; i++)
     {
-	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : Gi->degree[i];
+	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : GraphDegree(Gi,i);
 	    if (curr_deg > prev_deg) {numInitialSeed = 0; prev_deg = curr_deg;}
 	    if (curr_deg >= prev_deg) SeedArray[numInitialSeed++] = i;
     }
@@ -291,24 +296,25 @@ void FindWindowRepByDeg(GRAPH *Gi, unsigned *WArray)
 	    SetAdd(savedNodesSET, SeedArray[i]);
 	    while(num_k_saved < _k + 1)
 	    {
-		    SetEmpty(neighborNodeSet);
-		    for(j=0; j < num_k_saved; j++)
-			    for(neigh=0; neigh < Gi->degree[NodeAddedArr[j]]; neigh++)
-				    SetAdd(neighborNodeSet, Gi->neighbor[NodeAddedArr[j]][neigh]);
-
-		    NodeFound = FindHighestDegNeighbor(Gi, savedNodesSET, neighborNodeSet, WArray);
-		    if (NodeFound == -1) break;
-		    NodeAddedArr[num_k_saved++] = NodeFound;
-		    SetAdd(savedNodesSET, NodeFound);
+		SetEmpty(neighborNodeSet);
+		Apology("sorry no blant-window");
+	    #if 0
+		for(j=0; j < num_k_saved; j++)
+		    for(neigh=0; neigh < GraphDegree(Gi,NodeAddedArr[j]); neigh++)
+			SetAdd(neighborNodeSet, Gi->neighbor[NodeAddedArr[j]][neigh]);
+	    #endif
+		NodeFound = FindHighestDegNeighbor(Gi, savedNodesSET, neighborNodeSet, WArray);
+		if (NodeFound == -1) break;
+		NodeAddedArr[num_k_saved++] = NodeFound;
+		SetAdd(savedNodesSET, NodeFound);
 	    }
 	    if (num_k_saved == _k + 1)
 	    {
-
-		    for(j=0; j<_k; j++) _windowReps[_numWindowRep][j] = WArray[NodeAddedArr[j]];
-		    TinyGraphInducedFromGraph(g, Gi, NodeAddedArr);
-		    GintOrdinal = L_K(TinyGraph2Int(g, _k));
-		    _windowReps[_numWindowRep][_k] = GintOrdinal;
-		    ++_numWindowRep;
+		for(j=0; j<_k; j++) _windowReps[_numWindowRep][j] = WArray[NodeAddedArr[j]];
+		TinyGraphInducedFromGraph(g, Gi, NodeAddedArr);
+		GintOrdinal = L_K(TinyGraph2Int(g, _k));
+		_windowReps[_numWindowRep][_k] = GintOrdinal;
+		++_numWindowRep;
 	    }
     }
 }
@@ -361,16 +367,19 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
         GRAPH *Gi = GraphInduced(G, W);
         int v, varraySize;
         SET *Vextension = SetAlloc(Gi->n);
+	Apology("sorry no blant-window");
+    #if 0
         for(v=0; v<_windowSize; v++)
         {
             SetEmpty(Vextension);
             varraySize=0;
-            for(i=0; i<Gi->degree[v]; i++)
+            for(i=0; i<GraphDegree(Gi,v); i++)
                 if(Gi->neighbor[v][i] > v)
                     SetAdd(Vextension, (int)Gi->neighbor[v][i]);
             VArray[varraySize++]=v;
             ExtendSubGraph(G, Gi, WArray, VArray, Vextension, v, &varraySize, windowAdjList, windowRepInt, D, canonMSET, perm);
         }
+    #endif
         SetFree(Vextension);
         GraphFree(Gi);
     }

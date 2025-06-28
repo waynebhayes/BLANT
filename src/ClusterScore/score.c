@@ -25,7 +25,7 @@ unsigned ClusterEdgeCount(GRAPH *G, SET *c, unsigned num) {
     if(G->sparse) {
 	for(int i=0; i<n; i++) {
 	    int u = nodes[i];
-	    for(int j=0; j < G->degree[u]; j++){
+	    for(int j=0; j < GraphDegree(G,u); j++){
 		int v = G->neighbor[u][j];
 		if(v>u && SetIn(c, v)) ++m; // yes, I've checked that the v>u part is correct.
 	    }

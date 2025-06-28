@@ -275,7 +275,7 @@ TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *g, GRAPH *G, unsigned *Varray)
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(g);
-    assert(!G->selfAllowed);
+    assert(!G->self);
     for(i=0; i < g->n; i++) for(j=i+1; j < g->n; j++)
         if(GraphAreConnected(G, Varray[i], Varray[j]))
             TinyGraphConnect(g, i, j);

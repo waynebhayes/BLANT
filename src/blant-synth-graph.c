@@ -215,7 +215,7 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k
             SetAdd(V, (int) G_Syn->n * RandomUniform());
         assert(SetToArray(Varray, V) == k);
 
-        if(G_Syn->numEdges < _GRAPH_GEN_EDGES) {
+        if(G_Syn->m < _GRAPH_GEN_EDGES) {
             Gint = PickGraphletFromConcentration(binaryNum, graphletCDF, k);
             stampFunction(G_Syn, binaryNum, Varray, k);
             TinyGraphInducedFromGraph(g, G_Syn, Varray);
@@ -229,7 +229,7 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k
             reset_global_maps(k);
             if(P_val > confidence || step >= MAX_TRIES)
                 break;
-            while(G_Syn->numEdges > 0.5 * _GRAPH_GEN_EDGES) {
+            while(G_Syn->m > 0.5 * _GRAPH_GEN_EDGES) {
                 for(i=k-1; i>0; i--) for(j=i-1;j>=0;j--)
                     if(GraphAreConnected(G_Syn, Varray[i], Varray[j]))
                         GraphDisconnect(G_Syn, Varray[i], Varray[j]);

@@ -85,7 +85,7 @@ unsigned kin(CLUSTER *c, unsigned u){
 double scoreOfNodeInCommunity(CLUSTER *c, unsigned u, unsigned membershipCount)
 {
     int kinu = (int)kin(c,u);
-    int ku= (int)_inputNet->degree[u];
+    int ku= (int)GraphDegree(_inputNet,u);
     assert(measure != undef);
     switch(measure) {
     case MEASURE_EDN:
@@ -147,7 +147,7 @@ void expand(CLUSTER *c)
 {
     if(GraphDegree(_clusterSimGraph, c->index)) {
 	int j; 
-	for(j=0;j<_clusterSimGraph->degree[c->index];j++) {
+	for(j=0;j<GraphDegree(_clusterSimGraph,c->index);j++) {
 	    unsigned n=_clusterSimGraph->neighbor[c->index][j];
 	    if(!SetIn(_finalClusVisited, n)) {
 		double P=potentialScore(_cluster[n]), diff=P-_currentScore;
