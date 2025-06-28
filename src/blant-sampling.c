@@ -79,11 +79,11 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int wi
     assert(edge >= 0 && edge < G->m);
 #endif
 
-    Fatal("the loop below this message is endless");
-    do
-	; // X[0] = G->edgeList[2 * edge];
-    while(!SetIn(_startNodeSet, X[0]));
-    // X[1] = G->edgeList[2 * edge + 1];
+    do {
+	X[0] = -1; X[1] = edge;
+	int foo = GraphRandomEdge(G, X, X+1);
+	assert(foo==edge);
+    } while(!SetIn(_startNodeSet, X[0]));
 
     MultisetAdd(XLS, X[0]); QueuePut(XLQ, (foint) X[0]);
     MultisetAdd(XLS, X[1]); QueuePut(XLQ, (foint) X[1]);
@@ -106,7 +106,6 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int wi
 // when we start/restart.
 void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge)
 {
-    Apology("I don't think WalkLSteps is actually used anywhere");
     //For now d must be equal to 2 because we start by picking a random edge
     if (mcmc_d != 2) {
 	Fatal("mcmc_d must be set to 2 in blant.h for now");
@@ -114,18 +113,15 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 
     if (edge < 0 && cc == -1) { // Pick a random edge from any component in the graph that has at least k nodes
 	do {
-	    edge = G->m * RandomUniform();
-	    // X[0] = G->edgeList[2*edge];
+	    edge = GraphRandomEdge(G, X, X+1);
 	    assert(false); // this loop is suspect: the while statement below MUST be wrong
 	} while(!(_componentSize[_whichComponent[X[0]]] < k));
     }
     else if (edge < 0) { // Pick a random edge from within a chosen connected component
 	do {
-	    edge = G->m * RandomUniform();
-	    // X[0] = G->edgeList[2*edge];
+	    edge = GraphRandomEdge(G, X, X+1);
 	} while(!SetIn(_componentSet[cc], X[0]) || !SetIn(_startNodeSet, X[0]));
     }
-    // X[1] = G->edgeList[2*edge+1];
     // else start from the preselected edge
 
 #if PARANOID_ASSERTS
@@ -179,8 +175,6 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 //   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums)
 {
-    Apology("Sorry no NBE");
-#if 0
     int i, j;
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
@@ -190,10 +184,10 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	Varray[1] = GraphRandomNeighbor(G,Varray[0]);
     } else {
 	if(whichCC<0){ // we are being TOLD to choose a specific edge to start, even if NUM_START_NODES is 1
-	    Apology("sorry, NBE can't be given a CC");
 	    edge = -(whichCC+1);
-	    //Varray[0] = G->edgeList[2*edge];
-	    //Varray[1] = G->edgeList[2*edge+1];
+	    Varray[0] = -1; // indicate to GraphRandomNeighbor that the next argument is the desired edge
+	    Varray[1] = edge;
+	    edge = GraphRandomEdge(G, (int*)Varray, (int*)Varray+1);
 	}
 	else {
 #if NBE_NUM_START_NODES == 1 // start with a uniform random NODE and one of its neighbors
@@ -204,13 +198,10 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    } while(!SetIn(_componentSet[whichCC], Varray[0]));
 	    Varray[1] = GraphRandomNeighbor(G,Varray[0]);
 #else // start with a random EDGE
-	    Apology("Sorry, NBE can't start with an edge");
 	    do {
-		edge = G->m * RandomUniform();
-		//Varray[0] = G->edgeList[2*edge];
+		edge = GraphRandomEdge(G, (int*)Varray, (int*)Varray+1);
 	    } while(!SetIn(_componentSet[whichCC], Varray[0]) || !SetIn(_startNodeSet, Varray[0]));
 	    assert(edge < G->m);
-	    // Varray[1] = G->edgeList[2*edge+1];
 #endif
 	}
     }
@@ -304,7 +295,6 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     }
     SetFree(outSet);
     return 1.0;
-#endif
 }
 
 // modelled after faye by Tuong Do
@@ -328,12 +318,9 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     int edge;
-    Apology("Faye edgeList");
     do {
-	edge = G->m * RandomUniform();
-	//v1 = G->edgeList[2*edge];
+	edge = GraphRandomEdge(G, &v1, &v2);
     } while(!SetIn(_componentSet[whichCC], v1));
-    //v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
     if(!SetIn(_startNodeSet,v1) && !SetIn(_startNodeSet, v2)) Fatal("startNodes not implemented in Faye sampling");
@@ -516,20 +503,16 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     else internal = SetAlloc(GraphNumEdges(G));
 
     if(G->useComplement) Fatal("Sorry, EBE not implemented for complemented graphs");
-    int edge, v1, v2, numTries = 0;
+    int edge, v1=0, v2, numTries = 0;
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     if(whichCC<0) edge = -(whichCC+1);
     else do {
-	edge = G->m * RandomUniform();
-	Apology("Does EBE *really* need to use edgeList?");
-	// v1 = G->edgeList[2*edge];
+	edge = GraphRandomEdge(G, &v1, &v2);
 	if(numTries++ > 2*G->m) Fatal("EBE is taking suspiciously long");
     } while(!SetIn(_componentSet[whichCC], v1) || !SetIn(_startNodeSet, v1));
     assert(edge < G->m);
-    //v1 = G->edgeList[2*edge];
-    // v2 = G->edgeList[2*edge+1];
-    assert(v1 != v2);
+    assert(v1 != v2 || G->self);
     assert(SetIn(_startNodeSet, v1) || SetIn(_startNodeSet, v2));
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
@@ -680,17 +663,14 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 	SetResize(outSet, G->n);
     else
 	SetEmpty(outSet);
-    int v1, v2, i;
+    int v1=0, v2, i;
     int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
     assert(V && V->maxElem >= G->n);
     SetEmpty(V);
     int edge;
-    Apology("LuBressan edgeList");
     do {
-	edge = G->m * RandomUniform();
-	// v1 = G->edgeList[2*edge];
+	edge = GraphRandomEdge(G, &v1, &v2);
     } while(!SetIn(_componentSet[whichCC], v1) || !SetIn(_startNodeSet, v1));
-    // v2 = G->edgeList[2*edge+1];
     SetAdd(V, v1); Varray[0] = v1;
     SetAdd(V, v2); Varray[1] = v2;
 
@@ -845,12 +825,13 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	if(_sampleSubmethod == SAMPLE_MCMC_EC) printf("MCMC reset\n");
 	setup = true;
 	WalkLSteps(XLS, XLQ, Xcurrent, G, k, whichCC, currEdge);
-	Apology("MCMC edgeList");
-    #if 0
+	int v1, v2;
 	do {
 	    currEdge++;
-	} while (_componentSize[_whichComponent[G->edgeList[2*currEdge]]] < k);
-    #endif
+	    v1=-1; v2=currEdge;
+	    int edge = GraphRandomEdge(G, &v1, &v2);
+	    assert(edge==currEdge && v1>=0);
+	} while (_componentSize[_whichComponent[v1]] < k);
 	currSamples = 0;
     }
     else {
@@ -969,7 +950,7 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 	foundGraphlet = true;
 	// Pick the first edge
 	if (whichCC == -1) { // Pick a random edge from anywhere in the graph that has at least k nodes
-	    Apology("SEC edgeList");
+	    Apology("SEC edgeList (and no longer implemented)");
 	    do {
 		edge = G->m * RandomUniform();
 		// Xcurrent[0] = G->edgeList[2 * edge];
