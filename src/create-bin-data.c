@@ -63,7 +63,7 @@ static int siCmp(const void *A, const void *B)
     return 0;
 }
 
-Gordinal_type canon2ordinal(int numCanon, Gint_type *_canon_list, int canonical)
+Gordinal_type canon2ordinal(Gordinal_type numCanon, Gint_type *_canon_list, Gint_type canonical)
 {
     Gint_type *found = bsearch(&canonical, _canon_list, numCanon, sizeof(_canon_list[0]), siCmp);
     return found-_canon_list;
@@ -77,6 +77,8 @@ int main(int argc, char *argv[])
     if (kk>7) Fatal("cannot create_bin_data for k>7 when SELF_LOOPS is 1");
 #endif
     SetBlantDirs();
+    fprintf(stderr, "Note: Gint_type is size %lu bytes (%lu bits); Gordinal_type is %lu (%lu bits)\n",
+	sizeof(Gint_type), 8*sizeof(Gint_type), sizeof(Gordinal_type), 8*sizeof(Gordinal_type));
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges);
     int numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);
