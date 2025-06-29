@@ -37,30 +37,29 @@ int main(int argc, char *argv[])
     assert(G->n >= k);
     fclose(fp);
 
-    static char name[BUFSIZ], line[BUFSIZ];
-    // SET *V = SetAlloc(G->n);
-    char Sarray[8][BUFSIZ], sa[8][BUFSIZ];
     lines=0;
+    char line[BUFSIZ];
     while(fgets(line, sizeof(line), stdin))
     {
 	int i,j, numRead=-1;
 	++lines;
-	char newName[BUFSIZ];
+	// SET *V = SetAlloc(G->n);
+	char newName[BUFSIZ], name[BUFSIZ], Sarray[8][BUFSIZ], sa[8][BUFSIZ];
 	switch(k)
 	{
-	case 3: numRead=sscanf(line, "%s %s %s %s ",newName,sa,sa+1,sa+2); break;
-	case 4: numRead=sscanf(line, "%s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3); break;
-	case 5: numRead=sscanf(line, "%s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4); break;
-	case 6: numRead=sscanf(line, "%s %s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4,sa+5); break;
-	case 7: numRead=sscanf(line, "%s %s %s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4,sa+5,sa+6); break;
-	case 8: numRead=sscanf(line, "%s %s %s %s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4,sa+5,sa+6,sa+7); break;
+	case 3: numRead=sscanf(line, "%s %s %s %s ",newName,sa[0],sa[1],sa[2]); break;
+	case 4: numRead=sscanf(line, "%s %s %s %s %s ",newName,sa[0],sa[1],sa[2],sa[3]); break;
+	case 5: numRead=sscanf(line, "%s %s %s %s %s %s ",newName,sa[0],sa[1],sa[2],sa[3],sa[4]); break;
+	case 6: numRead=sscanf(line, "%s %s %s %s %s %s %s ",newName,sa[0],sa[1],sa[2],sa[3],sa[4],sa[5]); break;
+	case 7: numRead=sscanf(line, "%s %s %s %s %s %s %s %s ",newName,sa[0],sa[1],sa[2],sa[3],sa[4],sa[5],sa[6]); break;
+	case 8: numRead=sscanf(line, "%s %s %s %s %s %s %s %s %s ",newName,sa[0],sa[1],sa[2],sa[3],sa[4],sa[5],sa[6],sa[7]); break;
 	default: Fatal("hmm, unknown value of k %d", k); break;
 	}
 	if(numRead != k+1) Fatal("for k=%d we expect %d columns but got %d", k,k+1,numRead);
 	if(strcmp(name, newName) != 0)
 	{
 	    strcpy(name, newName);
-	    for(i=0;i<k;i++) strcpy(Sarray+i, sa+i);
+	    for(i=0;i<k;i++) strcpy(Sarray[i], sa[i]);
 	}
 	for(i=0; i<k-1; i++)for(j=i+1;j<k;j++)
 	{
