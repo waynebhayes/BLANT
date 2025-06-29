@@ -22,6 +22,8 @@
 
 static int _k;
 
+#define Gni GraphNodeName2Int
+
 // Get k and the filename of G on the command line. Then read lines on stdin that should be
 // sorted lines from the output of BLANT for that value of k. Ensure that adjacent lines that
 // are the same canonical graphette are indeed the exact same graph.
@@ -30,13 +32,14 @@ int main(int argc, char *argv[])
     int k=atoi(argv[1]), n = atoi(argv[2]), lines;
     FILE *fp = fopen(argv[3], "r");
     _k = k;
-    GRAPH *G = GraphReadEdgeList(fp, true, false, false); // sparse = true, supportNodeNames=false since syeast.el is only ints.
+    Boolean self=false, directed=false, weighted=false;
+    GRAPH *G = GraphReadEdgeList(fp, self, directed, weighted);
     assert(G->n >= k);
     fclose(fp);
 
     static char name[BUFSIZ], line[BUFSIZ];
     // SET *V = SetAlloc(G->n);
-    unsigned Varray[8], a[8];
+    char Sarray[8][BUFSIZ], sa[8][BUFSIZ];
     lines=0;
     while(fgets(line, sizeof(line), stdin))
     {
@@ -45,28 +48,29 @@ int main(int argc, char *argv[])
 	char newName[BUFSIZ];
 	switch(k)
 	{
-	case 3: numRead=sscanf(line, "%s %d %d %d ",newName,a,a+1,a+2); break;
-	case 4: numRead=sscanf(line, "%s %d %d %d %d ",newName,a,a+1,a+2,a+3); break;
-	case 5: numRead=sscanf(line, "%s %d %d %d %d %d ",newName,a,a+1,a+2,a+3,a+4); break;
-	case 6: numRead=sscanf(line, "%s %d %d %d %d %d %d ",newName,a,a+1,a+2,a+3,a+4,a+5); break;
-	case 7: numRead=sscanf(line, "%s %d %d %d %d %d %d %d ",newName,a,a+1,a+2,a+3,a+4,a+5,a+6); break;
-	case 8: numRead=sscanf(line, "%s %d %d %d %d %d %d %d %d ",newName,a,a+1,a+2,a+3,a+4,a+5,a+6,a+7); break;
+	case 3: numRead=sscanf(line, "%s %s %s %s ",newName,sa,sa+1,sa+2); break;
+	case 4: numRead=sscanf(line, "%s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3); break;
+	case 5: numRead=sscanf(line, "%s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4); break;
+	case 6: numRead=sscanf(line, "%s %s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4,sa+5); break;
+	case 7: numRead=sscanf(line, "%s %s %s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4,sa+5,sa+6); break;
+	case 8: numRead=sscanf(line, "%s %s %s %s %s %s %s %s %s ",newName,sa,sa+1,sa+2,sa+3,sa+4,sa+5,sa+6,sa+7); break;
 	default: Fatal("hmm, unknown value of k %d", k); break;
 	}
 	if(numRead != k+1) Fatal("for k=%d we expect %d columns but got %d", k,k+1,numRead);
 	if(strcmp(name, newName) != 0)
 	{
 	    strcpy(name, newName);
-	    for(i=0;i<k;i++)Varray[i]=a[i];
+	    for(i=0;i<k;i++) strcpy(Sarray+i, sa+i);
 	}
 	for(i=0; i<k-1; i++)for(j=i+1;j<k;j++)
 	{
 	    assert(i!=j);
-	    if(GraphAreConnected(G, a[i], a[j]) == GraphAreConnected(G, Varray[i], Varray[j]));
+	    int e1 = GraphAreConnected(G, Gni(G, sa[i]),      Gni(G,     sa[j]));
+	    int e2 = GraphAreConnected(G, Gni(G, Sarray[i]),  Gni(G, Sarray[j]));
+	    if(e1 == e2) /* do nothing */ ;
 	    else {
-		printf("line %d: edge(%d,%d)=%d, edge(%d,%d)=%d\t", lines,
-		    a[i], a[j], GraphAreConnected(G, a[i], a[j]),
-		    Varray[i], Varray[j], GraphAreConnected(G, Varray[i], Varray[j])); fflush(stdout);
+		printf("line %d: edge(%s,%s)=%d, edge(%s,%s)=%d\t", lines,
+		    sa[i], sa[j], e1, Sarray[i], Sarray[j], e2); fflush(stdout);
 		fputs(line, stdout); fflush(stdout);
 		//assert(false);
 	    }
