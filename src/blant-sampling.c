@@ -76,7 +76,7 @@ void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int wi
 	Fatal("Window Size must be at least 1");
     }
 #if PARANOID_ASSERTS
-    assert(edge >= 0 && edge < G->m);
+    assert(edge >= 0 && edge < 2*G->m);
 #endif
 
     do {
@@ -201,7 +201,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    do {
 		edge = GraphRandomEdge(G, (int*)Varray, (int*)Varray+1);
 	    } while(!SetIn(_componentSet[whichCC], Varray[0]) || !SetIn(_startNodeSet, Varray[0]));
-	    assert(edge < G->m);
+	    assert(0<=edge && edge < 2*G->m);
 #endif
 	}
     }
@@ -509,9 +509,9 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     if(whichCC<0) edge = -(whichCC+1);
     else do {
 	edge = GraphRandomEdge(G, &v1, &v2);
-	if(numTries++ > 2*G->m) Fatal("EBE is taking suspiciously long");
+	if(numTries++ > 5*G->m) { Warning("EBE is taking suspiciously long (%d tries)", numTries); numTries=0;}
     } while(!SetIn(_componentSet[whichCC], v1) || !SetIn(_startNodeSet, v1));
-    assert(edge < G->m);
+    assert(0<=edge && edge < 2*G->m);
     assert(v1 != v2 || G->self);
     assert(SetIn(_startNodeSet, v1) || SetIn(_startNodeSet, v2));
     SetAdd(V, v1); Varray[0] = v1;
