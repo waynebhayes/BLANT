@@ -1,7 +1,8 @@
 #!/bin/bash
 ################## SKELETON: DO NOT TOUCH THESE 2 LINES
-BASENAME=`basename "$0" .sh`; TAB='	'; NL='
+export BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
+export LINENO
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 USAGE="USAGE: $BASENAME [OPTIONS] blant_cmd Ks EDs network.el
 PURPOSE: use random samples of k-graphlets from BLANT in attempt to find large communities in network.el.
@@ -131,8 +132,10 @@ EDs=($3)
 net=$4
 
 if [ "$COMPLEMENT" != "" ]; then
+    net4awk=$TMPDIR/net4awk.el$W
     #SAMPLE_METHOD=-sNBE # only method that works for now
-    hawk 'NF==2{++D[$1];++D[$2];++edge[$1][$2];++edge[$2][$1]}
+    hawk 'NF==1{ASSERT(FNR==1, "single column only allowed on first line"); nextline}
+	  NF==2{++D[$1];++D[$2];++edge[$1][$2];++edge[$2][$1]}
 	  NF==3{D[$1]+=$3;D[$2]+=$3;edge[$1][$2]=$3;edge[$2][$1]=$3}
 	END{
 	    for(u in edge) for(v in edge) if(u<v)
@@ -141,11 +144,16 @@ if [ "$COMPLEMENT" != "" ]; then
 		    if(NF==2) printf "%s\t%s\n", MIN(u,v),MAX(u,v)
 		    if(NF==3) printf "%s\t%s\t%g\n", MIN(u,v),MAX(u,v),edge[u][v]
 		}
-	}' $net | sort -u > $TMPDIR/net4awk.el$W
+	}' $net | sort -u > $net4awk
 else
-    cp -p $net $TMPDIR/net4awk.el$W
+    net4awk=$net
 fi
-netCounts=`hawk '{++seen[$1];++seen[$2]}END{n=length(seen);m=NR;printf "%d\t%d\t%g\n", n, m, m/choose(n,2)}' $TMPDIR/net4awk.el$W`
+netCounts=`ls $net | sed 's/\.el/.count.el/'` # see if a count.el file already exists
+if [ -f $netCounts -a -r $netCounts ]; then
+    netCounts=`hawk '{ASSERT(FNR==1,"expecting only 1 line");n=$1;m=$2;printf "%d\t%d\t%g\n",n,m,m/choose(n,2)}' $netCounts`
+else
+    netCounts=`hawk 'FNR==1&&NF==1{n1=1;nextline}{++seen[$1];++seen[$2]}END{n=length(seen);m=NR-n1;printf "%d\t%d\t%g\n", n, m, m/choose(n,2)}' $net4awk`
+fi
 numNodes=`echo "$netCounts" | cut -f1`
 numEdges=`echo "$netCounts" | cut -f2`
 meanED=`echo "$netCounts" | cut -f3`
@@ -172,7 +180,7 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	# Possible values: MCMC NBE EBE RES
 	[ -f canon_maps/canon_list$k.txt ] || continue
 	ABSOLUTE_CLIQUE_COUNT=""
-	CMD=""
+	CMD="time"
 	$TURAN && CMD="./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null &&"'ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`";'
 	CMD="$CMD $BLANT_CMD $WEIGHTED $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
 	eval $CMD > $TMPDIR/blant$k.out &
@@ -233,7 +241,11 @@ for edgeDensity in "${EDs[@]}"; do
 		ASSERT(minClus>=1,"minClus "minClus" must be >=1");
 	    }
 	    ARGIND==1{ # get the edge list [and weights if present]
-		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns");
+		if(FNR==1 && NF==1) {
+		    ASSERT(1*$1==$1,"first line has one column but must be an int");
+		    nextline; # skip the number of nodes, if present
+		}
+		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns but have "NF);
 		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
 	    }
 	    ARGIND==2 { # && !($2 in count) # uncomment to take only first occurence--faster but worse result
@@ -411,7 +423,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    }
 		    #else print " REJECTED" > "/dev/stderr";
 		}
-	    }' "$TMPDIR/net4awk.el$W" - | # dash is the output of the above pipe (sorted cluster counts)
+	    }' "$net4awk" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -T $TMPDIR -nr |
 	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
