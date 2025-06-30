@@ -1022,6 +1022,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	}
     }
     if(_outputMode & communityDetection) {
+	int bufSiz=BUFSIZ;
+	char *buf = Malloc(bufSiz);
 	assert(_communityMode == 'o' || _communityMode == 'g');
 	switch(_communityMode)
 	{
@@ -1031,7 +1033,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    orbit_index = _connectedOrbits[c];
 		    double odv=_orbitDegreeVector[orbit_index][u];
 		    int numPrinted = 0;
-		    char buf[BUFSIZ];
 		    if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
 			int neigh=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
@@ -1039,11 +1040,12 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=-1); // G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][orbit_index],v)) {
 				if(!numPrinted++) sprintf(buf, "%s %d %.15g\t", PrintNode(jbuf, 0,u), orbit_index, odv);
+				if(strlen(buf)>=bufSiz/2) buf = Realloc(buf, (bufSiz*=2));
 				PrintNode(buf+strlen(buf), ' ',v);
 			    }
 			}
 			assert(-1==GraphNextNeighbor(G,u,&neigh));
-			assert(strlen(buf) < BUFSIZ);
+			assert(strlen(buf) < bufSiz);
 			if(numPrinted) puts(buf);
 		    }
 		}
@@ -1054,7 +1056,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		for(c=0; c<_numCanon; c++) if(SetIn(_connectedCanonicals,c)) {
 		    double gdv=_graphletDegreeVector[c][u];
 		    int numPrinted = 0;
-		    char buf[BUFSIZ];
 		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
 			int neigh=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
@@ -1062,11 +1063,12 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=-1); //G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][c],v)) {
 				if(!numPrinted++) sprintf(buf, "%s %d %lg\t", PrintNode(jbuf, 0,u), c, gdv);
+				if(strlen(buf)>=bufSiz/2) buf = Realloc(buf, (bufSiz*=2));
 				PrintNode(buf+strlen(buf), ' ',v);
 			    }
 			}
 			assert(-1==GraphNextNeighbor(G,u,&neigh));
-			assert(strlen(buf) < BUFSIZ);
+			assert(strlen(buf) < bufSiz);
 			if(numPrinted) puts(buf);
 		    }
 		}
