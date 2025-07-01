@@ -178,7 +178,7 @@ void LoadMagicTable(void)
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
-    if(Permutations) {
+    if(_k <= BASE_K) {
 	int j, i32 = 0;
 	for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
 	for(j=0;j<_k;j++)
