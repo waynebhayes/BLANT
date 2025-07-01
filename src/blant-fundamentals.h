@@ -16,7 +16,7 @@
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
 #define MAX_K (9-SELF_LOOPS) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
-#define BASE_K (7-SELF_LOOPS) // this is the base K for the smaller_canon_map, which can use MAX_K > BASE_K
+#define BASE_K (8-SELF_LOOPS) // this is the base K for the smaller_canon_map, which can use MAX_K > BASE_K
 
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
 #define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
