@@ -608,7 +608,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(vCount == k);
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k);
+	static _Thread_local TINY_GRAPH *g;
+	if(!g) g = TinyGraphAlloc(k);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	unsigned char perm[k];
