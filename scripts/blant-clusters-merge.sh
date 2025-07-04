@@ -28,29 +28,38 @@ export TMPDIR=${TMPDIR:-`mktemp -d $MYTMP/$BASENAME.XXXXXX`}
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
+net="$1"; shift
+
 NODES_LOWER_BOUND=20 # ignore any and all clusters smaller than this
 
 fgrep -h nodes, "$@" | sort -nr | # sort largest-to-smallest
     sed 's/.*{ //' -e 's/ }//' | # remove everything except the list nodes, one cluster per line
-    hawk 'NF>='$NODES_LOWER_BOUND'{
+    hawk 'ARGIND==1{ASSERT(NF==2||NF==3, "expecting 2 or 3 columns, not "NF); edge[$1][$2]=edge[$2][$1]=1;next}
+	NF>='$NODES_LOWER_BOUND'{
 	for(c=1;c<=NF;c++) ++clus[FNR][$c]; # record this cluster
 	merged=0; # find out if we should merge it with a previous cluster
-	    for(i=1;i<FNR;i++) {
+	    for(i=1;i<FNR;i++) if(isarray(clus[i])) {
 		o=SetIntersect(res,clus[i],clus[FNR]);
-		printf "cluster %d isarray %d; overlap %d\n", i, isarray(clus[i]), o;
-		if(isarray(clus[i]) && (n=SetIntersect(res,clus[i],clus[FNR])) > 0) {
+		if(isarray(clus[i]) && o/NF >= 0.5) { # at least half of these nodes are in a previous cluster
 		    merged=i; # merge it with cluster i
-		    printf "Line %d will merge with line %d since it overlaps in %d nodes\n", FNR,i,n
+		    #printf "Line %d will merge with line %d since it overlaps in %d nodes\n", FNR,i,o
 		    for(j=1;j<=NF;j++) ++clus[i][$j]; # merge all current nodes into cluster i
 		    delete clus[FNR]; # delete this cluster since it was merged
 		    next; # move on to next line
 		}
 	    }
 	}
-    END {
-	for(i in clus) {
-	    printf "%d nodes initially from line %d, nodeSet {", length(clus[i]), i
-	    for(j in clus[i]) printf " %s", j
-	    print " }"
+	function NumEdges(edge,nodes,   numEdges) {
+	    numEdges=0;
+	    for(u in nodes) for(v in nodes) if(u>v && (u in edge) && (v in edge[u])) ++numEdges;
+	    return numEdges;
 	}
-    }'
+	END{
+	    for(i in clus) if(isarray(clus[i])) {
+		m = NumEdges(edge, clus[i]); n=length(clus[i]);
+		printf "%d nodes initially from line %d, %d edges out of %d, density %g, nodeSet {",
+		    n, i, m, choose(n,2), m/choose(n,2)
+		for(j in clus[i]) printf " %s", j
+		print " }"
+	    }
+	}' "$net" -
