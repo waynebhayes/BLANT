@@ -19,11 +19,11 @@
 // Below are the sampling methods
 #define SAMPLE_FROM_FILE 0
 #define SAMPLE_ACCEPT_REJECT 1	// makes things REALLY REALLY slow.  Like 10-100 samples per second rather than a million.
-#define SAMPLE_NODE_EXPANSION 2	// sample using uniform node expansion; about 100,000 samples per second
+#define SAMPLE_NODE_EXPANSION 2	// slow but simple: uniform node expansion; about 100,000 samples per second
 #define SAMPLE_EDGE_EXPANSION 3	// Fastest, up to a million samples per second
 #define SAMPLE_RESERVOIR 4	// Lu Bressan's reservoir sampler, reasonably but not entirely unbiased.
-#define SAMPLE_MCMC 5 // MCMC Algorithm estimates graphlet frequency with a random walk
-#define SAMPLE_FAYE 6
+#define SAMPLE_MCMC 5 // Also fastest: MCMC Algorithm estimates graphlet frequency with a random walk
+#define SAMPLE_FAYE 6 // old sampling with Adib's method, slow and uncertain it's correct
 #define SAMPLE_INDEX 7 // Use deterministic walk to find seeds which are used for extensions
 #define SAMPLE_MCMC_EC 8 // cover all edges in G at least once, then stop
 // #define SAMPLE_SEQUENTIAL_CHAINING 9 // sample by performing edge chaining
@@ -36,7 +36,7 @@ extern int _samplesPerEdge;
 extern double _g_overcount;
 
 extern unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
-extern Boolean _MCMC_EVERY_EDGE; // Should MCMC restart at each edge
+extern Boolean _MCMC_EVERY_EDGE; // Should MCMC restart at each edge?
 extern GRAPH *_EDGE_COVER_G;
 
 // Each of these samples a graphlet and return its weight (default 1 unless _weighted)
@@ -53,9 +53,9 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
 double SampleGraphletLuBressan_MCMC_MHS_without_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k);
 double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Varray, int k);
 void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr); // returns void instead of double because this function isn't called in SampleGraphlet
-void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int edge);
+void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, unsigned edge);
 double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumulators *accums); // call with cc=G->n to allow unbiased choice
-void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int windowSize, int edge);
+void initializeSlidingWindow(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int windowSize, unsigned edge);
 void crawlOneStep(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G);
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G);
 

@@ -75,9 +75,9 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
         }
         if (_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
             for(int i=0; i<_numCanon; i++) {
-            for(int j=0; j<G->n; j++) {
-                _graphletDegreeVector[i][j] += threadData[t].accums->graphletDegreeVector[i][j];
-            }
+		for(int j=0; j<G->n; j++) {
+		    _graphletDegreeVector[i][j] += threadData[t].accums->graphletDegreeVector[i][j];
+		}
             }
         }
         if (_outputMode & communityDetection) {

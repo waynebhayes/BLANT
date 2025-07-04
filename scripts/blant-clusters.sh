@@ -76,7 +76,7 @@ COMPLEMENT=''
 TURAN=false
 DEBUG=false # set to true to store BLANT output
 VERBOSE=0
-QUIET=-qq
+QUIET=''
 PRECISION=-p1L
 PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
@@ -120,7 +120,7 @@ done
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
- trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+#trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 echo "TMPDIR is $TMPDIR" >&2
 [ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
 
@@ -130,6 +130,13 @@ Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the bel
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
 EDs=($3)
 net=$4
+
+[ -f "$net" ] || die "network '$net' does not exist"
+case "$net" in
+*.el|*.eln) [ "$WEIGHTED" = "" ] || die "non-weighted edgelist given with -w option";;
+*.elw) [ "X$WEIGHTED" = "X-w" ] || die "weighted edgelist given without -w option";;
+*) die "network '$net' must be an edgeList file ending in .el";;
+esac
 
 if [ "$COMPLEMENT" != "" ]; then
     net4awk=$TMPDIR/net4awk.el$W
@@ -162,13 +169,6 @@ meanED=`echo "$netCounts" | cut -f3`
 for k in "${Ks[@]}"; do
     [ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
 done
-
-[ -f "$net" ] || die "network '$net' does not exist"
-case "$net" in
-*.el) [ "$WEIGHTED" = "" ] || die "non-weighted edgelist given with -w option";;
-*.elw) [ "X$WEIGHTED" = "X-w" ] || die "weighted edgelist given without -w option";;
-*) die "network '$net' must be an edgeList file ending in .el";;
-esac
 
 # Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0
@@ -241,11 +241,15 @@ for edgeDensity in "${EDs[@]}"; do
 		ASSERT(minClus>=1,"minClus "minClus" must be >=1");
 	    }
 	    ARGIND==1{ # get the edge list [and weights if present]
-		if(FNR==1 && NF==1) {
+		if(NF==1){
+		    ASSERT(FNR==1, "single column only allowed on first line");
 		    ASSERT(1*$1==$1,"first line has one column but must be an int");
+		    Note("Got n="$1" from first line");
 		    nextline; # skip the number of nodes, if present
 		}
-		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns but have "NF);
+		else if(NF==2) weight=1;
+		else if(NF==3) weight=$3;
+		else ASSERT(0, "expecting either 2 or 3 columns but have "NF);
 		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
 	    }
 	    ARGIND==2 { # && !($2 in count) # uncomment to take only first occurence--faster but worse result
