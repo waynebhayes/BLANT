@@ -170,6 +170,10 @@ for k in "${Ks[@]}"; do
     [ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
 done
 
+echo "Don't forget: edgeDensity threshold for GDVs should fluctuate randomly as the cluster is built, with threshold
+something like ED+N(ED,ED/2), so that the expected density is still ED, but we're allowed to add nodes both above
+and below the threshold, at random" >&2
+
 # Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0
 if [ "$BLANT_FILES" = "$TMPDIR" ]; then
