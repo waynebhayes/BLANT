@@ -69,7 +69,7 @@ static FILE *interestFile;
 Boolean _child; // are we a child process?
 int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
-char * _sampleFileName;
+char * _sampleFileName, *_outputFileName;
 
 // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 unsigned int _k, _min_edge_count;
@@ -517,9 +517,9 @@ void* RunBlantInThread(void* arg) {
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
 
-    for (int i = 0; i < samplesPerThread; i++) {
+    for (int i = 0; i < samplesPerThread && !_earlyAbort; i++) {
         if (_window) {
-            Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
+            Fatal("Multithreading not yet implemented for any window-related output modes."); // needs to be done
         } 
         if (_outputMode & graphletDistribution) {
             // calls SampleGraphlet internally  
@@ -1484,6 +1484,7 @@ int main(int argc, char *argv[])
     {
 	switch(opt)
 	{
+	int fname_len, i, allDigits;
 	unsigned long nSampArg;
 	case 'q': do ++_quiet; while(optarg && *optarg++);
 	    break;
@@ -1726,11 +1727,20 @@ int main(int argc, char *argv[])
 	    break;
 	case 'T': _topThousandth = atoi(optarg);
 	    break;
-	case 'o': _orbitNumber = atoi(optarg);
+	case 'o':
+	    allDigits=0;
+	    fname_len = strlen(optarg);
+	    for(i=0;i<fname_len;i++) if(isdigit(optarg[i])) ++allDigits;
+	    if(allDigits==fname_len)
+		Warning("-o option no longer means orbits, it means 'output filename'; use -O for orbits");
+	    _outputFileName = Malloc(sizeof(char) * (fname_len+1));
+	    strncpy(_outputFileName, optarg, fname_len);
+	    break;
+	case 'O': _orbitNumber = atoi(optarg);
 	    break;
 	case 'f':
 	    odv_fname_len = strlen(optarg);
-	    _odvFile = malloc(sizeof(char) * odv_fname_len);
+	    _odvFile = Malloc(sizeof(char) * (odv_fname_len+1));
 	    strncpy(_odvFile, optarg, odv_fname_len);
 	    break;
 	case 'a':
@@ -1955,6 +1965,11 @@ int main(int argc, char *argv[])
         exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
     }
 #endif
+
+    if(_outputFileName) {
+	Note("redirected output from stdout to \"%s\"", _outputFileName);
+	FILE *fo = freopen(_outputFileName, "w", stdout);
+    }
 
     if(_outputMode & predict_merge)
 	exitStatus = Predict_Merge(G);
