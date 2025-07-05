@@ -187,7 +187,7 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 	# Possible values: MCMC NBE EBE RES
 	[ -f canon_maps/canon_list$k.txt ] || continue
 	ABSOLUTE_CLIQUE_COUNT=""
-	CMD="time"
+	CMD=""
 	$TURAN && CMD="./scripts/absolute-clique-count.sh $k $net > $TMPDIR/ACC 2>/dev/null &&"'ABSOLUTE_CLIQUE_COUNT="-A `cat $TMPDIR/ACC`";'
 	CMD="$CMD $BLANT_CMD $WEIGHTED $ABSOLUTE_CLIQUE_COUNT $COMPLEMENT $RANDOM_SEED -k$k $SAMPLE_METHOD -mc$COMMUNITY_MODE $net"
 	eval $CMD > $TMPDIR/blant$k.out &
@@ -195,6 +195,36 @@ if [ "$BLANT_FILES" = "$TMPDIR" ]; then
 fi
 
 RANDOM_SEED=`echo $RANDOM_SEED | sed 's/^-r *//'` # the "-r" is needed in CMD above but remove it for awk below.
+
+remove-subset-clusters(){ time hawk ' #attempt to remove duplicate clusters... takes TONS of CPU but not much RAM
+    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
+    {
+	delete S;
+	numNodes=$1
+	edgeHits=$2;
+	edgeWgts=$3;
+	for(i=4;i<=NF;i++) ++S[$i]
+	WARN(length(S)==numNodes,"mismatch(1) in numNodes and length(S)");
+	add=1;
+	for(i=1;i<=numClus;i++) {
+	    same=0;
+	    for(u in S) if(u in cluster[i])++same;
+	    if(same == length(cluster[i])){add=0; break;} # only eliminate EXACT duplicates at this stage
+	}
+	if(add) {
+	    ++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
+	    for(u in S) ++cluster[numClus][u]
+	}
+    }
+    END{
+	for(i=1;i<=numClus;i++) {
+	    maxEdges=choose(length(cluster[i]),2);
+	    printf "%d %d %g '$k'",length(cluster[i]),edges[i],edgeSum[i]
+	    for(u in cluster[i]) printf " %s", u
+	    print ""
+	}
+    }'
+}
 
 for k in "${Ks[@]}"; do
     wait; (( BLANT_EXIT_CODE += $? ))
@@ -235,7 +265,7 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
-	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
+	hawk ' # build the actual communities; needs lots of RAM and CPU, eg 300GB and 24h for Skinnider 3.48M dream03
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
 		M=1*'$minClusArg'; if(M>=1) minClus=M;
 		else {
@@ -437,37 +467,13 @@ for edgeDensity in "${EDs[@]}"; do
 		    #else print " REJECTED" > "/dev/stderr";
 		}
 	    }' "$net4awk" - | # dash is the output of the above pipe (sorted cluster counts)
-	sort -T $TMPDIR -nr |
-	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
-	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
-	    {
-		delete S;
-		numNodes=$1
-		edgeHits=$2;
-		edgeWgts=$3;
-		for(i=4;i<=NF;i++) ++S[$i]
-		WARN(length(S)==numNodes,"mismatch(1) in numNodes and length(S)");
-		add=1;
-		for(i=1;i<=numClus;i++) {
-		    same=0;
-		    for(u in S) if(u in cluster[i])++same;
-		    if(same == length(cluster[i])){add=0; break;} # only eliminate EXACT duplicates at this stage
-		}
-		if(add) {
-		    ++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
-		    for(u in S) ++cluster[numClus][u]
-		}
-	    }
-	    END{
-		for(i=1;i<=numClus;i++) {
-		    maxEdges=choose(length(cluster[i]),2);
-		    printf "%d %d %g '$k'",length(cluster[i]),edges[i],edgeSum[i]
-		    for(u in cluster[i]) printf " %s", u
-		    print ""
-		}
-	    }
-	    ' | # sort by number of nodes, then by first node in the list:
-	sort -T $TMPDIR $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
+	sort -T $TMPDIR -nr | tee /tmp/x | # sort by node count, largest to smallest
+	if [ -x ./remove-subset-clusters ]; then # use the compiled executable
+	    time ./remove-subset-clusters $k $numNodes
+	else # fall back to the AWK version
+	    remove-subset-clusters $k $numNodes
+	fi |
+	sort -T $TMPDIR $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by #nodes, then by first node in list
     done
     for k in "${Ks[@]}"; do
 	    wait; (( BLANT_EXIT_CODE += $? ))

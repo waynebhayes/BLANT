@@ -156,6 +156,9 @@ $(BLANT_CANON_DIR): base $(canon_all) sub$(BLANT_CANON_DIR)
 
 ### Executables ###
 
+remove-subset-clusters: libwayne $(SRCDIR)/remove-subset-clusters.c
+	$(CC) -O3 -o $@ $(SRCDIR)/remove-subset-clusters.c $(LIBWAYNE_BOTH)
+
 fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
 
