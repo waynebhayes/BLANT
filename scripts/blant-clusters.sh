@@ -15,7 +15,8 @@ OPTIONS (added BEFORE the blant.exe name)
     -T DIR: use temp space here rather than /tmp
     -A: Use Sweta Jain's Turan's Shadow code to estimate absolute counts
     -C: run on the complement graph, G' (careful, this can cause long run times)
-    -1: exit after printing only one 1 cluster (the biggest one)
+    -b: exit after printing only the biggest cluster
+    -1: only take the first occurence of a node and its neighbors (faster but may get worse result)
     -h: use only the highest count graphlet/orbit for neighbors
     -S: cluster count sorted by the normalized square
     -w: networks are edge-weighted; pass -w to BLANT to use weighted graphlets
@@ -66,17 +67,18 @@ COMMUNITY_MODE=g  # can be g for graphlet (the default if empty), or o for orbit
 SQR_NORM=0
 WEIGHTED=''
 W=''
-ONLY_ONE=0
+ONLY_BIGGEST=0
 exclusive=0
 SAMPLE_METHOD=-sEBE #MCMC #-sNBE
 ONLY_BEST_ORBIT=0
+ONLY_FIRST=0
 OVERLAP=0.5
 EDGE_PREDICT=0
 COMPLEMENT=''
 TURAN=false
 DEBUG=false # set to true to store BLANT output
 VERBOSE=0
-QUIET=''
+QUIET='' #-qq
 PRECISION=-p1L
 PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
@@ -87,7 +89,8 @@ BLANT_FILES=''
 
 while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     case "$1" in
-    -1) ONLY_ONE=1; shift;;
+    -b) ONLY_BIGGEST=1; shift;;
+    -1) ONLY_FIRST=1; shift;;
     -h) ONLY_BEST_ORBIT=1; shift;;
     -S) SQR_NORM=1; shift;;
     -w) WEIGHTED="$1"; W=w; shift;;
@@ -131,6 +134,11 @@ Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the bel
 EDs=($3)
 net=$4
 
+[ -x $BLANT_EXE ] || die "'$BLANT_EXE' does not exist or is not an executable"
+for k in "${Ks[@]}"; do
+    [ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
+done
+
 [ -f "$net" ] || die "network '$net' does not exist"
 case "$net" in
 *.el|*.eln) [ "$WEIGHTED" = "" ] || die "non-weighted edgelist given with -w option";;
@@ -164,11 +172,6 @@ fi
 numNodes=`echo "$netCounts" | cut -f1`
 numEdges=`echo "$netCounts" | cut -f2`
 meanED=`echo "$netCounts" | cut -f3`
-
-[ -x $BLANT_EXE ] || die "'$BLANT_EXE' does not exist or is not an executable"
-for k in "${Ks[@]}"; do
-    [ "$k" -ge 3 -a "$k" -le 8 ] || die "One k is '$k' but must be between 3 and 8"
-done
 
 echo "Don't forget: edgeDensity threshold for GDVs should fluctuate randomly as the cluster is built, with threshold
 something like ED+N(ED,ED/2), so that the expected density is still ED, but we're allowed to add nodes both above
@@ -256,7 +259,8 @@ for edgeDensity in "${EDs[@]}"; do
 		else ASSERT(0, "expecting either 2 or 3 columns but have "NF);
 		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
 	    }
-	    ARGIND==2 { # && !($2 in count) # uncomment to take only first occurence--faster but worse result
+	    ARGIND==2 {
+		if('$ONLY_FIRST' && ($2 in count)) next;
 		item=$3; count[$2]+=$1; node[FNR]=$2; line[$2]=FNR;
 		for(i=4; i<=NF; i++) if(edge[$2][$i] > '$minEdgeMean'/2) # heuristic: avoid too-weak edges
 		    graphletNeighbors[$2][$i]=graphletNeighbors[$i][$2]=1;
@@ -281,7 +285,7 @@ for edgeDensity in "${EDs[@]}"; do
 	    function highRelClusCount(u, v) { # Heuristic
 		if(!(u in count) || count[u]==0) return 1;
 		if(!(v in count) || count[v]==0) return 0;
-		if (v in count) return count[v]/count[u]>=sqrt('$edgeDensity')*0.9; # 0.7 seems about optimal, but 0.5 to 0.9 also work well
+		if (v in count) return count[v]/count[u]>=sqrt('$edgeDensity')*0.7; # values in [0.5,0.9] work well
 		else return 1/count[u]>=0.5;
 	    }
 	    function AppendNeighbors(u,origin,    v,oldOrder, edgesIntoS) {
@@ -422,6 +426,7 @@ for edgeDensity in "${EDs[@]}"; do
 			for(u in S) {cluster[numClus][u]=1; printf " %s", u; StatAddSample("", degreeInS[u]);}
 			#printf "final |S|=%d mean %g stdDev %g min %d max %d:\n", _statN[""], StatMean(""), StatStdDev(""), StatMin(""), StatMax("") > "/dev/stderr"
 			print "";
+			if('$ONLY_BIGGEST') exit;
 			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
 			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be less stringent as it
 			# approaches 1, which in the case of THIS loop means that if OVERLAP is close to 1, we want
@@ -435,7 +440,6 @@ for edgeDensity in "${EDs[@]}"; do
 	sort -T $TMPDIR -nr |
 	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
-	    FNR>1 && '$ONLY_ONE'{exit}
 	    {
 		delete S;
 		numNodes=$1
