@@ -109,33 +109,34 @@ void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numE
     // dynamic windowRep Arr step
     if (_numWindowRep + 1 == _numWindowRepArrSize)
     {
-        _numWindowRepArrSize = MIN(2 * _numWindowRepArrSize, _MAXnumWindowRep);
-        _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
-        for(i=_numWindowRep; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+	_numWindowRepArrSize = MIN(2 * _numWindowRepArrSize, _MAXnumWindowRep);
+	_windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
+	for(i=_numWindowRep; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
     }
 
-	if (_windowRep_limit_method == WINDOW_LIMIT_UNDEF || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
-	{
-		for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
-        _windowReps[_numWindowRep++][_k] = GintOrdinal;
-	}
-	else if (_windowRep_limit_method == WINDOW_LIMIT_DEGREE)
-	{
-		int indegree=0;
-		for(i=0; i<_k; i++) indegree += GraphDegree(G,WArray[VArray[i]]); // should remove 2*numEdges to get the exact indegree but the scale is the same.
-		updateWindowRepLimitHeap(WArray, VArray, perm, indegree);
-	}
-	else if (_windowRep_limit_method == WINDOW_LIMIT_EDGES)
-	{
-		SET *NeighborNodes = SetAlloc(G->n);
-		Apology("sorry no blant-window");
-		//for(i=0; i<_k; i++) for(j=0; j<GraphDegree(G,WArray[VArray[i]]); j++) SetAdd(NeighborNodes, G->neighbor[WArray[VArray[i]]][j]);
-		GRAPH *GNeighbor = GraphInduced(G, NeighborNodes);
-		updateWindowRepLimitHeap(WArray, VArray, perm, GNeighbor->m - numEdges);
+    if (_windowRep_limit_method == WINDOW_LIMIT_UNDEF || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
+    {
+	for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
+	_windowReps[_numWindowRep++][_k] = GintOrdinal;
+    }
+    else if (_windowRep_limit_method == WINDOW_LIMIT_DEGREE)
+    {
+	int indegree=0;
+	for(i=0; i<_k; i++) // should remove 2*numEdges to get the exact indegree but the scale is the same.
+	    indegree += GraphDegree(G,WArray[VArray[i]]);
+	updateWindowRepLimitHeap(WArray, VArray, perm, indegree);
+    }
+    else if (_windowRep_limit_method == WINDOW_LIMIT_EDGES)
+    {
+	Apology("sorry no blant-window");
+	//SET *NeighborNodes = SetAlloc(G->n);
+	//for(i=0; i<_k; i++) for(j=0; j<GraphDegree(G,WArray[VArray[i]]); j++) SetAdd(NeighborNodes, G->neighbor[WArray[VArray[i]]][j]);
+	//GRAPH *GNeighbor = GraphInduced(G, NeighborNodes);
+	//updateWindowRepLimitHeap(WArray, VArray, perm, GNeighbor->m - numEdges);
 
-	}
-	else
-		Fatal("Undefined windowRep Limiting Method. Refer to -l{DEG}.\n");
+    }
+    else
+	Fatal("Undefined windowRep Limiting Method. Refer to -l{DEG}.\n");
 }
 
 void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int numEdges, unsigned *WArray, unsigned *VArray, MULTISET *canonMSET, unsigned char perm[])
@@ -344,9 +345,13 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
     VArray = Calloc(_k, sizeof(int));
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
     {
-    	GRAPH *Gi = GraphInduced(G, W);
+	Apology("sorry no blant-window");
+    #if 0
+	unsigned array[G->n];
+    	GRAPH *Gi = GraphInduced(G, W, G->n, array);
     	FindWindowRepByDeg(Gi, WArray);
     	return;
+    #endif
     }
 
     if(_windowIterationMethod == WINDOW_ITER_COMB)
@@ -364,11 +369,12 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
     }
     else if (_windowIterationMethod == WINDOW_ITER_DFS)
     {
-        GRAPH *Gi = GraphInduced(G, W);
-        int v, varraySize;
-        SET *Vextension = SetAlloc(Gi->n);
 	Apology("sorry no blant-window");
     #if 0
+	unsigned array[G->n];
+        GRAPH *Gi = GraphInduced(G, W, G->n, array);
+        int v, varraySize;
+        SET *Vextension = SetAlloc(Gi->n);
         for(v=0; v<_windowSize; v++)
         {
             SetEmpty(Vextension);
@@ -379,9 +385,9 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
             VArray[varraySize++]=v;
             ExtendSubGraph(G, Gi, WArray, VArray, Vextension, v, &varraySize, windowAdjList, windowRepInt, D, canonMSET, perm);
         }
-    #endif
         SetFree(Vextension);
         GraphFree(Gi);
+    #endif
     }
     else {
     	Fatal("Undefined Window Iteration Methods.\nRefer to -P[COMB|DFS].\n");
