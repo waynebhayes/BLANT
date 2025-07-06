@@ -173,9 +173,7 @@ numNodes=`echo "$netCounts" | cut -f1`
 numEdges=`echo "$netCounts" | cut -f2`
 meanED=`echo "$netCounts" | cut -f3`
 
-echo "Don't forget: edgeDensity threshold for GDVs should fluctuate randomly as the cluster is built, with threshold
-something like ED+N(ED,ED/2), so that the expected density is still ED, but we're allowed to add nodes both above
-and below the threshold, at random" >&2
+# echo "Don't forget: edgeDensity threshold for GDVs should fluctuate randomly as the cluster is built, with threshold something like ED+N(ED,ED/2), so that the expected density is still ED, but we're allowed to add nodes both above and below the threshold, at random" >&2
 
 # Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0
@@ -328,6 +326,7 @@ build-clusters(){ time hawk '
 		wgtEdgeCount += wgtEdgeHits;
 		S[u]=1;
 		Slen = length(S);
+		#printf "start %d u %s newEdgeHits %d edgeCount %d Slen %d\n",start,u,newEdgeHits,edgeCount,Slen>"/dev/stderr"
 		ASSERT(Slen > 0, "Slen must be > 0 but is "Slen);
 		if(Slen >= '$maxClus') break;
 		# CAREFUL: calling InducedEdges(S) every QueueNext() is VERY expensive; uncommenting the line below
@@ -472,16 +471,17 @@ for edgeDensity in "${EDs[@]}"; do
 	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
 	if [ -x build-clusters ]; then # use the compiled executable
 	    # Help the C program by telling it how many neighbors there are since scanf() can't distinguish lines
-	    awk '{printf "%s %s %s %d", $1,$2,$3,NF-3; for(i=4;i<=NF;i++) printf " %s",$i; print ""}' |
-		./build-clusters "$net4awk" -
+	    # arguments: edgeDensity minClus edgeList.el blant-output
+	    awk '{printf "%s %s %s %d", $1,$2,$3,NF-3; for(i=4;i<=NF;i++) printf " %s",$i; print ""}' | tee /tmp/x |
+		./build-clusters $edgeDensity $minClusArg "$net4awk" -
 	else # fall back to the AWK version
 	    build-clusters "$net4awk" -
 	fi |
 	sort -T $TMPDIR -nr | # sort by node count, largest to smallest
 	if [ -x remove-subset-clusters ]; then # use the compiled executable
-	    ./remove-subset-clusters $k $numNodes
+	    ./remove-subset-clusters $k "$net4awk"
 	else # fall back to the AWK version
-	    remove-subset-clusters $k $numNodes
+	    remove-subset-clusters
 	fi |
 	sort -T $TMPDIR $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by #nodes, then by first node in list
     done
