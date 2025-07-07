@@ -126,7 +126,8 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 
     // Allocate the space for the globals
     count = Calloc(G->n, sizeof(double)); // the total count of graphlets above ED for each node
-    line2node = Calloc(G->n, sizeof(unsigned)); // the node number indexed by the LINE NUMBER
+    unsigned line2nodeSize = G->n;
+    line2node = Calloc(line2nodeSize, sizeof(unsigned)); // the node number indexed by the LINE NUMBER
     node2line = Calloc(G->n, sizeof(unsigned)); // opposite of the above: what node was on line FNR?
     graphletNeighbors = Calloc(G->n, sizeof(SET*));
     for(i=0;i<G->n;i++) graphletNeighbors[i] = SetAlloc(G->n);
@@ -146,6 +147,10 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	unsigned node = GraphNodeNameToInt(G, name);
 	if(onlyFirst && count[node]) /* technically skip this node but we still have to read+discard all the neighbors */ ;
 	else {
+	    if(FNR>=line2nodeSize) {
+		line2nodeSize *= 2;
+		line2node = Realloc(line2node, line2nodeSize*sizeof(unsigned));
+	    }
 	    line2node[FNR]=node;
 	    node2line[node]=FNR;
 	    count[node] += score;
@@ -312,5 +317,12 @@ int main(int argc, char *argv[]) {
     Boolean self=false, directed=false, weighted=false;
     G = GraphReadEdgeList(graphFile, self, directed, weighted);
     fclose(graphFile);
+
+    long seed;
+    char *env = getenv("RANDOM_SEED");
+    if(env) seed = atol(env);
+    else seed = GetFancySeed(false);
+    srand48(seed);
+
     BuildClusters(ED, minClusArg, blantFile);
 }
