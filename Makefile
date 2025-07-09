@@ -156,8 +156,8 @@ $(BLANT_CANON_DIR): base $(canon_all) sub$(BLANT_CANON_DIR)
 
 ### Executables ###
 
-remove-subset-clusters: libwayne $(SRCDIR)/remove-subset-clusters.c
-	$(CC) -O3 -o $@ $(SRCDIR)/remove-subset-clusters.c $(LIBWAYNE_BOTH)
+remove-overlap-clusters: libwayne $(SRCDIR)/remove-overlap-clusters.c
+	$(CC) -O3 -o $@ $(SRCDIR)/remove-overlap-clusters.c $(LIBWAYNE_BOTH)
 
 build-clusters: libwayne $(SRCDIR)/build-clusters.c
 	$(CC) -O3 -o $@ $(SRCDIR)/build-clusters.c $(LIBWAYNE_BOTH)

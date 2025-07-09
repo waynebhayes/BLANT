@@ -8,7 +8,7 @@
 
 /* This should be an exact substitute for a similarly named bash+awk script in the blant-clusters.sh suite.
     The command-line arguments are:
-	./build-clusters ED minClus edgeList.el sorted-blant-output
+	./build-clusters k ED minClus edgeList.el sorted-blant-output
    where ED is the desired minimum edge density of the clusters to discover, minClus is the desired minimum cluster size;
 	possible minClus values:
 	    1) an integer>=3, that's the explicit smallest cluster to output (a good choice is k+1)
@@ -99,7 +99,7 @@ void AppendNeighbors(unsigned u, unsigned origin) {
     }
 }
 
-void BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
+void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp){
     unsigned seed = GetFancySeed(false), maxEdgesG = G->n*(G->n-1)/2, minClus;
     double eps=G->m*1.0/maxEdgesG;
     assert(minClusArg >= 0 && (minClusArg < 1 || (minClusArg>=3 && minClusArg == (int)minClusArg)));
@@ -284,7 +284,7 @@ void BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	if(Slen>=minClus /* && wgtEdgeCount*1.0/edgeCount>='$minEdgeMean'*/ ) {
 	    unsigned maxEdges=Slen*(Slen-1)/2;
 	    //print " ACCEPTED" > "/dev/stderr";
-	    ++numClus; printf("%d %d %g", Slen, edgeCount, 1.0*edgeCount);
+	    ++numClus; printf("%d %d %g %d", Slen, edgeCount, 1.0*edgeCount, k);
 	    StatReset(stat);
 	    tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
 	    assert(tmpEdge == edgeCount);
@@ -305,13 +305,14 @@ void BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 }
 
 int main(int argc, char *argv[]) {
-    if(argc!=5) Fatal("expecting 4 args: edgeDensity minClus edgeList.el blant-output");
-    double ED = atof(argv[1]);
-    double minClusArg = atof(argv[2]);
-    FILE *graphFile = Fopen(argv[3],"r"); assert(graphFile);
+    if(argc!=6) Fatal("expecting 5 args: k edgeDensity minClus edgeList.el blant-output");
+    int k=atoi(argv[1]);
+    double ED = atof(argv[2]);
+    double minClusArg = atof(argv[3]);
+    FILE *graphFile = Fopen(argv[4],"r"); assert(graphFile);
     FILE *blantFile;
-    if(strcmp(argv[4],"-")==0) blantFile=stdin;
-    else blantFile = Fopen(argv[4],"r");
+    if(strcmp(argv[5],"-")==0) blantFile=stdin;
+    else blantFile = Fopen(argv[5],"r");
     assert(blantFile);
     Boolean self=false, directed=false, weighted=false;
     G = GraphReadEdgeList(graphFile, self, directed, weighted);
@@ -323,5 +324,5 @@ int main(int argc, char *argv[]) {
     else seed = GetFancySeed(false);
     srand48(seed);
 
-    BuildClusters(ED, minClusArg, blantFile);
+    BuildClusters(k, ED, minClusArg, blantFile);
 }

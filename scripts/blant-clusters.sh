@@ -194,30 +194,36 @@ fi
 
 RANDOM_SEED=`echo $RANDOM_SEED | sed 's/^-r *//'` # the "-r" is needed in CMD above but remove it for awk below.
 
-remove-subset-clusters(){ hawk ' #attempt to remove duplicate clusters... takes TONS of CPU but not much RAM
-    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
+# First argument defines the lower bound on the fractional overlap with a previous cluster beyond which a cluster
+# will be REMOVED. ie., any cluster will be removed if it overlaps with a previous one by at least this fraction of its
+# nodes (set to 1 to remove only EXACT duplicates)
+remove-overlap-clusters(){ BOUND="$1"; shift;
+    hawk ' # post-process to remove overlapping clusters
+    BEGIN{ numClus=0 }
     {
 	delete S;
 	numNodes=$1
 	edgeHits=$2;
 	edgeWgts=$3;
-	for(i=4;i<=NF;i++) ++S[$i]
+	k=$4;
+	for(i=5;i<=NF;i++) ++S[$i]
 	WARN(length(S)==numNodes,"mismatch(1) in numNodes and length(S)");
 	add=1;
 	for(i=1;i<=numClus;i++) {
 	    same=0;
 	    for(u in S) if(u in cluster[i])++same;
-	    if(same == length(cluster[i])){add=0; break;} # only eliminate EXACT duplicates at this stage
+	    if(same >= length(S)*'$BOUND'){ add=0; break;} # we check ONLY $BOUND fraction of the NEW cluster
 	}
 	if(add) {
-	    ++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
-	    for(u in S) ++cluster[numClus][u]
+	    ++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts; kk[numClus]=k;
+	    for(u in S) ++cluster[numClus][u];
 	}
     }
     END{
+	PROCINFO["sorted_in"]="@ind_num_asc"; # print nodes in numerical ascending order
+	#PROCINFO["sorted_in"]="@ind_str_asc"; # print nodes in string ascending order
 	for(i=1;i<=numClus;i++) {
-	    maxEdges=choose(length(cluster[i]),2);
-	    printf "%d %d %g '$k'",length(cluster[i]),edges[i],edgeSum[i]
+	    printf "%d %d %g %d", length(cluster[i]), edges[i], edgeSum[i], kk[i]
 	    for(u in cluster[i]) printf " %s", u
 	    print ""
 	}
@@ -226,8 +232,9 @@ remove-subset-clusters(){ hawk ' #attempt to remove duplicate clusters... takes 
 
 # build actual communities; lots of RAM and CPU, eg 300GB and 24h for Skinnider 3.48M dream03
 # Expects 2 arguments: edgeList.el, and "-", which is blant output sorted by count.
-build-clusters(){ time hawk '
-    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
+build-clusters(){ k=$1; shift;
+    [ 3 -le "$k" -a "$k" -le 8 ] || die "build-clusters: k must be in [3,8]"
+    hawk 'BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
 	M=1*'$minClusArg'; if(M>=1) minClus=M;
 	else {
 	    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
@@ -410,7 +417,7 @@ build-clusters(){ time hawk '
 	    if(Slen>=minClus && wgtEdgeCount/edgeCount>='$minEdgeMean') {
 		maxEdges=choose(Slen,2);
 		#print " ACCEPTED" > "/dev/stderr";
-		++numClus; printf "%d %d %g", Slen, edgeCount, wgtEdgeCount
+		++numClus; printf "%d %d %g '$k'", Slen, edgeCount, wgtEdgeCount
 		StatReset("");
 		tmpEdge=InducedEdges(edge,S, degreeInS);
 		ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(2) with InducedEdges of "tmpEdge);
@@ -428,6 +435,16 @@ build-clusters(){ time hawk '
 	    #else print " REJECTED" > "/dev/stderr";
 	}
     }' "$@"
+}
+
+# check if there's a compiled executable of the appropriate name, otherwise fall back on hawk version
+use-compiled() {
+    EXE="$1"; shift;
+    if [ -x "$EXE" ]; then # use the compiled executable
+	./"$EXE" "$@"
+    else # fall back to the AWK version
+	"$EXE" "$@"
+    fi
 }
 
 for k in "${Ks[@]}"; do
@@ -473,16 +490,12 @@ for edgeDensity in "${EDs[@]}"; do
 	    # Help the C program by telling it how many neighbors there are since scanf() can't distinguish lines
 	    # arguments: edgeDensity minClus edgeList.el blant-output
 	    awk '{printf "%s %s %s %d", $1,$2,$3,NF-3; for(i=4;i<=NF;i++) printf " %s",$i; print ""}' | tee /tmp/x |
-		./build-clusters $edgeDensity $minClusArg "$net4awk" -
+		./build-clusters $k $edgeDensity $minClusArg "$net4awk" -
 	else # fall back to the AWK version
-	    build-clusters "$net4awk" -
+	    build-clusters "$k" "$net4awk" -
 	fi |
 	sort -T $TMPDIR -nr | # sort by node count, largest to smallest
-	if [ -x remove-subset-clusters ]; then # use the compiled executable
-	    ./remove-subset-clusters $k "$net4awk"
-	else # fall back to the AWK version
-	    remove-subset-clusters
-	fi |
+	use-compiled remove-overlap-clusters 1 "$net4awk" | 
 	sort -T $TMPDIR $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by #nodes, then by first node in list
     done
     for k in "${Ks[@]}"; do
@@ -492,56 +505,23 @@ done
 
 # we can use the --merge option because the subfinal files are already sorted in SUBFINAL_SORT order
 sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
-    hawk 'BEGIN{ numClus=0 } # post-process to remove/merge duplicates
-	{
-	    delete S;
-	    numNodes=$1
-	    edgeHits=$2;
-	    edgeWgts=$3;
-	    k=$4;
-	    for(i=5;i<=NF;i++) ++S[$i]
-	    WARN(length(S)==numNodes,"mismatch(2) in numNodes and length(S)");
-	    add=1;
-	    for(i=1;i<=numClus;i++) {
-		same=0;
-		for(u in S) if(u in cluster[i])++same;
-		if(same > length(S)*'$OVERLAP'){ add=0; break;} # we check ONLY if $OVERLAP fraction of the NEW cluster
-		# overlaps any one old cluster... it is TOTALLY ALLOWED to completely overlap the old cluster if it is
-		# lower density, for example, so the below check is incorrect.
-		#if(same > MAX(length(S), length(cluster[i]))*'$OVERLAP'){ add=0; break;}
-	    }
-	    # Skipping an entire cluster with overlap sucks, but merging does not work either. Here is a better way:
-	    # The idea is to provide ALTERNATES.  So for example if 2 clusters of size k overlap in all but one node,
-	    # and have the same total number of edges, then the 2 nodes that are OUTSIDE the overlap form "alternate"
-	    # forms of an identical cluster, at least in quality. (It is likely that they effectively form identical
-	    # graphlets with a large k, and the 2 nodes occupy the same orbit in the graphlet). So if node A can be
-	    # swapped out with node B to get an identical quality cluster, then that could be listed as "one" node
-	    # A#B in the output, meaning A and B can we swapped and you still get the same number of nodes and edges,
-	    # while adding both does not work. Doing this correctly requires some thought, so it will have to wait.
-
-	    if(add) {
-		++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts; kk[numClus]=k;
-		for(u in S) ++cluster[numClus][u];
-	    }
-	}
-	END {
-	    PROCINFO["sorted_in"]="@ind_num_asc"; # print nodes in numerical ascending order
+    use-compiled remove-overlap-clusters "$OVERLAP" "$net4awk" | 
+	hawk ' # now prettyprint
+	BEGIN{ PROCINFO["sorted_in"]="@ind_num_asc"; # print nodes in numerical ascending order
 	    #PROCINFO["sorted_in"]="@ind_str_asc"; # print nodes in string ascending order
-	    for(i=1;i<=numClus;i++) {
-		maxEdges=choose(length(cluster[i]),2);
-		edgeMean = edgeSum[i]/edges[i];
-		ASSERT(edgeMean>='$minEdgeMean', "oops, should not get this far with an edgeMean of "edgeMean);
-		printf "%d nodes, %d/%d edges, %g%% density from k%d", length(cluster[i]), edges[i], maxEdges,
-		    100*edges[i]/maxEdges, k
-		if('$VERBOSE') printf " from k %d, %g clusterWeight, %g edgeSum, %g edgeMean", kk[i],
-		    edgeSum[i]/length(cluster[i]), edgeSum[i], edgeMean
-		if('$PRINT_MEMBERS') {
-		    printf ", nodeSet {"
-		    for(u in cluster[i]) printf " %s", u
-		    printf " }"
-		}
-		print ""
+	}
+	{ nodes=$1; edges=$2; edgeSum=$3; k=$4;
+	    maxEdges=choose(nodes,2);
+	    ASSERT(edgeSum/edges>='$minEdgeMean', "oops, should not get this far with an edgeMean of "edgeSum/edges);
+	    printf "%d nodes, %d/%d edges, %g%% density (clusterWeight %g) from k%d", nodes, edges, maxEdges,
+		100*edges/maxEdges, edgeSum, k
+	    if('$PRINT_MEMBERS') {
+		printf ", nodeSet {"
+		for(c=5;c<=NF;c++) printf " %s", $c
+		printf " }"
 	    }
-	}' | sort -T $TMPDIR -k 1nr -k 3nr -k 9n # sort order: edge density, number of nodes, value of k
+	    print ""
+	}' |
+    sort -T $TMPDIR -k 1nr -k 8gr -k 10 -k 12 # sort order: nodeCount, clusterWeight, k, nodeSet
 #set -x
 exit $BLANT_EXIT_CODE

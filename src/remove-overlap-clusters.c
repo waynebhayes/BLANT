@@ -8,16 +8,17 @@
 //   n m w v1 v2 v3 ...
 // where n=number of nodes in the cluster, m is the number of edges, w is mean edge weight, and v_i are the member nodes.
 // G->n is the maximum expected cluster size (easiest if it's just the number of nodes in the input graph).
-void RemoveSubsetClusters(int k, GRAPH *G, FILE *fp) {
-    unsigned i, numClus=0;
+void RemoveOverlapClusters(double overlap, GRAPH *G, FILE *fp) {
+    unsigned i, numClus=0, kk[G->n];
     SET *S = SetAlloc(G->n);
     SET **cluster = Calloc(G->n, sizeof(SET*)); // actual number of clusters can probably be bigger...
     unsigned *edges = Calloc(G->n, sizeof(unsigned));
     float *edgeSum = Calloc(G->n, sizeof(float));
     while(!feof(fp)) {
-	unsigned numNodes, edgeHits; double edgeWgts;
-	int numRead = fscanf(fp, "%u%u%lf", &numNodes, &edgeHits, &edgeWgts);
-	if(numRead != 3) Fatal("couldn't find n m w, got only %d values: %u %u %g", numRead, numNodes,edgeHits,edgeWgts);
+	double edgeWgts;
+	unsigned numNodes, edgeHits, k;
+	int numRead = fscanf(fp, "%u%u%lf%u", &numNodes, &edgeHits, &edgeWgts, &k);
+	if(numRead!=4) Fatal("couldn't find n m w k, got only %d values: %u %u %g %u",numRead, numNodes,edgeHits,edgeWgts,k);
 	SetEmpty(S);
 	for(i=0;i<numNodes;i++) {
 	    char name[BUFSIZ]; strcpy(name,"<undefined>");
@@ -26,14 +27,16 @@ void RemoveSubsetClusters(int k, GRAPH *G, FILE *fp) {
 	    SetAdd(S, node);
 	}
 	Boolean add=true;
-	for(i=0;i<numClus;i++) if(SetSubsetEq(S, cluster[i])) { add=false; break;} // eliminate only EXACT subsets for now
+	for(i=0;i<numClus;i++) if(SetIntersectCount(S, cluster[i]) >= overlap*SetCardinality(S)) {
+	    add=false; break;
+	}
 	if(add) {
 	    if(numClus >= G->n) {
 		Warning("numClus has reached the maximum of %u, not reading any more clusters", numClus);
 		break;
 	    }
 	    cluster[numClus] = SetCopy(NULL, S);
-	    edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
+	    edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;kk[numClus]=k;
 	    ++numClus; 
 	}
     }
@@ -41,20 +44,20 @@ void RemoveSubsetClusters(int k, GRAPH *G, FILE *fp) {
 	unsigned j, memberList[G->n];
 	int n = SetCardinality(cluster[i]);
 	unsigned maxEdges=n*(n-1)/2;
-	printf("%d %d %g %d", n ,edges[i], edgeSum[i], k);
+	printf("%d %d %g %d", n ,edges[i], edgeSum[i], kk[i]);
 	SetToArray(memberList, cluster[i]);
 	for(j=0;j<SetCardinality(cluster[i]);j++) printf(" %s", G->name[memberList[j]]);
 	puts("");
     }
 }
 
-const char const * const USAGE = "expecting \"k edgeList.el\" on command line";
+const char const * const USAGE = "expecting \"OVERLAP_BOUND edgeList.el\" on command line";
 
 int main(int argc, char *argv[]) {
     if(argc!=3) Fatal(USAGE);
-    unsigned k=atoi(argv[1]);
-    if(k<3 || k>9) Fatal("k must be between 3 and 9");
+    double overlap=atof(argv[1]);
+    if(overlap<0 || overlap>1) Fatal("overlap %g must be in [0,1]", overlap);
     FILE *graphFile = Fopen(argv[2],"r"); assert(graphFile);
     GRAPH *G = GraphReadEdgeList(graphFile, false, false, false);
-    RemoveSubsetClusters(k, G, stdin);
+    RemoveOverlapClusters(overlap, G, stdin);
 }
