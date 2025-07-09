@@ -966,7 +966,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	_outputMode & outputGDV || _outputMode & outputODV) && !_window)
 	computeAbsoluteMultiplier(numSamples);
 
-    int canon, orbit_index, u,v,c;
+    int canon, orbit_index,c;
+    unsigned u,v;
     // case indexGraphlets: case indexGraphletsRNO: case indexOrbits: case indexMotifs: case indexMotifOrbits:
 	//break; // already printed on-the-fly in the Sample/Process loop above
     if(_outputMode & graphletFrequency) {
@@ -1034,17 +1035,17 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    double odv=_orbitDegreeVector[orbit_index][u];
 		    int numPrinted = 0;
 		    if(odv && _communityNeighbors[u] && _communityNeighbors[u][orbit_index] && SetCardinality(_communityNeighbors[u][orbit_index])) {
-			int neigh=0;
+			unsigned neigh=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
 			    char jbuf[BUFSIZ];
-			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=-1); // G->neighbor[u][j];
+			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=G->n);
 			    if(SetIn(_communityNeighbors[u][orbit_index],v)) {
 				if(!numPrinted++) sprintf(buf, "%s %d %.15g\t", PrintNode(jbuf, 0,u), orbit_index, odv);
 				if(strlen(buf)>=bufSiz/2) buf = Realloc(buf, (bufSiz*=2));
 				PrintNode(buf+strlen(buf), ' ',v);
 			    }
 			}
-			assert(-1==GraphNextNeighbor(G,u,&neigh));
+			assert(v==G->n && G->n==GraphNextNeighbor(G,u,&neigh));
 			assert(strlen(buf) < bufSiz);
 			if(numPrinted) puts(buf);
 		    }
@@ -1057,17 +1058,18 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    double gdv=_graphletDegreeVector[c][u];
 		    int numPrinted = 0;
 		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
-			int neigh=0;
+			unsigned neigh=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
 			    char jbuf[BUFSIZ];
-			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=-1); //G->neighbor[u][j];
+			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=G->n);
 			    if(SetIn(_communityNeighbors[u][c],v)) {
 				if(!numPrinted++) sprintf(buf, "%s %d %lg\t", PrintNode(jbuf, 0,u), c, gdv);
 				if(strlen(buf)>=bufSiz/2) buf = Realloc(buf, (bufSiz*=2));
 				PrintNode(buf+strlen(buf), ' ',v);
 			    }
 			}
-			assert(-1==GraphNextNeighbor(G,u,&neigh));
+			assert(j==GraphDegree(G,u));
+			assert(GraphNextNeighbor(G,u,&neigh) == G->n);
 			assert(strlen(buf) < bufSiz);
 			if(numPrinted) puts(buf);
 		    }
