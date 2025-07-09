@@ -99,10 +99,10 @@ void AppendNeighbors(unsigned u, unsigned origin) {
     }
 }
 
-int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
-    unsigned i, seed = GetFancySeed(false), maxEdgesG = G->n*(G->n-1)/2, minClus;
+void BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
+    unsigned seed = GetFancySeed(false), maxEdgesG = G->n*(G->n-1)/2, minClus;
     double eps=G->m*1.0/maxEdgesG;
-    assert(minClusArg >= 0 && (minClusArg < 1 || minClusArg>=3 && minClusArg == (int)minClusArg));
+    assert(minClusArg >= 0 && (minClusArg < 1 || (minClusArg>=3 && minClusArg == (int)minClusArg)));
     edgeDensity = desiredEdgeDensity;
     if(minClusArg>=1) {
 	if(minClusArg<3 || minClusArg != (int)minClusArg) Fatal("when minClus>=1, it must be an integer >=3");
@@ -130,7 +130,7 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
     line2node = Calloc(line2nodeSize, sizeof(unsigned)); // the node number indexed by the LINE NUMBER
     node2line = Calloc(G->n, sizeof(unsigned)); // opposite of the above: what node was on line FNR?
     graphletNeighbors = Calloc(G->n, sizeof(SET*));
-    for(i=0;i<G->n;i++) graphletNeighbors[i] = SetAlloc(G->n);
+    for(int i=0;i<G->n;i++) graphletNeighbors[i] = SetAlloc(G->n);
     S = SetAlloc(G->n);
     visitedQ = SetAlloc(G->n);
     Q = QueueAlloc(G->n);
@@ -155,7 +155,7 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	    node2line[node]=FNR;
 	    count[node] += score;
 	}
-	for(i=0;i<numNeigh;i++) {
+	for(int i=0;i<numNeigh;i++) {
 	    char name2[BUFSIZ]; strcpy(name2, "<undefined>"); // because we might print it in the case of error
 	    if(fscanf(fp, "%s ", name2) != 1) Fatal("couldn't get neighbor %d of node %s",i,name);
 	    unsigned neigh = GraphNodeNameToInt(G, name2);
@@ -241,7 +241,7 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	    unsigned array[G->n], degreeInS[G->n], degFreq[G->n]; for(int i=0;i<G->n;i++) degFreq[i]=0;
 	    unsigned tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
 	    assert(tmpEdge == edgeCount);
-	    for(unsigned i=0; i<Slen; i++){ unsigned v=array[i];
+	    for(int i=0; i<Slen; i++){ unsigned v=array[i];
 		StatAddSample(stat, degreeInS[v]);
 		++degFreq[degreeInS[v]];
 	    }
@@ -251,7 +251,7 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	    //printf " deg mean %g stdDev %g maxFreq %d degMode %d; pruning...", StatMean(""), StatStdDev(""), maxFreq, degMode > "/dev/stderr"
 	    //PROCINFO["sorted_in"] = "@val_num_asc"; // for loop through in-degrees, smallest first
 	    double sMean=StatMean(stat), sDev=StatStdDev(stat);
-	    for(unsigned i=0; i<Slen; i++){ unsigned v=array[i];
+	    for(int i=0; i<Slen; i++){ unsigned v=array[i];
 		if(degreeInS[v] < sMean - 3*sDev || degreeInS[v] < degMode/3.0) {
 		    //printf " %s(%d)", v, degreeInS[v] > "/dev/stderr";
 		    SetDelete(S,v);
@@ -266,7 +266,7 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	unsigned tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
 	assert(tmpEdge == edgeCount);
 	//PROCINFO["sorted_in"] = "@val_num_asc"; // for loop through in-degrees, smallest first
-	for(unsigned i=0; i<Slen; i++) { unsigned v=array[i];
+	for(int i=0; i<Slen; i++) { unsigned v=array[i];
 	    int tmpLen = SetCardinality(S);
 	    if(tmpLen<2) break;
 	    if(edgeCount*1.0/(tmpLen*(tmpLen-1)/2) >= edgeDensity) break; // break once ED is above threshsold
@@ -286,10 +286,9 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	    //print " ACCEPTED" > "/dev/stderr";
 	    ++numClus; printf("%d %d %g", Slen, edgeCount, 1.0*edgeCount);
 	    StatReset(stat);
-	    unsigned array[G->n], degreeInS[G->n];
-	    unsigned tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
+	    tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
 	    assert(tmpEdge == edgeCount);
-	    for(unsigned i=0;i<Slen;i++){unsigned u=array[i]; printf(" %s", G->name[u]); StatAddSample(stat, degreeInS[u]);}
+	    for(int i=0;i<Slen;i++){unsigned u=array[i]; printf(" %s", G->name[u]); StatAddSample(stat, degreeInS[u]);}
 	    //printf "final |S|=%d mean %g stdDev %g min %d max %d:\n", _statN[""], StatMean(""), StatStdDev(""), StatMin(""), StatMax("") > "/dev/stderr"
 	    puts("");
 	    if(onlyBiggest) break;
@@ -298,7 +297,7 @@ int BuildClusters(double desiredEdgeDensity, double minClusArg, FILE *fp){
 	    // approaches 1, which in the case of THIS loop means that if OVERLAP is close to 1, we want
 	    // to eliminate a SMALLER proportion (ie., allow more) of future BFS starts, so if OVERLAP=1,
 	    // we eliminate NOTHING in this loop.
-	    for(i=1;i<Slen*(1-OVERLAP);i++) SetAdd(started,Sorder[i-1]);
+	    for(int i=1;i<Slen*(1-OVERLAP);i++) SetAdd(started,Sorder[i-1]);
 	}
 	//else print " REJECTED" > "/dev/stderr";
     }

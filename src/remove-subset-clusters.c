@@ -8,7 +8,7 @@
 //   n m w v1 v2 v3 ...
 // where n=number of nodes in the cluster, m is the number of edges, w is mean edge weight, and v_i are the member nodes.
 // G->n is the maximum expected cluster size (easiest if it's just the number of nodes in the input graph).
-int RemoveSubsetClusters(int k, GRAPH *G, FILE *fp) {
+void RemoveSubsetClusters(int k, GRAPH *G, FILE *fp) {
     unsigned i, numClus=0;
     SET *S = SetAlloc(G->n);
     SET **cluster = Calloc(G->n, sizeof(SET*)); // actual number of clusters can probably be bigger...

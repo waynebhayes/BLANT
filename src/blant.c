@@ -146,7 +146,7 @@ static double _totalCombinations, *_combinations, *_probOfComponent;
 SET **_componentSet;
 
 // number of parallel threads required, and the maximum allowed at one time (set to sysconf(_SC_NPROCESSORS_ONLN) later in main).
-int _numThreads, _maxThreads;
+int _numThreads=1, _maxThreads;
 Accumulators _trashAccumulator = {};
 enum StopMode _stopMode;
 
@@ -1470,7 +1470,6 @@ int main(int argc, char *argv[])
 
     signal(SIGUSR1, SigEarlyAbort);
 
-    _numThreads = 1;
     _maxThreads = sysconf(_SC_NPROCESSORS_ONLN);
 
     _k = 0; _k_small = 0;
@@ -1484,7 +1483,7 @@ int main(int argc, char *argv[])
     {
 	switch(opt)
 	{
-	int fname_len, i, allDigits;
+	int fname_len, allDigits;
 	unsigned long nSampArg;
 	case 'q': do ++_quiet; while(optarg && *optarg++);
 	    break;
