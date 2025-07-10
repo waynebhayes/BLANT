@@ -1,0 +1,1 @@
+output1 to output4 corresponds to running ./fast-canon-map 1 1, ..., ./fast-canon-map 4 1
