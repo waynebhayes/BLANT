@@ -208,7 +208,7 @@ void canon_map(){
 	    TinyGraphEdgesAllDelete(G);
 	    Int2TinyGraph(G, i);
 	    int nodeArray[k], distArray[k];
-	    fprintf(fcanon, "\t%c", TinyGraphNumEdges(G));
+	    fprintf(fcanon, "\t%d", TinyGraphNumEdges(G));
 	    int u,v,sep='\t';
 	    for(u=0;u<k;u++)for(v=(1-directed)*u;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
 		fprintf(fcanon, "%c%d,%d",sep,u,v); sep=' ';
