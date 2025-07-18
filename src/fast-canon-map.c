@@ -5,10 +5,12 @@
 #include <stdbool.h>
 
 #include "blant.h"
+#define totalCanons 1540944
 
 static int k; 
 static long numBitValues; 
 static bool directed;
+
 
 #if LOWER_TRIANGLE
 
@@ -65,7 +67,7 @@ typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal a
 
 static xChar* data;
 static bool* done;
-static unsigned long canonicalDecimal[1600000];
+static unsigned long canonicalDecimal[totalCanons];
 
 unsigned long power(int x, int y){
     assert(x>0 && y>=0);
