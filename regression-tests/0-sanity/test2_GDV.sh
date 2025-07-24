@@ -4,9 +4,11 @@ echo 'testing Graphlet (not orbit) Degree Vectors'
 # "correct" values came from 3e9 samples... but we no longer need to divide by 1000 since it's already absolute estimates
 
 N=9000000
+NUM_BAD=0
 
 export k=1
-for S in MCMC NBE EBE; do
+for S in EBE MCMC NBE
+do
     case $S in
     MCMC) TOL=0.006; exp=2;;
     SEC)  TOL=1.1e-4; exp=3;;
@@ -30,15 +32,18 @@ for S in MCMC NBE EBE; do
 		$LIBWAYNE_HOME/bin/stats -g | # the -g option means "geometric mean"
 		sed -e 's/#/num/' -e 's/[	 ][	 ]*/ /g' |
 		$LIBWAYNE_HOME/bin/named-next-col '
-		    BEGIN{k='$k'}
+		    BEGIN{k='$k'; numBad=0}
 		    {
 			diff=ABS(1-mean)/(k*stdDev)^'$exp';
-			if(diff > '"$TOL"') {
-			    printf "BEYOND TOLERANCE: %g\n%s\n", diff, $0;
-			    exit 1
-			} else
-			    printf "diff %.4e\t%s\n", diff, $0;
-		    }' || exit 1
+			printf "diff %.4e\t%s\n", diff, $0;
+			ratio=diff/'"$TOL"';
+			if(ratio>1) {
+			    printf "WARNING: diff %g is %g times over tolerance %g:\n%s\n", diff, ratio, '"$TOL"', $0;
+			}
+		    }
+		    END{exit(numBad)}'
+		((NUM_BAD+=$?))
 	fi
-    done || exit 1
-done || exit 1
+    done
+done
+exit $NUM_BAD

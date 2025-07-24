@@ -226,9 +226,11 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv0));
 	}
     }
-    assert(nv0 == G->n); // now we SHOULD be at the end...
-    assert(i==GraphDegree(G,Varray[0]));
-    assert(GraphNextNeighbor(G,Varray[0],&nBuf)==G->n);
+    // Note the order of these assertions is important: we need to call NextNeighbor one extra time being Degree, which
+    // forces it to return G->n, and only then can we check that vn0==G->n
+    assert(i==GraphDegree(G,Varray[0])); // now we SHOULD be at the end...
+    assert((nv0=GraphNextNeighbor(G,Varray[0],&nBuf))==G->n);
+    assert(nv0 == G->n);
 
     nBuf=0;
     for(i=0; i < GraphDegree(G,Varray[1]); i++) {
@@ -241,8 +243,9 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv1));
 	}
     }
+    assert(i==GraphDegree(G,Varray[1]));
+    assert((nv1=GraphNextNeighbor(G,Varray[1],&nBuf)) == G->n);
     assert(nv1 == G->n); // we should be at the end...
-    assert(GraphNextNeighbor(G,Varray[1],&nBuf) == G->n);
 
     double multiplier = 1;
     for(i=2; i<k; i++)
@@ -263,7 +266,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    if(!SetIn(outSet, v1) && !SetIn(V, v1))
 		SetAdd(outSet, (outbound[nOut++] = v1));
 	}
-	assert(v1 == G->n && GraphNextNeighbor(G,v0,&nBuf)==G->n);
+	assert(j==GraphDegree(G,v0) && (v1=GraphNextNeighbor(G,v0,&nBuf))==G->n && v1 == G->n);
     }
     assert(i==k);
 #if PARANOID_ASSERTS
@@ -347,7 +350,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	    }
 	}
     }
-    assert(nv1 == G->n && GraphNextNeighbor(G,v1,&nBuf)==G->n);
+    assert(i==GraphDegree(G,v1) && GraphNextNeighbor(G,v1,&nBuf)==G->n);
     nBuf=0; for(i=0; i < GraphDegree(G,v2); i++)
     {
 	nv2 =  GraphNextNeighbor(G,v2,&nBuf); assert(nv2!=G->n);
@@ -361,7 +364,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 		visited[nv2] = 1;
 	    }
 	}
-	assert(nv2==G->n && G->n==GraphNextNeighbor(G,v2,&nBuf));
+	assert(i==GraphDegree(G,v2) && G->n==GraphNextNeighbor(G,v2,&nBuf));
     }
     for(i=2; i<k; i++)
     {
@@ -413,7 +416,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 		    visited[v2] = 1;
 	    }
 	}
-	assert(v2 == G->n && G->n==GraphNextNeighbor(G,v1,&nBuf));
+	assert(j==GraphDegree(G,v1) && G->n==GraphNextNeighbor(G,v1,&nBuf));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
