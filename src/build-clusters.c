@@ -54,15 +54,19 @@ function WgtEdgesIntoS(v,       edgeWgts,u) { // WEIGHT of edges from v into S, 
 }
 #endif
 
-// Count the number of edges in the subgraph induced on nodes in T, and populate degreeInS with their degree
+// Count the number of edges in the subgraph induced on nodes in T, and...
+// if degreeInS is non-NULL, populate degreeInS with their degrees
 unsigned InducedEdges(SET *T, unsigned *array, unsigned *degreeInS) {
     unsigned i, j, u,v, m=0, n=SetToArray(array, T);
-    for(i=0;i<n;i++) degreeInS[array[i]]=0; // set ONLY the relevant values to zero
+    if(degreeInS) for(i=0;i<n;i++) degreeInS[array[i]]=0; // set ONLY the relevant values to zero
     for(i=0;i<n;i++) {
 	u=array[i];
 	for(j=i+1;j<n;j++) {
 	    v=array[j];
-	    if(GraphAreConnected(G,u,v)) { ++degreeInS[u]; ++degreeInS[v]; ++m; }
+	    if(GraphAreConnected(G,u,v)) {
+		if(degreeInS) {++degreeInS[u]; ++degreeInS[v];}
+		++m;
+	    }
 	}
     }
     return m;
@@ -97,6 +101,17 @@ void AppendNeighbors(unsigned u, unsigned origin) {
 	}
 	assert(i==0 && which==0);
     }
+}
+
+unsigned *_degreeArray;
+
+int DegreeSort(const void *v1, const void *v2) {
+    // v1 and v2 will point to elements in the node array, whose values are node IDs in the original graph.
+    // These node IDs are then used to index elements in the _degreeArray to figure out which node has smaller degree.
+    unsigned u1 = *(const unsigned*)v1, u2 = *(const unsigned*)v2;
+    if(_degreeArray[u1] < _degreeArray[u2]) return -1;
+    else if(_degreeArray[u1] > _degreeArray[u2]) return 1;
+    else return 0;
 }
 
 void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp){
@@ -212,7 +227,7 @@ void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp
 			    unsigned numPredict=0;
 			    for(uu in S)if(!(u in edge[uu]))
 				//printf "predictEdge-%d\t%s\t%s\n",++numPredict, u,uu > "/dev/stderr"
-			    WARN(numPredict<=edgePredict, "should only get "edgePredict" new edge predictions but got "numPredict);
+			    assert(numPredict<=edgePredict); // "should only get "edgePredict" new edge predictions but got "numPredict);
 			}
 		    }
 #endif
@@ -228,6 +243,7 @@ void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp
 	Slen = SetCardinality(S);
 	//printf " |S|=%d edgeMean %g", length(S), wgtEdgeCount/(edgeCount?edgeCount:1) > "/dev/stderr"
 	STAT *stat = StatAlloc(0,0,0,0,0);
+	unsigned array[G->n], degreeInS[G->n];
 	if(QueueLength(Q)==0 && Slen > 1) {
 	    // post-process to remove nodes with too low in-cluster degree---quite relevant for lower density
 	    // communities where a node may be added because it does not
@@ -238,9 +254,10 @@ void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp
 	    // The latter was added in response to our performance on the LFR graphs, but it does not appear
 	    // to hurt performance anywhere else.
 	    StatReset(stat); 
-	    unsigned array[G->n], degreeInS[G->n], degFreq[G->n]; for(int i=0;i<G->n;i++) degFreq[i]=0;
-	    unsigned tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
+	    unsigned degFreq[G->n]; for(int i=0;i<G->n;i++) degFreq[i]=0;
+	    unsigned tmpEdge = InducedEdges(S, array, degreeInS);
 	    assert(tmpEdge == edgeCount);
+	    assert(Slen == SetCardinality(S));
 	    for(int i=0; i<Slen; i++){ unsigned v=array[i];
 		StatAddSample(stat, degreeInS[v]);
 		++degFreq[degreeInS[v]];
@@ -249,9 +266,12 @@ void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp
 	    for(unsigned d=dMax;d>=dMin;d--)
 		if(degFreq[d] >= maxFreq) maxFreq=degFreq[degMode=d]; // use >= to extract SMALLEST mode
 	    //printf " deg mean %g stdDev %g maxFreq %d degMode %d; pruning...", StatMean(""), StatStdDev(""), maxFreq, degMode > "/dev/stderr"
-	    //PROCINFO["sorted_in"] = "@val_num_asc"; // for loop through in-degrees, smallest first
 	    double sMean=StatMean(stat), sDev=StatStdDev(stat);
+	    //PROCINFO["sorted_in"] = "@val_num_asc"; // for loop through in-degrees, smallest first
+	    assert(Slen == SetCardinality(S));
+	    _degreeArray = degreeInS; qsort(array, Slen, sizeof(unsigned), DegreeSort);
 	    for(int i=0; i<Slen; i++){ unsigned v=array[i];
+		assert(SetIn(S,v));
 		if(degreeInS[v] < sMean - 3*sDev || degreeInS[v] < degMode/3.0) {
 		    //printf " %s(%d)", v, degreeInS[v] > "/dev/stderr";
 		    SetDelete(S,v);
@@ -262,17 +282,21 @@ void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp
 	    //printf " |S|=%d", _statN[""] > "/dev/stderr"
 	}
 	Slen = SetCardinality(S);
-	unsigned array[G->n], degreeInS[G->n];
-	unsigned tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
+	unsigned loopArray[G->n], dummy[G->n];
+	unsigned tmpEdge = InducedEdges(S, loopArray, degreeInS), oldDegree=0;
 	assert(tmpEdge == edgeCount);
 	//PROCINFO["sorted_in"] = "@val_num_asc"; // for loop through in-degrees, smallest first
-	for(int i=0; i<Slen; i++) { unsigned v=array[i];
+	_degreeArray = degreeInS; qsort(loopArray, Slen, sizeof(unsigned), DegreeSort);
+	for(int i=0; i<Slen; i++) { unsigned v=loopArray[i];
+	    unsigned vDegree = degreeInS[v];
+	    assert(vDegree >= oldDegree);
+	    if(vDegree > oldDegree) oldDegree=vDegree;
 	    int tmpLen = SetCardinality(S);
 	    if(tmpLen<2) break;
 	    if(edgeCount*1.0/(tmpLen*(tmpLen-1)/2) >= edgeDensity) break; // break once ED is above threshsold
 	    SetDelete(S,v);
 	    edgeCount -= EdgesIntoS(v); // wgtEdgeCount -= WgtEdgesIntoS(v);
-	    tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
+	    tmpEdge = InducedEdges(S, dummy, NULL);
 	    assert(tmpEdge == edgeCount);
 	}
 	Slen=SetCardinality(S);
@@ -286,7 +310,7 @@ void BuildClusters(int k, double desiredEdgeDensity, double minClusArg, FILE *fp
 	    //print " ACCEPTED" > "/dev/stderr";
 	    ++numClus; printf("%d %d %g %d", Slen, edgeCount, 1.0*edgeCount, k);
 	    StatReset(stat);
-	    tmpEdge = InducedEdges(S, array, degreeInS); // this call populates degreeInS
+	    tmpEdge = InducedEdges(S, array, degreeInS);
 	    assert(tmpEdge == edgeCount);
 	    for(int i=0;i<Slen;i++){unsigned u=array[i]; printf(" %s", G->name[u]); StatAddSample(stat, degreeInS[u]);}
 	    //printf "final |S|=%d mean %g stdDev %g min %d max %d:\n", _statN[""], StatMean(""), StatStdDev(""), StatMin(""), StatMax("") > "/dev/stderr"
