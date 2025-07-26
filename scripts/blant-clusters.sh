@@ -405,7 +405,7 @@ build-clusters(){ k=$1; shift;
 		delete S[v];
 		edgeCount -= EdgesIntoS(v);
 		wgtEdgeCount -= WgtEdgesIntoS(v);
-		tmpEdge = InducedEdges(edge,S, degreeInS); # this call populates degreeInS
+		tmpEdge = InducedEdges(edge,S); #avoid changing the degreeInS array
 		ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(1) with InducedEdges of "tmpEdge);
 	    }
 	    if(length(S)>1) {
