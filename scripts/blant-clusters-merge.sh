@@ -3,7 +3,7 @@
 EXEDIR=`dirname "$0"`; BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME network.el [blant-clusters-output-file(s)]
+USAGE="USAGE: $BASENAME [blant-clusters-output-file(s)]
 PURPOSE: given the output (possibly piped) of one or more blant-clusters.sh output files, merge nearby clusters that
     overlap (even if the result is below the previously requested edge density), and spit out fewer, larger clusters
     that do NOT significantly overlap anymore."
@@ -28,7 +28,6 @@ export TMPDIR=${TMPDIR:-`mktemp -d $MYTMP/$BASENAME.XXXXXX`}
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
-[ -r "$1" ] || die "expecting a network as first argument"
 net="$1"; shift
 
 NODES_LOWER_BOUND=20 # ignore any and all clusters smaller than this
@@ -37,8 +36,8 @@ fgrep -h nodes, "$@" | sort -nr | # sort largest-to-smallest
     sed 's/.*{ //' -e 's/ }//' | # remove everything except the list nodes, one cluster per line
     hawk 'ARGIND==1{ASSERT(NF==2||NF==3, "expecting 2 or 3 columns, not "NF); edge[$1][$2]=edge[$2][$1]=1;next}
 	NF>='$NODES_LOWER_BOUND'{
-	    for(c=1;c<=NF;c++) ++clus[FNR][$c]; # record this cluster
-	    merged=0; # find out if we should merge it with a previous cluster
+	for(c=1;c<=NF;c++) ++clus[FNR][$c]; # record this cluster
+	merged=0; # find out if we should merge it with a previous cluster
 	    for(i=1;i<FNR;i++) if(isarray(clus[i])) {
 		o=SetIntersect(res,clus[i],clus[FNR]);
 		if(isarray(clus[i]) && o/NF >= 0.5) { # at least half of these nodes are in a previous cluster
@@ -58,8 +57,8 @@ fgrep -h nodes, "$@" | sort -nr | # sort largest-to-smallest
 	END{
 	    for(i in clus) if(isarray(clus[i])) {
 		m = NumEdges(edge, clus[i]); n=length(clus[i]);
-		printf "%d nodes initially from line %d, %d edges out of %d, density %g, nodeSet {",
-		    n, i, m, choose(n,2), m/choose(n,2)
+		printf "%d nodes, %d/%d edges, %g%% density, initially from line %d, nodeSet {",
+		    n, m, choose(n,2), 100*m/choose(n,2), i
 		for(j in clus[i]) printf " %s", j
 		print " }"
 	    }
