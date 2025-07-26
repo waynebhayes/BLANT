@@ -57,8 +57,8 @@ fgrep -h nodes, "$@" | sort -nr | # sort largest-to-smallest
 	END{
 	    for(i in clus) if(isarray(clus[i])) {
 		m = NumEdges(edge, clus[i]); n=length(clus[i]);
-		printf "%d nodes initially from line %d, %d edges out of %d, density %g, nodeSet {",
-		    n, i, m, choose(n,2), m/choose(n,2)
+		printf "%d nodes, %d/%d edges, %g%% density, initially from line %d, nodeSet {",
+		    n, m, choose(n,2), 100*m/choose(n,2), i
 		for(j in clus[i]) printf " %s", j
 		print " }"
 	    }
