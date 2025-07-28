@@ -3,7 +3,7 @@
 EXEDIR=`dirname "$0"`; BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-USAGE="USAGE: $BASENAME [blant-clusters-output-file(s)]
+USAGE="USAGE: $BASENAME edgeDensity network.el [blant-clusters-output-file(s)]
 PURPOSE: given the output (possibly piped) of one or more blant-clusters.sh output files, merge nearby clusters that
     overlap (even if the result is below the previously requested edge density), and spit out fewer, larger clusters
     that do NOT significantly overlap anymore."
@@ -28,7 +28,10 @@ export TMPDIR=${TMPDIR:-`mktemp -d $MYTMP/$BASENAME.XXXXXX`}
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
-net="$1"; shift
+ED="$1"
+[ -r "$2" ] || die "expecting a network as second argument"
+net="$2"
+shift 2
 
 NODES_LOWER_BOUND=20 # ignore any and all clusters smaller than this
 
@@ -36,16 +39,21 @@ fgrep -h nodes, "$@" | sort -nr | # sort largest-to-smallest
     sed 's/.*{ //' -e 's/ }//' | # remove everything except the list nodes, one cluster per line
     hawk 'ARGIND==1{ASSERT(NF==2||NF==3, "expecting 2 or 3 columns, not "NF); edge[$1][$2]=edge[$2][$1]=1;next}
 	NF>='$NODES_LOWER_BOUND'{
-	for(c=1;c<=NF;c++) ++clus[FNR][$c]; # record this cluster
-	merged=0; # find out if we should merge it with a previous cluster
+	    for(c=1;c<=NF;c++) ++clus[FNR][$c]; # record this cluster
+	    merged=0; # find out if we should merge it with a previous cluster
 	    for(i=1;i<FNR;i++) if(isarray(clus[i])) {
 		o=SetIntersect(res,clus[i],clus[FNR]);
 		if(isarray(clus[i]) && o/NF >= 0.5) { # at least half of these nodes are in a previous cluster
-		    merged=i; # merge it with cluster i
-		    #printf "Line %d will merge with line %d since it overlaps in %d nodes\n", FNR,i,o
-		    for(j=1;j<=NF;j++) ++clus[i][$j]; # merge all current nodes into cluster i
-		    delete clus[FNR]; # delete this cluster since it was merged
-		    next; # move on to next line
+		    # now check if the edge density is high enough
+		    nn=SetUnion(union,clus[i],clus[FNR]);
+		    mm=InducedEdges(edge,union);
+		    if(mm/choose(nn,2) >= '$ED') {
+			merged=i; # merge it with cluster i
+			#printf "Line %d will merge with line %d since it overlaps in %d nodes\n", FNR,i,o
+			for(j=1;j<=NF;j++) ++clus[i][$j]; # merge all current nodes into cluster i
+			delete clus[FNR]; # delete this cluster since it was merged
+			next; # move on to next line
+		    }
 		}
 	    }
 	}
