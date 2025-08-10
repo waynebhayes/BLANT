@@ -19,7 +19,7 @@ case "$1" in
     ;;
 esac
 
-if [ "X$GCC_VER" = "X" ] && hostname | egrep Waynes-Air; then
+if hostname | egrep Waynes-Air; then
     echo "Assuming this is Wayne's MacBook Air, needing gcc-14"
     export GCC_VER=-14
 fi

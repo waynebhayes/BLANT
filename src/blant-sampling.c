@@ -220,9 +220,9 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	SetEmpty(outSet);
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
-    int nv0, nv1, nBuf=0; for(i=0; i < GraphDegree(G,Varray[0]); i++)
+    int nBuf=0; for(i=0; i < GraphDegree(G,Varray[0]); i++)
     {
-	nv0 = GraphNextNeighbor(G,Varray[0],&nBuf); assert(nv0 != -1);
+	int nv0 = GraphNextNeighbor(G,Varray[0],&nBuf); assert(nv0 != -1);
 	if(nv0 != Varray[1])
 	{
 #if PARANOID_ASSERTS
@@ -231,14 +231,12 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv0));
 	}
     }
-    // Note the order of these assertions is important: we need to call NextNeighbor one extra time being Degree, which
-    // forces it to return G->n, and only then can we check that vn0==G->n
-    assert(i==GraphDegree(G,Varray[0])); // now we SHOULD be at the end...
-    assert((nv0=GraphNextNeighbor(G,Varray[0],&nBuf))==G->n || nv0 == (unsigned)(-1));
+    assert(i==GraphDegree(G,Varray[0]));
+    assert(-1==GraphNextNeighbor(G,Varray[0],&nBuf));
 
     nBuf=0; for(i=0; i < GraphDegree(G,Varray[1]); i++)
     {
-	nv1 = GraphNextNeighbor(G,Varray[1],&nBuf); assert(nv1 != -1);
+	int nv1 = GraphNextNeighbor(G,Varray[1],&nBuf); assert(nv1 != -1);
 	if(nv1 != Varray[0] && !SetIn(outSet, nv1))
 	{
 #if PARANOID_ASSERTS
@@ -247,8 +245,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv1));
 	}
     }
-    assert(i==GraphDegree(G,Varray[1]));
-    assert((nv1=GraphNextNeighbor(G,Varray[1],&nBuf)) == G->n || nv1 == (unsigned)(-1)); // we should be at the end...
+    assert(GraphNextNeighbor(G,Varray[1],&nBuf) == -1);
 
     double multiplier = 1;
     for(i=2; i<k; i++)
@@ -258,17 +255,17 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	j = nOut * RandomUniform();
 	if(!_rawCounts) multiplier *= nOut;
 	assert(multiplier > 0.0);
-	int v0 = outbound[j], v1;
+	int v0 = outbound[j];
 	SetDelete(outSet, v0);
 	SetAdd(V, v0); Varray[i] = v0;
 	outbound[j] = outbound[--nOut];	// nuke v0 from the list of outbound by moving the last one to its place
 	nBuf=0; for(j=0; j<GraphDegree(G,v0);j++) // another loop over neighbors that may take a long time...
 	{
-	    v1 = GraphNextNeighbor(G,v0,&nBuf); assert(v1!=-1);
+	    int v1 = GraphNextNeighbor(G,v0,&nBuf); assert(v1!=-1);
 	    if(!SetIn(outSet, v1) && !SetIn(V, v1))
 		SetAdd(outSet, (outbound[nOut++] = v1));
 	}
-	assert(j==GraphDegree(G,v0) && ((v1=GraphNextNeighbor(G,v0,&nBuf))==G->n || v1 == (unsigned)(-1)));
+	assert(-1==GraphNextNeighbor(G,v0,&nBuf));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
@@ -354,7 +351,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	    }
 	}
     }
-    assert(i==GraphDegree(G,v1) && GraphNextNeighbor(G,v1,&nBuf)==G->n);
+    assert(-1==GraphNextNeighbor(G,v1,&nBuf));
     nBuf=0; for(i=0; i < GraphDegree(G,v2); i++)
     {
 	int nv2 =  GraphNextNeighbor(G,v2,&nBuf); assert(nv2!=-1);
@@ -368,7 +365,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 		visited[nv2] = 1;
 	    }
 	}
-	assert(i==GraphDegree(G,v2) && G->n==GraphNextNeighbor(G,v2,&nBuf));
+	assert(-1==GraphNextNeighbor(G,v2,&nBuf));
     }
     for(i=2; i<k; i++)
     {
@@ -420,7 +417,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 		    visited[v2] = 1;
 	    }
 	}
-	assert(j==GraphDegree(G,v1) && G->n==GraphNextNeighbor(G,v1,&nBuf));
+	assert(-1==GraphNextNeighbor(G,v1,&nBuf));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
