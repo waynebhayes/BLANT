@@ -555,7 +555,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		cumulative[j] = 0;
 	    SetEmpty(internal);
 #else
-	    static _Thread_local int depth; 
+	    static _Thread_local int depth;
         // static _Thread_local allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
 	    depth++;
 	    assert(depth < MAX_TRIES);
@@ -599,7 +599,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		SetEmpty(internal);
 #else
         // _Thread_local gives each thread their own copy of the depth variable
-        static _Thread_local int depth; 
+        static _Thread_local int depth;
         depth++;
         assert(depth < MAX_TRIES);
         SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);

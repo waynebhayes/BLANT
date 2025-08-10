@@ -5,17 +5,21 @@
 #include <stdbool.h>
 
 #include "blant.h"
+#define totalCanons 1540944
 
-static int k; // number of bits required to store ints up to 2^(k choose 2)
-static long numBitValues; // the actual value 2^(k choose 2)
+static int k; 
+static long numBitValues; 
+static bool directed;
+
 
 #if LOWER_TRIANGLE
 
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long num=0;
     int lf=0;
-    for(int i = 1; i < k; i++)
-	for(int j=0; j < i; j++){
+    for(int i = 0; i < k; i++)
+	for(int j=0; j <( directed ? k:i); j++){
+	    if(i==j) continue;
 	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
 	    lf++;
 	}
@@ -23,10 +27,11 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
 }
 
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
-    for(int i=k-1; i>=1; i--)
-	for(int j=i-1; j>=0; j--){
+    for(int i=k-1; i>=0; i--)
+	for(int j=(directed ? k-1 : i-1); j>=0; j--){
+	    if(i==j) continue;	
 	    bitMatrix[i][j] = D%2;
-	    bitMatrix[j][i]=bitMatrix[i][j];
+	    if(!directed) bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
 	}
 }
@@ -37,19 +42,20 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long num=0;
     int lf=0;
-    for(int i = 0; i < k-1; i++)
-	for(int j=i+1; j < k; j++){
-	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
-	    lf++;
-	}
+    for(int i = 0; i < k; i++)
+    for(int j = (i+1)*(1-directed); j < k; j++){
+	if(i==j) continue;
+	num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
+	lf++;
+    }
     return num;
 }
 
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
-    for(int i=k-2; i>=0; i--)
-	for(int j=k-1; j>i; j--){
+    for(int i=k-1; i>=0; i--)
+	for(int j=k-1; j>=(i+1)*(1-directed); j--){
+	    if(i==j) continue;
 	    bitMatrix[i][j] = D%2;
-	    bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
 	}
 }
@@ -57,12 +63,11 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 #endif
 
 
-
 typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal and permutation
 
 static xChar* data;
 static bool* done;
-static unsigned long canonicalDecimal[12346];//12346 canonical graphettes for k=8
+static unsigned long canonicalDecimal[totalCanons];
 
 unsigned long power(int x, int y){
     assert(x>0 && y>=0);
@@ -70,13 +75,11 @@ unsigned long power(int x, int y){
     return (unsigned long)x*power(x,y-1);
 }
 
-void encodeChar(xChar ch, long indexD, long indexP){
-
-    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*power(2,14);//14 bits for canonical decimal index
-    unsigned long z=power(2,8);
+void encodeChar(xChar ch, long indexD, long indexP){ 
+    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*(1<<30);
     for(int i=4; i>=0; i--){
-	ch[i]=(char)(x%z);
-	x/=z;
+	ch[i]=(char)(x%(1<<8));
+	x>>=8;
     }
 }
 
@@ -87,11 +90,11 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
 
     for(int i=4; i>=0; i--){
 	w=(int)ch[i];
-	m=power(2,y);
+	m=(1<<y);
 	x+=w*m;
 	y+=8;
     }
-    unsigned long z=power(2,14);
+    unsigned long z=(1<<30);
     *indexD=x%z;
     *indexP=x/z;
 }
@@ -104,9 +107,9 @@ long factorial(int n) {
 
 bool nextPermutation(int permutation[]) {
     for(int i=k-1;i>0;i--) {
-	if(permutation[i]>permutation[i-1]) {
+	if(permutation[i]>permutation[i-1]) { 
 	    for(int j=k-1;j>i-1;j--){
-		if(permutation[i-1]<permutation[j]){
+		if(permutation[i-1]<permutation[j]){ 
 		    int t=permutation[i-1];
 		    permutation[i-1]=permutation[j];
 		    permutation[j]=t;
@@ -122,16 +125,16 @@ bool nextPermutation(int permutation[]) {
 		    i++;
 		}
 	    }
-	    return 1;
+	return 1;
 	}
     }
-    return 0;
+    return 0; 
 }
 
-void canon_map(void){
+void canon_map(){
     FILE *fcanon = stdout;
 
-    int numBits = (k*(k-1))/2;
+    int numBits = k*(k-1)/(2-directed);
     int bitMatrix[k][k];
 
     for(int i=0; i<numBitValues; i++) assert(i>=0), done[i]=0;
@@ -193,23 +196,23 @@ void canon_map(void){
 
     //saving canonical decimal and permutation in the file
     long canonDec, canonPerm;
-    TINY_GRAPH *G = TinyGraphAlloc(k);
+    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
+	printPerm[k]='\0';
 	canonDec=0;canonPerm=0;
 	decodeChar(data[i],&canonDec,&canonPerm);
 	assert(canonDec >= 0);
 	assert(canonPerm >= 0);
 	for(int p=0;p<k;p++) printPerm[p] = '0' + Permutations[canonPerm][p];
-	printPerm[k]='\0';
-	fprintf(fcanon,"%lu\t%s", canonicalDecimal[canonDec], printPerm);
+	fprintf(fcanon,"%lu\t%lu\t%s", canonicalDecimal[canonDec], canonDec, printPerm);
 	if(canonPerm == 0) {
 	    TinyGraphEdgesAllDelete(G);
 	    Int2TinyGraph(G, i);
-	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(G, 0, k, nodeArray, distArray) == k);
-	    fprintf(fcanon, "\t%c %d", '0'+connected, TinyGraphNumEdges(G));
+	    int nodeArray[k], distArray[k];
+	    fprintf(fcanon, "\t%d", TinyGraphNumEdges(G));
 	    int u,v,sep='\t';
-	    for(u=0;u<k;u++)for(v=u+1;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
+	    for(u=0;u<k;u++)for(v=(1-directed)*u;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
 		fprintf(fcanon, "%c%d,%d",sep,u,v); sep=' ';
 	    }
 	}
@@ -218,15 +221,17 @@ void canon_map(void){
     //fprintf(fcanon,"%ld",canonicalDecimal[0]);
 }
 
-static char USAGE[] = "USAGE: $0 k";
+static char USAGE[] = "USAGE: $0 k directed [1 or 0]";
 
 int main(int argc, char* argv[]){
-    if(argc != 2){fprintf(stderr, "expecting exactly one argument, which is k\n%s\n",USAGE); exit(1);}
+    if(argc != 3){fprintf(stderr, "expecting exactly two arguments, which are k and directed\n%s\n",USAGE); exit(1);}
     k = atoi(argv[1]);
-    numBitValues = (1UL << k*(k-1)/2);
+    directed = atoi(argv[2]);
+    numBitValues = (1UL << (k*(k-1)/(2-directed)));
     assert(numBitValues>0);
     data = malloc(sizeof(xChar)*numBitValues);
     done = malloc(sizeof(bool)*numBitValues);
     canon_map();
+
     return 0;
 }
