@@ -131,7 +131,7 @@ bool nextPermutation(int permutation[]) {
     return 0; 
 }
 
-void canon_map(){
+void canon_map(void){
     FILE *fcanon = stdout;
 
     int numBits = k*(k-1)/(2-directed);
@@ -221,12 +221,17 @@ void canon_map(){
     //fprintf(fcanon,"%ld",canonicalDecimal[0]);
 }
 
-static char USAGE[] = "USAGE: $0 k directed [1 or 0]";
+static char USAGE[] = "USAGE: $0 k [directed (the word, as a string); default is undirected]";
 
 int main(int argc, char* argv[]){
-    if(argc != 3){fprintf(stderr, "expecting exactly two arguments, which are k and directed\n%s\n",USAGE); exit(1);}
-    k = atoi(argv[1]);
-    directed = atoi(argv[2]);
+    if(argc == 3) {
+	if(strcmp(argv[2], "directed")!=0) {
+	    fprintf(stderr, "if given two arguments, the second must be the word \"directed\"\n");
+	    exit(1);
+	}
+	directed=true;
+    } else assert(argc==2);
+    k = atoi(argv[1]); assert(3<=k && k<=8);
     numBitValues = (1UL << (k*(k-1)/(2-directed)));
     assert(numBitValues>0);
     data = malloc(sizeof(xChar)*numBitValues);
