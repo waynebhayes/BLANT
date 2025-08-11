@@ -1338,26 +1338,6 @@ void BlantAddEdge(int v1, int v2, double weight)
     _numEdges++;
 }
 
-int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **nodeNames)
-{
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, _weights);
-    Free(_pairs);
-    _nodeNames = nodeNames;
-    return RunBlantInForks(k, numSamples, G);
-}
-
-// Initialize the graph G from an edgelist; the user must allocate the pairs array
-// to have 2*numEdges elements (all integers), and each entry must be between 0 and
-// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
-// we are going to free it right after creating G (ie., before returning to the caller.)
-int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, unsigned *pairs, float *weights)
-{
-    assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, weights);
-    Free(pairs);
-    return RunBlantInForks(k, numSamples, G);
-}
-
 const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
 "USAGE: blant [OPTIONS] -k graphletNodes graphInputFile\n"\
