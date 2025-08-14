@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 export LANG=C # to ensure sort is not fucked up by stupid POSIX standards
 

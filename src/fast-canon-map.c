@@ -196,7 +196,7 @@ void canon_map(void){
 
     //saving canonical decimal and permutation in the file
     long canonDec, canonPerm;
-    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed);
+    TINY_GRAPH *G = TinyGraphAllocD(k,0,directed);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
 	printPerm[k]='\0';
@@ -205,7 +205,7 @@ void canon_map(void){
 	assert(canonDec >= 0);
 	assert(canonPerm >= 0);
 	for(int p=0;p<k;p++) printPerm[p] = '0' + Permutations[canonPerm][p];
-	fprintf(fcanon,"%lu\t%lu\t%s", canonicalDecimal[canonDec], canonDec, printPerm);
+	fprintf(fcanon,"%lu\t%s", canonicalDecimal[canonDec], printPerm);
 	if(canonPerm == 0) {
 	    TinyGraphEdgesAllDelete(G);
 	    Int2TinyGraph(G, i);
