@@ -93,11 +93,6 @@ int main(int argc, char *argv[])
 	assert(tmp >= 0);
 	numRead = sscanf(buf, "%d\t%s\t%d %d", &canonical, perm, &isGraphlet, &numEdges);
 #if 1
-    assert(numRead!=0);
-    assert(numRead!=1);
-    assert(numRead!=3);
-    assert(numRead!=5);
-    assert(numRead<100);
 	assert(numRead == 2 || numRead == 4);
 #else
 	if(numRead != 2 && numRead != 4) {

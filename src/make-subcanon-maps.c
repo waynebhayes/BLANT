@@ -60,7 +60,6 @@ int main(int argc, char* argv[]) {
                     induceTSET |= 1;
             }
             g = TinyGraphInduced(g, G, induceTSET);
-            unsigned int arr[MAX_TSET];
             Gint = TinyGraph2Int(g, k-1);
             printf("%d ", K[Gint]);
         }
