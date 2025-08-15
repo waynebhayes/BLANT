@@ -63,9 +63,9 @@ int main(int argc, char *argv[])
     k = atoi(argv[1]);
     assert(k > 2 && k <= 8);
     int numParallel=atoi(argv[2]), coreID=atoi(argv[3]);
-    G = TinyGraphAlloc(k);
+    G = TinyGraphAlloc(k,false,false);
     for(i=0; i<MAX_CANONICALS; i++)
-	_canonicalGraph[i] = TinyGraphAlloc(k);
+	_canonicalGraph[i] = TinyGraphAlloc(k,false,false);
 
     int maxGint = (1U<<(k*(k-1)/2)), Gint;
     int numPerCore = maxGint / numParallel;

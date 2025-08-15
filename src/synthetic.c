@@ -490,7 +490,7 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
 
         // allocate a tiny graph
         if (!g[k-1])
-            g[k-1] = TinyGraphAlloc(k);
+            g[k-1] = TinyGraphAlloc(k,false,false);
 
         for (s=1; line=Varrays[k-1][v1][s], s<=Varrays[k-1][v1][0]; s++)
             if(SetIn(samples[k-1][v2], line)){
