@@ -39,7 +39,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
     int samplesPerThread = numSamples / numThreads;
     int leftover = numSamples - (samplesPerThread * numThreads);
     // seed the threads with a base seed that may or may not be specified
-    long base_seed = seed == -1 ? GetFancySeed(true) : seed;
+    long base_seed = seed == -1 ? GetFancySeed(false) : seed;
 
     // initialize the threads and their data
     for (unsigned t = 0; t < numThreads; t++)
