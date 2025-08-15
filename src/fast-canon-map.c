@@ -17,7 +17,7 @@ static bool directed;
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long num=0;
     int lf=0;
-    for(int i = 0; i < k; i++)
+    for(int i = 1; i < k; i++)
 	for(int j=0; j <( directed ? k:i); j++){
 	    if(i==j) continue;
 	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
@@ -27,7 +27,7 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
 }
 
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
-    for(int i=k-1; i>=0; i--)
+    for(int i=k-1; i>0; i--)
 	for(int j=(directed ? k-1 : i-1); j>=0; j--){
 	    if(i==j) continue;
 	    bitMatrix[i][j] = D%2;
@@ -76,7 +76,7 @@ unsigned long power(int x, int y){
 }
 
 void encodeChar(xChar ch, long indexD, long indexP){
-    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*(1<<30);
+    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ?30 : 14));
     for(int i=4; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
@@ -94,7 +94,7 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
 	x+=w*m;
 	y+=8;
     }
-    unsigned long z=(1<<30);
+    unsigned long z=(1<<(directed ? 30: 14));
     *indexD=x%z;
     *indexP=x/z;
 }
@@ -196,7 +196,7 @@ void canon_map(void){
 
     //saving canonical decimal and permutation in the file
     long canonDec, canonPerm;
-    TINY_GRAPH *G = TinyGraphAllocD(k,0,directed);
+    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
 	printPerm[k]='\0';
@@ -231,7 +231,7 @@ int main(int argc, char* argv[]){
 	}
 	directed=true;
     } else assert(argc==2);
-    k = atoi(argv[1]); assert(3<=k && k<=8);
+    k = atoi(argv[1]); assert(2<=k && k<=8);
     numBitValues = (1UL << (k*(k-1)/(2-directed)));
     assert(numBitValues>0);
     data = malloc(sizeof(xChar)*numBitValues);

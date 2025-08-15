@@ -22,9 +22,8 @@ int main(int argc, char* argv[]) {
     if (k>7) Fatal("cannot make_subcanon_maps when SELF_LOOPS");
     TINY_GRAPH* G = TinyGraphSelfAlloc(k);
 #else
-    TINY_GRAPH* G = TinyGraphAlloc(k);
+    TINY_GRAPH* G = TinyGraphAlloc(k,false,false);
 #endif
-
     //Create k canon list
     char BUF[BUFSIZ];
     SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
@@ -44,7 +43,7 @@ int main(int argc, char* argv[]) {
             print newline
 
     */
-    TINY_GRAPH *g = NULL;
+    TINY_GRAPH *g = TinyGraphAlloc(k,G->selfLoops,false);
     TSET induceTSET = TSET_NULLSET;
     Gint_type Gint = 0;
     int tsetBit;
@@ -52,7 +51,6 @@ int main(int argc, char* argv[]) {
         int canonical = canon_list[i];
         Int2TinyGraph(G, canonical);
         printf("%d ", canonical);
-
         //Reset induceTSET
         for (j = 0; j < k; j++) {
             induceTSET = TSET_NULLSET;
@@ -62,6 +60,7 @@ int main(int argc, char* argv[]) {
                     induceTSET |= 1;
             }
             g = TinyGraphInduced(g, G, induceTSET);
+            unsigned int arr[MAX_TSET];
             Gint = TinyGraph2Int(g, k-1);
             printf("%d ", K[Gint]);
         }
