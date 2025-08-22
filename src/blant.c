@@ -504,7 +504,7 @@ void* RunBlantInThread(void* arg) {
 #endif
 
     SET *V = SetAlloc(G->n);
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k,false,false);
     unsigned Varray[varraySize];
     double weight;
     unsigned long stuck = 0;
@@ -564,7 +564,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 #if SELF_LOOPS
     TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k); // allocate it here once, so functions below here don't need to do it repeatedly
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k,false,false); // allocate it here once, so functions below here don't need to do it repeatedly
 #endif
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];

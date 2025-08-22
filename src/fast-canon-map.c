@@ -7,8 +7,8 @@
 #include "blant.h"
 #define totalCanons 1540944
 
-static int k; 
-static long numBitValues; 
+static int k;
+static long numBitValues;
 static bool directed;
 
 
@@ -17,7 +17,7 @@ static bool directed;
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long num=0;
     int lf=0;
-    for(int i = 0; i < k; i++)
+    for(int i = 1; i < k; i++)
 	for(int j=0; j <( directed ? k:i); j++){
 	    if(i==j) continue;
 	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
@@ -27,9 +27,9 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
 }
 
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
-    for(int i=k-1; i>=0; i--)
+    for(int i=k-1; i>0; i--)
 	for(int j=(directed ? k-1 : i-1); j>=0; j--){
-	    if(i==j) continue;	
+	    if(i==j) continue;
 	    bitMatrix[i][j] = D%2;
 	    if(!directed) bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
@@ -45,7 +45,7 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
     for(int i = 0; i < k; i++)
     for(int j = (i+1)*(1-directed); j < k; j++){
 	if(i==j) continue;
-	num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
+	num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
 	lf++;
     }
     return num;
@@ -75,8 +75,8 @@ unsigned long power(int x, int y){
     return (unsigned long)x*power(x,y-1);
 }
 
-void encodeChar(xChar ch, long indexD, long indexP){ 
-    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*(1<<30);
+void encodeChar(xChar ch, long indexD, long indexP){
+    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ?30 : 14));
     for(int i=4; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
@@ -94,7 +94,7 @@ void decodeChar(xChar ch, long* indexD, long* indexP){
 	x+=w*m;
 	y+=8;
     }
-    unsigned long z=(1<<30);
+    unsigned long z=(1<<(directed ? 30: 14));
     *indexD=x%z;
     *indexP=x/z;
 }
@@ -107,9 +107,9 @@ long factorial(int n) {
 
 bool nextPermutation(int permutation[]) {
     for(int i=k-1;i>0;i--) {
-	if(permutation[i]>permutation[i-1]) { 
+	if(permutation[i]>permutation[i-1]) {
 	    for(int j=k-1;j>i-1;j--){
-		if(permutation[i-1]<permutation[j]){ 
+		if(permutation[i-1]<permutation[j]){
 		    int t=permutation[i-1];
 		    permutation[i-1]=permutation[j];
 		    permutation[j]=t;
@@ -128,7 +128,7 @@ bool nextPermutation(int permutation[]) {
 	return 1;
 	}
     }
-    return 0; 
+    return 0;
 }
 
 void canon_map(void){
@@ -205,12 +205,12 @@ void canon_map(void){
 	assert(canonDec >= 0);
 	assert(canonPerm >= 0);
 	for(int p=0;p<k;p++) printPerm[p] = '0' + Permutations[canonPerm][p];
-	fprintf(fcanon,"%lu\t%lu\t%s", canonicalDecimal[canonDec], canonDec, printPerm);
+	fprintf(fcanon,"%lu\t%s", canonicalDecimal[canonDec], printPerm);
 	if(canonPerm == 0) {
 	    TinyGraphEdgesAllDelete(G);
 	    Int2TinyGraph(G, i);
-	    int nodeArray[k], distArray[k];
-	    fprintf(fcanon, "\t%d", TinyGraphNumEdges(G));
+	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(G, 0, k, nodeArray, distArray) == k);
+	    fprintf(fcanon, "\t%c %d", '0'+connected, TinyGraphNumEdges(G));
 	    int u,v,sep='\t';
 	    for(u=0;u<k;u++)for(v=(1-directed)*u;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
 		fprintf(fcanon, "%c%d,%d",sep,u,v); sep=' ';
@@ -231,7 +231,7 @@ int main(int argc, char* argv[]){
 	}
 	directed=true;
     } else assert(argc==2);
-    k = atoi(argv[1]); assert(3<=k && k<=8);
+    k = atoi(argv[1]); assert(2<=k && k<=8);
     numBitValues = (1UL << (k*(k-1)/(2-directed)));
     assert(numBitValues>0);
     data = malloc(sizeof(xChar)*numBitValues);
