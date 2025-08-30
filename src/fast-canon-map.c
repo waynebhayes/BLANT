@@ -8,7 +8,7 @@
 #define totalCanons 1540944
 
 static int k; 
-static long numBitValues; 
+static long numBitValues;
 static bool directed;
 
 
@@ -29,7 +29,7 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
     for(int i=k-1; i>=0; i--)
 	for(int j=(directed ? k-1 : i-1); j>=0; j--){
-	    if(i==j) continue;	
+	    if(i==j) continue;
 	    bitMatrix[i][j] = D%2;
 	    if(!directed) bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
@@ -45,7 +45,7 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
     for(int i = 0; i < k; i++)
     for(int j = (i+1)*(1-directed); j < k; j++){
 	if(i==j) continue;
-	num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
+	num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf));
 	lf++;
     }
     return num;
@@ -63,7 +63,7 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 #endif
 
 
-typedef unsigned char xChar[5];//40 bits for saving index of canonical decimal and permutation
+typedef unsigned char xChar[7];//56 bits for saving index of canonical decimal and  (30 bits needed to store the graph itself, 1540944(for k=5)<<30 is largest possible value needed)
 
 static xChar* data;
 static bool* done;
@@ -75,22 +75,20 @@ unsigned long power(int x, int y){
     return (unsigned long)x*power(x,y-1);
 }
 
-void encodeChar(xChar ch, long indexD, long indexP){ 
-    unsigned long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? 30 : 14));
-    for(int i=4; i>=0; i--){
+void encodeChar(xChar ch, long indexD, long long indexP){
+    unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? 30 : 14));
+    for(int i=6; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
     }
 }
 
-void decodeChar(xChar ch, long* indexD, long* indexP){
+void decodeChar(xChar ch, long* indexD, long long* indexP){
 
-    unsigned long x=0,m;
-    int y=0,w;
-
-    for(int i=4; i>=0; i--){
-	w=(int)ch[i];
-	m=(1<<y);
+    unsigned long long x=0,y=0,w,m;
+    for(int i=6; i>=0; i--){
+	w=(long long)ch[i];
+	m=(1ll<<y);
 	x+=w*m;
 	y+=8;
     }
@@ -107,9 +105,9 @@ long factorial(int n) {
 
 bool nextPermutation(int permutation[]) {
     for(int i=k-1;i>0;i--) {
-	if(permutation[i]>permutation[i-1]) { 
+	if(permutation[i]>permutation[i-1]) {
 	    for(int j=k-1;j>i-1;j--){
-		if(permutation[i-1]<permutation[j]){ 
+		if(permutation[i-1]<permutation[j]){
 		    int t=permutation[i-1];
 		    permutation[i-1]=permutation[j];
 		    permutation[j]=t;
@@ -128,7 +126,7 @@ bool nextPermutation(int permutation[]) {
 	return 1;
 	}
     }
-    return 0; 
+    return 0;
 }
 
 void canon_map(void){
@@ -165,7 +163,7 @@ void canon_map(void){
 
 	int num = 0;
 	decimalToBitArray(bitMatrix, t);
-	for(int nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
+	for(long long nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
 	{
 	    assert(nP>0);
 	    num=bitArrayToDecimal(bitMatrix, Permutations[nP], numBits);
@@ -195,7 +193,8 @@ void canon_map(void){
     fprintf(stderr, "Finished computing... now writing out canon_map file\n"); fflush(stderr);
 
     //saving canonical decimal and permutation in the file
-    long canonDec, canonPerm;
+    long canonDec;
+    long long canonPerm;
     TINY_GRAPH *G = TinyGraphAlloc(k,0,directed);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
@@ -218,7 +217,6 @@ void canon_map(void){
 	}
 	putc('\n', fcanon);
     }
-    //fprintf(fcanon,"%ld",canonicalDecimal[0]);
 }
 
 static char USAGE[] = "USAGE: $0 k [directed (the word, as a string); default is undirected]";
