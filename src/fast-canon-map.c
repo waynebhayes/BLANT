@@ -63,7 +63,7 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 #endif
 
 
-typedef unsigned char xChar[7];//56 bits for saving index of canonical decimal and  (30 bits needed to store the graph itself, 1540944(for k=5)<<30 is largest possible value needed)
+typedef unsigned char xChar[8];//56 bits for saving index of canonical decimal and  (30 bits needed to store the graph itself, 1540944(for k=5)<<30 is largest possible value needed)
 
 static xChar* data;
 static bool* done;
@@ -77,7 +77,7 @@ unsigned long power(int x, int y){
 
 void encodeChar(xChar ch, long indexD, long long indexP){
     unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? 30 : 14));
-    for(int i=6; i>=0; i--){
+    for(int i=7; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
     }
@@ -86,7 +86,7 @@ void encodeChar(xChar ch, long indexD, long long indexP){
 void decodeChar(xChar ch, long* indexD, long long* indexP){
 
     unsigned long long x=0,y=0,w,m;
-    for(int i=6; i>=0; i--){
+    for(int i=7; i>=0; i--){
 	w=(long long)ch[i];
 	m=(1ll<<y);
 	x+=w*m;
