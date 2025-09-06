@@ -5,7 +5,10 @@
 #include <stdbool.h>
 
 #include "blant.h"
-#define totalCanons 1540944
+
+#define totalCanons 1540944 // for k=6, directed, without self-loops
+#define udGraphSize 14 //undirected graph size; k=8
+#define dGraphSize 30 //directed graph size; k=6
 
 static int k; 
 static long numBitValues;
@@ -63,20 +66,16 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 #endif
 
 
-typedef unsigned char xChar[8];//56 bits for saving index of canonical decimal and  (30 bits needed to store the graph itself, 1540944(for k=5)<<30 is largest possible value needed)
+// 64 bits for the index of canonical decimal plus permutation:
+// 30 bits to store the graph, largest numCanon is 1540944 (for k=6)
+typedef unsigned char xChar[8]; 
 
 static xChar* data;
 static bool* done;
 static unsigned long canonicalDecimal[totalCanons];
 
-unsigned long power(int x, int y){
-    assert(x>0 && y>=0);
-    if(y==0)return 1;
-    return (unsigned long)x*power(x,y-1);
-}
-
 void encodeChar(xChar ch, long indexD, long long indexP){
-    unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? 30 : 14));
+    unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? dGraphSize : udGraphSize));
     for(int i=7; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
@@ -92,7 +91,7 @@ void decodeChar(xChar ch, long* indexD, long long* indexP){
 	x+=w*m;
 	y+=8;
     }
-    unsigned long z=(1<<(directed ? 30 : 14));
+    unsigned long z=(1<<(directed ? dGraphSize : udGraphSize));
     *indexD=x%z;
     *indexP=x/z;
 }
@@ -238,3 +237,4 @@ int main(int argc, char* argv[]){
 
     return 0;
 }
+
