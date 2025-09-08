@@ -7,6 +7,8 @@
 #include "blant.h"
 
 #define totalCanons 1540944 // for k=6, directed, without self-loops
+#define udGraphSize 14 //undirected graph size; k=8
+#define dGraphSize 30 //directed graph size; k=6
 
 static int k; 
 static long numBitValues;
@@ -64,17 +66,16 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 #endif
 
 
-// 56 bits for the index of canonical decimal plus permutation:
-// 30 bits to store the graph, largest numCanon is 1540944 (for k=6)<<30
-typedef unsigned char xChar[8]; // Alan: can you please explain the size a bit more thoroughly? I get 30+24 = 54 bits
+// 64 bits for the index of canonical decimal plus permutation:
+// 30 bits to store the graph, largest numCanon is 1540944 (for k=6)
+typedef unsigned char xChar[8]; 
 
 static xChar* data;
 static bool* done;
 static unsigned long canonicalDecimal[totalCanons];
 
 void encodeChar(xChar ch, long indexD, long long indexP){
-    // Alan: please replace these "magic" numbers of 30 and 14 with macros defined appropriately above
-    unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? 30 : 14));
+    unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? dGraphSize : udGraphSize));
     for(int i=7; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
@@ -90,7 +91,7 @@ void decodeChar(xChar ch, long* indexD, long long* indexP){
 	x+=w*m;
 	y+=8;
     }
-    unsigned long z=(1<<(directed ? 30 : 14)); // Alan: also here
+    unsigned long z=(1<<(directed ? dGraphSize : udGraphSize));
     *indexD=x%z;
     *indexP=x/z;
 }
