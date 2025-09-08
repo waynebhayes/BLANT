@@ -7,6 +7,14 @@
 #include "multisets.h"
 #include "blant-output.h"
 
+#ifndef SYNTHETIC
+#define SYNTHETIC 1
+#endif
+
+#if SYNTHETIC
+    static int _transitionCount[MAX_CANONICALS][MAX_CANONICALS] = { 0 };
+#endif
+
 int _sampleMethod = -1, _sampleSubmethod = -1;
 FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
 char _sampleFileEOF;
@@ -892,11 +900,11 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     unsigned char perm[k];
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
-    // SYNTH: this is where the new ordinal graphlet ID is computed
-#if SYNTHETIC // Akhil: hints here
+	// SYNTH: this is where the new ordinal graphlet ID is computed
+#if SYNTHETIC
     static int prevOrdinal;
-    printf("ordinal transition %d -> %d\n", prevOrdinal, GintOrdhinal);
-    ++transitionCount[prevOrdinal][GintOrdinal];
+    //printf("ordinal transition %d -> %d\n", prevOrdinal, GintOrdinal);
+    ++_transitionCount[prevOrdinal][GintOrdinal];
     prevOrdinal = GintOrdinal;
 #endif
 
