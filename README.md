@@ -1,6 +1,20 @@
 # BLANT: Basic Local Alignment of Network Topology
-### Quick Start guide
-#### Stack Size, unxz, 7z, and DOS/Windows CRLF
+If you want to _install_ BLANT, just follow the directions immediately below. If you first want to know _what_ BLANT is, look a little lower.
+
+## Quick Start guide
+### Building BLANT for the first time
+To make and then test *everything* just type
+
+    ./regression-test-all.sh -make
+  
+Be warned it may take up to an hour, especially creating the k=8 lookup tables.
+Note that doing the above performs a "make pristine", which is even cleaner than "make clean". In particular, "clean" cleans all executables but doesn't touch the lookup tables; use "make pristine" to remove even the lookup tables (which shouldn't be necessary since they never change, though they take up disk space).
+
+Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
+
+BLANT has been tested and runs on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 11 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS (both Intel and M1/M2) using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is a nightmare to work with on "real world" projects since it's prone to [horrible software rot](https://news.ycombinator.com/item?id=38982034) on a timescale of weeks to months. 
+
+### Things that may go wrong: Stack Size, unxz, 7z, and DOS/Windows CRLF
 You may need to install xz (a compression program) and 7z (another compression program).
 Before starting *anything* below, you need to ensure your OS allows your programs enough stack space. Some machines today still ship with a default limit of 8MB---a *ridiculously* small limit on any machine built after about 1999.  You do not require sudo privileges to change this. If you're running Linux or MacOS, type "ulimit -s unlimited" to your Bash shell; if you're running any other system, you're on your own.
 
@@ -14,18 +28,6 @@ Also, some useful utilities are in the directory libwayne/bin; you may want to a
 - awkcel: allow AWK to process tab-separated files with a header line where each header is a valid AWK variable name and then you can use those names in awk expressions. (The name "awkcel" rhymes with a particularly populer spreadsheet name you're probably familiar with).
 - wzcat: Wayne's "zcat", which is basically "cat" augmented to automatically decompress any files with recognized file extensions (eg filenames with the extension ".gz" will be automaticaly passed though "gunzip", ".xz" through "unxz", etc.)
 - wgcc: Wayne's gcc, which is just a front-end to gcc that automatically includes "libwayne" include and library directories.
-
-### Building BLANT for the first time
-To make and then test *everything* just type
-
-    ./regression-test-all.sh -make
-  
-Be warned it may take up to an hour, especially creating the k=8 lookup tables.
-Note that doing the above performs a "make pristine", which is even cleaner than "make clean". In particular, "clean" cleans all executables but doesn't touch the lookup tables; use "make pristine" to remove even the lookup tables (which shouldn't be necessary since they never change, though they take up disk space).
-
-Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
-
-BLANT has been tested and runs on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 11 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS (both Intel and M1/M2) using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is a nightmare to work with on "real world" projects since it's prone to [horrible software rot](https://news.ycombinator.com/item?id=38982034) on a timescale of weeks to months. 
 
 ## What is BLANT? An analogy with **BLAST**
 If you are in the bioinformatics field, you have probably heard of the tool named *BLAST*, the *Basic Local Alignment Search Tool*. BLAST is an algorithm for quickly finding local alignments in genomic (or proteomic) sequences. BLAST works by first creating a comprehensive database of all *k*-letter sequences (called "*k*-mers") that appear in the corpus of the sequence to be searched and/or aligned. Such *k*-mers can be used to "seed" a local alignment between two distant regions of sequence. Below we show a hypothetical alignment between two distant regions of sequence, both of which contain the **boldfaced** *k*-mer "**GAGACCGT**":
