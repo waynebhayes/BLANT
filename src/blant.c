@@ -91,6 +91,7 @@ char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
 Boolean _rawCounts;
+Boolean _directed=0;
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -1340,7 +1341,7 @@ void BlantAddEdge(int v1, int v2, double weight)
 
 int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **nodeNames)
 {
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, _weights);
+    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, _weights,_directed);
     Free(_pairs);
     _nodeNames = nodeNames;
     return RunBlantInForks(k, numSamples, G);
@@ -1353,7 +1354,7 @@ int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **
 int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, unsigned *pairs, float *weights)
 {
     assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, weights);
+    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, weights,_directed);
     Free(pairs);
     return RunBlantInForks(k, numSamples, G);
 }
@@ -1503,6 +1504,7 @@ int main(int argc, char *argv[])
 	switch(opt)
 	{
 	unsigned long nSampArg;
+	case 'D': _directed=1; break;
 	case 'q': do ++_quiet; while(optarg && *optarg++);
 	    break;
 	case 'h':
