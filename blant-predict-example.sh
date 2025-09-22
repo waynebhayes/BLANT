@@ -6,7 +6,8 @@ if [ $# -ne 1 ]; then echo "must provide number of predictions as first argument
 TOP="$1" # number of predictions to take
 
 # compile the executable
-[ -x blant-predict-release ] || ./libwayne/bin/wgcc -O3 -Isrc -o blant-predict-release src/blant-predict-release.c
+[ -f libwayne/libwayne.a ] || (cd libwayne && make all)
+./libwayne/bin/wgcc -O3 -Isrc -o blant-predict-release src/blant-predict-release.c
 
 # Now run it
 ./blant-predict-release -k4 -mp6,0,0 networks/HI-union0.train | # estimate L3-paths on 4-node graphlets as in Kovacs et al.

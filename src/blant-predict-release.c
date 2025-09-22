@@ -1106,7 +1106,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 #if PARANOID_ASSERTS
 	assert(numNodes == k); // Ensure we are returning k nodes
 #endif
-	double count;
+	double count=0;
 	if (_MCMC_L == 2) { // If _MCMC_L == 2, k = 3 and we can use the simplified overcounting formula.
 		// The over counting ratio is the alpha value only.
 		count += 1.0/(_alphaList[GintCanon]);
@@ -1172,13 +1172,13 @@ void finalizeMCMC() {
 	double totalConcentration = 0;
 	int i;
 	for (i = 0; i < _numCanon; i++) {
-		totalConcentration += _graphletConcentration[i];
 #if PARANOID_ASSERTS
-		assert(_graphletConcentration[i] >= 0.0);
+	    assert(_graphletConcentration[i] >= 0.0);
 #endif
+	    totalConcentration += _graphletConcentration[i];
 	}
 	for (i = 0; i < _numCanon; i++) {
-		_graphletConcentration[i] /= totalConcentration;
+	    _graphletConcentration[i] /= totalConcentration;
 	}
 }
 
