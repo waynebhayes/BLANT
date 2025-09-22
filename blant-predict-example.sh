@@ -1,9 +1,36 @@
-#!/bin/sh
+#!/bin/bash
+################## SKELETON: DO NOT TOUCH THESE 2 LINES
+EXEDIR=`dirname "$0"`; BASENAME=`basename "$0" .sh`; TAB='	'; NL='
+'
+#################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
+NET=networks/HI-union.el
+USAGE="USAGE: $BASENAME N [network.el]
+PURPOSE: run $BASENAME on network.el [default $NET]: split into train + test (90% & 10% of edges, respectively), and
+    then count the number of correct predictions (out of N) in the test set after training."
+
+################## SKELETON: DO NOT TOUCH CODE HERE
+# check that you really did add a usage message above
+USAGE=${USAGE:?"$0 should have a USAGE message before sourcing skel.sh"}
+die(){ echo "$USAGE${NL}FATAL ERROR in $BASENAME:" "$@" >&2; exit 1; }
+[ "$BASENAME" == skel ] && die "$0 is a skeleton Bourne Shell script; your scripts should source it, not run it"
+echo "$BASENAME" | grep "[ $TAB]" && die "Shell script names really REALLY shouldn't contain spaces or tabs"
+[ $BASENAME == "$BASENAME" ] || die "something weird with filename in '$BASENAME'"
+warn(){ (echo "WARNING: $@")>&2; }
+not(){ if eval "$@"; then return 1; else return 0; fi; }
+newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
+parse(){ awk "BEGIN{print $*}" </dev/null; }
+which(){ echo "$PATH" | tr : "$NL" | awk '!seen[$0]{print}{++seen[$0]}' | while read d; do eval /bin/ls $d/$N; done 2>/dev/null | newlines; }
+HardPath(){ if [ -h "$1" ]; then link=`cd $(dirname "$1") && /bin/ls -l $(basename "$1") | awk '/ -> /{print $NF}'`; (cd $(dirname "$1") && HardPath "$link"); else echo $(cd $(dirname "$1")&&/bin/pwd)/$(basename "$1"); fi;}
+
+export TMPDIR="`mktemp -d /tmp/$BASENAME.XXXXXX`"
+ trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+
+#################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
 # compile the file src/blant-predict-release.c using libwayne libraries:
-if [ $# -ne 1 ]; then echo "must provide number of predictions as first argument" >&2; exit 1; fi
-
+if [ $# -lt 1 -o $# -gt 2 ]; then die "must provide number of predictions as first argument"; fi
 TOP="$1" # number of predictions to take
+
 LIBWAYNE_HOME=`cd libwayne && /bin/pwd`
 PATH="$PATH:$LIBWAYNE_HOME/bin:$LIBWAYNE_HOME/../scripts"
 export LIBWAYNE_HOME PATH
@@ -11,9 +38,12 @@ export LIBWAYNE_HOME PATH
 [ -f libwayne/libwayne.a ] || (cd libwayne && make all)
 wgcc -O3 -Isrc -o blant-predict-release src/blant-predict-release.c
 
-# create a random-order list of HI-union edges
-TMP=/tmp/HI-union
-randomizeLines < networks/HI-union.el > $TMP.el
+[ $# -eq 2 ] && NET="$2"
+BASE_NET="`basename "$NET" .el`"
+
+# create a random-order list of network's edges
+TMP=$TMPDIR/$BASE_NET
+randomizeLines < "$NET" > $TMP.el
 
 # separate into 90% train, 10% test
 FOLD=`wc -l < $TMP.el` # number of edges in network
