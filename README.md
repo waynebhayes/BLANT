@@ -2,12 +2,19 @@
 If you want to _install_ BLANT, just follow the directions immediately below. If you first want to know _what_ BLANT is, look a little lower.
 
 ## Quick Start guide
+### Prediction
+If you happen to be here only to test the released version of BLANT-predict, then do this on the Unix/Bash command-line: (PS: ensure you have make, gcc, and other standard Unix tools available.)
+
+    PAUSE=0 NO7=1 make base && ./blant-predict-example.sh 100
+
+That should take a few minutes, and then print the number of correct predictions applied to Vidal's HI-union network out of 100 (it should be about 35-40% correct). After that, you can just run ./blant-predict-example.sh [N] with some other value of N.
+
 ### Building BLANT for the first time
 To make and then test *everything* just type
 
     ./regression-test-all.sh -make
   
-Be warned it may take up to an hour, especially creating the k=8 lookup tables.
+Be warned it may take up to an hour, especially creating the k=8 lookup tables--to make it run faster, add "NO8=1" in *front* of the above line.
 Note that doing the above performs a "make pristine", which is even cleaner than "make clean". In particular, "clean" cleans all executables but doesn't touch the lookup tables; use "make pristine" to remove even the lookup tables (which shouldn't be necessary since they never change, though they take up disk space).
 
 Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
