@@ -78,7 +78,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 #define MAX_ORBITS 5096
 #define maxBk (1U << (maxK*(maxK-1)/2))
 #define LOWER_TRIANGLE 1
-#define MAX_NODES 22000 // enough for most PPI networks
+#define MAX_NODES 18000 // enough for most PPI networks
 
 static unsigned int _Bk, _k; // _k is the global variable storing k; _Bk=actual number of entries in the canon_map for given k.
 static unsigned _numCanon, _canonList[MAX_CANONICALS];
