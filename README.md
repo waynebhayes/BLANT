@@ -5,7 +5,9 @@ If you want to _install_ BLANT, just follow the directions immediately below. If
 ### Prediction
 If you happen to be here only to test the released version of BLANT-predict, then do this on the Unix/Bash command-line: (PS: ensure you have make, gcc, and other standard Unix tools available.)
 
-    PAUSE=0 NO7=1 make base && ./blant-predict-example.sh 100
+    git clone --recursive http://github.com/waynebhayes/BLANT &&
+        cd BLANT &&
+        PAUSE=0 NO7=1 make base && ./blant-predict-example.sh 100
 
 That should take a few minutes, and then print the number of correct predictions applied to Vidal's HI-union network out of 100 (it should be about 35-40% correct). After that, you can just run ./blant-predict-example.sh [N] with some other value of N.
 
