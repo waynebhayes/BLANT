@@ -55,8 +55,14 @@ tail -n +$FOLD1 $TMP.el > $TMP.train
 # Now run predictions
 ./blant-predict-release -k4 -mp6,0,0 $TMP.train | # estimate L3-paths on 4-node graphlets as in Kovacs et al.
     sort -gr | # sort the output node-pairs by L3 count, highest-to-lowest
-    cut -f2 | # extract the node-pairs
-    hawk '{OFS="\t"; print MAX($1,$2), MIN($1,$2)}' | # print the tab-separated node-pairs in correct direction
-    fgrep -vf $TMP.train | # remove the edges that are in the training set
-    head -$TOP | # take the top 1,000 predicted edges
-    fgrep -xcf - $TMP.test # count the correct
+    gawk 'BEGIN{N='$TOP'} # store how many predictions to extract
+	ARGIND==1{train[$1][$2]=train[$2][$1]=1} # training edges from $TMP.train, given as first filename argument
+	ARGIND==2{ test[$1][$2]= test[$2][$1]=1} # test edges from $TMP.test, given as second filename argument
+	ARGIND==3{ # the third filename argument is the 3 columns from the above pipeline: score, node1, node2
+	    # Note we ignore the score in $1; we look only at the 2nd and 3rd columns ($2,$3)
+	    if(($2 in train) && ($3 in train[$2])) next; # skip training edges
+	    ++numPred; # this line was not in the training set, and so counts as a prediction
+	    if(numPred > N) exit; # exit once we have made N predictions
+	    if(($2 in  test) && ($3 in  test[$2])) print; # print matching test edges
+	}' $TMP.train $TMP.test - | # the three filename arguments (dash refers to stdin, which is from the pipeline above)
+    wc -l # count the number of corroborated predictions
