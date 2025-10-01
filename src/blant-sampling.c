@@ -1,4 +1,4 @@
-#include "blant.h"
+#include "blant.h",
 #include "blant-sampling.h"
 #include "blant-utils.h"
 #include "heap.h"
@@ -946,7 +946,15 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     return 1.0;
 }
 
-
+#if SYNTHETIC
+void printTransitionCounts(){
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    printf("%d -> %d : %d\n", i, j, _transitionCount[i][j]);
+	}
+    }
+}
+#endif
 
 #if 0 // SEC no longer supported
 // SampleGraphletSequentialEdgeChaining starts with a single edge and always chooses a new edge that shares one node
