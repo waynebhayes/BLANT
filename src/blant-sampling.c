@@ -7,9 +7,6 @@
 #include "multisets.h"
 #include "blant-output.h"
 
-#ifndef SYNTHETIC
-#define SYNTHETIC 1
-#endif
 
 #if SYNTHETIC
     static int _transitionCount[MAX_CANONICALS][MAX_CANONICALS] = { 0 };
