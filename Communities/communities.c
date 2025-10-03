@@ -9,9 +9,9 @@
 #include "stdbool.h"
 
 #define TARGET_EDGE_DENSITY 0.5
-#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-#define DEBUG 1
-
+#define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+#define DEBUG 0
+#define MOVE_ONLY 1
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -80,17 +80,12 @@ void PrintCommunity(COMMUNITY * C){
 COMMUNITY *CommunityAddNode(COMMUNITY *C, PARTITION * P, int node) {
 #if DEBUG
     printf("Add C %d, node %d, before size = %d\n", C->id, node, C->n);
-    //printf("BEFORE\n");
-    //PrintCommunity(C);
 #endif 
     C->nodeSet[C->n] = node;
     P->whichMember[node] = C->n;
     P->whichCommunity[node] = C->id;
     ++C->n;
-#if DEBUG
-    //printf("AFTER\n");
-    //PrintCommunity(C);
-#endif
+
     return C;
 }
 
@@ -98,8 +93,6 @@ COMMUNITY *CommunityAddNode(COMMUNITY *C, PARTITION * P, int node) {
 COMMUNITY *CommunityDelNode(COMMUNITY *C, PARTITION * P, int node) {
 #if DEBUG
     printf("Del C %d, node %d, In com %d index %d\n", C->id, node, P->whichCommunity[node], P->whichMember[node]);
-    //printf("BEFORE\n");
-    //PrintCommunity(C);
 #endif
     int index = P->whichMember[node];
     if(index != C->n - 1){
@@ -108,10 +101,6 @@ COMMUNITY *CommunityDelNode(COMMUNITY *C, PARTITION * P, int node) {
 	P->whichMember[last] = index;
     }
     --C->n;  
-#if DEBUG
-    //printf("AFTER\n");
-    //PrintCommunity(C);
-#endif
     return C;
 }
 
@@ -259,11 +248,9 @@ PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C) {
 }
 
 PARTITION *PartitionDelCommunity(PARTITION *P, int c){
+    COMMUNITY * C = P->C[c];
 #if VERBOSE > 2 
     printf("Deleting com %d size %d, P->n = %d\n", c, P->C[c]->n, P->n);
-#endif
-    COMMUNITY * C = P->C[c];
-#if DEBUG
     printf("C = %p\n", C);
 #endif
     if(C){
@@ -293,7 +280,7 @@ PARTITION *PartitionDelCommunity(PARTITION *P, int c){
 	P->C[P->n] = NULL;
     }
 
-    printf("Return %p\n", P);
+    
     return P;
 }
 
@@ -441,6 +428,10 @@ static void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 
 */
 
+// fakeN is the number of nodes inside the community I TELL the measure
+
+// Because of the nature of how I implemented faster rejects, most of the time 
+// its not the actual true number of nodes in the community
 
 double IntraEdgeDensity(COMMUNITY *C, int fakeN){
     if(C->n < 2)
@@ -471,16 +462,19 @@ double HayesScore(COMMUNITY *C, int fakeN){
     printf("Hayes Com %d, inEdges = %d, C->n = %d\n", C->id, C->edgesIn, fakeN);
 #endif
     if(fakeN < 2){
-	printf("FakeN too low = %d\n", fakeN);
 	return 0;
     }
     double eps = C->edgesIn / ((fakeN * (fakeN-1))/2.0); 
     if(eps <= TARGET_EDGE_DENSITY){
+    #if VERBOSE > 2
 	printf("eps too low %f\n", eps);
+    #endif
 	return 0;
     }
     else{
+    #if VERBOSE > 2
 	printf("Result = %g\n", C->edgesIn * eps * TARGET_EDGE_DENSITY/eps);
+    #endif
 	return C->edgesIn*eps * (TARGET_EDGE_DENSITY/eps); // to down-weight if eps is above the target					  
     }
 }
@@ -488,7 +482,7 @@ double HayesScore(COMMUNITY *C, int fakeN){
 double ScorePartition(Boolean global, foint f){
     
     PARTITION *P = (PARTITION*) f.v;
-    #if VERBOSE > 0
+#if VERBOSE > 0
     printf("SCORING PARTITION o = %d, n = %d, P->n = %d, P->numMoved = %d\n", _oldCom, _newCom, P->n, P->numMoved);
     printf("ncn %d, ocn %d\n", _newComN, _oldComN);
 #endif
@@ -538,7 +532,11 @@ double PerturbPartition(foint f) {
     //printf("Perturb\n");
     PARTITION *P = (PARTITION *) f.v;
     double before = P->total; 
+#if MOVE_ONLY
+    int choice = 0;
+#else
     int choice = drand48() * 3;
+#endif
     P->numMoved = 0;    
 
     for(int i = 0; i < P->G->n; ++i){
@@ -578,7 +576,8 @@ double PerturbPartition(foint f) {
 
     if(choice == 0 && P->n > 1){
 	MoveRandomNode(P);
-	_moveOption = 0; 
+	_moveOption = 0;
+		
     }
     else if(choice == 1 && P->n > 1){
 	int c1, c2;
@@ -591,7 +590,7 @@ double PerturbPartition(foint f) {
 	    MergeCommunities(P, c1, c2);
 	else
 	    MergeCommunities(P, c2, c1);
-	_moveOption = 1; 
+	_moveOption = 1;
     }
     else{ 	
 	int c, numNodes, tries = 0;
@@ -923,7 +922,7 @@ int main(int argc, char *argv[])
     foint f;
     f.v = P;
 	
-    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, /*10*G->n*G->numEdges*/ 100,0,0,SAR);
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 10*G->n*G->numEdges /*100*/,0,0,SAR);
     SimAnnealSetSchedule(sa, 64, 16);
     //SimAnnealAutoSchedule(sa); // to automatically create schedule
     //sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
