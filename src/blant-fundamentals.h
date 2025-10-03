@@ -68,6 +68,8 @@
 // It would be nice to get this working with the value 1 rather than 0.
 #define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
-#define DEFAULT_DIGITS 2 // 2 digits of precision by defalut
+#define DEFAULT_DIGITS 2 // 2 digits of precision by default
+
+#define SYNTHETIC 0 // off by default
 
 #endif // _BLANT_FUNDAMENTALS_H
