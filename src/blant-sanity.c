@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 // BLANT sanity checker: given a value of k, n and the name of a "large" graph input file G, read lines from
 // BLANT that have been sorted by the first column, which is the canonical graphlet ID.  Then, without caring
 // which graphlet it actually is, simply verify that adjacent lines that have the same value in the first column,
