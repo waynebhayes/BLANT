@@ -476,7 +476,7 @@ double HayesScore(COMMUNITY *C, int fakeN){
     }
     double eps = C->edgesIn / ((fakeN * (fakeN-1))/2.0); 
     if(eps <= TARGET_EDGE_DENSITY){
-	printf("eps too low\n");
+	printf("eps too low %f\n", eps);
 	return 0;
     }
     else{
@@ -485,10 +485,10 @@ double HayesScore(COMMUNITY *C, int fakeN){
     }
 }
 
-
 double ScorePartition(Boolean global, foint f){
+    
     PARTITION *P = (PARTITION*) f.v;
-#if VERBOSE > 0
+    #if VERBOSE > 0
     printf("SCORING PARTITION o = %d, n = %d, P->n = %d, P->numMoved = %d\n", _oldCom, _newCom, P->n, P->numMoved);
     printf("ncn %d, ocn %d\n", _newComN, _oldComN);
 #endif
@@ -504,7 +504,7 @@ double ScorePartition(Boolean global, foint f){
 	    _newCom = _oldCom;
 	    _oldCom = swap;
 	}
-	int in, out, fail = 1;
+	int in, out;
 	if(_oldCom != P->n){ 
 	    COMMUNITY * old = P->C[_oldCom];
 	    double oldBefore = old->score;
@@ -722,14 +722,7 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
     //for(int i = 0; i < P->G->n; ++i){
 //	printf("Node %d in Com %d, index %d\n", i, P->whichCommunity[i], P->whichMember[i]);
   //  }
-#endif
-
-
-    //double after = ScorePartition(true, f);
-    //if(before > after)
-    //	fprintf(stderr, "ERROR: before > after\n");    
-   
-#if DEBUG
+  
     int fail = 1; 
     for(int i = 0; i < P->n; ++i){
 	COMMUNITY * C = P->C[i];
@@ -753,7 +746,7 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
 #if VERBOSE > 0   
     printf("Current total = %f\n\n", P->total);
 #endif
-
+    
     return accept;
 }
 
@@ -826,7 +819,10 @@ void SAR(int iters, foint f){
 #endif
     assert(fail);
     printf("\tBest: Com %d, with n %d, score %g  \tP->n = %d, Total score = %g", best_id, P->C[best_id]->n, best, P->n, P->total);
+    _oldCom = -1; // This ensures that I don't score the partition with the wrong information
+    _newCom = -1; // The score is properly updated on MaybeAccept
 }
+
 
 
 #define RANDOM_START 0
@@ -909,11 +905,14 @@ int main(int argc, char *argv[])
 
     for(int i = 0; i < P->n; ++i){
 	COMMUNITY * C = P->C[i];
-	double s = pCommunityScore(C, C->n); 
-	C->score = s;
 	C->edgesIn = CommunityEdgeCount(C);
 	C->edgesOut = CommunityEdgeOutwards(P, C);
-	P->total += s;
+	double s = pCommunityScore(C, C->n); 
+	printf("SETUP score = %f", s);
+	C->score = s;
+	printf("Assigned %p %f", C, C->score);
+
+	P->total += s; 
 	printf("%d has in %d, out %d, n %d, score %f\n", i, C->edgesIn, C->edgesOut, C->n, C->score);
     }
 
