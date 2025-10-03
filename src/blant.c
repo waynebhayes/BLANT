@@ -1054,11 +1054,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		for(c=0; c<_numCanon; c++) if(SetIn(_connectedCanonicals,c)) {
 		    double gdv=_graphletDegreeVector[c][u];
 		    int numPrinted = 0;
-		    char buf[BUFSIZ];
+		    char buf[10*BUFSIZ];
 		    if(gdv && _communityNeighbors[u] && _communityNeighbors[u][c] && SetCardinality(_communityNeighbors[u][c])) {
 			int neigh=0;
 			for(j=0;j<GraphDegree(G,u); j++) {
-			    char jbuf[BUFSIZ];
+			    char jbuf[10*BUFSIZ];
 			    v = GraphNextNeighbor(G,u,&neigh); assert(v!=-1); //G->neighbor[u][j];
 			    if(SetIn(_communityNeighbors[u][c],v)) {
 				if(!numPrinted++) sprintf(buf, "%s %d %lg\t", PrintNode(jbuf, 0,u), c, gdv);
@@ -1066,7 +1066,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 			    }
 			}
 			assert(-1==GraphNextNeighbor(G,u,&neigh));
-			assert(strlen(buf) < BUFSIZ);
+			assert(strlen(buf) < 10*BUFSIZ);
 			if(numPrinted) puts(buf);
 		    }
 		}
