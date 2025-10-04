@@ -1532,7 +1532,6 @@ void PreProcessPredict(TINY_GRAPH *g, int topCanon)
 
 void Predict_ProcessGraphlet(TINY_GRAPH *g, unsigned Varray[])
 {
-    static int depth;
 #if PARANOID_ASSERTS
     assert(g->n == _k);
     assert(NumReachableNodes(g, 0)==g->n);

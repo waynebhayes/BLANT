@@ -367,69 +367,6 @@ void finalize(GRAPH *G, unsigned long numSamples) {
 		_graphletDegreeVector[i][j] *= numSamples/totalConcentration;
 }
 
-#if 0 // unused code, commented out to shut up the compiler
-// return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
-static TSET _visited;
-int NumReachableNodes(TINY_GRAPH *g, int startingNode)
-{
-    if(startingNode == 0) TSetEmpty(_visited);
-    TSetAdd(_visited,startingNode);
-    unsigned j, Varray[MAX_K], numVisited = 0;
-    int numNeighbors = TSetToArray(Varray, g->A[startingNode]);
-    assert(numNeighbors == g->degree[startingNode]);
-    for(j=0; j<numNeighbors; j++)if(!TSetIn(_visited,Varray[j])) numVisited += NumReachableNodes(g,Varray[j]);
-    return 1+numVisited;
-}
-
-// Compute the degree of the state in the state graph (see Lu&Bressen)
-// Given the big graph G, and a set of nodes S (|S|==k), compute the
-// degree of the *state* represented by these nodes, which is:
-//     Degree(S) = k*|NN2| + (k-1)*|NN1|
-// where NN1 is the set of nodes one step outside S that have only 1 connection back into S,
-// and   NN2 is the set of nodes one step outside S that have more than 1 connection back into S.
-static int StateDegree(GRAPH *G, SET *S)
-{
-#if PARANOID_ASSERTS
-    assert(SetCardinality(S) == _k);
-#endif
-    unsigned Varray[_k]; // array of elements in S
-    SetToArray(Varray, S);
-
-    SET *outSet=SetAlloc(G->n); // the set of nodes in G that are one step outside S, from *anybody* in S
-    int connectCount[G->n]; // for each node in the outset, count the number of times it's connected into S
-    memset(connectCount, 0, G->n * sizeof(int)); // set them all to zero
-
-    int i, j, numOut = 0;
-    for(i=0;i<_k;i++) for(j=0; j<G->degree[Varray[i]]; j++)
-    {
-	int neighbor = G->neighbor[Varray[i]][j];
-	if(!SetIn(S, neighbor))
-	{
-	    SetAdd(outSet, neighbor);
-	    if(connectCount[neighbor] == 0) ++numOut;
-	    ++connectCount[neighbor];
-	}
-    }
-#if PARANOID_ASSERTS
-    assert(SetCardinality(outSet) == numOut);
-#endif
-    unsigned outArray[numOut], Sdeg = 0;
-    i = SetToArray(outArray, outSet);
-    assert(i == numOut);
-    for(i=0; i < numOut; i++)
-    {
-	switch(connectCount[outArray[i]])
-	{
-	case 0: break;
-	case 1: Sdeg += _k-1; break;
-	default:  Sdeg += _k; break;
-	}
-    }
-    SetFree(outSet);
-    return Sdeg;
-}
-#endif
-
 // This function is usually only run at the END after all sampling is finished; it converts graphlet frequencies to
 // concentrations or integers based on the sampling algorithm and command line arguments.
 // It returns an estimate of the total number of connected graphlets in the entire graph
@@ -823,6 +760,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                             (end.tv_nsec - start.tv_nsec) / 1e9;
         if(!_quiet) Note("Took %f seconds to sample %lu with %d threads in %d batches.",
 		elapsed_time, samplesCounter, _numThreads, batchCounter); 
+	numSamples = samplesCounter;
     }
 #if 0
     //THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
@@ -985,7 +923,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     }
     if(_outputMode & predict_merge) assert(false); // shouldn't get here
     if(_outputMode & predict) {
-	Predict_Flush(G);
 	// Turn off ODV and GDV output because we needed them to be COMPUTED but don't want them output in predictMode
 	_outputMode &= ~(outputGDV|outputODV);
     }
@@ -1084,6 +1021,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             printf("\n");
         }
     }
+    if(_outputMode & predict) Predict_Shutdown(G);
+
     if(!_outputMode) Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
 
 #if !O_ALLOC && PARANOID_ASSERTS
@@ -1296,7 +1235,6 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 			fputs(line, stdout);
 	    }
 	    if(_outputMode&predict_merge) assert(false); // should not be here
-	    if(_outputMode& predict) Predict_ProcessLine(G, lineNum, line);
 	    if(!_outputMode)
 		Abort("oops... unknown or unsupported _outputMode in RunBlantInForks while reading child process");
 	}
@@ -1346,7 +1284,7 @@ const char * const USAGE_SHORT =
 " Common options: (use -h for longer help)\n"\
 "    -s samplingMethod (default MCMC; NBE, EBE!, RES!, AR!, FAYE!, INDEX, EDGE_COVER)\n"\
 "       Note: exclamation mark required after some method names to supress warnings about them.\n"\
-"    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, d=neighbor distribution\n"\
+"    -m{outputMode} (default f=frequency; o=ODV, g=GDV, i=index, cX=community(X=g,o), r=root, p=predict, d=nbrDist\n"\
 "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, j=Jesse, b=binary, d=decimal, n=noncanonical)\n"\
 "    -r seed (integer)\n"\
 "    -F frequency display mode (default a=absolute count (estimated); c=concentration; n=raw count out of numSamples)\n"\
@@ -1412,6 +1350,7 @@ const char * const USAGE_LONG =
 "	cX = Community detection where X is g for graphlet (the default) or o for orbit (which uses FAR more memory!)\n"\
 "	    Each line consists of:   node (orbit|graphlet) count [TAB] neighbors.\n"\
 "	r = index with {r}oot node orbit: each line is a canonical ID + the orbit of the root node, then k nodes in canonical order; produces better seeds when the index is queried by the alignment algorithm\n"\
+"	pO:P = edge Prediction, where O and P are an orbit pair (eg 11:11 when k=4 for the L3 path from Kovacs et. al.)\n"\
 "	d = graphlet neighbor {D}istribution\n"\
 "    -d{displayMode: single character controls how canonical IDs are displayed. (DEFAULT=-mi): \n"\
 "	o = ORCA numbering\n"\
@@ -1531,7 +1470,10 @@ int main(int argc, char *argv[])
 	    case 'g': _outputMode |= outputGDV; break;
 	    case 'o': _outputMode |= outputODV; break;
 	    case 'd': _outputMode |= graphletDistribution; break;
-	    case 'p': _outputMode |= (predict|outputGDV|outputODV); break;
+	    case 'p': _outputMode |= (predict|outputGDV|outputODV);
+		char *s = optarg+1; _predictOrbit1 = atoi(s);
+		until(*s++==':') ; _predictOrbit2 = atoi(s);
+		break;
 	    case 'q': _outputMode |= predict_merge; break;
 	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
 	    break;
@@ -1956,9 +1898,6 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    if(_outputMode & predict_merge)
-	exitStatus = Predict_Merge(G);
-    else
     exitStatus = RunBlantFromGraph(_k, numSamples, G);
     GraphFree(G);
     return exitStatus;

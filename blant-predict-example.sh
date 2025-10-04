@@ -54,7 +54,8 @@ FOLD1=`expr $FOLD + 1` # training size
 tail -n +$FOLD1 $TMP.el > $TMP.train
 
 # Now run predictions
-./blant-predict-release -k4 -mp6,0,0 $TMP.train | # estimate L3-paths on 4-node graphlets as in Kovacs et al.
+#./blant-predict-release -sMCMC -k4 -mp6,0,0 $TMP.train | # estimate L3-paths on 4-node graphlets as in Kovacs et al.
+./blant -p1L -sMCMC -k4 -mp11:11 $TMP.train | # using BLANT directly
     sort -gr | # sort the output node-pairs by L3 count, highest-to-lowest
     gawk 'BEGIN{N='$TOP'} # store how many predictions to extract
 	ARGIND==1{train[$1][$2]=train[$2][$1]=1} # training edges from $TMP.train, given as first filename argument
