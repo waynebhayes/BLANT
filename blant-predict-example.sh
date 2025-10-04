@@ -5,8 +5,9 @@ EXEDIR=`dirname "$0"`; BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
 NET=networks/HI-union.el
 USAGE="USAGE: $BASENAME N [network.el]
-PURPOSE: run $BASENAME on network.el [default $NET]: split into train + test (90% & 10% of edges, respectively), and
-    then count the number of correct predictions (out of N) in the test set after training."
+PURPOSE: run $BASENAME on network.el [default $NET]:
+    split into train + test (90% & 10% of edges, respectively), and then count
+    the number of correct predictions (out of N) in the test set after training."
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
