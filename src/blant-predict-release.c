@@ -1541,10 +1541,13 @@ void Predict_ProcessGraphlet(TINY_GRAPH *g, unsigned Varray[])
     char perm[maxK];
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);
+    double totalWeight = 0.0;
+    for(i=0;i<_k;i++) totalWeight += 1.0/GraphDegree(_G, Varray[i]);
     for(i=0;i<_k-1;i++) for(j=i+1;j<_k;j++) {
 	int g_u=perm[i], g_v=perm[j];
 	int G_u=Varray[g_u], G_v=Varray[g_v];
-	_PredictCount[G_u][G_v] += (_PredictMotifCount[GintOrd][i][j] + _PredictMotifCount[GintOrd][j][i]);
+	double remove_uv = 1.0/GraphDegree(_G,G_u) + 1.0/GraphDegree(_G, G_v);
+	_PredictCount[G_u][G_v] += (_PredictMotifCount[GintOrd][i][j] + _PredictMotifCount[GintOrd][j][i]) * (totalWeight - remove_uv);
     }
 }
 
