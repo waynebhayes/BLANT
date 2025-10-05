@@ -1,4 +1,5 @@
 #include "tinygraph.h"
+#include "blant-sampling.h"
 #include "blant-predict.h"
 
 #define MAX_NODES 28000 // may need to increase this for large networks
@@ -59,6 +60,7 @@ void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g, Gint_ty
 #endif
     unsigned i,j;
     assert(Gint==TinyGraph2Int(g,_k) && GintOrd==_K[Gint]);
+    assert(_g_overcount);
     unsigned char perm[MAX_K];
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);

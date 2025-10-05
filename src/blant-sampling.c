@@ -22,7 +22,7 @@ int _samplesPerEdge = 0;
 unsigned _MCMC_L;
 unsigned long int _acceptRejectTotalTries;
 GRAPH *_EDGE_COVER_G;
-double _g_overcount; // MCMC overcount, needs to be global for simplicity
+double _g_overcount; // MCMC overcount, needs to be global for simplicity (ETHAN)
 
 // Update the most recent d-graphlet to a random neighbor of it
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
@@ -304,7 +304,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	Warning("ocount (%g) is less than 0\n", ocount);
 	}
     accums->graphletConcentration[GintOrdinal] += ocount;
-	_g_overcount = ocount;
+	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
 	TinyGraphFree(g);
     }
     SetFree(outSet);
