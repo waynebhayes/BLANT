@@ -1709,8 +1709,7 @@ int main(int argc, char *argv[])
 
     if(_desiredPrec && _confidence == 0)
 	_confidence = (1-_desiredPrec/10);
-    if(_desiredPrec && _sampleMethod == SAMPLE_MCMC)
-	Warning("you've chosen MCMC sampling with confidence intervals; EBE is recommended since adjacent MCMC samples are not independent");
+    // if(_desiredPrec && _sampleMethod == SAMPLE_MCMC) Warning("you've chosen MCMC sampling with confidence intervals; EBE is recommended since adjacent MCMC samples are not independent"); // actually it seems to work fine
 
     SetBlantDirs(); // Needs to be done before reading any files in BLANT directory
     SetGlobalCanonMaps(); // needs _k to be set

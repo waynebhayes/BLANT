@@ -3,11 +3,12 @@
 EXEDIR=`dirname "$0"`; BASENAME=`basename "$0" .sh`; TAB='	'; NL='
 '
 #################### ADD YOUR USAGE MESSAGE HERE, and the rest of your code after END OF SKELETON ##################
-NET=networks/HI-union.el
-USAGE="USAGE: $BASENAME N [network.el]
-PURPOSE: run $BASENAME on network.el [default $NET]:
-    split into train + test (90% & 10% of edges, respectively), and then count
-    the number of correct predictions (out of N) in the test set after training."
+USAGE="USAGE: $BASENAME N k orbit-pair train.el test.el
+PURPOSE: All arguments are required:
+    N = how many predictions to make
+    k = size of graphlets to use
+    orbit-pair = just like it sounds (eg 11:11 for the L3-path of Kovacs et al)
+    train.el, test.el: the training and test networks, respectively"
 
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
@@ -28,32 +29,24 @@ export TMPDIR="`mktemp -d /tmp/$BASENAME.XXXXXX`"
 
 #################### END OF SKELETON, ADD YOUR CODE BELOW THIS LINE
 
+[ $# -eq 5 ] || die "wrong number of arguments"
+
 # compile the file src/blant-predict-release.c using libwayne libraries:
-if [ $# -lt 1 -o $# -gt 2 ]; then die "must provide number of predictions as first argument"; fi
 TOP="$1" # number of predictions to take
+k=$2
+OP="$3"
+TRAIN="$4"
+TEST="$5"
 
 LIBWAYNE_HOME=`cd libwayne && /bin/pwd`
 PATH="$PATH:$LIBWAYNE_HOME/bin:$LIBWAYNE_HOME/../scripts"
 export LIBWAYNE_HOME PATH
 
-[ $# -eq 2 ] && NET="$2"
-BASE_NET="`basename "$NET" .el`"
-
-# create a random-order list of network's edges
-TMP=$TMPDIR/$BASE_NET
-randomizeLines < "$NET" > $TMP.el
-
-# separate into 90% train, 10% test
-FOLD=`wc -l < $TMP.el` # number of edges in network
-FOLD=`expr $FOLD / 10` # take 10% for testing
-head -$FOLD $TMP.el > $TMP.test
-FOLD1=`expr $FOLD + 1` # training size
-tail -n +$FOLD1 $TMP.el > $TMP.train
+echo "Note: BLANT will print status messages to stderr about its use of batch sampling to estimate orbit-pair counts to about 1 digit of precision; then it will print the corroborated predictions out of the top $TOP predictions as you requested; pipe thetoutput to 'wc -l' to count them" | fmt >&2 
 
 # Now run predictions
-#./blant-predict-release -sMCMC -k4 -mp6,0,0 $TMP.train | # estimate L3-paths on 4-node graphlets as in Kovacs et al.
-./blant -p1L -sMCMC -k4 -mp11:11 $TMP.train | # using BLANT directly
-    sort -gr | # sort the output node-pairs by L3 count, highest-to-lowest
+./blant -p1L -sMCMC -k$k -mp$OP "$TRAIN" |
+    sort -gr | # sort the output node-pairs by OP count, highest-to-lowest
     gawk 'BEGIN{N='$TOP'} # store how many predictions to extract
 	ARGIND==1{train[$1][$2]=train[$2][$1]=1} # training edges from $TMP.train, given as first filename argument
 	ARGIND==2{ test[$1][$2]= test[$2][$1]=1} # test edges from $TMP.test, given as second filename argument
@@ -63,5 +56,4 @@ tail -n +$FOLD1 $TMP.el > $TMP.train
 	    ++numPred; # this line was not in the training set, and so counts as a prediction
 	    if(numPred > N) exit; # exit once we have made N predictions
 	    if(($2 in  test) && ($3 in  test[$2])) print; # print matching test edges
-	}' $TMP.train $TMP.test - | # the three filename arguments (dash refers to stdin, which is from the pipeline above)
-    wc -l # count the number of corroborated predictions
+	}' "$TRAIN" "$TEST" - # the three filename arguments (dash refers to stdin, which is from the pipeline above)
