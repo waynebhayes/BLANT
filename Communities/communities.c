@@ -6,7 +6,6 @@
 #include "graph.h"
 #include "sets.h"
 #include "sim_anneal.h"
-#include "stdbool.h"
 
 #define TARGET_EDGE_DENSITY 0.5
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
@@ -33,8 +32,8 @@ typedef struct _communitySet {
     int *whichMember; // Within the community, tells at which index the node is located at 
     //SET *common; // In case merge of 2 communities have overlap, record them (Only for useful for overlapping communities)
     double total; // Cumulative score of partition
-    bool * visited; // A bool vector for community update (Moved here to stop allocating and freeing repeadetly) 
-    bool * marked; // Marking which ones will be moved (Essentially SET * moved but in int * format)  
+    SET *visited; // A bool vector for community update (Moved here to stop allocating and freeing repeadetly) 
+    SET *marked; // Marking which ones will be moved (Essentially SET * moved but in int * format)  
     int * toMove; // Marking, but only holds which ones to move instead of marking which nodes in the graph to move 
     int numMoved; // Number of nodes that will be moved
 } PARTITION;
@@ -123,8 +122,8 @@ static void MoveOneNode(PARTITION * P, int node, int dest){
 	    // This works but I'm not entirely sure why
 	    continue;
 	}
-	if(!P->visited[neighbor]){
-	    if(P->marked[neighbor]){
+	if(!SetIn(P->visited,neighbor)){
+	    if(SetIn(P->marked, neighbor)){
 	    #if DEBUG	
 		printf("W ");
 	    #endif
@@ -161,7 +160,7 @@ static void MoveOneNode(PARTITION * P, int node, int dest){
     int diff = old - new;
     oldCom->edgesOut += diff;
     newCom->edgesOut += diff;
-    P->visited[node] = true;
+    SetAdd(P->visited, node);
     
 #if VERBOSE > 2 
     printf("AFTER\noc size = %d, nc size = %d\noc in %d, oc out %d, nc in %d, nc out %d\n", oldCom->n, newCom->n, oldCom->edgesIn, oldCom->edgesOut, newCom->edgesIn, newCom->edgesOut);
@@ -216,8 +215,8 @@ PARTITION *PartitionAlloc(GRAPH *G) {
     P->C = Calloc(sizeof(COMMUNITY**), G->n);
     P->whichCommunity = Calloc(sizeof(int), G->n);
     P->whichMember = Calloc(sizeof(int), G->n);
-    P->visited = Calloc(sizeof(bool), G->n);
-    P->marked = Calloc(sizeof(bool), G->n);
+    P->visited = SetAlloc(G->n);
+    P->marked = SetAlloc(G->n);
 //  P->common = SetAlloc(G->n);
     P->toMove = Calloc(sizeof(int), G->n);
     P->numMoved = 0;
@@ -290,8 +289,8 @@ void PartitionFree(PARTITION *P) {
     Free(P->C);
     Free(P->whichCommunity);
     Free(P->whichMember);
-    Free(P->visited);
-    Free(P->marked);
+    SetFree(P->visited);
+    SetFree(P->marked);
     Free(P->toMove);
     Free(P);
 }
@@ -330,7 +329,7 @@ static void MoveRandomNode(PARTITION *P){
     do{newCom = (int)(P->n * drand48());}
     while(newCom == P->whichCommunity[u]); 
     COMMUNITY * nc = P->C[newCom];	
-    P->marked[u] = 1;
+    SetAdd(P->marked, u);
     P->toMove[P->numMoved++] = u;
     SaveCommunityInfo(oc, nc);    
     MoveOneNode(P, u, newCom);    
@@ -364,7 +363,7 @@ static void MergeCommunities(PARTITION *P, int c1, int c2){
     for(int i = 0; i < C2->n; i++){
 	int u = C2->nodeSet[i]; 
 	//printf("Marked %d ", u);
-	P->marked[u] = true;
+	SetAdd(P->marked, u);
 	P->toMove[P->numMoved++] = u;
     }
     int iters = C2->n;
@@ -408,8 +407,8 @@ static void SplitCommunity(PARTITION *P, int c_id, int numNodes){
 	    printf("u %d, i %d, located %d\n", u, index, P->whichCommunity[u]);
 	#endif
 	}
-	while(P->marked[u]);
-	P->marked[u] = true;
+	while(SetIn(P->marked, u));
+	SetAdd(P->marked, u);
 	P->toMove[P->numMoved++] = u;
     } 
  
@@ -539,10 +538,8 @@ double PerturbPartition(foint f) {
 #endif
     P->numMoved = 0;    
 
-    for(int i = 0; i < P->G->n; ++i){
-	P->visited[i] = false;
-	P->marked[i] = false;
-    }
+    SetReset(P->visited);
+    SetReset(P->marked);
 #if DEBUG
     printf("Before perturb\n");
     for(int i = 0; i < P->n; ++i){ 
@@ -595,11 +592,9 @@ double PerturbPartition(foint f) {
     else{ 
 	#define MAX_TRIES 20	
 	int c, numNodes, tries = 0;
-	do{
+	do
 	    c = drand48() * P->n;
-	    ++tries; 
-	}
-	while(P->C[c]->n == 1 && tries < MAX_TRIES);
+	while(P->C[c]->n == 1 && tries++ < MAX_TRIES);
 
 	if(tries >= MAX_TRIES){
 	    // If after a while, it can't find a community with n > 1,
