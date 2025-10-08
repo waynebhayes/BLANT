@@ -11,7 +11,7 @@
 #define TARGET_EDGE_DENSITY 0.5
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 #define DEBUG 0
-#define MOVE_ONLY 1
+#define MOVE_ONLY 0
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -564,7 +564,7 @@ double PerturbPartition(foint f) {
 	}
     }
     assert(fail);
-#endif
+
     int comNums = 1;
     for(int i = 0; i < P->G->n; ++i){	    
 	if(P->whichCommunity[i] >= P->n){
@@ -573,7 +573,7 @@ double PerturbPartition(foint f) {
 	}	    
     }
     assert(comNums);
-
+#endif
     if(choice == 0 && P->n > 1){
 	MoveRandomNode(P);
 	_moveOption = 0;
@@ -592,15 +592,16 @@ double PerturbPartition(foint f) {
 	    MergeCommunities(P, c2, c1);
 	_moveOption = 1;
     }
-    else{ 	
+    else{ 
+	#define MAX_TRIES 20	
 	int c, numNodes, tries = 0;
 	do{
 	    c = drand48() * P->n;
 	    ++tries; 
 	}
-	while(P->C[c]->n == 1 && tries < 500);
+	while(P->C[c]->n == 1 && tries < MAX_TRIES);
 
-	if(tries >= 500){
+	if(tries >= MAX_TRIES){
 	    // If after a while, it can't find a community with n > 1,
 	    // just move
 	    MoveRandomNode(P);
