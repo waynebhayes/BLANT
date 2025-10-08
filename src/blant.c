@@ -1701,6 +1701,7 @@ int main(int argc, char *argv[])
     if(!numSamples && !_desiredPrec) { // default to 2 digits of precision at 99.9% confidence
 	_desiredDigits = DEFAULT_DIGITS;
 	_desiredPrec = pow(10, -_desiredDigits);
+    _stopMode = stopOnPrecision; // set default stop mode
     }
     if (_sampleMethod == -1) {
 	_sampleMethod = SAMPLE_EDGE_EXPANSION;
