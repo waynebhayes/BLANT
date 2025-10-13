@@ -4,16 +4,33 @@
 #include "blant-output.h"
 #include "blant-sampling.h"
 #include "blant-pthreads.h"
+#include "rand48.h"
+#include "misc.h"
 #include <pthread.h>
+#include <errno.h>
+#include "atomic_utils.h"
+atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
-
-// it would be potentially more efficient to just use a static set of accumulators struct across each batch, then memset(0) them at the start of every batch
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
-    // memory NEEDS to be optimized- but to do this we need to understand Ocalloc. Why is it used here? What's its purpose? Why not use malloc?
-    Accumulators *accums = calloc(1, sizeof(Accumulators)); // I don't really know how libwayne's Omalloc and Ofree works, confer during meeting later
-    // initialize GDV vectors if needed
-    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
-        for(int i=0; i<_numCanon; i++) accums->graphletDegreeVector[i] = calloc(G->n, sizeof(**accums->graphletDegreeVector));
+
+    Accumulators *accums = aligned_alloc(CACHE_LINE_SIZE, sizeof(Accumulators));
+
+    if (!accums) {
+        perror("Failed to allocate memory for Accumulators");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(accums, 0, sizeof(Accumulators)); // zero out everything
+
+    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+        accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
+        if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
+        for(int i = 0; i < _numCanon; i++) {
+            accums->graphletDegreeVector[i] = calloc(G->n, sizeof(double));
+            if (!accums->graphletDegreeVector[i]) Fatal("Failed to allocate GDV entry memory");
+        }
+    }
+
     // initialize ODV vectors if needed
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
         for(int i=0; i<_numOrbits; i++) accums->orbitDegreeVector[i] = calloc(G->n, sizeof(**accums->orbitDegreeVector));
@@ -36,31 +53,48 @@ void FreeAccumulatorStruct(Accumulators *accums) {
 }
 
 void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int numSamples, int numThreads) {
+    // Reset the global “next” counter before launching workers
+    ATOMIC_STORE_U64(&nextIndex, 0);
+
+    if (numThreads < 1) numThreads = 1;
+    if (numSamples < 0) numSamples = 0;
+
     pthread_t threads[numThreads];
     ThreadData threadData[numThreads];
-    int samplesPerThread = numSamples / numThreads;
-    int leftover = numSamples - (samplesPerThread * numThreads);
+
+    // Choose a batch size
+    int batchSize = G->numEdges * 10;
+    if (batchSize > numSamples) batchSize = numSamples > 0 ? numSamples : 1;
+
+    int totalBatches = (numSamples + batchSize - 1) / batchSize; // Ceiling division to cover all samples
+    if (totalBatches <= 0) totalBatches = 1;
+
     // seed the threads with a base seed that may or may not be specified
     long base_seed = seed == -1 ? GetFancySeed(false) : seed;
 
     // initialize the threads and their data
-    for (unsigned t = 0; t < numThreads; t++)
+    for (int t = 0; t < numThreads; t++)
     {
-        threadData[t].samplesPerThread = samplesPerThread;
-        // distribute the leftover samples
-        if (leftover-- > 0) threadData[t].samplesPerThread++;
         threadData[t].k = k;
         threadData[t].G = G;
         threadData[t].varraySize = varraySize;
         threadData[t].threadId = t;
-        threadData[t].seed = base_seed + t; // each thread has it's own unique seed
+        threadData[t].seed = base_seed + t;
         threadData[t].accums = InitializeAccumulatorStruct(G);
 
-        pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
+        // batching params consumed by RunBlantInThread
+        threadData[t].batchSize    = batchSize;
+        threadData[t].totalSamples = (unsigned long)numSamples;
+        threadData[t].totalBatches = totalBatches;
+
+        // [SEE IF THERE IS A BETTER WAY] create thread with error handling
+        if (pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]) != 0) {
+            Fatal("Failed to create thread");
+        }
     }
 
-    // wait for each thread to finishe execution, then accumulate data from the thead into the passed accumulator
-    for (unsigned t = 0; t < _numThreads; t++) {
+    // wait for each thread to finish execution, then accumulate data from the thread into the passed accumulator
+    for (unsigned t = 0; t < numThreads; t++) {
         pthread_join(threads[t], NULL);
         for (int i = 0; i < _numCanon; i++) {
             _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
