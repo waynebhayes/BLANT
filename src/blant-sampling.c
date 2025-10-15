@@ -124,7 +124,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	} while(!(_componentSize[_whichComponent[X[0]]] < k));
     }
     else if (edge < 0) { // Pick a random edge from within a chosen connected component
-	do {
+
 	    edge = G->numEdges * RandomUniform();
 	    X[0] = G->edgeList[2*edge];
 	} while(!SetIn(_componentSet[cc], X[0]) || !SetIn(_startNodeSet, X[0]));
@@ -152,7 +152,9 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	crawlOneStep(XLS, XLQ, X, G);
     }
     numTries = 0;
-}
+}picture.addShape(new Triangle(arg1, arg2));
+	picture.addShape(new Triangle(arg1 - 1, arg2 - 2));
+
 
 // return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
 static TSET _visited;
@@ -944,6 +946,23 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 }
 
 #if SYNTHETIC
+double transitionProbs[MAX_CANONICALS][MAX_CANONICALS];
+for(int i = 0; i < MAX_CANONICALS; i++){
+    int rowSum = 0;
+    for(int j = 0; j < MAX_CANONICALS; j++){
+	rowSum += _transitionCount[i][j];
+    }
+    for(int j = 0; j < MAX_CANONICALS; j++){
+	if(rowSum > 0){
+	    transitionProbs[i][j] = (double)_transitionCount[i][j] / rowSum;
+	}
+	else{
+	    transitionProbs[i][j] = 0.0;
+	}
+    }
+}
+
+
 void printTransitionCounts(){
     for(int i = 0; i < MAX_CANONICALS; i++){
 	for(int j = 0; j < MAX_CANONICALS; j++){
@@ -951,6 +970,15 @@ void printTransitionCounts(){
 	}
     }
 }
+
+void printProbCounts(){
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    printf("%d -> %d : %d%\n", i, j, transitionProbs[i][j]);
+	}
+    }
+}
+
 #endif
 
 #if 0 // SEC no longer supported
