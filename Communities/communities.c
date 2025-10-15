@@ -1,5 +1,11 @@
 // This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
+
+
+// Warning: setting PA = 0 and ND = 1 turns of ALL checking... but could make this up to 10x faster
+#define PARANOID_ASSERTS 0
+#define NDEBUG 1
+
 #include <stdio.h>
 #include "misc.h"
 #include "rand48.h"
@@ -824,6 +830,7 @@ void SAR(int iters, foint f){
 #define CHECK_OVERLAP 1
 int main(int argc, char *argv[])
 {
+    printf("Running with PARANOID_ASSERTS=%d, NDEBUG=%d\n", PARANOID_ASSERTS, NDEBUG);
     // Set which measure to use here
     pCommunityScore = HayesScore;
     int i, j;
@@ -919,8 +926,12 @@ int main(int argc, char *argv[])
     f.v = P;
 	
     SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 10*G->n*G->numEdges /*100*/,0,0,SAR);
-    SimAnnealSetSchedule(sa, 64, 16);
-    //SimAnnealAutoSchedule(sa); // to automatically create schedule
+    if(G->n==2390 && G->numEdges==16127) {
+	printf("Hmm, this looks like yeast.el, using canned schedule\n");
+	SimAnnealSetSchedule(sa, 0.7, 3);
+    }
+    else
+	SimAnnealAutoSchedule(sa); // to automatically create schedule
     //sa->tInitial = sa->tDecay = sa->temperature = 0; // equivalent to hill climbing
     SimAnnealRun(sa); // returns >0 if success, 0 if not done and can continue, <0 if error
     // foint SimAnnealSol(SIM_ANNEAL *sa))
