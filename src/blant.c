@@ -1470,9 +1470,8 @@ int main(int argc, char *argv[])
 	    case 'd': _outputMode |= graphletDistribution; break;
 	    case 'p': _outputMode |= (predict|outputGDV|outputODV);
 		char *s = optarg+1; _predictOrbit1 = atoi(s);
-		until(*s++==':') 
-		;
-		 _predictOrbit2 = atoi(s);
+		until (*s++==':')  /* do nothing */ ;
+		_predictOrbit2 = atoi(s);
 		break;
 	    case 'q': _outputMode |= predict_merge; break;
 	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
