@@ -443,8 +443,8 @@ void* RunBlantInThread(void* arg) {
 #endif
 
     SET *V = SetAlloc(G->n);
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
-    unsigned Varray[varraySize];
+		TINY_GRAPH *empty_g = TinyGraphAlloc(k);
+	unsigned Varray[varraySize];
     double weight;
     unsigned long stuck = 0;
     SET *prev_node_set = SetAlloc(G->n);
@@ -457,27 +457,27 @@ void* RunBlantInThread(void* arg) {
     }
 
     for (int i = 0; i < samplesPerThread; i++) {
-        if (_window) {
-            Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
-        } 
-        if (_outputMode & graphletDistribution) {
-            // calls SampleGraphlet internally  
-            ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
-        } else {
+			if (_window) {
+				Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
+			} 
+			if (_outputMode & graphletDistribution) {
+				// calls SampleGraphlet internally  
+				ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
+			} else {
             weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
-            if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
-                stuck = 0; // reset stuck counter when finding a newly processed graphlet
-            } else {
-                // processing failed, ignore sample
+				if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
+					stuck = 0; // reset stuck counter when finding a newly processed graphlet
+				} else {
+					// processing failed, ignore sample
                 i--;
                 stuck++;
                 if(stuck > MAX(G->n, _numSamples)) {
-                    if(_quiet<2) Warning("Sampling aborted for thread %d: no new graphlets discovered after %d attempts", threadId, stuck);
-                    break;
-                }
-            }
-        }
-    }
+						if(_quiet<2) Warning("Sampling aborted for thread %d: no new graphlets discovered after %d attempts", threadId, stuck);
+						break;
+					}
+				}
+			}
+		}
     SetFree(prev_node_set);
     SetFree(intersect_node);
     SetFree(V);
@@ -492,9 +492,7 @@ void* RunBlantInThread(void* arg) {
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
 static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
-    int windowRepInt, D;
     unsigned long i, j;
-    unsigned char perm[MAX_K+1];
     assert(k <= G->n);
     assert(k == _k);
     SET *V = SetAlloc(G->n);
@@ -896,7 +894,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         Free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
-    if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || SAMPLE_EDGE_EXPANSION) && !_window)
+	if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_EDGE_EXPANSION) && !_window)
 	finalize(G, numSamples);
 
     if ((_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV) && !_window)
@@ -1472,7 +1470,9 @@ int main(int argc, char *argv[])
 	    case 'd': _outputMode |= graphletDistribution; break;
 	    case 'p': _outputMode |= (predict|outputGDV|outputODV);
 		char *s = optarg+1; _predictOrbit1 = atoi(s);
-		until(*s++==':') ; _predictOrbit2 = atoi(s);
+		until(*s++==':') 
+		;
+		 _predictOrbit2 = atoi(s);
 		break;
 	    case 'q': _outputMode |= predict_merge; break;
 	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
