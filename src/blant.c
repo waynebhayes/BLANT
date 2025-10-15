@@ -443,8 +443,8 @@ void* RunBlantInThread(void* arg) {
 #endif
 
     SET *V = SetAlloc(G->n);
-		TINY_GRAPH *empty_g = TinyGraphAlloc(k);
-	unsigned Varray[varraySize];
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
+    unsigned Varray[varraySize];
     double weight;
     unsigned long stuck = 0;
     SET *prev_node_set = SetAlloc(G->n);
@@ -457,27 +457,27 @@ void* RunBlantInThread(void* arg) {
     }
 
     for (int i = 0; i < samplesPerThread; i++) {
-			if (_window) {
-				Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
-			} 
-			if (_outputMode & graphletDistribution) {
-				// calls SampleGraphlet internally  
-				ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
-			} else {
+        if (_window) {
+            Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
+        } 
+        if (_outputMode & graphletDistribution) {
+            // calls SampleGraphlet internally  
+            ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
+        } else {
             weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
-				if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
-					stuck = 0; // reset stuck counter when finding a newly processed graphlet
-				} else {
-					// processing failed, ignore sample
+            if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
+                stuck = 0; // reset stuck counter when finding a newly processed graphlet
+            } else {
+                // processing failed, ignore sample
                 i--;
                 stuck++;
                 if(stuck > MAX(G->n, _numSamples)) {
-						if(_quiet<2) Warning("Sampling aborted for thread %d: no new graphlets discovered after %d attempts", threadId, stuck);
-						break;
-					}
-				}
-			}
-		}
+                    if(_quiet<2) Warning("Sampling aborted for thread %d: no new graphlets discovered after %d attempts", threadId, stuck);
+                    break;
+                }
+            }
+        }
+    }
     SetFree(prev_node_set);
     SetFree(intersect_node);
     SetFree(V);
