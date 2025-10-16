@@ -684,7 +684,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 break;
             } else if (_stopMode == stopOnPrecision) {
 		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
-                int batchSize = G->numNodes * sqrt(_numThreads);
+                int batchSize = G->numEdges * sqrt(G->numNodes) * sqrt(_numThreads);
 
                 STAT *sTotal[MAX_CANONICALS];
 		if(_desiredPrec && _quiet<2)
