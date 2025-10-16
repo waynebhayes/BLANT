@@ -21,7 +21,8 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     }
 
     memset(accums, 0, sizeof(Accumulators)); // zero out everything
-
+    
+    // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
         accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
         if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
@@ -63,7 +64,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
     ThreadData threadData[numThreads];
 
     // Choose a batch size
-    int batchSize = G->numEdges * sqrt(G->numNodes) * sqrt(_numThreads);
+    int batchSize = G->numEdges * sqrt(G->n) * sqrt(_numThreads);
     if (batchSize > numSamples) batchSize = numSamples > 0 ? numSamples : 1;
 
     int totalBatches = (numSamples + batchSize - 1) / batchSize; // Ceiling division to cover all samples
@@ -87,7 +88,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
         threadData[t].totalSamples = (unsigned long)numSamples;
         threadData[t].totalBatches = totalBatches;
 
-        // [SEE IF THERE IS A BETTER WAY] create thread with error handling
+        // create thread with error handling
         if (pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]) != 0) {
             Fatal("Failed to create thread");
         }

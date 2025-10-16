@@ -26,7 +26,7 @@ typedef struct ThreadData {
     int k;
     GRAPH *G;
     int varraySize;
-    int threadId;
+    int threadId; // thread number, starting from 0
     long seed;
     Accumulators *accums;
 
