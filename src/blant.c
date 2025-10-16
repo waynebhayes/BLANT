@@ -35,6 +35,7 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're respons
 #include "importance.h"
 #include "odv.h"
 #include "stats.h"
+#include "atomic_utils.h"
 
 // define random variable algorithm
 #define USE_MarsenneTwister 0
@@ -427,7 +428,6 @@ void* RunBlantInThread(void* arg) {
     int varraySize = args->varraySize;
     long seed = args->seed;
     int threadId = args->threadId;
-    int samplesPerThread = args->samplesPerThread;
     Accumulators *accums = args->accums;
 
     // initialize the random number generator
@@ -443,10 +443,12 @@ void* RunBlantInThread(void* arg) {
 #endif
 
     SET *V = SetAlloc(G->n);
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
-    unsigned Varray[varraySize];
-    double weight;
-    unsigned long stuck = 0;
+	#if SELF_LOOPS
+		TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
+	#else
+		TINY_GRAPH *empty_g = TinyGraphAlloc(k);
+	#endif
+	unsigned Varray[varraySize];
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
 
@@ -456,27 +458,39 @@ void* RunBlantInThread(void* arg) {
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
 
-    for (int i = 0; i < samplesPerThread; i++) {
-        if (_window) {
-            Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
-        } 
-        if (_outputMode & graphletDistribution) {
-            // calls SampleGraphlet internally  
-            ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
-        } else {
-            weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
-            if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
-                stuck = 0; // reset stuck counter when finding a newly processed graphlet
-            } else {
-                // processing failed, ignore sample
-                i--;
-                stuck++;
-                if(stuck > MAX(G->n, _numSamples)) {
-                    if(_quiet<2) Warning("Sampling aborted for thread %d: no new graphlets discovered after %d attempts", threadId, stuck);
-                    break;
-                }
-            }
-        }
+	const uint64_t total = args->totalSamples;
+    const uint64_t chunk = (uint64_t)args->batchSize;
+
+    for (;;) {
+		uint64_t start = ATOMIC_FETCH_ADD_U64(&nextIndex, chunk);
+        if (start >= total) break;
+        uint64_t end = start + chunk;
+        if (end > total) end = total;
+
+		unsigned long stuck = 0;
+		// Original per-sample loop (unchanged)
+		for (uint64_t i = start; i < end; i++) {
+			if (_window) {
+				Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
+			} 
+
+			if (_outputMode & graphletDistribution) {
+				// calls SampleGraphlet internally  
+				ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
+			} else {
+                double weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
+				if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
+					stuck = 0; // reset stuck counter when finding a newly processed graphlet
+				} else {
+					// processing failed, ignore sample
+					--i;
+					if(++stuck > MAX(G->n, _numSamples)) {
+						if(_quiet<2) Warning("Sampling aborted for thread %d: no new graphlets discovered after %d attempts", threadId, stuck);
+						break;
+					}
+				}
+			}
+		}
     }
     SetFree(prev_node_set);
     SetFree(intersect_node);
@@ -670,7 +684,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 break;
             } else if (_stopMode == stopOnPrecision) {
 		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
-                int batchSize = G->numEdges * 10;
+                int batchSize = G->numEdges * sqrt(G->n) * sqrt(_numThreads);
 
                 STAT *sTotal[MAX_CANONICALS];
 		if(_desiredPrec && _quiet<2)

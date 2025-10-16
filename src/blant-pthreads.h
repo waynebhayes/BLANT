@@ -6,36 +6,43 @@
 #include "sets.h"
 #include "graph.h"
 
+// Define cache line size (typical value for most modern processors)
+#define CACHE_LINE_SIZE 64
+
 
 typedef struct {
     // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
     double graphletCount[MAX_CANONICALS];
     double graphletConcentration[MAX_CANONICALS];
-    double *graphletDegreeVector[MAX_CANONICALS];
+    double **graphletDegreeVector;  // Changed from array to pointer
     double *orbitDegreeVector[MAX_ORBITS];
     SET*** communityNeighbors;
     double canonNumStarMotifs[MAX_CANONICALS];
 } Accumulators;
 
-Accumulators* InitializeAccumulatorStruct(GRAPH* G);
-void FreeAccumulatorStruct(Accumulators *accums);
-
-// Anytime a function must take an Accumulator as a parameter, but you don't intend on actually using the data, pass it this. 
-// The data here is never used, and maintaining only one copy of this saves memory.
-extern Accumulators _trashAccumulator;
-
+// ThreadData structure (now after all required types are defined)
 // https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html
-typedef struct {
-    int samplesPerThread;
+typedef struct ThreadData {
     int k;
     GRAPH *G;
     int varraySize;
     int threadId; // thread number, starting from 0
     long seed;
     Accumulators *accums;
-} ThreadData;
 
+    // batching
+    int batchSize;
+    unsigned long totalSamples;   // GLOBAL total across all threads
+    int totalBatches;             // ceil(totalSamples / batchSize)
+} __attribute__((aligned(CACHE_LINE_SIZE))) ThreadData;
+
+// Function declarations
+Accumulators* InitializeAccumulatorStruct(GRAPH* G);
+void FreeAccumulatorStruct(Accumulators *accums);
 void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int numSamples, int numThreads);
 
+// Anytime a function must take an Accumulator as a parameter, but you don't intend on actually using the data, pass it this. 
+// The data here is never used, and maintaining only one copy of this saves memory.
+extern Accumulators _trashAccumulator;
 
 #endif // BLANT_PTHREADS_H
