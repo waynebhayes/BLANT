@@ -63,18 +63,18 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
     pthread_t threads[numThreads];
     ThreadData threadData[numThreads];
 
-    // Choose a chunk size
-    int chunkSize = G->numEdges * sqrt(G->n) * sqrt(numThreads);
-    if (chunkSize <= 0) chunkSize = 1;
+    // Choose a batch size
+    int batchSize = G->numEdges * sqrt(G->n) * sqrt(numThreads);
+    if (batchSize <= 0) batchSize = 1;
 
-    if (numSamples > 0 && chunkSize > numSamples) chunkSize = numSamples;
+    if (numSamples > 0 && batchSize > numSamples) batchSize = numSamples;
 
-    // Make sure no single thread claims the entire workload when numSamples is small
+    // make sure no single thread claims the entire workload when numSamples is small
     int fairShare = numSamples > 0 ? (numSamples + numThreads - 1) / numThreads : 1;
-    if (chunkSize > fairShare) chunkSize = fairShare;
-    if (chunkSize <= 0) chunkSize = 1;
+    if (batchSize > fairShare) batchSize = fairShare;
+    if (batchSize <= 0) batchSize = 1;
 
-    int totalBatches = chunkSize > 0 ? (numSamples + chunkSize - 1) / chunkSize : 1; // Ceiling division to cover all samples
+    int totalBatches = batchSize > 0 ? (numSamples + batchSize - 1) / batchSize : 1; // Ceiling division to cover all samples
     if (totalBatches <= 0) totalBatches = 1;
 
     // seed the threads with a base seed that may or may not be specified
@@ -91,7 +91,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
         threadData[t].accums = InitializeAccumulatorStruct(G);
 
         // batching params consumed by RunBlantInThread
-        threadData[t].batchSize    = chunkSize;
+        threadData[t].batchSize    = batchSize;
         threadData[t].totalSamples = (unsigned long)numSamples;
         threadData[t].totalBatches = totalBatches;
 
