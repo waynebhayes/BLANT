@@ -980,6 +980,40 @@ void printProbCounts(){
     }
 }
 
+void writeTransitionCountsToFile(const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        perror("Error opening file for writing transition counts");
+        return;
+    }
+
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        for (int j = 0; j < MAX_CANONICALS; j++) {
+            fprintf(file, "%d -> %d : %d\n", i, j, _transitionCount[i][j]);
+        }
+    }
+
+    fclose(file);
+    printf("Transition counts written to %s\n", filename);
+}
+
+void writeProbCountsToFile(const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        perror("Error opening file for writing probability counts");
+        return;
+    }
+
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        for (int j = 0; j < MAX_CANONICALS; j++) {
+            fprintf(file, "%d -> %d : %d%%\n", i, j, transitionProbs[i][j]);
+        }
+    }
+
+    fclose(file);
+    printf("Probability counts written to %s\n", filename);
+}
+
 #endif
 
 #if 0 // SEC no longer supported
