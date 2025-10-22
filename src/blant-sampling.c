@@ -946,22 +946,23 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 }
 
 #if SYNTHETIC
-double transitionProbs[MAX_CANONICALS][MAX_CANONICALS];
-for(int i = 0; i < MAX_CANONICALS; i++){
-    int rowSum = 0;
-    for(int j = 0; j < MAX_CANONICALS; j++){
-	rowSum += _transitionCount[i][j];
-    }
-    for(int j = 0; j < MAX_CANONICALS; j++){
-	if(rowSum > 0){
-	    transitionProbs[i][j] = (double)_transitionCount[i][j] / rowSum;
+void createProbs(){
+    double transitionProbs[MAX_CANONICALS][MAX_CANONICALS];
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	int rowSum = 0;
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    rowSum += _transitionCount[i][j];
 	}
-	else{
-	    transitionProbs[i][j] = 0.0;
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    if(rowSum > 0){
+		transitionProbs[i][j] = (double)_transitionCount[i][j] / rowSum;
+	    }
+	    else{
+		transitionProbs[i][j] = 0.0;
+	    }
 	}
     }
 }
-
 
 void printTransitionCounts(){
     for(int i = 0; i < MAX_CANONICALS; i++){
