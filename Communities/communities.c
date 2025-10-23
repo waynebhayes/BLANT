@@ -15,7 +15,7 @@
 
 #define TARGET_EDGE_DENSITY 0.5
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-#define DEBUG 0
+#define DEBUG 1
 #define MOVE_ONLY 0
 
 /************************** Community routines *******************/
@@ -747,6 +747,8 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
 #if VERBOSE > 0   
     printf("Current total = %f\n\n", P->total);
 #endif
+    _oldCom = -1; // This ensures that I don't score the partition with the wrong information
+    _newCom = -1; // The score is properly updated on MaybeAccept
     
     return accept;
 }
@@ -774,7 +776,6 @@ void HillClimbing(PARTITION *P, int tries){
     printf("Final score %g\n", P->total);
 }
 
-#define EXTRA_ASSERTS 1
 void SAR(int iters, foint f){
 
     PARTITION * P = f.v;
@@ -799,7 +800,7 @@ void SAR(int iters, foint f){
 	    fail = 0;
 	    printf("Com %d ERROR: Old from ground out %d vs stored out %d\n", i, out, com->edgesOut);
 	}
-#if EXTRA_ASSERTS
+#if DEBUG
 	ground = pCommunityScore(com, com->n);
 	if(fabs(ground - com->score) > 0.001){
 	    printf("Com %d ERROR: Ground score %g, stored score %g\n", i, ground, com->score);
@@ -809,10 +810,10 @@ void SAR(int iters, foint f){
 	totalGround += ground;
 #endif
     }
-#if 1//((EXTRA_ASSERGTS && DEBUG))
+#if 1
     printf("P->Total %g, totalStored %g, totalGround %g\n", P->total, totalStored, totalGround);
 #endif
-#if EXTRA_ASSERTS
+#if DEBUG
     assert(fabs(P->total - totalStored) < 0.001);
     assert(fabs(P->total - totalGround) < 0.001);
     assert(P->total >= 0);
@@ -820,8 +821,6 @@ void SAR(int iters, foint f){
 #endif
     assert(fail);
     printf("\tBest: Com %d, with n %d, score %g  \tP->n = %d, Total score = %g", best_id, P->C[best_id]->n, best, P->n, P->total);
-    _oldCom = -1; // This ensures that I don't score the partition with the wrong information
-    _newCom = -1; // The score is properly updated on MaybeAccept
 }
 
 
@@ -910,12 +909,9 @@ int main(int argc, char *argv[])
 	C->edgesIn = CommunityEdgeCount(C);
 	C->edgesOut = CommunityEdgeOutwards(P, C);
 	double s = pCommunityScore(C, C->n); 
-	printf("SETUP score = %f", s);
 	C->score = s;
-	printf("Assigned %p %f", C, C->score);
-
+	
 	P->total += s; 
-	printf("%d has in %d, out %d, n %d, score %f\n", i, C->edgesIn, C->edgesOut, C->n, C->score);
     }
 
 	
@@ -928,7 +924,7 @@ int main(int argc, char *argv[])
     SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 10*G->n*G->numEdges /*100*/,0,0,SAR);
     if(G->n==2390 && G->numEdges==16127) {
 	printf("Hmm, this looks like yeast.el, using canned schedule\n");
-	SimAnnealSetSchedule(sa, 0.7, 3);
+	SimAnnealSetSchedule(sa, 6, 3);
     }
     else
 	SimAnnealAutoSchedule(sa); // to automatically create schedule
