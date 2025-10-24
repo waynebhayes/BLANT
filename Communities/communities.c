@@ -14,7 +14,7 @@
 #include "sim_anneal.h"
 
 #define TARGET_EDGE_DENSITY 0.5
-#define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 #define DEBUG 1
 #define MOVE_ONLY 0
 
@@ -823,6 +823,33 @@ void SAR(int iters, foint f){
     printf("\tBest: Com %d, with n %d, score %g  \tP->n = %d, Total score = %g", best_id, P->C[best_id]->n, best, P->n, P->total);
 }
 
+// Assumes the P is already properly allocated
+// Directly modifies P
+void PartitionRead(FILE * fp, PARTITION * P){
+    char line[BUFSIZ];
+    int numCom = 0;
+    SET * overlapCheck = SetAlloc(P->G->n);
+    printf("Create overlapCheck\n");
+    while(fgets(line, sizeof(line), fp)){
+	line[strcspn(line, "\n")] = '\0';	
+	int len = strlen(line);	
+	char *token = strtok(line, " ");
+	COMMUNITY * C = CommunityAlloc(P->G, numCom++);
+	printf("line %s\n", line);
+	while(token != NULL){
+	    int node = atof(token);
+	    printf("Node %d ", node);
+	    if(SetIn(overlapCheck, node))
+		printf("WARNING: %d node is in an overlapping community\n", node);
+	    SetAdd(overlapCheck, node);
+	    CommunityAddNode(C, P, node);
+	    token = strtok(NULL, " "); 
+	}
+	PartitionAddCommunity(P, C);
+    } 
+     
+    fclose(fp);
+}
 
 
 #define RANDOM_START 0
@@ -832,16 +859,25 @@ int main(int argc, char *argv[])
     printf("Running with PARANOID_ASSERTS=%d, NDEBUG=%d\n", PARANOID_ASSERTS, NDEBUG);
     // Set which measure to use here
     pCommunityScore = HayesScore;
+    
+    
     int i, j;
     srand48(GetFancySeed(false));
 
     Boolean sparse=maybe, supportNames = true;
-    FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line
+    FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line  
+
     GRAPH *G = GraphReadEdgeList(fp, sparse, supportNames, false);
-    fclose(fp);
+    
     printf("G has %d nodes, %d edges\n", G->n, G->numEdges);
 
     PARTITION *P = PartitionAlloc(G);
+
+    if(argc > 2){
+	printf("Reading partition %s\n", argv[2]);
+	PartitionRead(Fopen(argv[2], "r"), P);
+    }
+    else{
 #if RANDOM_START
     int numCommunities = 2; // communities numbered 0 through numCommunities-1 inclusive
     printf("Starting with %d random communities\n", numCommunities);
@@ -914,6 +950,8 @@ int main(int argc, char *argv[])
 	P->total += s; 
     }
 
+    }
+    fclose(fp);
 	
 #if 0
     HillClimbing(P, 200);
