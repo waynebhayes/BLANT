@@ -126,7 +126,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	} while(!(_componentSize[_whichComponent[X[0]]] < k));
     }
     else if (edge < 0) { // Pick a random edge from within a chosen connected component
-
+	do{
 	    edge = G->numEdges * RandomUniform();
 	    X[0] = G->edgeList[2*edge];
 	} while(!SetIn(_componentSet[cc], X[0]) || !SetIn(_startNodeSet, X[0]));
