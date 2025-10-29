@@ -10,6 +10,7 @@
 
 #if SYNTHETIC
     static int _transitionCount[MAX_CANONICALS][MAX_CANONICALS] = { 0 };
+    double _transitionProbs[MAX_CANONICALS][MAX_CANONICALS] = { 0.0 };
 #endif
 
 int _sampleMethod = -1, _sampleSubmethod = -1;
@@ -442,7 +443,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
     SetEmpty(V);
     int i, numRead=-1;
     char line[BUFSIZ];
-    char *s = fgets(line, sizeof(line), _sampleFile);
+    char *s = fgets(line, sizeof(lin(defune), _sampleFile);
     if(!s){
 	_sampleFileEOF = 1; // forces exit below
 	return 1.0;
@@ -946,7 +947,6 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 
 #if SYNTHETIC
 void createProbs(){
-    double transitionProbs[MAX_CANONICALS][MAX_CANONICALS];
     for(int i = 0; i < MAX_CANONICALS; i++){
 	int rowSum = 0;
 	for(int j = 0; j < MAX_CANONICALS; j++){
@@ -954,10 +954,10 @@ void createProbs(){
 	}
 	for(int j = 0; j < MAX_CANONICALS; j++){
 	    if(rowSum > 0){
-		transitionProbs[i][j] = (double)_transitionCount[i][j] / rowSum;
+		_transitionProbs[i][j] = (double)_transitionCount[i][j] / rowSum;
 	    }
 	    else{
-		transitionProbs[i][j] = 0.0;
+		_transitionProbs[i][j] = 0.0;
 	    }
 	}
     }
@@ -974,7 +974,7 @@ void printTransitionCounts(){
 void printProbCounts(){
     for(int i = 0; i < MAX_CANONICALS; i++){
 	for(int j = 0; j < MAX_CANONICALS; j++){
-	    printf("%d -> %d : %d%\n", i, j, transitionProbs[i][j]);
+	    printf("%d -> %d : %d%\n", i, j, _transitionProbs[i][j]);
 	}
     }
 }
@@ -1005,7 +1005,7 @@ void writeProbCountsToFile(const char *filename) {
 
     for (int i = 0; i < MAX_CANONICALS; i++) {
         for (int j = 0; j < MAX_CANONICALS; j++) {
-            fprintf(file, "%d -> %d : %d%%\n", i, j, transitionProbs[i][j]);
+            fprintf(file, "%d -> %d : %d%%\n", i, j, _transitionProbs[i][j]);
         }
     }
 
