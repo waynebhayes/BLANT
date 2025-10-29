@@ -70,6 +70,6 @@
 
 #define DEFAULT_DIGITS 2 // 2 digits of precision by default
 
-#define SYNTHETIC 0 // off by default
+#define SYNTHETIC 1 // off by default
 
 #endif // _BLANT_FUNDAMENTALS_H
