@@ -154,8 +154,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	crawlOneStep(XLS, XLQ, X, G);
     }
     numTries = 0;
-}picture.addShape(new Triangle(arg1, arg2));
-	picture.addShape(new Triangle(arg1 - 1, arg2 - 2));
+}
 
 
 // return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
