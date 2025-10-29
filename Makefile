@@ -6,12 +6,15 @@ ifndef PAUSE
 	PAUSE := 1
 endif
 # Uncomment either of these to remove them (removing 7 implies removing 8)
+MAX_K := 8
 EIGHT := 8
 SEVEN := 7
 ifdef NO8
+    MAX_K := 7
     EIGHT := 
 endif
 ifdef NO7
+    MAX_K := 6
     SEVEN :=
     EIGHT := # can't have 8 without 7
 endif

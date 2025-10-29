@@ -9,8 +9,8 @@
 
 
 #if SYNTHETIC
-    static int _transitionCount[MAX_CANONICALS][MAX_CANONICALS] = { 0 };
-    double _transitionProbs[MAX_CANONICALS][MAX_CANONICALS] = { 0.0 };
+    int _transitionCount[MAX_CANONICALS][MAX_CANONICALS];
+    double _transitionProbs[MAX_CANONICALS][MAX_CANONICALS];
 #endif
 
 int _sampleMethod = -1, _sampleSubmethod = -1;
@@ -443,7 +443,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
     SetEmpty(V);
     int i, numRead=-1;
     char line[BUFSIZ];
-    char *s = fgets(line, sizeof(lin(defune), _sampleFile);
+    char *s = fgets(line, sizeof(line), _sampleFile);
     if(!s){
 	_sampleFileEOF = 1; // forces exit below
 	return 1.0;
