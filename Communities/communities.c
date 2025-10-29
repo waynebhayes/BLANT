@@ -14,10 +14,10 @@
 #include "sim_anneal.h"
 
 #define TARGET_EDGE_DENSITY 0.5
-#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-#define DEBUG 1
+#define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+#define DEBUG 0
 #define MOVE_ONLY 0
-#define PRINT_ALL_COMMUNITIES 1
+#define PRINT_ALL_COMMUNITIES 0
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -752,10 +752,6 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
     assert(fail);
 #endif
 
-    if(fail == 0){
-	printf("fail\n");
-	exit(1);
-    }
     _moveDel = 0;
 #if VERBOSE > 0   
     printf("Current total = %f\n\n", P->total);
@@ -847,27 +843,46 @@ void PartitionRead(FILE * fp, PARTITION * P){
     char line[BUFSIZ];
     int numCom = 0;
     SET * overlapCheck = SetAlloc(P->G->n);
-    printf("Create overlapCheck\n");
+    SET * checkAll = SetAlloc(P->G->n);
     while(fgets(line, sizeof(line), fp)){
 	line[strcspn(line, "\n")] = '\0';	
 	int len = strlen(line);	
 	char *token = strtok(line, " ");
 	COMMUNITY * C = CommunityAlloc(P->G, numCom++);
-	printf("line %s\n", line);
+	
 	while(token != NULL){
 	    int node = atof(token);
-	    printf("Node %d ", node);
-	    if(SetIn(overlapCheck, node))
-		printf("WARNING: %d node is in an overlapping community\n", node);
+	    if(SetIn(overlapCheck, node)){
+		printf("ERROR: %d node is in an overlapping community\nSorry, haven't yet implemented that yet\n", node);
+		exit(1);
+	    }
 	    SetAdd(overlapCheck, node);
 	    CommunityAddNode(C, P, node);
-	    token = strtok(NULL, " "); 
+	    token = strtok(NULL, " ");
+	    SetAdd(checkAll, node);
 	}
-	
 	PartitionAddCommunity(P, C);
     } 
     
 
+    COMMUNITY * Extra = CommunityAlloc(P->G, numCom++);
+    for(int i = 0; i < P->G->n; ++i){
+	if(!SetIn(checkAll, i)){
+	    printf("WARNING: Node %d is not in any community. Putting it into catch all\n", i);
+	    CommunityAddNode(Extra, P, i);
+	}
+    }
+
+    if(Extra->n == 0){
+	CommunityFree(Extra);	
+	printf("All nodes accounted for, deleting catch all community\n");
+    }
+    else{
+	PartitionAddCommunity(P, Extra);
+	printf("Catch all community added into partition\n");
+    }
+    
+    
     for(int i = 0; i < P->n; ++i){
 	COMMUNITY * C = P->C[i];
 	C->edgesIn = CommunityEdgeCount(C);
