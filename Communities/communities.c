@@ -17,6 +17,7 @@
 #define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 #define DEBUG 1
 #define MOVE_ONLY 0
+#define PRINT_ALL_COMMUNITIES 1
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -180,10 +181,13 @@ int NodeInDegree(PARTITION *P, COMMUNITY *C, int node){
     int i, inDeg = 0;
     for(i=0;i<C->G->degree[node];i++){
 	int neigh = C->G->neighbor[node][i];
+    
 	//printf("N %d in com %d\n",neigh, P->whichCommunity[neigh]);
+    
 	if(P->whichCommunity[C->G->neighbor[node][i]] == C->id) ++inDeg; 
     }
     //printf("Node %d in Com %d inDeg %d\n", node, P->whichCommunity[node], inDeg);
+
     return inDeg;
 }
 
@@ -196,9 +200,7 @@ int CommunityEdgeCount(COMMUNITY *C) {
 	    if(GraphAreConnected(C->G,u,v)) ++numEdges;
 	}
     }
-#if DEBUG
-    printf("Com %d size %d, In %d\n", C->id, C->n, numEdges);
-#endif
+    //printf("Com %d size %d, In %d\n", C->id, C->n, numEdges);
     return numEdges;
 }
 
@@ -206,11 +208,16 @@ int CommunityEdgeOutwards(PARTITION * P, COMMUNITY *C){
     int out = 0;
     for(int i = 0; i < C->n; ++i){
 	int u = C->nodeSet[i];
-	out += C->G->degree[u] - NodeInDegree(P, C, u);
+	int degree = C->G->degree[u];
+	int inDeg = NodeInDegree(P, C, u);
+	out += degree - inDeg;
+    
+	//printf("node %d degree %d, in %d\n", u, degree, inDeg);
+    
     }
-#if DEBUG
-    printf("Com %d size %d, out %d\n", C->id, C->n, out);
-#endif
+
+//    printf("Com %d size %d, out %d\n", C->id, C->n, out);
+
     return out;
 }
 
@@ -556,7 +563,9 @@ double PerturbPartition(foint f) {
     printf("P->total score = %g\n", P->total);
     int fail = 1;
     for(int i = 0; i < P->G->n; ++i){
-	//printf("Node %d in Com %d, index %d\n", i, P->whichCommunity[i], P->whichMember[i]);
+    #if DEBUG
+	printf("Node %d in Com %d, index %d\n", i, P->whichCommunity[i], P->whichMember[i]);
+    #endif
 	if(P->C[P->whichCommunity[i]]->nodeSet[P->whichMember[i]] != i){
 	    printf("ERROR: Mem mismatch. Node %d, Com %d, index %d\n", i, P->whichCommunity[i], P->whichMember[i]);
 	    fail = 0;
@@ -743,6 +752,10 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
     assert(fail);
 #endif
 
+    if(fail == 0){
+	printf("fail\n");
+	exit(1);
+    }
     _moveDel = 0;
 #if VERBOSE > 0   
     printf("Current total = %f\n\n", P->total);
@@ -808,7 +821,7 @@ void SAR(int iters, foint f){
 	}
 	totalStored += com->score;
 	totalGround += ground;
-#endif
+	#endif
     }
 #if 1
     printf("P->Total %g, totalStored %g, totalGround %g\n", P->total, totalStored, totalGround);
@@ -820,6 +833,11 @@ void SAR(int iters, foint f){
 
 #endif
     assert(fail);
+    if(fail == 0){
+	printf("fail\n");
+	exit(1);
+    }
+	
     printf("\tBest: Com %d, with n %d, score %g  \tP->n = %d, Total score = %g", best_id, P->C[best_id]->n, best, P->n, P->total);
 }
 
@@ -845,9 +863,19 @@ void PartitionRead(FILE * fp, PARTITION * P){
 	    CommunityAddNode(C, P, node);
 	    token = strtok(NULL, " "); 
 	}
+	
 	PartitionAddCommunity(P, C);
     } 
-     
+    
+
+    for(int i = 0; i < P->n; ++i){
+	COMMUNITY * C = P->C[i];
+	C->edgesIn = CommunityEdgeCount(C);
+	C->edgesOut = CommunityEdgeOutwards(P, C);
+	double s = pCommunityScore(C, C->n); 
+	C->score = s;
+	P->total += s;     
+    }
     fclose(fp);
 }
 
@@ -989,6 +1017,13 @@ int main(int argc, char *argv[])
 	which = 0;
     printf("Biggest community is #%d, with %d nodes:\n", which, biggest);
     PrintCommunity(P->C[which]);
+
+#if PRINT_ALL_COMMUNITIES
+    printf("\n Start ALL COMMUNITIES\n");
+    for(int i = 0; i < P->n; ++i){
+	PrintCommunity(P->C[i]);
+    }
+#endif
     printf("Attempting Partition Free\n");
     PartitionFree(P);
     printf("Partition Free completed\n");
