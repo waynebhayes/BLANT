@@ -15,8 +15,9 @@
 
 #define TARGET_EDGE_DENSITY 0.5
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-#define DEBUG 1
+#define DEBUG 0
 #define MOVE_ONLY 0
+#define PRINT_ALL_COMMUNITIES 0
 
 /************************** Community routines *******************/
 typedef struct _community {
@@ -180,10 +181,13 @@ int NodeInDegree(PARTITION *P, COMMUNITY *C, int node){
     int i, inDeg = 0;
     for(i=0;i<C->G->degree[node];i++){
 	int neigh = C->G->neighbor[node][i];
+    
 	//printf("N %d in com %d\n",neigh, P->whichCommunity[neigh]);
+    
 	if(P->whichCommunity[C->G->neighbor[node][i]] == C->id) ++inDeg; 
     }
     //printf("Node %d in Com %d inDeg %d\n", node, P->whichCommunity[node], inDeg);
+
     return inDeg;
 }
 
@@ -196,9 +200,7 @@ int CommunityEdgeCount(COMMUNITY *C) {
 	    if(GraphAreConnected(C->G,u,v)) ++numEdges;
 	}
     }
-#if DEBUG
-    printf("Com %d size %d, In %d\n", C->id, C->n, numEdges);
-#endif
+    //printf("Com %d size %d, In %d\n", C->id, C->n, numEdges);
     return numEdges;
 }
 
@@ -206,11 +208,16 @@ int CommunityEdgeOutwards(PARTITION * P, COMMUNITY *C){
     int out = 0;
     for(int i = 0; i < C->n; ++i){
 	int u = C->nodeSet[i];
-	out += C->G->degree[u] - NodeInDegree(P, C, u);
+	int degree = C->G->degree[u];
+	int inDeg = NodeInDegree(P, C, u);
+	out += degree - inDeg;
+    
+	//printf("node %d degree %d, in %d\n", u, degree, inDeg);
+    
     }
-#if DEBUG
-    printf("Com %d size %d, out %d\n", C->id, C->n, out);
-#endif
+
+//    printf("Com %d size %d, out %d\n", C->id, C->n, out);
+
     return out;
 }
 
@@ -556,7 +563,9 @@ double PerturbPartition(foint f) {
     printf("P->total score = %g\n", P->total);
     int fail = 1;
     for(int i = 0; i < P->G->n; ++i){
-	//printf("Node %d in Com %d, index %d\n", i, P->whichCommunity[i], P->whichMember[i]);
+    #if DEBUG
+	printf("Node %d in Com %d, index %d\n", i, P->whichCommunity[i], P->whichMember[i]);
+    #endif
 	if(P->C[P->whichCommunity[i]]->nodeSet[P->whichMember[i]] != i){
 	    printf("ERROR: Mem mismatch. Node %d, Com %d, index %d\n", i, P->whichCommunity[i], P->whichMember[i]);
 	    fail = 0;
@@ -808,7 +817,7 @@ void SAR(int iters, foint f){
 	}
 	totalStored += com->score;
 	totalGround += ground;
-#endif
+	#endif
     }
 #if 1
     printf("P->Total %g, totalStored %g, totalGround %g\n", P->total, totalStored, totalGround);
@@ -820,9 +829,70 @@ void SAR(int iters, foint f){
 
 #endif
     assert(fail);
+    if(fail == 0){
+	printf("fail\n");
+	exit(1);
+    }
+	
     printf("\tBest: Com %d, with n %d, score %g  \tP->n = %d, Total score = %g", best_id, P->C[best_id]->n, best, P->n, P->total);
 }
 
+// Assumes the P is already properly allocated
+// Directly modifies P
+void PartitionRead(FILE * fp, PARTITION * P){
+    char line[BUFSIZ];
+    int numCom = 0;
+    SET * overlapCheck = SetAlloc(P->G->n);
+    SET * checkAll = SetAlloc(P->G->n);
+    while(fgets(line, sizeof(line), fp)){
+	line[strcspn(line, "\n")] = '\0';	
+	int len = strlen(line);	
+	char *token = strtok(line, " ");
+	COMMUNITY * C = CommunityAlloc(P->G, numCom++);
+	
+	while(token != NULL){
+	    int node = atof(token);
+	    if(SetIn(overlapCheck, node)){
+		printf("ERROR: %d node is in an overlapping community\nSorry, haven't yet implemented that yet\n", node);
+		exit(1);
+	    }
+	    SetAdd(overlapCheck, node);
+	    CommunityAddNode(C, P, node);
+	    token = strtok(NULL, " ");
+	    SetAdd(checkAll, node);
+	}
+	PartitionAddCommunity(P, C);
+    } 
+    
+
+    COMMUNITY * Extra = CommunityAlloc(P->G, numCom++);
+    for(int i = 0; i < P->G->n; ++i){
+	if(!SetIn(checkAll, i)){
+	    printf("WARNING: Node %d is not in any community. Putting it into catch all\n", i);
+	    CommunityAddNode(Extra, P, i);
+	}
+    }
+
+    if(Extra->n == 0){
+	CommunityFree(Extra);	
+	printf("All nodes accounted for, deleting catch all community\n");
+    }
+    else{
+	PartitionAddCommunity(P, Extra);
+	printf("Catch all community added into partition\n");
+    }
+    
+    
+    for(int i = 0; i < P->n; ++i){
+	COMMUNITY * C = P->C[i];
+	C->edgesIn = CommunityEdgeCount(C);
+	C->edgesOut = CommunityEdgeOutwards(P, C);
+	double s = pCommunityScore(C, C->n); 
+	C->score = s;
+	P->total += s;     
+    }
+    fclose(fp);
+}
 
 
 #define RANDOM_START 0
@@ -832,16 +902,25 @@ int main(int argc, char *argv[])
     printf("Running with PARANOID_ASSERTS=%d, NDEBUG=%d\n", PARANOID_ASSERTS, NDEBUG);
     // Set which measure to use here
     pCommunityScore = HayesScore;
+    
+    
     int i, j;
     srand48(GetFancySeed(false));
 
     Boolean sparse=maybe, supportNames = true;
-    FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line
+    FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line  
+
     GRAPH *G = GraphReadEdgeList(fp, sparse, supportNames, false);
-    fclose(fp);
+    
     printf("G has %d nodes, %d edges\n", G->n, G->numEdges);
 
     PARTITION *P = PartitionAlloc(G);
+
+    if(argc > 2){
+	printf("Reading partition %s\n", argv[2]);
+	PartitionRead(Fopen(argv[2], "r"), P);
+    }
+    else{
 #if RANDOM_START
     int numCommunities = 2; // communities numbered 0 through numCommunities-1 inclusive
     printf("Starting with %d random communities\n", numCommunities);
@@ -914,6 +993,8 @@ int main(int argc, char *argv[])
 	P->total += s; 
     }
 
+    }
+    fclose(fp);
 	
 #if 0
     HillClimbing(P, 200);
@@ -951,6 +1032,13 @@ int main(int argc, char *argv[])
 	which = 0;
     printf("Biggest community is #%d, with %d nodes:\n", which, biggest);
     PrintCommunity(P->C[which]);
+
+#if PRINT_ALL_COMMUNITIES
+    printf("\n Start ALL COMMUNITIES\n");
+    for(int i = 0; i < P->n; ++i){
+	PrintCommunity(P->C[i]);
+    }
+#endif
     printf("Attempting Partition Free\n");
     PartitionFree(P);
     printf("Partition Free completed\n");
