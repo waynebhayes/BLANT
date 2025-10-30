@@ -64,10 +64,17 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
     ThreadData threadData[numThreads];
 
     // Choose a batch size
-    int batchSize = G->numEdges * sqrt(G->n) * sqrt(_numThreads);
-    if (batchSize > numSamples) batchSize = numSamples > 0 ? numSamples : 1;
+    int batchSize = G->numEdges * sqrt(G->n) * sqrt(numThreads);
+    if (batchSize <= 0) batchSize = 1;
 
-    int totalBatches = (numSamples + batchSize - 1) / batchSize; // Ceiling division to cover all samples
+    if (numSamples > 0 && batchSize > numSamples) batchSize = numSamples;
+
+    // make sure no single thread claims the entire workload when numSamples is small
+    int fairShare = numSamples > 0 ? (numSamples + numThreads - 1) / numThreads : 1;
+    if (batchSize > fairShare) batchSize = fairShare;
+    if (batchSize <= 0) batchSize = 1;
+
+    int totalBatches = batchSize > 0 ? (numSamples + batchSize - 1) / batchSize : 1; // Ceiling division to cover all samples
     if (totalBatches <= 0) totalBatches = 1;
 
     // seed the threads with a base seed that may or may not be specified
