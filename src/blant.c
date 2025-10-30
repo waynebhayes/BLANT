@@ -939,7 +939,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	_outputMode &= ~(outputGDV|outputODV);
     }
     // Note: the test for predict mode output MUST be above the test for ODV/GDV output, to turn them off if we're predicting
-    const int printBuf = _numCanon*16; // %.15g below, plus a space
+    const int printBuf = _numOrbits*16; // %.15g below, plus a space
     if(_outputMode & outputGDV) {
 	for(i=0; i < G->n; i++)
 	{
