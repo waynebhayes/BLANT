@@ -1002,10 +1002,10 @@ int main(int argc, char *argv[])
     foint f;
     f.v = P;
 	
-    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 10*G->n*G->numEdges /*100*/,0,0,SAR);
+    SIM_ANNEAL *sa = SimAnnealAlloc(1, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 100*G->n*G->numEdges /*100*/,0,0,SAR);
     if(G->n==2390 && G->numEdges==16127) {
 	printf("Hmm, this looks like yeast.el, using canned schedule\n");
-	SimAnnealSetSchedule(sa, 6, 3);
+	SimAnnealSetSchedule(sa, 1.1, 3);
     }
     else
 	SimAnnealAutoSchedule(sa); // to automatically create schedule
