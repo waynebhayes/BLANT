@@ -364,9 +364,9 @@ void finalize(GRAPH *G, unsigned long numSamples) {
 	    for(j=0;j<G->n;j++)
 		_graphletDegreeVector[i][j] *= numSamples/totalConcentration;
     #if SYNTHETIC
-    createProbs();
-    printTransitionCounts();
-    printProbCounts();
+	createProbs();
+	printTransitionCounts();
+	printProbCounts();
     #endif
 }
 
