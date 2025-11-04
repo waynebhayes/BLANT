@@ -27,14 +27,37 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
         accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
         if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
         for(int i = 0; i < _numCanon; i++) {
-            accums->graphletDegreeVector[i] = calloc(G->n, sizeof(double));
-            if (!accums->graphletDegreeVector[i]) Fatal("Failed to allocate GDV entry memory");
+            size_t bytes = G->n * sizeof(double);
+            // Ensure that size is a multiple of CACHE_LINE_SIZE
+            if (bytes % CACHE_LINE_SIZE != 0) {
+                bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+            }
+            accums->graphletDegreeVector[i] = aligned_alloc(CACHE_LINE_SIZE, bytes);
+            if (!accums->graphletDegreeVector[i]) {
+                perror("Failed to allocate memory for GDV vector");
+                exit(EXIT_FAILURE);
+            }
+            memset(accums->graphletDegreeVector[i], 0, bytes);
         }
     }
 
     // initialize ODV vectors if needed
-    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
-        for(int i=0; i<_numOrbits; i++) accums->orbitDegreeVector[i] = calloc(G->n, sizeof(**accums->orbitDegreeVector));
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
+        for(int i=0; i<_numOrbits; i++) {
+            size_t bytes = G->n * sizeof(double);
+            // Ensure that size is a multiple of CACHE_LINE_SIZE
+            if (bytes % CACHE_LINE_SIZE != 0) {
+                bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+            }
+            accums->orbitDegreeVector[i] = aligned_alloc(CACHE_LINE_SIZE, bytes);
+            if (!accums->orbitDegreeVector[i]) {
+                perror("Failed to allocate memory for ODV vector");
+                exit(EXIT_FAILURE);
+            }
+            memset(accums->orbitDegreeVector[i], 0, bytes);
+        }
+    }
+
     // initialize communityNeighbors if needed
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
         
