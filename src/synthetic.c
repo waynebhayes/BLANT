@@ -23,7 +23,7 @@ Boolean _supportNodeNames = false;
 // makes the coding much simpler.
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
-static int _k[MAX_K]; // stores what values of k have to be considered e.g. [3,4,5,6] or [3,5,7] or [2,7,8]. Will be followed by '-1's
+static int _k_array[MAX_K]; // stores what values of k have to be considered e.g. [3,4,5,6] or [3,5,7] or [2,7,8]. Will be followed by '-1's
 static int _numCanon[MAX_K];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
 static SET *_connectedCanonicals[MAX_K];
 static int _maxNumCanon = -1;  // max number of canonicals
@@ -84,24 +84,24 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Grand total statically allocated memory is exactly 1.25GB.
 static Gordinal_type* _K[MAX_K];
 
-// Assuming the global variable _k[] is set properly, go read in and/or mmap the big global
+// Assuming the global variable _k_array[] is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
 void SetGlobalCanonMaps(void){
     unsigned int _Bk;
     int i;
     for(i=0; i<MAX_K; i++){  // for all values of 'k'
-        if (_k[i] == -1)
+        if (_k_array[i] == -1)
             break;
-        assert(3 <= _k[i] && _k[i] <= 8);
-        _Bk = (1U <<(_k[i]*(_k[i]-1)/2));
+        assert(3 <= _k_array[i] && _k_array[i] <= 8);
+        _Bk = (1U <<(_k_array[i]*(_k_array[i]-1)/2));
         char BUF[BUFSIZ];
-        _connectedCanonicals[_k[i]-1] = canonListPopulate(BUF, _canonList[_k[i]-1], _k[i]);
-        _numCanon[_k[i]-1] = _connectedCanonicals[_k[i]-1]->maxElem;
-        _maxNumCanon = MAX(_maxNumCanon, _numCanon[_k[i]-1]);  // set max number of canonicals for a k
-        _K[_k[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
-        assert(_K[_k[i]-1] != NULL);
-        mapCanonMap(BUF, _K[_k[i]-1], _k[i]);
-        sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k[i]);
+        _connectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList[_k_array[i]-1], _k_array[i]);
+        _numCanon[_k_array[i]-1] = _connectedCanonicals[_k_array[i]-1]->maxElem;
+        _maxNumCanon = MAX(_maxNumCanon, _numCanon[_k_array[i]-1]);  // set max number of canonicals for a k
+        _K[_k_array[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
+        assert(_K[_k_array[i]-1] != NULL);
+        mapCanonMap(BUF, _K[_k_array[i]-1], _k_array[i]);
+        sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k_array[i]);
         int pfd = open(BUF, 0*O_RDONLY);
         kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
         assert(Pf == Permutations);
@@ -436,7 +436,7 @@ double EHDObjective(int D[2][MAX_K][_maxNumCanon], int CanonicalEdges[MAX_K][_ma
     double sum = 0;
 
     for(i=0; i<MAX_K; i++){
-        k = _k[i];
+        k = _k_array[i];
         if (k == -1)
             break;
 
@@ -484,9 +484,9 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
     double oldcanondiff, temp_gdv_newcost;
 
     for (i=0; i<MAX_K; i++){
-        if (_k[i] == -1)
+        if (_k_array[i] == -1)
             break;
-        int k = _k[i];
+        int k = _k_array[i];
 
         // allocate a tiny graph
         if (!g[k-1])
@@ -633,17 +633,17 @@ double GraphletEuclideanObjective(int D[2][MAX_K][_maxNumCanon]){
     double logP = 0, sum2 = 0;
 
     for (i=0; i<MAX_K; i++){
-        if (_k[i] == -1) break;
-        for (j=0; j<_numCanon[_k[i]-1]; j++){
+        if (_k_array[i] == -1) break;
+        for (j=0; j<_numCanon[_k_array[i]-1]; j++){
         /*
-        double pd = PoissonDistribution(D[0][_k[i]-1][j], D[1][_k[i]-1][j]);
+        double pd = PoissonDistribution(D[0][_k_array[i]-1][j], D[1][_k_array[i]-1][j]);
         if(pd > 1)
         Fatal("umm.... PoissonDistribution returned a number greater than 1");
         if(pd>0)
         logP += log(pd); // if we're close, use probability
         */
         // use this one when we're so far away the probability is zero
-        double term = SQR((double)D[0][_k[i]-1][j] - D[1][_k[i]-1][j]);
+        double term = SQR((double)D[0][_k_array[i]-1][j] - D[1][_k_array[i]-1][j]);
         sum2 += term;
         }
     }
@@ -665,7 +665,7 @@ double GraphletKernelObjective(const int D[2][MAX_K][_maxNumCanon], GKState* gks
     gkstate->sq_length_v = (long) 0;
 
     for(i=0; i<MAX_K; i++){
-        int k = _k[i];
+        int k = _k_array[i];
         if (k == -1)
             break;
 
@@ -696,7 +696,7 @@ double SGKDiffObjective(int D[2][MAX_K][_maxNumCanon]){
     double sum = 0;
 
     for(i=0; i<MAX_K; i++){
-        int k = _k[i];
+        int k = _k_array[i];
         if (k == -1)
             break;
         for (j=0; j<_numCanon[k-1]; j++){
@@ -730,7 +730,7 @@ double GDVObjective(Dictionary GDVhistograms[2][MAX_K][_maxNumCanon]){
     KeyValue *iter_tar, *iter_syn;
 
     for(j=0; j<MAX_K; j++){
-        k = _k[j];
+        k = _k_array[j];
         if (k == -1) break;
 
         for(canon=0; canon < _numCanon[k-1]; canon++){
@@ -1019,9 +1019,9 @@ int main(int argc, char *argv[]){
     exit(1);
     }
 
-    // initialize _k[]
+    // initialize _k_array[]
     for(i=0; i<MAX_K; i++)
-        _k[i] = -1;
+        _k_array[i] = -1;
 
     // Read objective function weights
     char* weightString = getenv("SYNTHETIC_GRAPHLET_WEIGHTS");
@@ -1074,9 +1074,9 @@ int main(int argc, char *argv[]){
                 kmax = atoi(optarg);
                 if(!(3 <= kmax && kmax <= 8)) Fatal("k must be between 3 and 8\n%s", USAGE);
 
-                // _k[] = [3,4,5,6,k]
+                // _k_array[] = [3,4,5,6,k]
                 for(i=3; i<=kmax; i++)
-                    _k[i-3] = i;
+                    _k_array[i-3] = i;
                 break;
             case 's': _stagnated = atoi(optarg);
                 if(!(_stagnated>=10)) Fatal("STAGNATED must be > 10\n%s", USAGE);
@@ -1085,7 +1085,7 @@ int main(int argc, char *argv[]){
         }
     }
 
-    SetGlobalCanonMaps(); // needs _k[] to be set
+    SetGlobalCanonMaps(); // needs _k_array[] to be set
 
     // read edge-lists
     GRAPH *G[2]; // G[0] is the target, G[1] is the synthetic
@@ -1125,23 +1125,23 @@ int main(int argc, char *argv[]){
     int GDV[2][MAX_K][_maxNumCanon][_numNodes];  // 4 dimensional
     for(i=0; i<2; i++){
         for(j=0; j<MAX_K; j++){
-            if (_k[j] == -1) break;
+            if (_k_array[j] == -1) break;
             int l;
-            for (l=0; l<_numCanon[_k[j]-1]; l++){
+            for (l=0; l<_numCanon[_k_array[j]-1]; l++){
                 int m;
                 for (m=0; m < G[i]->n; m++)
-                    GDV[i][_k[j]-1][l][m] = 0;  // initialize to 0
+                    GDV[i][_k_array[j]-1][l][m] = 0;  // initialize to 0
             }
         }
     }
 
     // READ blant into squilly plot vectors and GDV matrices
-    // expect 2 blant files (target & synthetic for every _k value)
+    // expect 2 blant files (target & synthetic for every _k_array value)
     // assume all blant files have same number of samples = _numSamples
     int **BLANT[2][MAX_K];
     for(i=0;i<2;i++){
         for(j=0; j<MAX_K; j++){
-            if(_k[j] == -1)
+            if(_k_array[j] == -1)
                 break;
 
             char cmd[BUFSIZ];
@@ -1161,19 +1161,19 @@ int main(int argc, char *argv[]){
             fp=fopen(argv[optind], "r");
             assert(fp);
 
-            BLANT[i][_k[j]-1] = (int**) Malloc(_numSamples * sizeof(int*));
+            BLANT[i][_k_array[j]-1] = (int**) Malloc(_numSamples * sizeof(int*));
             for (line=0; line<_numSamples; line++){
-                BLANT[i][_k[j]-1][line] = (int*) Malloc((MAX_K+1) * sizeof(int));
+                BLANT[i][_k_array[j]-1][line] = (int*) Malloc((MAX_K+1) * sizeof(int));
                 int l;
-                for (l=0; l<=_k[j]; l++){
-                    if(1 != fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])))
-			Fatal("failed to read (BLANT[%d][_k[%d]-1][%d][%d])", i,j,line,l);
+                for (l=0; l<=_k_array[j]; l++){
+                    if(1 != fscanf(fp, "%d", &(BLANT[i][_k_array[j]-1][line][l])))
+			Fatal("failed to read (BLANT[%d][_k_array[%d]-1][%d][%d])", i,j,line,l);
                     if (l>0){
-                        GDV[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]][BLANT[i][_k[j]-1][line][l]] += 1; // update GDV matrix
+                        GDV[i][_k_array[j]-1][BLANT[i][_k_array[j]-1][line][0]][BLANT[i][_k_array[j]-1][line][l]] += 1; // update GDV matrix
                     }
                 }
-                assert(BLANT[i][_k[j]-1][line][0] < _maxNumCanon);
-                ++D[i][_k[j]-1][BLANT[i][_k[j]-1][line][0]]; // update squiggly plot vector
+                assert(BLANT[i][_k_array[j]-1][line][0] < _maxNumCanon);
+                ++D[i][_k_array[j]-1][BLANT[i][_k_array[j]-1][line][0]]; // update squiggly plot vector
             }
             if(fscanf(fp, "%d", &line) >= 1) Fatal("extra input"); // ensure there's nothing left to read.
             fclose(fp);
@@ -1185,12 +1185,12 @@ int main(int argc, char *argv[]){
     // sanity check - squiggly vectors
     for(i=0; i<2; i++){
         for (j=0; j<MAX_K; j++){
-            if (_k[j] == -1)
+            if (_k_array[j] == -1)
                 break;
             int testCount = 0;
             int l;
-            for (l=0; l<_numCanon[_k[j]-1]; l++)
-                testCount += D[i][_k[j]-1][l];
+            for (l=0; l<_numCanon[_k_array[j]-1]; l++)
+                testCount += D[i][_k_array[j]-1][l];
             assert(testCount == _numSamples);
         }
     }
@@ -1200,16 +1200,16 @@ int main(int argc, char *argv[]){
         int l,m;
         for(j=0; j<MAX_K; j++){
             long matrixsum = 0;
-            if (_k[j] == -1) break;
-            for (l=0; l<_numCanon[_k[j]-1]; l++){
+            if (_k_array[j] == -1) break;
+            for (l=0; l<_numCanon[_k_array[j]-1]; l++){
                 int columnsum = 0;
                 for (m=0; m < G[i]->n; m++){
-                    matrixsum += ((long) GDV[i][_k[j]-1][l][m]);
-                    columnsum += GDV[i][_k[j]-1][l][m];
+                    matrixsum += ((long) GDV[i][_k_array[j]-1][l][m]);
+                    columnsum += GDV[i][_k_array[j]-1][l][m];
                 }
-                assert(columnsum == (D[i][_k[j]-1][l] * _k[j]));
+                assert(columnsum == (D[i][_k_array[j]-1][l] * _k_array[j]));
             }
-            assert(matrixsum == (((long)_numSamples) * _k[j]));
+            assert(matrixsum == (((long)_numSamples) * _k_array[j]));
         }
     }
 
@@ -1220,28 +1220,28 @@ int main(int argc, char *argv[]){
     int* scratchspace = (int*) malloc(_numNodes * sizeof(int));  // used for sorting the GDV column
     for(i=0; i<2; i++){
         for(j=0; j<MAX_K; j++){
-            if (_k[j] == -1) break;
+            if (_k_array[j] == -1) break;
 
             int l, b;
-            for(l=0; l<_numCanon[_k[j]-1]; l++){ // for every graphlet
+            for(l=0; l<_numCanon[_k_array[j]-1]; l++){ // for every graphlet
 
                 if (i == 1)
-                    GDVbinsize[1][_k[j]-1][l] = GDVbinsize[0][_k[j]-1][l];  // synthetic gets the same GDVbinsize as the corresponding target
+                    GDVbinsize[1][_k_array[j]-1][l] = GDVbinsize[0][_k_array[j]-1][l];  // synthetic gets the same GDVbinsize as the corresponding target
                 else
-                    if (!SetIn(_connectedCanonicals[_k[j]-1], l))
-                        GDVbinsize[0][_k[j]-1][l] = 1;  // disconnected graphlet. All GDV counts will be 0
+                    if (!SetIn(_connectedCanonicals[_k_array[j]-1], l))
+                        GDVbinsize[0][_k_array[j]-1][l] = 1;  // disconnected graphlet. All GDV counts will be 0
                     else
-                        GDVbinsize[0][_k[j]-1][l] = getIntegerBinSize(G[0]->n, GDV[0][_k[j]-1][l], scratchspace);
+                        GDVbinsize[0][_k_array[j]-1][l] = getIntegerBinSize(G[0]->n, GDV[0][_k_array[j]-1][l], scratchspace);
 
-                b = GDVbinsize[i][_k[j]-1][l];
+                b = GDVbinsize[i][_k_array[j]-1][l];
                 assert(b>0);
 
-                Dictionary* this = &(GDVhistograms[i][_k[j]-1][l]);
+                Dictionary* this = &(GDVhistograms[i][_k_array[j]-1][l]);
                 dictionary_create(this);
                 int n, key, prev;
 
                 for (n=0; n < G[i]->n; n++){  // traverse the nodes involved in a particular graphlet
-                    key = GDV[i][_k[j]-1][l][n];  // actual key value
+                    key = GDV[i][_k_array[j]-1][l][n];  // actual key value
                     key = (int) ((int) key/b) * b;  // binned key value
                     prev = dictionary_get(this, key, 0);
                     dictionary_set(this, key, prev+1);
@@ -1254,11 +1254,11 @@ int main(int argc, char *argv[]){
     // sanity check GDV bin size
     for (i=0; i<2; i++){
         for(j=0; j<MAX_K; j++){
-            if (_k[j] == -1)
+            if (_k_array[j] == -1)
                 break;
             int l=0;
-            for(l=0; l<_numCanon[_k[j]-1]; l++){
-                assert(GDVbinsize[i][_k[j]-1][l] > 0);
+            for(l=0; l<_numCanon[_k_array[j]-1]; l++){
+                assert(GDVbinsize[i][_k_array[j]-1][l] > 0);
             }
         }
     }
@@ -1266,30 +1266,30 @@ int main(int argc, char *argv[]){
     // store what samples is a particular node part of
     SET **samples[MAX_K];
     for(i=0; i<MAX_K; i++){
-        if (_k[i] == -1) break;
-        samples[_k[i]-1] = (SET**) Malloc(G[1]->n * sizeof(SET*));
+        if (_k_array[i] == -1) break;
+        samples[_k_array[i]-1] = (SET**) Malloc(G[1]->n * sizeof(SET*));
     }
 
     for(i=0; i<MAX_K; i++){
-        if (_k[i] == -1) break;
+        if (_k_array[i] == -1) break;
 
         for (j=0; j<G[1]->n; j++)
-            samples[_k[i]-1][j] = SetAlloc(_numSamples);
+            samples[_k_array[i]-1][j] = SetAlloc(_numSamples);
 
         for (line=0; line<_numSamples; line++)
-            for (j=1; j<= _k[i]; j++)
-                SetAdd(samples[_k[i]-1][BLANT[1][_k[i]-1][line][j]], line);    // SetAdd(samples[k][nodenum], line);
+            for (j=1; j<= _k_array[i]; j++)
+                SetAdd(samples[_k_array[i]-1][BLANT[1][_k_array[i]-1][line][j]], line);    // SetAdd(samples[k][nodenum], line);
     }
 
     // Varrays is the same as SET samples. It is used as an iterator
     unsigned **Varrays[MAX_K];
     for (i=0; i<MAX_K; i++){
-        if (_k[i] == -1) break;
-        Varrays[_k[i]-1] = (int**) Malloc(G[1]->n * sizeof(int*));
+        if (_k_array[i] == -1) break;
+        Varrays[_k_array[i]-1] = (int**) Malloc(G[1]->n * sizeof(int*));
 
         for (j=0; j < G[1]->n; j++){
-            Varrays[_k[i]-1][j] =  (int*) Malloc((1+SetCardinality(samples[_k[i]-1][j]))* sizeof(int));
-            Varrays[_k[i]-1][j][0] = SetToArray(Varrays[_k[i]-1][j]+1, samples[_k[i]-1][j]);
+            Varrays[_k_array[i]-1][j] =  (int*) Malloc((1+SetCardinality(samples[_k_array[i]-1][j]))* sizeof(int));
+            Varrays[_k_array[i]-1][j][0] = SetToArray(Varrays[_k_array[i]-1][j]+1, samples[_k_array[i]-1][j]);
         }
     }
 
@@ -1304,7 +1304,7 @@ int main(int argc, char *argv[]){
     // 3. Populate EHDaway[MAX_K][_maxNumCanon][NC2(MAX_K)+1][1 + _maxNumCanon]
 
     for(i=0; i<MAX_K; i++){
-        int k = _k[i];
+        int k = _k_array[i];
         if(k == -1) break;
         char FILENAME[100];
         sprintf(FILENAME, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
@@ -1332,8 +1332,8 @@ int main(int argc, char *argv[]){
     }
 
     for (i=0; i<MAX_K; i++){
-        if(_k[i] == -1) break;
-        int k = _k[i];
+        if(_k_array[i] == -1) break;
+        int k = _k_array[i];
         char FILENAME[100];
         sprintf(FILENAME, "%s/%s/EdgeHammingDistance%d.txt", _BLANT_DIR, _CANON_DIR, k);
         FILE* fp = fopen(FILENAME, "r");
@@ -1360,8 +1360,8 @@ int main(int argc, char *argv[]){
     }
 
     for (i=0; i<MAX_K; i++){
-        if(_k[i] == -1) break;
-        int k = _k[i];
+        if(_k_array[i] == -1) break;
+        int k = _k_array[i];
         int c1,c2,d,index;
 
         for(c1=0; c1<_numCanon[k-1]; c1++){
