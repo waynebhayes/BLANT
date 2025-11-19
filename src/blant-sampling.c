@@ -822,15 +822,15 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 // foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]),
 // which needs to be returned (but must be a parameter since there's already a return value on the function)
 double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums) {
-    static Boolean setup = false;
-    static int currSamples = 0; // Counts how many samples weve done at the current starting point
-    static int currEdge = 0; // Current edge we are starting at for uniform sampling
-    static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
-    static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
-    static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
-    static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
+    _Thread_local static Boolean setup = false;
+    _Thread_local static int currSamples = 0; // Counts how many samples weve done at the current starting point
+    _Thread_local static int currEdge = 0; // Current edge we are starting at for uniform sampling
+    _Thread_local static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
+    _Thread_local static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
+    _Thread_local static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
+    _Thread_local static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
     if (!XLQ || !XLS || !g) {
-	//NON REENTRANT CODE
+	// Thread-local initialization - each thread maintains its own MCMC chain state
 	XLQ = QueueAlloc(k*mcmc_d);
 	XLS = MultisetAlloc(G->n);
 	g = TinyGraphAlloc(k);
