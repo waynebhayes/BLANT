@@ -125,6 +125,8 @@ echo "TMPDIR is $TMPDIR" >&2
 
 BLANT_CMD="$1 ${PRECISION} $QUIET";
 BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
+BLANT_DIR=`dirname "$BLANT_EXE"`
+source "$BLANT_DIR/setup.sh"
 Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
 EDs=($3)
