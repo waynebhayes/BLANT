@@ -26,7 +26,7 @@ Boolean _supportNodeNames = false;
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static int _k_array[MAX_K]; // stores what values of k have to be considered e.g. [3,4,5,6] or [3,5,7] or [2,7,8]. Will be followed by '-1's
-static int _numCanon[MAX_K];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
+static Gordinal_type _numCanonSynth[MAX_K];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
 static SET *_connectedCanonicals[MAX_K];
 static int _maxNumCanon = -1;  // max number of canonicals
 static long _numSamples = -1;  // same number of samples in each blant index file
@@ -55,7 +55,7 @@ This has the effect of tuning the centrality measures - node eccentricity; node 
 #define NODE_SEL_BY_HOPS 2  // join & disconnect nodes which are a specific BFS hops apart (SLOW)
 static int node_selection = NODE_SEL_SHORT_PATH;
 // node-selection-strategy can be set using an env variable
-// USAGE: export SYNTHETIC_NODE_SELECTION = 0   # 0 for random, 1 for shortestpaths, 2 for hops
+// USAGE: export SYNTHETIC_NODE_SELECTION =( 0   # 0 for random, 1 for shortestpaths, 2 for hops
 
 // objective functions
 #define IGNORE_DISCONNECTED_GRAPHLETS 1
@@ -98,8 +98,8 @@ void SetGlobalCanonMaps(void){
         _Bk = (1U <<(_k_array[i]*(_k_array[i]-1)/2));
         char BUF[BUFSIZ];
         _connectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList[_k_array[i]-1], _k_array[i]);
-        _numCanon[_k_array[i]-1] = _connectedCanonicals[_k_array[i]-1]->maxElem;
-        _maxNumCanon = MAX(_maxNumCanon, _numCanon[_k_array[i]-1]);  // set max number of canonicals for a k
+	_numCanonSynth[_k_array[i]-1] = _connectedCanonicals[_k_array[i]-1]->maxElem;
+        _maxNumCanon = MAX(_maxNumCanon, _numCanonSynth[_k_array[i]-1]);  // set max number of canonicals for a k
         _K[_k_array[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
         assert(_K[_k_array[i]-1] != NULL);
         mapCanonMap(BUF, _K[_k_array[i]-1], _k_array[i]);
@@ -443,7 +443,7 @@ double EHDObjective(int D[2][MAX_K][_maxNumCanon], int CanonicalEdges[MAX_K][_ma
             break;
 
         // loop through all canonicals for this k value
-        for(j=0; j<_numCanon[k-1]; j++){
+        for(j=0; j<_numCanonSynth[k-1]; j++){
             diff = CanonicalEdges[k-1][j] * abs(D[0][k-1][j] - D[1][k-1][j]);
             for(l=1; l<=NC2(k); l++){
                 temp = 0;
@@ -636,7 +636,7 @@ double GraphletEuclideanObjective(int D[2][MAX_K][_maxNumCanon]){
 
     for (i=0; i<MAX_K; i++){
         if (_k_array[i] == -1) break;
-        for (j=0; j<_numCanon[_k_array[i]-1]; j++){
+        for (j=0; j<_numCanonSynth[_k_array[i]-1]; j++){
         /*
         double pd = PoissonDistribution(D[0][_k_array[i]-1][j], D[1][_k_array[i]-1][j]);
         if(pd > 1)
@@ -671,7 +671,7 @@ double GraphletKernelObjective(const int D[2][MAX_K][_maxNumCanon], GKState* gks
         if (k == -1)
             break;
 
-        for(j=0; j<_numCanon[k-1]; j++){
+        for(j=0; j<_numCanonSynth[k-1]; j++){
             if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_connectedCanonicals[k-1], j))){
                 gkstate->sq_length_u += SQR((long) D[0][k-1][j]);
                 assert(gkstate->sq_length_u >= 0);
@@ -701,7 +701,7 @@ double SGKDiffObjective(int D[2][MAX_K][_maxNumCanon]){
         int k = _k_array[i];
         if (k == -1)
             break;
-        for (j=0; j<_numCanon[k-1]; j++){
+        for (j=0; j<_numCanonSynth[k-1]; j++){
             int diff = abs(D[0][k-1][j] - D[1][k-1][j]);
             int target = D[0][k-1][j];
             if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_connectedCanonicals[k-1], j))){
@@ -735,7 +735,7 @@ double GDVObjective(Dictionary GDVhistograms[2][MAX_K][_maxNumCanon]){
         k = _k_array[j];
         if (k == -1) break;
 
-        for(canon=0; canon < _numCanon[k-1]; canon++){
+        for(canon=0; canon < _numCanonSynth[k-1]; canon++){
 
             // skip this canon if it is disconnected
             if ((IGNORE_DISCONNECTED_GRAPHLETS) && (!SetIn(_connectedCanonicals[k-1], canon)))
@@ -1129,7 +1129,7 @@ int main(int argc, char *argv[]){
         for(j=0; j<MAX_K; j++){
             if (_k_array[j] == -1) break;
             int l;
-            for (l=0; l<_numCanon[_k_array[j]-1]; l++){
+            for (l=0; l<_numCanonSynth[_k_array[j]-1]; l++){
                 int m;
                 for (m=0; m < G[i]->n; m++)
                     GDV[i][_k_array[j]-1][l][m] = 0;  // initialize to 0
@@ -1191,7 +1191,7 @@ int main(int argc, char *argv[]){
                 break;
             int testCount = 0;
             int l;
-            for (l=0; l<_numCanon[_k_array[j]-1]; l++)
+            for (l=0; l<_numCanonSynth[_k_array[j]-1]; l++)
                 testCount += D[i][_k_array[j]-1][l];
             assert(testCount == _numSamples);
         }
@@ -1203,7 +1203,7 @@ int main(int argc, char *argv[]){
         for(j=0; j<MAX_K; j++){
             long matrixsum = 0;
             if (_k_array[j] == -1) break;
-            for (l=0; l<_numCanon[_k_array[j]-1]; l++){
+            for (l=0; l<_numCanonSynth[_k_array[j]-1]; l++){
                 int columnsum = 0;
                 for (m=0; m < G[i]->n; m++){
                     matrixsum += ((long) GDV[i][_k_array[j]-1][l][m]);
@@ -1225,7 +1225,7 @@ int main(int argc, char *argv[]){
             if (_k_array[j] == -1) break;
 
             int l, b;
-            for(l=0; l<_numCanon[_k_array[j]-1]; l++){ // for every graphlet
+            for(l=0; l<_numCanonSynth[_k_array[j]-1]; l++){ // for every graphlet
 
                 if (i == 1)
                     GDVbinsize[1][_k_array[j]-1][l] = GDVbinsize[0][_k_array[j]-1][l];  // synthetic gets the same GDVbinsize as the corresponding target
@@ -1259,7 +1259,7 @@ int main(int argc, char *argv[]){
             if (_k_array[j] == -1)
                 break;
             int l=0;
-            for(l=0; l<_numCanon[_k_array[j]-1]; l++){
+            for(l=0; l<_numCanonSynth[_k_array[j]-1]; l++){
                 assert(GDVbinsize[i][_k_array[j]-1][l] > 0);
             }
         }
@@ -1317,9 +1317,9 @@ int main(int argc, char *argv[]){
 
         // 3 columns
         fscanf(fp, "%d", &e);
-        assert(e == _numCanon[k-1]);
+        assert(e == _numCanonSynth[k-1]);
 
-        for(c=0; c<_numCanon[k-1]; c++){
+        for(c=0; c<_numCanonSynth[k-1]; c++){
             for(j=0; j<3; j++){
                 fscanf(fp, "%d", &e);
                 if (j == 2){
@@ -1343,8 +1343,8 @@ int main(int argc, char *argv[]){
         int c1,c2, x,y,z;
 
         // 3 columns
-        for(c1=0; c1<_numCanon[k-1]; c1++){
-            for(c2=0; c2<_numCanon[k-1]; c2++){
+        for(c1=0; c1<_numCanonSynth[k-1]; c1++){
+            for(c2=0; c2<_numCanonSynth[k-1]; c2++){
                 fscanf(fp, "%d", &x);
                 fscanf(fp, "%d", &y);
                 fscanf(fp, "%d", &z);
@@ -1366,10 +1366,10 @@ int main(int argc, char *argv[]){
         int k = _k_array[i];
         int c1,c2,d,index;
 
-        for(c1=0; c1<_numCanon[k-1]; c1++){
+        for(c1=0; c1<_numCanonSynth[k-1]; c1++){
             for(j=0; j<NC2(k); j++)
                 EHDaway[k-1][c1][j][0] = 0;  // initialize the count to 0
-            for(c2=0; c2<_numCanon[k-1]; c2++){
+            for(c2=0; c2<_numCanonSynth[k-1]; c2++){
                 d = EHD[k-1][c1][c2];
                 EHDaway[k-1][c1][d][0] += 1;
                 index = EHDaway[k-1][c1][d][0];
