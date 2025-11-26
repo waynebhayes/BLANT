@@ -366,6 +366,11 @@ void finalize(GRAPH *G, unsigned long numSamples) {
 	for(i=0;i<_numCanon;i++)
 	    for(j=0;j<G->n;j++)
 		_graphletDegreeVector[i][j] *= numSamples/totalConcentration;
+    #if SYNTHETIC
+	createProbs();
+	printTransitionCounts();
+	printProbCounts();
+    #endif
 }
 
 // This function is usually only run at the END after all sampling is finished; it converts graphlet frequencies to

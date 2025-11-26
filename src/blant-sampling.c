@@ -11,7 +11,8 @@
 
 
 #if SYNTHETIC
-    static int _transitionCount[MAX_CANONICALS][MAX_CANONICALS] = { 0 };
+    int _transitionCount[MAX_CANONICALS][MAX_CANONICALS];
+    double _transitionProbs[MAX_CANONICALS][MAX_CANONICALS];
 #endif
 
 int _sampleMethod = -1, _sampleSubmethod = -1;
@@ -126,7 +127,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	} while(!(_componentSize[_whichComponent[X[0]]] < k));
     }
     else if (edge < 0) { // Pick a random edge from within a chosen connected component
-	do {
+	do{
 	    edge = G->numEdges * RandomUniform();
 	    X[0] = G->edgeList[2*edge];
 	} while(!SetIn(_componentSet[cc], X[0]) || !SetIn(_startNodeSet, X[0]));
@@ -155,6 +156,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
     }
     numTries = 0;
 }
+
 
 // return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
 static TSET _visited;
@@ -947,6 +949,23 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 }
 
 #if SYNTHETIC
+void createProbs(){
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	int rowSum = 0;
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    rowSum += _transitionCount[i][j];
+	}
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    if(rowSum > 0){
+		_transitionProbs[i][j] = (double)_transitionCount[i][j] / rowSum;
+	    }
+	    else{
+		_transitionProbs[i][j] = 0.0;
+	    }
+	}
+    }
+}
+
 void printTransitionCounts(){
     for(int i = 0; i < MAX_CANONICALS; i++){
 	for(int j = 0; j < MAX_CANONICALS; j++){
@@ -954,6 +973,49 @@ void printTransitionCounts(){
 	}
     }
 }
+
+void printProbCounts(){
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    printf("%d -> %d : %d%\n", i, j, _transitionProbs[i][j]);
+	}
+    }
+}
+
+void writeTransitionCountsToFile(const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        perror("Error opening file for writing transition counts");
+        return;
+    }
+
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        for (int j = 0; j < MAX_CANONICALS; j++) {
+            fprintf(file, "%d -> %d : %d\n", i, j, _transitionCount[i][j]);
+        }
+    }
+
+    fclose(file);
+    printf("Transition counts written to %s\n", filename);
+}
+
+void writeProbCountsToFile(const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        perror("Error opening file for writing probability counts");
+        return;
+    }
+
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        for (int j = 0; j < MAX_CANONICALS; j++) {
+            fprintf(file, "%d -> %d : %d%%\n", i, j, _transitionProbs[i][j]);
+        }
+    }
+
+    fclose(file);
+    printf("Probability counts written to %s\n", filename);
+}
+
 #endif
 
 #if 0 // SEC no longer supported
