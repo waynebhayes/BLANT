@@ -428,7 +428,8 @@ void* RunBlantInThread(void* arg) {
     int varraySize = args->varraySize;
     long seed = args->seed;
     int threadId = args->threadId;
-    Accumulators *accums = args->accums;
+    Accumulators *accums = InitializeAccumulatorStruct(G);
+    args->accums = accums;
 
     // initialize the random number generator
     RandomSeed(seed);

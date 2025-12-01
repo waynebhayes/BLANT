@@ -13,7 +13,11 @@ atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
-    Accumulators *accums = aligned_alloc(CACHE_LINE_SIZE, sizeof(Accumulators));
+    // Ensure size is a multiple of alignment
+    size_t size = sizeof(Accumulators);
+    size_t aligned_size = ((size + CACHE_LINE_SIZE - 1) / CACHE_LINE_SIZE) * CACHE_LINE_SIZE;
+    
+    Accumulators *accums = aligned_alloc(CACHE_LINE_SIZE, aligned_size);
 
     if (!accums) {
         perror("Failed to allocate memory for Accumulators");
@@ -21,6 +25,12 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     }
 
     memset(accums, 0, sizeof(Accumulators)); // zero out everything
+    
+    // Initialize batch counters
+    accums->batchRawTotalSamples = 0;
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        accums->batchRawCount[i] = 0;
+    }
     
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
@@ -86,14 +96,18 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
     pthread_t threads[numThreads];
     ThreadData threadData[numThreads];
 
-    // Choose a batch size
-    int batchSize = G->numEdges * sqrt(G->n) * sqrt(numThreads);
-    if (batchSize <= 0) batchSize = 1;
-
-    if (numSamples > 0 && batchSize > numSamples) batchSize = numSamples;
-
-    // make sure no single thread claims the entire workload when numSamples is small
+    // Choose a batch size that minimizes atomic contention
+    // Target: ~10-50 atomic operations per thread to minimize cache line bouncing
+    // This means batch size should be fairShare / target_batches_per_thread
+    int target_batches_per_thread = 20;  // CAN BE CHANGED (parameter)
     int fairShare = numSamples > 0 ? (numSamples + numThreads - 1) / numThreads : 1;
+    int batchSize = fairShare / target_batches_per_thread;
+    
+    // Minimum batch size to ensure we're not too granular
+    int min_batch = MAX(10000, fairShare / 100);
+    if (batchSize < min_batch) batchSize = min_batch;
+    
+    // Don't exceed fair share per thread
     if (batchSize > fairShare) batchSize = fairShare;
     if (batchSize <= 0) batchSize = 1;
 
@@ -111,7 +125,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
         threadData[t].varraySize = varraySize;
         threadData[t].threadId = t;
         threadData[t].seed = base_seed + t;
-        threadData[t].accums = InitializeAccumulatorStruct(G);
+        threadData[t].accums = NULL; // Will be initialized in the thread
 
         // batching params consumed by RunBlantInThread
         threadData[t].batchSize    = batchSize;
@@ -131,7 +145,11 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
             _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
             _graphletCount[i] += threadData[t].accums->graphletCount[i];
             if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i];
+            // Accumulate batch counters
+            _batchRawCount[i] += threadData[t].accums->batchRawCount[i];
         }
+        // Accumulate total batch samples
+        _batchRawTotalSamples += threadData[t].accums->batchRawTotalSamples;
 
         if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
             for(int i=0; i<_numOrbits; i++) {
