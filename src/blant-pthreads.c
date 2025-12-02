@@ -105,10 +105,6 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
 
     // make sure no single thread claims the entire workload when numSamples is small
     int fairShare = numSamples > 0 ? (numSamples + numThreads - 1) / numThreads : 1;
-
-    if (batchSize < min_batch) batchSize = min_batch;
-    
-    // Don't exceed fair share per thread
     if (batchSize > fairShare) batchSize = fairShare;
     if (batchSize <= 0) batchSize = 1;
 
