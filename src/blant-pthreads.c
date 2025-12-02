@@ -99,7 +99,15 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
     // Choose a batch size that minimizes atomic contention
     // Target: ~10-50 atomic operations per thread to minimize cache line bouncing
     // This means batch size should be fairShare / target_batches_per_thread
-    int target_batches_per_thread = 20;  // CAN BE CHANGED (parameter)
+    // Adaptive formula based on samples and threads:
+    int target_batches_per_thread;
+    if (numThreads <= 4) {
+        target_batches_per_thread = 20;  // More batches for few threads
+    } else if (numThreads <= 16) {
+        target_batches_per_thread = 10;  // Fewer batches for medium
+    } else {
+        target_batches_per_thread = 5;   // Even fewer for many threads
+    }
     int fairShare = numSamples > 0 ? (numSamples + numThreads - 1) / numThreads : 1;
     int batchSize = fairShare / target_batches_per_thread;
     
