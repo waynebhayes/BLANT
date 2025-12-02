@@ -704,23 +704,47 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     }
     else if (
         // sampling methods in which non-reentrancy has been implemented with the Accumulators struct
-        // doesn't necessarily mean that they can be ran in multiple threads (MCMC)
+        // and thread-local storage (for MCMC)
         _sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION ||
         _sampleMethod == SAMPLE_MCMC
     ) {
         // Apologize if _numThreads > 1 for a sampling method or output mode that isn't yet supported by multithreading
-        if (
-            _numThreads > 1 && (
-            !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || 
-                // index modes have nothing to accumulate, thus work very easily with multithreading
-              _outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits ||
-              _outputMode & indexMotifs || _outputMode & indexMotifOrbits || _outputMode & communityDetection
-            ) ||
-            !(_sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION)
-            )
-        ) {
-            Note("Multithreading (t=%d) not supported for the specified output mode or sampling method (%s). Setting number of threads to 1.",  _numThreads, SampleMethodStr());
-            _numThreads = 1;
+        if (_numThreads > 1) {
+            Boolean mcmcThreadSafe = false;
+            
+            // MCMC can be parallelized for specific output modes that don't use NodeSetSeenRecently
+            if (_sampleMethod == SAMPLE_MCMC) {
+                // MCMC_EC uses shared mutable state (_EDGE_COVER_G) and must remain single-threaded
+                if (_sampleSubmethod == SAMPLE_MCMC_EC) {
+                    Note("Multithreading not supported for MCMC_EC (edge cover variant). Setting number of threads to 1.");
+                    _numThreads = 1;
+                } 
+                // Only allow threading for modes that are safe (no NodeSetSeenRecently, no windowing)
+                else if (_window == 0 && 
+                         (_outputMode & graphletFrequency || _outputMode & outputGDV || 
+                          _outputMode & outputODV || _outputMode & communityDetection)) {
+                    mcmcThreadSafe = true;
+                }
+                // Block MCMC threading for modes that use non-reentrant dedup (NodeSetSeenRecently)
+                else if (_outputMode & (indexGraphlets | indexGraphletsRNO | indexOrbits | predict)) {
+                    Note("Multithreading not supported for MCMC with indexing/predict modes (non-reentrant dedup). Setting number of threads to 1.");
+                    _numThreads = 1;
+                }
+                else {
+                    Note("Multithreading (t=%d) not supported for MCMC with the specified output mode. Setting number of threads to 1.", _numThreads);
+                    _numThreads = 1;
+                }
+            }
+            
+            // For expansion methods, check if output mode is supported
+            if ((_sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION) &&
+                !(_outputMode & graphletFrequency || _outputMode & outputGDV || _outputMode & outputODV || 
+                  _outputMode & indexGraphlets || _outputMode & indexGraphletsRNO || _outputMode & indexOrbits ||
+                  _outputMode & indexMotifs || _outputMode & indexMotifOrbits || _outputMode & communityDetection)) {
+                Note("Multithreading (t=%d) not supported for the specified output mode with %s. Setting number of threads to 1.", 
+                     _numThreads, SampleMethodStr());
+                _numThreads = 1;
+            }
         }
 
         struct timespec start, end;
