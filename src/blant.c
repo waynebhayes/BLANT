@@ -708,11 +708,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 break;
             } else if (_stopMode == stopOnPrecision) {
 		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
-                int batchSize = G->numEdges * sqrt(G->n) * sqrt(_numThreads);
+                unsigned batchSize = G->numEdges * sqrt(G->n);
 
                 STAT *sTotal[MAX_CANONICALS];
 		if(_desiredPrec && _quiet<2)
-		    Note("using batchSize %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+		    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 
