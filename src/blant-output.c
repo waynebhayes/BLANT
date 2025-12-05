@@ -106,18 +106,24 @@ char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
 static GRAPH *_G; // local copy of GRAPH *G
 
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
-// Also this is NON-RE-ENTRANT.
-// Only does anything if sampling method is MCMC, otherwise returns false. This is because this function is terribly non re-entrant
+// Now THREAD-SAFE: uses _Thread_local storage instead of static shared state
+// Only does anything if sampling method is MCMC, otherwise returns false.
 Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     if (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_MCMC_EC && _sampleMethod != SAMPLE_INDEX) return false;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
-    //if(_JOBS>1 || _MAX_THREADS>1) Apology("NodeSetSeenRecently is not re-entrant (called with %d jobs and %d max threads)", _JOBS, _MAX_THREADS);
-    static unsigned circBuf[MCMC_CIRC_BUF], bufPos;
-    static BITVEC *seen;
-    static unsigned Vcopy[MAX_K];
+    // Now thread-safe: each thread maintains its own duplicate detection state
+    // Use heap allocation instead of stack for large circular buffer (512MB is too big for thread-local stack)
+    _Thread_local static unsigned *circBuf = NULL;
+    _Thread_local static unsigned bufPos = 0;
+    _Thread_local static BITVEC *seen = NULL;
+    _Thread_local static unsigned Vcopy[MAX_K];
     unsigned i;
-    if(!seen) seen=BitvecAlloc(MCMC_MAX_HASH);
+    if(!seen) {
+        seen = BitvecAlloc(MCMC_MAX_HASH);
+        circBuf = (unsigned*)Calloc(MCMC_CIRC_BUF, sizeof(unsigned));
+        bufPos = 0;
+    }
     memcpy(Vcopy, Varray, k*sizeof(*Varray));
     VarraySort(Vcopy, k);
 
@@ -327,8 +333,8 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     }
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     accums->graphletCount[GintOrdinal]+=weight;
-    // TODO: TO WORK WITH PRECISION BASED SAMPLING, THIS MUST BE MADE NON-REENTRANT, ADDED TO THE GLOBAL ACCUMULATORS
-    ++_batchRawCount[GintOrdinal]; ++_batchRawTotalSamples;
+    // Use thread-local batch counters to avoid race conditions
+    ++accums->batchRawCount[GintOrdinal]; ++accums->batchRawTotalSamples;
 
     // case graphletFrequency: break; // already counted above
     if(_outputMode & indexGraphlets || _outputMode&indexGraphletsRNO) {

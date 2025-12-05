@@ -18,6 +18,9 @@ typedef struct {
     double *orbitDegreeVector[MAX_ORBITS];
     SET*** communityNeighbors;
     double canonNumStarMotifs[MAX_CANONICALS];
+    // Batch counters for confidence intervals (thread-local to avoid race conditions)
+    unsigned long batchRawCount[MAX_CANONICALS];
+    unsigned long batchRawTotalSamples;
 } Accumulators;
 
 // ThreadData structure (now after all required types are defined)
