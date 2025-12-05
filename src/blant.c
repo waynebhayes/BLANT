@@ -518,7 +518,7 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G, 
     SET *intersect_node = SetAlloc(G->n);
 
     if (_outputMode & graphletDistribution) {
-        SampleGraphlet(G, V, Varray, k, G->n, accums); // Use the passed accums
+        SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator); // Use trash accumulator for consistency
         SetCopy(prev_node_set, V);
         TinyGraphInducedFromGraph(empty_g, G, Varray);
     }
@@ -540,7 +540,7 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G, 
                 // processing failed, ignore sample
                 --i;
                 if(++stuck > MAX(G->n, _numSamples)) {
-                    if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %d attempts", stuck);
+                    if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %lu attempts", stuck);
                     break;
                 }
             }
@@ -776,7 +776,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
                 STAT *sTotal[MAX_CANONICALS];
 		if(_desiredPrec && _quiet<2) {
-		    Note("using batchSize %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+		    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 				
@@ -789,6 +789,22 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
                 samplesCounter += batchSize; // Correctly increment samples counter only once.
                 batchCounter++;
+
+                // Merge accumulator into globals after each batch (matching multithreaded behavior)
+                if (_numThreads == 1) {
+                    for (int i = 0; i < _numCanon; i++) {
+                        _graphletConcentration[i] += singleThreadAccums->graphletConcentration[i];
+                        _graphletCount[i] += singleThreadAccums->graphletCount[i];
+                        if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = singleThreadAccums->canonNumStarMotifs[i];
+                        _batchRawCount[i] += singleThreadAccums->batchRawCount[i];
+                    }
+                    _batchRawTotalSamples += singleThreadAccums->batchRawTotalSamples;
+                    // Reset these counters to prevent double-counting in final merge
+                    for (int i = 0; i < _numCanon; i++) {
+                        singleThreadAccums->graphletConcentration[i] = 0;
+                        singleThreadAccums->graphletCount[i] = 0;
+                    }
+                }
 
                 int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
                 int maxNumBatches = 1000*minNumBatches; // huge
@@ -850,6 +866,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                     else {
                         _batchRawTotalSamples = 0;
                         for(j=0;j<_numCanon;j++) _batchRawCount[j] = 0;
+                        // Reset batch counters in single-threaded accumulator for next batch
+                        if (_numThreads == 1) {
+                            singleThreadAccums->batchRawTotalSamples = 0;
+                            for(j=0;j<_numCanon;j++) singleThreadAccums->batchRawCount[j] = 0;
+                        }
                     }
                 }
                 else {

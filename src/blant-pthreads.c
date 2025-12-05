@@ -24,7 +24,7 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
         exit(EXIT_FAILURE);
     }
 
-    memset(accums, 0, sizeof(Accumulators)); // zero out everything
+    memset(accums, 0, aligned_size); // zero out everything including padding
     
     // Initialize batch counters
     accums->batchRawTotalSamples = 0;

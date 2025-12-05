@@ -657,7 +657,6 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	accums->graphletConcentration[GintOrdinal] += ocount;
 
 	_g_overcount = ocount;
-
 	TinyGraphFree(g);
     }
 
