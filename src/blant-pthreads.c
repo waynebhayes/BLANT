@@ -86,7 +86,7 @@ void FreeAccumulatorStruct(Accumulators *accums) {
     free(accums);
 }
 
-void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int numSamples, int numThreads) {
+void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads) {
     // Reset the global “next” counter before launching workers
     ATOMIC_STORE_U64(&nextIndex, 0);
 
@@ -98,7 +98,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
 
 
     // Choose a batch size
-    int batchSize = G->numEdges * sqrt(G->n) * sqrt(numThreads);
+    unsigned batchSize = G->numEdges * sqrt(G->n);
     if (batchSize <= 0) batchSize = 1;
 
     if (numSamples > 0 && batchSize > numSamples) batchSize = numSamples;
