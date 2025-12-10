@@ -13,28 +13,61 @@ atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
-    Accumulators *accums = aligned_alloc(CACHE_LINE_SIZE, sizeof(Accumulators));
+    // Ensure size is a multiple of alignment
+    size_t size = sizeof(Accumulators);
+    size_t aligned_size = ((size + CACHE_LINE_SIZE - 1) / CACHE_LINE_SIZE) * CACHE_LINE_SIZE;
+    
+    Accumulators *accums = aligned_alloc(CACHE_LINE_SIZE, aligned_size);
 
     if (!accums) {
         perror("Failed to allocate memory for Accumulators");
         exit(EXIT_FAILURE);
     }
 
-    memset(accums, 0, sizeof(Accumulators)); // zero out everything
+    memset(accums, 0, aligned_size); // zero out everything including padding
+    
+    // Initialize batch counters
+    accums->batchRawTotalSamples = 0;
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        accums->batchRawCount[i] = 0;
+    }
     
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
         accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
         if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
         for(int i = 0; i < _numCanon; i++) {
-            accums->graphletDegreeVector[i] = calloc(G->n, sizeof(double));
-            if (!accums->graphletDegreeVector[i]) Fatal("Failed to allocate GDV entry memory");
+            size_t bytes = G->n * sizeof(double);
+            // Ensure that size is a multiple of CACHE_LINE_SIZE
+            if (bytes % CACHE_LINE_SIZE != 0) {
+                bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+            }
+            accums->graphletDegreeVector[i] = aligned_alloc(CACHE_LINE_SIZE, bytes);
+            if (!accums->graphletDegreeVector[i]) {
+                perror("Failed to allocate memory for GDV vector");
+                exit(EXIT_FAILURE);
+            }
+            memset(accums->graphletDegreeVector[i], 0, bytes);
         }
     }
 
     // initialize ODV vectors if needed
-    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
-        for(int i=0; i<_numOrbits; i++) accums->orbitDegreeVector[i] = calloc(G->n, sizeof(**accums->orbitDegreeVector));
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
+        for(int i=0; i<_numOrbits; i++) {
+            size_t bytes = G->n * sizeof(double);
+            // Ensure that size is a multiple of CACHE_LINE_SIZE
+            if (bytes % CACHE_LINE_SIZE != 0) {
+                bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+            }
+            accums->orbitDegreeVector[i] = aligned_alloc(CACHE_LINE_SIZE, bytes);
+            if (!accums->orbitDegreeVector[i]) {
+                perror("Failed to allocate memory for ODV vector");
+                exit(EXIT_FAILURE);
+            }
+            memset(accums->orbitDegreeVector[i], 0, bytes);
+        }
+    }
+
     // initialize communityNeighbors if needed
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
         
@@ -63,6 +96,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
     pthread_t threads[numThreads];
     ThreadData threadData[numThreads];
 
+
     // Choose a batch size
     unsigned batchSize = G->numEdges * sqrt(G->n);
     if (batchSize <= 0) batchSize = 1;
@@ -88,7 +122,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
         threadData[t].varraySize = varraySize;
         threadData[t].threadId = t;
         threadData[t].seed = base_seed + t;
-        threadData[t].accums = InitializeAccumulatorStruct(G);
+        threadData[t].accums = NULL; // Will be initialized in the thread
 
         // batching params consumed by RunBlantInThread
         threadData[t].batchSize    = batchSize;
@@ -108,7 +142,11 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
             _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
             _graphletCount[i] += threadData[t].accums->graphletCount[i];
             if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i];
+            // Accumulate batch counters
+            _batchRawCount[i] += threadData[t].accums->batchRawCount[i];
         }
+        // Accumulate total batch samples
+        _batchRawTotalSamples += threadData[t].accums->batchRawTotalSamples;
 
         if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
             for(int i=0; i<_numOrbits; i++) {

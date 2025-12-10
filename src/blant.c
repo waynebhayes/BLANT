@@ -428,7 +428,8 @@ void* RunBlantInThread(void* arg) {
     int varraySize = args->varraySize;
     long seed = args->seed;
     int threadId = args->threadId;
-    Accumulators *accums = args->accums;
+    Accumulators *accums = InitializeAccumulatorStruct(G);
+    args->accums = accums;
 
     // initialize the random number generator
     RandomSeed(seed);
@@ -499,6 +500,59 @@ void* RunBlantInThread(void* arg) {
     pthread_exit(0);
 }
 
+static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G, int varraySize, Accumulators *accums) {
+	// Initialize this thread's (the main thread's) random seed
+    // Note: _seed is the global seed.
+    RandomSeed(_seed); 
+    RandomUniform();
+
+    // Setup loop-local variables (copied from RunBlantInThread)
+    SET *V = SetAlloc(G->n);
+#if SELF_LOOPS
+    TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
+#else
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
+#endif
+    unsigned Varray[varraySize];
+    SET *prev_node_set = SetAlloc(G->n);
+    SET *intersect_node = SetAlloc(G->n);
+
+    if (_outputMode & graphletDistribution) {
+        SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator); // Use trash accumulator for consistency
+        SetCopy(prev_node_set, V);
+        TinyGraphInducedFromGraph(empty_g, G, Varray);
+    }
+
+    unsigned long stuck = 0;
+    // This is the sampling loop from RunBlantInThread
+    for (uint64_t i = 0; i < numSamples; i++) {
+        if (_window) {
+            Fatal("Multithreading not yet implemented for any window related output modes.");
+        }
+
+        if (_outputMode & graphletDistribution) {
+            ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
+        } else {
+            double weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
+            if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
+                stuck = 0; // reset stuck counter
+            } else {
+                // processing failed, ignore sample
+                --i;
+                if(++stuck > MAX(G->n, _numSamples)) {
+                    if(_quiet<2) Warning("Sampling aborted: no new graphlets discovered after %lu attempts", stuck);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Clean up loop-local variables
+    SetFree(prev_node_set);
+    SetFree(intersect_node);
+    SetFree(V);
+    TinyGraphFree(empty_g);
+}
 
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL THIS.
 // Call RunBlantInForks (or RunBlantInThread) instead, it's the top-level entry point to call
@@ -557,9 +611,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     }
     
     if (_sampleMethod == SAMPLE_MCMC)
-	_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
+		_window? initializeMCMC(G, _windowSize, numSamples) : initializeMCMC(G, k, numSamples);
     else if (_sampleMethod == SAMPLE_NODE_EXPANSION || _sampleMethod == SAMPLE_EDGE_EXPANSION)
-	initialize(G, k, numSamples);
+		initialize(G, k, numSamples);
     if (_outputMode & graphletDistribution) {
         // accumulators must be provided but no need for them
         SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
@@ -700,10 +754,20 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         int batchCounter = 0;
         Boolean confMet = false;
 
+		// Accumulators for single threaded mode
+		Accumulators *singleThreadAccums = NULL;
+		if(_numThreads == 1) {
+			singleThreadAccums = InitializeAccumulatorStruct(G);
+		}
+
         while (!confMet && !_earlyAbort) {
             if (_stopMode == stopOnSamples) {
                 // one and done, distribute the n samples amongst the threads and stop there
-                SampleNGraphletsInThreads(_seed, k, G, varraySize, numSamples, _numThreads);
+				if (_numThreads == 1) {
+					RunBlantLoopInMainThread(k, numSamples, G, varraySize, singleThreadAccums);
+				} else {
+                	SampleNGraphletsInThreads(_seed, k, G, varraySize, numSamples, _numThreads);
+				}
                 samplesCounter += numSamples;
                 break;
             } else if (_stopMode == stopOnPrecision) {
@@ -711,15 +775,36 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 unsigned batchSize = G->numEdges * sqrt(G->n);
 
                 STAT *sTotal[MAX_CANONICALS];
-		if(_desiredPrec && _quiet<2)
+		if(_desiredPrec && _quiet<2) {
 		    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
-
-                SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
+				
+				if (_numThreads == 1) {
+					_seed = _seed + batchCounter;
+					RunBlantLoopInMainThread(k, (unsigned long)batchSize, G, varraySize, singleThreadAccums);
+				} else {
+					SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
+				}
 
                 samplesCounter += batchSize; // Correctly increment samples counter only once.
                 batchCounter++;
+
+                // Merge accumulator into globals after each batch (matching multithreaded behavior)
+                if (_numThreads == 1) {
+                    for (int i = 0; i < _numCanon; i++) {
+                        _graphletConcentration[i] += singleThreadAccums->graphletConcentration[i];
+                        _graphletCount[i] += singleThreadAccums->graphletCount[i];
+                        if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = singleThreadAccums->canonNumStarMotifs[i];
+                        _batchRawCount[i] += singleThreadAccums->batchRawCount[i];
+                    }
+                    _batchRawTotalSamples += singleThreadAccums->batchRawTotalSamples;
+                    // Reset these counters to prevent double-counting in final merge
+                    for (int i = 0; i < _numCanon; i++) {
+                        singleThreadAccums->graphletConcentration[i] = 0;
+                        singleThreadAccums->graphletCount[i] = 0;
+                    }
+                }
 
                 int minNumBatches = 13-k+1/sqrt(1-_confidence)/k; //heuristic
                 int maxNumBatches = 1000*minNumBatches; // huge
@@ -781,6 +866,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                     else {
                         _batchRawTotalSamples = 0;
                         for(j=0;j<_numCanon;j++) _batchRawCount[j] = 0;
+                        // Reset batch counters in single-threaded accumulator for next batch
+                        if (_numThreads == 1) {
+                            singleThreadAccums->batchRawTotalSamples = 0;
+                            for(j=0;j<_numCanon;j++) singleThreadAccums->batchRawCount[j] = 0;
+                        }
                     }
                 }
                 else {
@@ -790,6 +880,59 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
             }
         }
+    }
+
+	// If we ran in single-threaded mode, we must now merge the
+	// singleThreadAccums into the global accumulators.
+	// This logic is copied from the end of SampleNGraphletsInThreads.
+	if (_numThreads == 1) {
+		for (int i = 0; i < _numCanon; i++) {
+			_graphletConcentration[i] += singleThreadAccums->graphletConcentration[i];
+			_graphletCount[i] += singleThreadAccums->graphletCount[i];
+			if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = singleThreadAccums->canonNumStarMotifs[i];
+		}
+	if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
+                for(int i=0; i<_numOrbits; i++) {
+                    // Check if the vector was allocated before trying to access it
+                    if (singleThreadAccums->orbitDegreeVector[i]) {
+                        for(int j=0; j<G->n; j++) {
+                            _orbitDegreeVector[i][j] += singleThreadAccums->orbitDegreeVector[i][j];
+                        }
+                    }
+                }
+            }
+            if (_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+                for(int i=0; i<_numCanon; i++) {
+                    // Check if the vector was allocated before trying to access it
+                    if (singleThreadAccums->graphletDegreeVector[i]) {
+                        for(int j=0; j<G->n; j++) {
+                            _graphletDegreeVector[i][j] += singleThreadAccums->graphletDegreeVector[i][j];
+                        }
+                    }
+                }
+            }
+            if (_outputMode & communityDetection) {
+                int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
+                for(int i=0; i<G->n; i++) {
+                    if(singleThreadAccums->communityNeighbors[i]) {
+                        if(!_communityNeighbors[i]) {
+                            _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
+                        }
+                        for(int j=0; j<numCommunities; j++) {
+                            if(singleThreadAccums->communityNeighbors[i][j]) {
+                                if(!_communityNeighbors[i][j]) {
+                                    _communityNeighbors[i][j] = SetAlloc(G->n);
+                                }
+                                _communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], singleThreadAccums->communityNeighbors[i][j]);
+                            }
+                        }
+                    }
+                }
+            }
+            // Finally, free the single accumulator
+            FreeAccumulatorStruct(singleThreadAccums);
+        }
+
 
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time = (end.tv_sec - start.tv_sec) +
