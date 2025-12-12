@@ -90,6 +90,7 @@ SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
+Boolean _directed; // set to true with -D on the command line if both the graph and graphlets are directed
 Boolean _rawCounts;
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
@@ -1498,7 +1499,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
+    while((opt = getopt(argc, argv, "a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
     {
 	switch(opt)
 	{
@@ -1570,6 +1571,8 @@ int main(int argc, char *argv[])
 	    break;
 	    }
 	    break;
+	case 'D':
+	    _directed = true; break;
 	case 't': 
         _numThreads = atoi(optarg);
         if(_numThreads > _maxThreads) Fatal("More threads specified than available on system.");
