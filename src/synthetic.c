@@ -27,12 +27,13 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 
 static int _k_array[MAX_K]; // stores what values of k have to be considered e.g. [3,4,5,6] or [3,5,7] or [2,7,8]. Will be followed by '-1's
 static Gordinal_type _numCanonSynth[MAX_K];  // canonicals for particular value of k. So for k=5, _numCanon[5-1] stores ~32
-static SET *_connectedCanonicals[MAX_K];
+static SET *_synthConnectedCanonicals[MAX_K];
 static int _maxNumCanon = -1;  // max number of canonicals
-static long _numSamples = -1;  // same number of samples in each blant index file
+static long _synthNumSamples = -1;  // same number of samples in each blant index file
 static int _numNodes = -1;  // number of nodes in the target/synthetic network
 static int maxdegree = -1;  // equals _numNodes (a node can be connected to every other node)
-static Gint_type _canonList[MAX_K][MAX_CANONICALS];
+static Gint_type _canonList2D[MAX_K][MAX_CANONICALS];
+static char _canonEdges2D[MAX_K][MAX_CANONICALS];
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 #define PRINT_INTERVAL 100000
@@ -84,7 +85,7 @@ static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
 // Grand total statically allocated memory is exactly 1.25GB.
-static Gordinal_type* _K[MAX_K];
+static Gordinal_type* _synthK[MAX_K];
 
 // Assuming the global variable _k_array[] is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
@@ -97,12 +98,12 @@ void SetGlobalCanonMaps(void){
         assert(3 <= _k_array[i] && _k_array[i] <= 8);
         _Bk = (1U <<(_k_array[i]*(_k_array[i]-1)/2));
         char BUF[BUFSIZ];
-        _connectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList[_k_array[i]-1], _k_array[i]);
-	_numCanonSynth[_k_array[i]-1] = _connectedCanonicals[_k_array[i]-1]->maxElem;
+        _synthConnectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList[_k_array[i]-1], _k_array[i]);
+	_numCanonSynth[_k_array[i]-1] = _synthConnectedCanonicals[_k_array[i]-1]->maxElem;
         _maxNumCanon = MAX(_maxNumCanon, _numCanonSynth[_k_array[i]-1]);  // set max number of canonicals for a k
-        _K[_k_array[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
-        assert(_K[_k_array[i]-1] != NULL);
-        mapCanonMap(BUF, _K[_k_array[i]-1], _k_array[i]);
+        _synthK[_k_array[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
+        assert(_synthK[_k_array[i]-1] != NULL);
+        mapCanonMap(BUF, _synthK[_k_array[i]-1], _k_array[i]);
         sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k_array[i]);
         int pfd = open(BUF, 0*O_RDONLY);
         kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
@@ -499,7 +500,7 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
 
                 // decrement a graphlet
                 canon = BLANT[k-1][line][0];
-                Boolean wasConnected = SetIn(_connectedCanonicals[k-1], canon);
+                Boolean wasConnected = SetIn(_synthConnectedCanonicals[k-1], canon);
                 oldcanondiff = D[1][k-1][canon] - D[0][k-1][canon];
                 --D[1][k-1][canon];
                 change = -1;
@@ -524,8 +525,8 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
 
 
                 TinyGraphInducedFromGraph(g[k-1], G, &(BLANT[k-1][line][1])); // address of the Varray without element 0
-                BLANT[k-1][line][0] = _K[k-1][TinyGraph2Int(g[k-1], k)];
-                Boolean  isConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
+                BLANT[k-1][line][0] = _synthK[k-1][TinyGraph2Int(g[k-1], k)];
+                Boolean  isConnected = SetIn(_synthConnectedCanonicals[k-1], BLANT[k-1][line][0]);
                 if(wasConnected && !isConnected)
                     ++_numDisconnectedGraphlets;
                 if(!wasConnected && isConnected)
@@ -586,13 +587,13 @@ void Revert(int ***BLANT, int D[2][MAX_K][_maxNumCanon], Dictionary GDVhistogram
     while (pop(rvStack, &change) == 0){
         line = BLANT[change.k-1][change.linenum];
 
-        Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
+        Boolean wasConnected = SetIn(_synthConnectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
         if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
             if (!ISZERO(weights[GraphletGDV]))
                 AdjustGDV(change.k, change.new, -1, line, GDVhistograms, GDVbinsize, GDV, 1000);  // the 1000 has no meaning
         }
 
-        Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
+        Boolean  isConnected = SetIn(_synthConnectedCanonicals[change.k-1], change.original);
         BLANT[change.k-1][change.linenum][0] = change.original;
         if ((!IGNORE_DISCONNECTED_GRAPHLETS) || isConnected){
             if (!ISZERO(weights[GraphletGDV]))
@@ -672,7 +673,7 @@ double GraphletKernelObjective(const int D[2][MAX_K][_maxNumCanon], GKState* gks
             break;
 
         for(j=0; j<_numCanonSynth[k-1]; j++){
-            if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_connectedCanonicals[k-1], j))){
+            if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_synthConnectedCanonicals[k-1], j))){
                 gkstate->sq_length_u += SQR((long) D[0][k-1][j]);
                 assert(gkstate->sq_length_u >= 0);
                 gkstate->sq_length_v += SQR((long) D[1][k-1][j]);
@@ -704,7 +705,7 @@ double SGKDiffObjective(int D[2][MAX_K][_maxNumCanon]){
         for (j=0; j<_numCanonSynth[k-1]; j++){
             int diff = abs(D[0][k-1][j] - D[1][k-1][j]);
             int target = D[0][k-1][j];
-            if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_connectedCanonicals[k-1], j))){
+            if ((!IGNORE_DISCONNECTED_GRAPHLETS) || (SetIn(_synthConnectedCanonicals[k-1], j))){
                 if (target == 0){
                     if (diff == 0)
                         sum += (double) 1;
@@ -738,7 +739,7 @@ double GDVObjective(Dictionary GDVhistograms[2][MAX_K][_maxNumCanon]){
         for(canon=0; canon < _numCanonSynth[k-1]; canon++){
 
             // skip this canon if it is disconnected
-            if ((IGNORE_DISCONNECTED_GRAPHLETS) && (!SetIn(_connectedCanonicals[k-1], canon)))
+            if ((IGNORE_DISCONNECTED_GRAPHLETS) && (!SetIn(_synthConnectedCanonicals[k-1], canon)))
                 continue;
 
             // the 2 GDVhistograms (target & synthetic)
@@ -797,7 +798,7 @@ double DegreeDistObjective(int Degree[2][maxdegree+1]){
 // computes the number of connections in the neighborhood (used for local-clustering coefficient)
 // slow, used once to initialize
 void GetConnections(GRAPH *G, int localConnections[G->n]){
-    // localConnections[i] will contain the number of edges b/w the neighbors of node `i`
+    // localConnections[i] wicll contain the number of edges b/w the neighbors of node `i`
     // used for local-clustering-coeffienct computation later on
     int n, x, node, degree;
     int i, j, edges;
@@ -1139,7 +1140,7 @@ int main(int argc, char *argv[]){
 
     // READ blant into squilly plot vectors and GDV matrices
     // expect 2 blant files (target & synthetic for every _k_array value)
-    // assume all blant files have same number of samples = _numSamples
+    // assume all blant files have same number of samples = _synthNumSamples
     int **BLANT[2][MAX_K];
     for(i=0;i<2;i++){
         for(j=0; j<MAX_K; j++){
@@ -1150,21 +1151,21 @@ int main(int argc, char *argv[]){
             sprintf(cmd, "wc -l < %s", argv[optind]);
             FILE *fp = popen(cmd, "r");
             assert(fp);
-            if (_numSamples == -1){
-                fscanf(fp, "%d", &_numSamples);
-                assert(_numSamples > 0);
+            if (_synthNumSamples == -1){
+                fscanf(fp, "%d", &_synthNumSamples);
+                assert(_synthNumSamples > 0);
             }
             else{
                 int tempsamples;
                 fscanf(fp, "%d", &tempsamples);
-                assert(tempsamples == _numSamples);
+                assert(tempsamples == _synthNumSamples);
             }
             pclose(fp);
             fp=fopen(argv[optind], "r");
             assert(fp);
 
-            BLANT[i][_k_array[j]-1] = (int**) Malloc(_numSamples * sizeof(int*));
-            for (line=0; line<_numSamples; line++){
+            BLANT[i][_k_array[j]-1] = (int**) Malloc(_synthNumSamples * sizeof(int*));
+            for (line=0; line<_synthNumSamples; line++){
                 BLANT[i][_k_array[j]-1][line] = (int*) Malloc((MAX_K+1) * sizeof(int));
                 int l;
                 for (l=0; l<=_k_array[j]; l++){
@@ -1193,7 +1194,7 @@ int main(int argc, char *argv[]){
             int l;
             for (l=0; l<_numCanonSynth[_k_array[j]-1]; l++)
                 testCount += D[i][_k_array[j]-1][l];
-            assert(testCount == _numSamples);
+            assert(testCount == _synthNumSamples);
         }
     }
 
@@ -1211,7 +1212,7 @@ int main(int argc, char *argv[]){
                 }
                 assert(columnsum == (D[i][_k_array[j]-1][l] * _k_array[j]));
             }
-            assert(matrixsum == (((long)_numSamples) * _k_array[j]));
+            assert(matrixsum == (((long)_synthNumSamples) * _k_array[j]));
         }
     }
 
@@ -1230,7 +1231,7 @@ int main(int argc, char *argv[]){
                 if (i == 1)
                     GDVbinsize[1][_k_array[j]-1][l] = GDVbinsize[0][_k_array[j]-1][l];  // synthetic gets the same GDVbinsize as the corresponding target
                 else
-                    if (!SetIn(_connectedCanonicals[_k_array[j]-1], l))
+                    if (!SetIn(_synthConnectedCanonicals[_k_array[j]-1], l))
                         GDVbinsize[0][_k_array[j]-1][l] = 1;  // disconnected graphlet. All GDV counts will be 0
                     else
                         GDVbinsize[0][_k_array[j]-1][l] = getIntegerBinSize(G[0]->n, GDV[0][_k_array[j]-1][l], scratchspace);
@@ -1276,9 +1277,9 @@ int main(int argc, char *argv[]){
         if (_k_array[i] == -1) break;
 
         for (j=0; j<G[1]->n; j++)
-            samples[_k_array[i]-1][j] = SetAlloc(_numSamples);
+            samples[_k_array[i]-1][j] = SetAlloc(_synthNumSamples);
 
-        for (line=0; line<_numSamples; line++)
+        for (line=0; line<_synthNumSamples; line++)
             for (j=1; j<= _k_array[i]; j++)
                 SetAdd(samples[_k_array[i]-1][BLANT[1][_k_array[i]-1][line][j]], line);    // SetAdd(samples[k][nodenum], line);
     }
@@ -1456,7 +1457,7 @@ int main(int argc, char *argv[]){
     sw.lowerHops = sw.upperHops = -1;
 
     RevertStack rvStack;
-    create_stack(&rvStack, 2 * MAX_K * _numSamples);
+    create_stack(&rvStack, 2 * MAX_K * _synthNumSamples);
 
     max_abscost[GraphletEuclidean] = GraphletEuclideanObjective(D);
     max_abscost[GraphletKernel] = GraphletKernelObjective(D, &gkstate);
@@ -1470,7 +1471,7 @@ int main(int argc, char *argv[]){
     memcpy(abscost, max_abscost, NUMPROPS * sizeof(double));
 
     fprintf(stderr, "STAG=%d\n", _stagnated);
-    fprintf(stderr, "BLANT samples=%d\n", _numSamples);
+    fprintf(stderr, "BLANT samples=%d\n", _synthNumSamples);
     fprintf(stderr, "Starting ABSOLUTE costs: GraphletEuclidean: %g, GraphletKernel: %g, GraphDiff: %g, GDV: %g, EHD: %g, DegreeDist: %g, ClustCoff: %g\n", abscost[0], abscost[1], abscost[2], abscost[3], abscost[4], abscost[5], abscost[6]);
 
     double cost = Objective(abscost), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start.
@@ -1624,7 +1625,7 @@ int main(int argc, char *argv[]){
         Revert(BLANT[1], D, GDVhistograms, GDVbinsize, GDV, &rvStack);
     }
 
-    if(same > _stagnated || _numDisconnectedGraphlets >= _numSamples*10){
+    if(same > _stagnated || _numDisconnectedGraphlets >= _synthNumSamples*10){
         fprintf(stderr, "stagnated!, total-iterations=%d, accepted-iterations=%d\n", sa_iter, a_iter);
         break;
     }
