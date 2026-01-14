@@ -98,7 +98,7 @@ void SetGlobalCanonMaps(void){
         assert(3 <= _k_array[i] && _k_array[i] <= 8);
         _Bk = (1U <<(_k_array[i]*(_k_array[i]-1)/2));
         char BUF[BUFSIZ];
-        _synthConnectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList[_k_array[i]-1], _k_array[i]);
+        _synthConnectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList2D[_k_array[i]-1], _k_array[i], _canonEdges2D[i]);
 	_numCanonSynth[_k_array[i]-1] = _synthConnectedCanonicals[_k_array[i]-1]->maxElem;
         _maxNumCanon = MAX(_maxNumCanon, _numCanonSynth[_k_array[i]-1]);  // set max number of canonicals for a k
         _synthK[_k_array[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
