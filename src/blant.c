@@ -932,14 +932,16 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             // Finally, free the single accumulator
             FreeAccumulatorStruct(singleThreadAccums);
         }
-
-
         clock_gettime(CLOCK_MONOTONIC, &end);
-        double elapsed_time = (end.tv_sec - start.tv_sec) +
-                            (end.tv_nsec - start.tv_nsec) / 1e9;
-        if(!_quiet) Note("Took %f seconds to sample %lu with %d threads in %d batches.",
-		elapsed_time, samplesCounter, _numThreads, batchCounter); 
-	numSamples = samplesCounter;
+        double elapsed_time =
+            (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+        if (!_quiet) {
+            double iterationsPerSecond = samplesCounter / elapsed_time;
+            Note("Took %f seconds to sample %lu with %d threads with a sampling throughput of %.3e iterations/sec in %d batches.",
+            elapsed_time, samplesCounter, _numThreads,
+            iterationsPerSecond, batchCounter);
+          }
+        numSamples = samplesCounter;
     }
 #if 0
     //THIS IS THE OLD PRECISION BASED SAMPLING LOOP, which has been moved into "} else if (_stopMode == stopOnPrecision) {" 
@@ -1676,7 +1678,7 @@ int main(int argc, char *argv[])
 	    break;
 	case 't': 
         _numThreads = atoi(optarg);
-        if(_numThreads > _maxThreads) Fatal("More threads specified than available on system.");
+        if(_numThreads > _maxThreads) Warning("More threads specified than available on system.");
 	    break;
 	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
 	    break;
