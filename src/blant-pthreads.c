@@ -11,6 +11,10 @@
 #include "atomic_utils.h"
 atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
+// Worker thread stack size: 16 MiB
+// Large enough to avoid stack overflows in deep call paths while reasonable for typical thread counts
+static const size_t kWorkerThreadStackBytes = 16 * 1024 * 1024;
+
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
     // Ensure size is a multiple of alignment
@@ -114,6 +118,29 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
     // seed the threads with a base seed that may or may not be specified
     long base_seed = seed == -1 ? GetFancySeed(false) : seed;
 
+    // Setup pthread attributes for custom stack size
+    pthread_attr_t attr;
+    pthread_attr_t *attr_ptr = NULL;
+    Boolean use_custom_stack = false;
+    
+    if (pthread_attr_init(&attr) == 0) {
+        if (pthread_attr_setstacksize(&attr, kWorkerThreadStackBytes) == 0) {
+            use_custom_stack = true;
+            attr_ptr = &attr;
+            // Log once, not per thread
+            static Boolean stack_size_logged = false;
+            if (!stack_size_logged) {
+                Note("Using worker thread stack size: %zu bytes (16 MiB).", kWorkerThreadStackBytes);
+                stack_size_logged = true;
+            }
+        } else {
+            Warning("Failed to set worker thread stack size to %zu bytes; using system default.", kWorkerThreadStackBytes);
+            pthread_attr_destroy(&attr);
+        }
+    } else {
+        Warning("Failed to initialize pthread attributes; using system default stack size.");
+    }
+
     // initialize the threads and their data
     for (int t = 0; t < numThreads; t++)
     {
@@ -130,9 +157,14 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
         threadData[t].totalBatches = totalBatches;
 
         // create thread with error handling
-        if (pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]) != 0) {
+        if (pthread_create(&threads[t], attr_ptr, RunBlantInThread, &threadData[t]) != 0) {
             Fatal("Failed to create thread");
         }
+    }
+    
+    // Clean up pthread attributes if we used them
+    if (use_custom_stack) {
+        pthread_attr_destroy(&attr);
     }
 
     // wait for each thread to finish execution, then accumulate data from the thread into the passed accumulator
