@@ -1,4 +1,11 @@
-# Bor = BLANT orbit relative to 0; Boa = BLANT orbit absolute (eg 4:11:11=L3 path)
+# Manually-curated mapping between BLANT's graphlet+orbit IDs to ORCA's.
+# Columns:
+# k = graphlet size (nodes)
+# B = BLANT ordinal ID
+# O = ORCA/Przulj graphlet ID
+# Bor = BLANT orbit relative to 0
+# Boa = BLANT orbit absolute (eg 4:11:11=L3 path)
+# Oo = ORCA/Przulj orbit ID
 k	B	O	Bor	Boa	Oo	gName	orbitName
 4	3	4	0	6	6	claw	finger
 4	3	4	1	7	7	claw	wrist
