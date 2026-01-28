@@ -14,7 +14,9 @@
 // credits - https://raw.githubusercontent.com/troydhanson/uthash/master/src/uthash.h
 
 int dictionary_create(Dictionary* dictionary){
+    if(!dictionary) return -1;
     dictionary->hashTable = NULL;
+    return 0;
 }
 
 int dictionary_get(Dictionary* dictionary, int key, int default_value){
