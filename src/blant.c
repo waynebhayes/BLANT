@@ -63,6 +63,11 @@ double RandomUniform(void) {
 }
 #endif
 
+static void stack_overflow_handler(int sig) {
+    const char msg[] = "WARNING: Stack overflow detected\n";
+    write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    _exit(1);
+}
 
 static int _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
@@ -1588,6 +1593,8 @@ int main(int argc, char *argv[])
 	exit(1);
     }
 
+    signal(SIGSEGV, stack_overflow_handler);
+    signal(SIGBUS, stack_overflow_handler);
     signal(SIGUSR1, SigEarlyAbort);
 
     _numThreads = 1;
