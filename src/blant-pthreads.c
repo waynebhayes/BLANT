@@ -11,9 +11,10 @@
 #include "atomic_utils.h"
 atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
-// Worker thread stack size: 16 MiB
-// Large enough to avoid stack overflows in deep call paths while reasonable for typical thread counts
-static const size_t kWorkerThreadStackBytes = 16 * 1024 * 1024;
+// Worker thread stack size: 1 MiB
+// Empirical measurements show ~257 bytes actual
+// 1 MiB provides ~4000x safety margin for larger k values and different networks
+static const size_t kWorkerThreadStackBytes = 1 * 1024 * 1024;
 
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
@@ -127,12 +128,6 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
         if (pthread_attr_setstacksize(&attr, kWorkerThreadStackBytes) == 0) {
             use_custom_stack = true;
             attr_ptr = &attr;
-            // Log once, not per thread
-            static Boolean stack_size_logged = false;
-            if (!stack_size_logged) {
-                Note("Using worker thread stack size: %zu bytes (16 MiB).", kWorkerThreadStackBytes);
-                stack_size_logged = true;
-            }
         } else {
             Warning("Failed to set worker thread stack size to %zu bytes; using system default.", kWorkerThreadStackBytes);
             pthread_attr_destroy(&attr);
