@@ -1152,7 +1152,7 @@ int main(int argc, char *argv[]){
             FILE *fp = popen(cmd, "r");
             assert(fp);
             if (_synthNumSamples == -1){
-                fscanf(fp, "%d", &_synthNumSamples);
+                fscanf(fp, "%ld", &_synthNumSamples);
                 assert(_synthNumSamples > 0);
             }
             else{
@@ -1471,7 +1471,7 @@ int main(int argc, char *argv[]){
     memcpy(abscost, max_abscost, NUMPROPS * sizeof(double));
 
     fprintf(stderr, "STAG=%d\n", _stagnated);
-    fprintf(stderr, "BLANT samples=%d\n", _synthNumSamples);
+    fprintf(stderr, "BLANT samples=%ld\n", _synthNumSamples);
     fprintf(stderr, "Starting ABSOLUTE costs: GraphletEuclidean: %g, GraphletKernel: %g, GraphDiff: %g, GDV: %g, EHD: %g, DegreeDist: %g, ClustCoff: %g\n", abscost[0], abscost[1], abscost[2], abscost[3], abscost[4], abscost[5], abscost[6]);
 
     double cost = Objective(abscost), startCost = cost, newCost, maxCost = cost;  // evaluate Objective() once, at the start.
@@ -1626,7 +1626,7 @@ int main(int argc, char *argv[]){
     }
 
     if(same > _stagnated || _numDisconnectedGraphlets >= _synthNumSamples*10){
-        fprintf(stderr, "stagnated!, total-iterations=%d, accepted-iterations=%d\n", sa_iter, a_iter);
+        fprintf(stderr, "stagnated!, total-iterations=%ld, accepted-iterations=%ld\n", sa_iter, a_iter);
         break;
     }
     ++sa_iter;
