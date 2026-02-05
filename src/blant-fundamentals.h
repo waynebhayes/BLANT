@@ -15,6 +15,10 @@
 #define SELF_LOOPS 0	// do we allow self-loops? MUST be 0 or 1, no other values allowed.
 #endif
 
+#ifndef SYNTHETIC
+#define SYNTHETIC 0 // off by default
+#endif
+
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
 #ifndef MAX_K
@@ -76,7 +80,5 @@
 #define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
 #define DEFAULT_DIGITS 2 // 2 digits of precision by default
-
-#define SYNTHETIC 1 // off by default
 
 #endif // _BLANT_FUNDAMENTALS_H
