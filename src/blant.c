@@ -93,6 +93,7 @@ SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
+Boolean _directed; // set to true with -D on the command line if both the graph and graphlets are directed
 Boolean _rawCounts;
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
@@ -444,12 +445,10 @@ void* RunBlantInThread(void* arg) {
 #endif
 
     SET *V = SetAlloc(G->n);
-	#if SELF_LOOPS
-		TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
-	#else
-		TINY_GRAPH *empty_g = TinyGraphAlloc(k);
-	#endif
-	unsigned Varray[varraySize];
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k,SELF_LOOPS,false);
+    unsigned Varray[varraySize];
+    double weight;
+    unsigned long stuck = 0;
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
 
@@ -468,7 +467,7 @@ void* RunBlantInThread(void* arg) {
         uint64_t end = start + chunk;
         if (end > total) end = total;
 
-		unsigned long stuck = 0;
+		stuck = 0;
 		// Original per-sample loop (unchanged)
 		for (uint64_t i = start; i < end; i++) {
 			if (_window) {
@@ -479,7 +478,7 @@ void* RunBlantInThread(void* arg) {
 				// calls SampleGraphlet internally  
 				ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
 			} else {
-                double weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
+                weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
 				if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
 					stuck = 0; // reset stuck counter when finding a newly processed graphlet
 				} else {
@@ -508,12 +507,9 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G, 
 
     // Setup loop-local variables (copied from RunBlantInThread)
     SET *V = SetAlloc(G->n);
-#if SELF_LOOPS
-    TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
-#else
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k);
-#endif
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k,SELF_LOOPS,false);
     unsigned Varray[varraySize];
+    double weight;
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
 
@@ -533,7 +529,7 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G, 
         if (_outputMode & graphletDistribution) {
             ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
         } else {
-            double weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
+            weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
             if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
                 stuck = 0; // reset stuck counter
             } else {
@@ -566,11 +562,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
-#if SELF_LOOPS
-    TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
-#else
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k); // allocate it here once, so functions below here don't need to do it repeatedly
-#endif
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k,SELF_LOOPS,false); // allocate it here once, so functions below here don't need to do it repeatedly
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
@@ -1600,7 +1592,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
+    while((opt = getopt(argc, argv, "a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
     {
 	switch(opt)
 	{
@@ -1676,6 +1668,8 @@ int main(int argc, char *argv[])
 	    break;
 	    }
 	    break;
+	case 'D':
+	    _directed = true; break;
 	case 't': 
         _numThreads = atoi(optarg);
         if(_numThreads > _maxThreads) Warning("More threads specified than available on system.");

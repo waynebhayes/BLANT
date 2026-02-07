@@ -278,7 +278,7 @@ void FindWindowRepByDeg(GRAPH *Gi, unsigned *WArray)
     float curr_deg, prev_deg = -1;
     unsigned SeedArray[_windowSize], NodeAddedArr[_k];
     SET *savedNodesSET = SetAlloc(Gi->n), *neighborNodeSet = SetAlloc(Gi->n);
-    TINY_GRAPH *g = TinyGraphAlloc(_k);
+    TINY_GRAPH *g = TinyGraphAlloc(_k,false,false);
     for (i=0; i < _windowSize; i++)
     {
 	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : Gi->degree[i];

@@ -283,7 +283,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(nOut == SetCardinality(outSet));
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k);
+	TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	unsigned char perm[k];
@@ -402,7 +402,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	    SampleGraphletFaye(G, V, Varray, k, whichCC);
 	    depth--;
 	    // Ensure the damn thing really *is* connected.
-	    TINY_GRAPH *T = TinyGraphAlloc(k);
+	    TINY_GRAPH *T = TinyGraphAlloc(k,false,false);
 	    TinyGraphInducedFromGraph(T, G, Varray);
 #if PARANOID_ASSERTS
 	    assert(NumReachableNodes(T,0) == k);
@@ -565,7 +565,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		cumulative[j] = 0;
 	    SetEmpty(internal);
 #else
-	    static _Thread_local int depth; 
+	    static _Thread_local int depth;
         // static _Thread_local allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
 	    depth++;
 	    assert(depth < MAX_TRIES);
@@ -609,7 +609,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 		SetEmpty(internal);
 #else
         // _Thread_local gives each thread their own copy of the depth variable
-        static _Thread_local int depth; 
+        static _Thread_local int depth;
         depth++;
         assert(depth < MAX_TRIES);
         SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
@@ -634,7 +634,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(vCount == k);
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k);
+	TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	unsigned char perm[k];
@@ -762,7 +762,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 	    if(reservoir_alpha < k/(double)i)
 	    {
 		static TINY_GRAPH *T;
-		if(!T) T = TinyGraphAlloc(k);
+		if(!T) T = TinyGraphAlloc(k,false,false);
 #if PARANOID_ASSERTS
 		static int graphetteArray[MAX_K], distArray[MAX_K];
 		// ensure it's connected before we do the replacement
@@ -834,7 +834,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	// Thread-local initialization - each thread maintains its own MCMC chain state
 	XLQ = QueueAlloc(k*mcmc_d);
 	XLS = MultisetAlloc(G->n);
-	g = TinyGraphAlloc(k);
+	g = TinyGraphAlloc(k,false,false);
     }
     // SYNTH: currentOrdinal =....
     // The first time we run this, or when we restart. We want to find our initial L d graphlets.
@@ -965,7 +965,7 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
     if (!g) {
 	//NON REENTRANT CODE
-	g = TinyGraphAlloc(k);
+	g = TinyGraphAlloc(k,false,false);
     }
 
     double multiplier = 1;
@@ -1107,7 +1107,7 @@ double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Va
 */
 double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k)
 {
-    TINY_GRAPH *g = TinyGraphAlloc(k);
+    TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
 
     int tries = 0;
     do
@@ -1189,7 +1189,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     // i, j, and neigh are just used in for loops in this function
     int i, j, neigh;
     // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
-    TINY_GRAPH *g = TinyGraphAlloc(_k);
+    TINY_GRAPH *g = TinyGraphAlloc(_k,false,false);
 
     // base case for the recursion: a k-graphlet is found, print it and return
     if (prev_nodes_count == _k) {
