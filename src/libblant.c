@@ -25,57 +25,51 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
     int i, j, bitPos=0;
     Gint_type Gint = 0, bit;
 
-#if LOWER_TRIANGLE	// Prefer lower triangle to be compatible with Ine Melckenbeeck's Jesse code.
     for(i=k-1;i>0;i--)
     {
-        for(j=i-1;j>=0;j--)
-#else   // UPPER_TRIANGLE // this is what we used in the original faye code and paper with Adib Hasan and Po-Chien Chung.
-    for(i=k-2;i>=0;i--)
-    {
-        for(j=k-1;j>i;j--)
-#endif
-        {
-	    if(TinyGraphAreConnected(g,i,j))
-	    {
-		bit = (((Gint_type)1) << bitPos);
-		Gint |= bit;
-	    }
-            bitPos++;
-	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
-        }
+	#if LOWER_TRIANGLE
+	for(j=k-1-(k-i)*(1-g->directed);j>=0;j--)
+	#else
+	for(j=k-1;j>=i*(1-g->directed);j--)	
+	#endif
+	{
+	if(TinyGraphAreConnected(g,i,j))
+	{
+	bit = (((Gint_type)1) << bitPos);
+	Gint |= bit;
+	}
+	    bitPos++;
+	assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
+	}
     }
     return Gint;
 }
 
 /*
-** Given an integer, build the graph into the TINY_GRAPH *G, which has already been allocated.
-** Handles either upper or lower triangle representation depending upon compile-time option below.
+** Int to directed graph 
 */
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 {
     int i, j, bitPos=0, k = G->n;
     Gint_type Gint2 = Gint;  // Gint2 has bits nuked as they're used, so when it's zero we can stop.
     TinyGraphEdgesAllDelete(G);
-#if LOWER_TRIANGLE
-    for(i=k-1;i>(0-SELF_LOOPS);i--) // note that when SELF_LOOPS, the loop condition i (-1), so i must be signed.
-    {
-	for(j=i-!SELF_LOOPS;j>=0;j--)
-#else	// UPPER_TRIANGLE
-    assert(!SELF_LOOPS);
-    for(i=k-2;i>=0;i--)
-    {
-	for(j=k-1;j>i;j--)
-#endif
+	for(i=k-1;i>=0;i--){
+	#if LOWER_TRIANGLE
+	for(j=k-1-(k-i)*(1-G->directed);j>=0;j--)
+	#else
+	for(j=k-1;j>=i*(1-G->directed);j--)
+	#endif
 	{
+	    if(i==j&&!SELF_LOOPS) continue;
 	    if(!Gint2) break;
 	    Gint_type bit = ((Gint_type)1 << bitPos);
-	    if(Gint & bit)
-		TinyGraphConnect(G,i,j);
+	    if(Gint & bit) TinyGraphConnect(G,i,j);
+
 	    Gint2 &= ~bit;
 	    bitPos++;
-	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
+	    //assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
 	}
-	if(!Gint2) break;
+    	if(!Gint2) break;
     }
 }
 
@@ -98,6 +92,7 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
     assert(Kf != MAP_FAILED);
     return Kf;
 }
+
 
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges) {
     sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
@@ -143,7 +138,6 @@ Gint_type orbitListPopulate(char *BUF,
     fclose(fp_ord);
     return numOrbits;
 }
-
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
     assert(k<=5);
     sprintf(BUF, "%s/%s/orca_orbit_mapping%d.txt", _BLANT_DIR, "orca_jesse_blant_table", k);

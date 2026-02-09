@@ -96,7 +96,7 @@ void Predict_Init(GRAPH *G) {
 
     fprintf(stderr, "Sanity check: k %d, ordinal %d (integer %d), global orbitPair (%d,%d)\n",
 	_k, _predictOrd, _canonList[_predictOrd], _predictOrbit1, _predictOrbit2);
-    TINY_GRAPH *T = TinyGraphAlloc(_k);
+    TINY_GRAPH *T = TinyGraphAlloc(_k, false, false);
     for(Gordinal_type c=0; c<_numCanon; c++) {
 	if(!SetIn(_connectedCanonicals, c)) continue;
 	int GintCanonInt = _canonList[c];
