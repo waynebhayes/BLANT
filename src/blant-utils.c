@@ -6,7 +6,7 @@
 #include "blant.h"
 #include "blant-utils.h"
 #include "blant-predict.h"
-#include "bintree.h"
+#include "tree.h"
 #include "sim_anneal.h"
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
@@ -30,12 +30,12 @@ static int CmpInt(foint a, foint b) {
     return a.i - b.i;
 }
 
-// Surprisingly, BinTree works MUCH faster than a HASH map.
+// Surprisingly, Tree works MUCH faster than a HASH map.
 static unsigned int L_K_Func_Memory(Gint_type Gint) {
     static BINTREE *B;
-    if(!B) B = BinTreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
+    if(!B) B = TreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
     foint f;
-    if(BinTreeLookup(B,(foint)(unsigned int)Gint,&f)) {
+    if(TreeLookup(B,(foint)(unsigned int)Gint,&f)) {
 	assert(_K && f.ui == _K[Gint]);
 	return f.ui;
     }
@@ -43,9 +43,9 @@ static unsigned int L_K_Func_Memory(Gint_type Gint) {
 	// For now, just cheat and use the pre-computed lookup table
 	// FIXME: this is where we need to insert the search that's currently inside fast-canon-map
 	assert(_K);
-	BinTreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
-	//Warning("BinTreeSize %d", B->n);
-	assert(BinTreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
+	TreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
+	//Warning("TreeSize %d", B->n);
+	assert(TreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
 	return _K[Gint];
     }
 }

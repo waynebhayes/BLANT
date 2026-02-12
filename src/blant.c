@@ -560,7 +560,7 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G, 
 // Note it does stuff even if numSamples == 0, because we may be the parent of many
 // threads that finished and we have nothing to do except output their accumulated results.
 static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
-    unsigned long i, j;
+    unsigned i, j;
     assert(k <= G->n);
     assert(k == _k);
     SET *V = SetAlloc(G->n);
@@ -780,19 +780,19 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 				
-				if (_numThreads == 1) {
-					_seed = _seed + batchCounter;
-					RunBlantLoopInMainThread(k, (unsigned long)batchSize, G, varraySize, singleThreadAccums);
-				} else {
-					SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
-				}
+		if (_numThreads == 1) {
+		    _seed = _seed + batchCounter;
+		    RunBlantLoopInMainThread(k, (unsigned long)batchSize, G, varraySize, singleThreadAccums);
+		} else {
+		    SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
+		}
 
                 samplesCounter += batchSize; // Correctly increment samples counter only once.
                 batchCounter++;
 
                 // Merge accumulator into globals after each batch (matching multithreaded behavior)
                 if (_numThreads == 1) {
-                    for (int i = 0; i < _numCanon; i++) {
+                    for (i = 0; i < _numCanon; i++) {
                         _graphletConcentration[i] += singleThreadAccums->graphletConcentration[i];
                         _graphletCount[i] += singleThreadAccums->graphletCount[i];
                         if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = singleThreadAccums->canonNumStarMotifs[i];
@@ -800,7 +800,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                     }
                     _batchRawTotalSamples += singleThreadAccums->batchRawTotalSamples;
                     // Reset these counters to prevent double-counting in final merge
-                    for (int i = 0; i < _numCanon; i++) {
+                    for (i = 0; i < _numCanon; i++) {
                         singleThreadAccums->graphletConcentration[i] = 0;
                         singleThreadAccums->graphletCount[i] = 0;
                     }
@@ -886,52 +886,52 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	// singleThreadAccums into the global accumulators.
 	// This logic is copied from the end of SampleNGraphletsInThreads.
 	if (_numThreads == 1) {
-		for (int i = 0; i < _numCanon; i++) {
-			_graphletConcentration[i] += singleThreadAccums->graphletConcentration[i];
-			_graphletCount[i] += singleThreadAccums->graphletCount[i];
-			if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = singleThreadAccums->canonNumStarMotifs[i];
+	    for (i = 0; i < _numCanon; i++) {
+		_graphletConcentration[i] += singleThreadAccums->graphletConcentration[i];
+		_graphletCount[i] += singleThreadAccums->graphletCount[i];
+		if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = singleThreadAccums->canonNumStarMotifs[i];
+	    }
+	    if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
+		for(i=0; i<_numOrbits; i++) {
+		    // Check if the vector was allocated before trying to access it
+		    if (singleThreadAccums->orbitDegreeVector[i]) {
+			for(j=0; j<G->n; j++) {
+			    _orbitDegreeVector[i][j] += singleThreadAccums->orbitDegreeVector[i][j];
+			}
+		    }
 		}
-	if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
-                for(int i=0; i<_numOrbits; i++) {
-                    // Check if the vector was allocated before trying to access it
-                    if (singleThreadAccums->orbitDegreeVector[i]) {
-                        for(int j=0; j<G->n; j++) {
-                            _orbitDegreeVector[i][j] += singleThreadAccums->orbitDegreeVector[i][j];
-                        }
-                    }
-                }
-            }
-            if (_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-                for(int i=0; i<_numCanon; i++) {
-                    // Check if the vector was allocated before trying to access it
-                    if (singleThreadAccums->graphletDegreeVector[i]) {
-                        for(int j=0; j<G->n; j++) {
-                            _graphletDegreeVector[i][j] += singleThreadAccums->graphletDegreeVector[i][j];
-                        }
-                    }
-                }
-            }
-            if (_outputMode & communityDetection) {
-                int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
-                for(int i=0; i<G->n; i++) {
-                    if(singleThreadAccums->communityNeighbors[i]) {
-                        if(!_communityNeighbors[i]) {
-                            _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
-                        }
-                        for(int j=0; j<numCommunities; j++) {
-                            if(singleThreadAccums->communityNeighbors[i][j]) {
-                                if(!_communityNeighbors[i][j]) {
-                                    _communityNeighbors[i][j] = SetAlloc(G->n);
-                                }
-                                _communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], singleThreadAccums->communityNeighbors[i][j]);
-                            }
-                        }
-                    }
-                }
-            }
-            // Finally, free the single accumulator
-            FreeAccumulatorStruct(singleThreadAccums);
-        }
+	    }
+	    if (_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+		for(i=0; i<_numCanon; i++) {
+		    // Check if the vector was allocated before trying to access it
+		    if (singleThreadAccums->graphletDegreeVector[i]) {
+			for(j=0; j<G->n; j++) {
+			    _graphletDegreeVector[i][j] += singleThreadAccums->graphletDegreeVector[i][j];
+			}
+		    }
+		}
+	    }
+	    if (_outputMode & communityDetection) {
+		int numCommunities = (_communityMode=='o') ? _numOrbits : _numCanon;
+		for(i=0; i<G->n; i++) {
+		    if(singleThreadAccums->communityNeighbors[i]) {
+			if(!_communityNeighbors[i]) {
+			    _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
+			}
+			for(j=0; j<numCommunities; j++) {
+			    if(singleThreadAccums->communityNeighbors[i][j]) {
+				if(!_communityNeighbors[i][j]) {
+				    _communityNeighbors[i][j] = SetAlloc(G->n);
+				}
+				_communityNeighbors[i][j] = SetUnion(_communityNeighbors[i][j], _communityNeighbors[i][j], singleThreadAccums->communityNeighbors[i][j]);
+			    }
+			}
+		    }
+		}
+	    }
+	    // Finally, free the single accumulator
+	    FreeAccumulatorStruct(singleThreadAccums);
+	}
         clock_gettime(CLOCK_MONOTONIC, &end);
         double elapsed_time =
             (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -2004,7 +2004,7 @@ int main(int argc, char *argv[])
 	while(1 == fscanf(interestFile, "%s", nodeName)) {
 	    foint nodeNum;
 	    if(_supportNodeNames) {
-                if(!BinTreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
+                if(!TreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
                     Fatal("nodes-of-interest file contains non-existent node '%s'", nodeName);
 	    } else {
 		nodeNum.i = atoi(nodeName);
@@ -2057,7 +2057,7 @@ int main(int argc, char *argv[])
             {
                 if(sscanf(line, "%s%f ", nodeName, &importance) != 2)
                     Fatal("GraphNodeImportance: Error while reading\n");
-                if(!BinTreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
+                if(!TreeLookup(G->nameDict, (foint)nodeName, &nodeNum))
                     Fatal("Node Importance Error: %s is not in the Graph file\n", nodeName);
                 _graphNodeImportance[nodeNum.i] = importance;
             }
