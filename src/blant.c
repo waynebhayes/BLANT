@@ -66,7 +66,8 @@ double RandomUniform(void) {
 static int _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
 static float *_weights;
-char **_nodeNames, _supportNodeNames = true;
+char **_nodeNames;
+Boolean _supportNodeNames = true;
 static FILE *interestFile;
 Boolean _child; // are we a child process?
 int _quiet; // suppress notes and/or warnings, higher value = more quiet
