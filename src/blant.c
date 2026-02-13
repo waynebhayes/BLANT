@@ -1207,7 +1207,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             printf("\n");
         }
     }
-    if(_outputMode & predict) Predict_Shutdown(G);
+    if(_outputMode & predict) {Predict_Flush(G); Predict_Shutdown(G);}
 
     if(!_outputMode) Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
 
@@ -1431,7 +1431,7 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
     // if numSamples is not a multiple of _THREADS, finish the leftover samples
     unsigned long leftovers = numSamples % _numThreads;
     int result = RunBlantFromGraph(_k, leftovers, G);
-    if(_outputMode & predict) Predict_Shutdown(G);
+    if(_outputMode & predict) {Predict_Flush(G); Predict_Shutdown(G);}
     return result;
 }
 
