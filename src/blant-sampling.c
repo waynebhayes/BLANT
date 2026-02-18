@@ -283,7 +283,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(nOut == SetCardinality(outSet));
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
+	TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	unsigned char perm[k];

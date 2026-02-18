@@ -46,7 +46,8 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 }
 
 /*
-** Int to directed graph 
+** Decode an integer into a TinyGraph.
+** Respects G->directed (directed vs. undirected) and SELF_LOOPS for self-loop handling.
 */
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 {
@@ -60,7 +61,7 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 	for(j=k-1;j>=i*(1-G->directed);j--)
 	#endif
 	{
-	    if(i==j&&!SELF_LOOPS) continue;
+	    if(i==j && !G->selfLoops) continue;
 	    if(!Gint2) break;
 	    Gint_type bit = ((Gint_type)1 << bitPos);
 	    if(Gint & bit) TinyGraphConnect(G,i,j);

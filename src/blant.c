@@ -445,7 +445,7 @@ void* RunBlantInThread(void* arg) {
 #endif
 
     SET *V = SetAlloc(G->n);
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k,SELF_LOOPS,false);
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
     unsigned Varray[varraySize];
     double weight;
     unsigned long stuck = 0;
