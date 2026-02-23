@@ -11,6 +11,7 @@ extern int _predictOrbit1, _predictOrbit2;
 
 // call this first before attempting any predictions
 void Predict_Init(GRAPH *G);
+void Predict_Flush(GRAPH *G);
 
 // Call this for each sampled graphlet
 void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g, Gint_type Gint, Gordinal_type GintOrdinal);

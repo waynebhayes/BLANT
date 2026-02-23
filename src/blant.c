@@ -93,6 +93,7 @@ SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
+Boolean _directed; // input network is directed
 Boolean _rawCounts;
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
@@ -1605,7 +1606,7 @@ int main(int argc, char *argv[])
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
     // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
+    while((opt = getopt(argc, argv, "a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
     {
 	switch(opt)
 	{
@@ -1775,6 +1776,7 @@ int main(int argc, char *argv[])
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
 	case 'w': _weighted = true; break;
+	case 'D': _directed = true; break;
 	case 'x':
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
 	    else if (strncmp(optarg, "DMIN", 4) == 0)
@@ -1984,8 +1986,24 @@ int main(int argc, char *argv[])
     }
     assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
 
+    // inputG[0] will contain the pointer to the standard undirected version of G (always)
+    // inputG[1] will contain the pointer to the directed version, but only when _directed == true.
+    static GRAPH inputG[2]; // static to ensure everything is NULL
+
+    // The following line points G to the zeroth element of inputG, and from that point onward G can be used as it has
+    // always been used; but whenever _directed is true and we want to access the directed version, use (G+1).
+    GRAPH *G = &inputG[0];
+
     // Read network using native Graph routine. Derik: this is where you can add other graph reading functions
-    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, _weighted);
+    GraphReadEdgeList(&inputG[0], fpGraph, false, _supportNodeNames, _weighted); // directed=false for inputG[0]
+    if(_directed) {
+	if(fpGraph == stdin) Fatal("Sorry, can't read a directed graph from stdin");
+	rewind(fpGraph); // rewind the input FILE pointer to the beginning of the input graph
+	Note("Reading G a second time as directed");
+	GraphReadEdgeList(&inputG[1], fpGraph, _directed, _supportNodeNames, _weighted);
+	Note("undirected G has %d edges; directed has %d", G->numEdges, (G+1)->numEdges);
+    }
+
     if(_useComplement) G->useComplement = true;
 
     if(_supportNodeNames)
@@ -1994,8 +2012,6 @@ int main(int argc, char *argv[])
 	_nodeNames = G->name;
     }
     if(fpGraph != stdin) closeFile(fpGraph, &piped);
-
-    //Derik: end here
 
     // Always allocate this set; if there are no "nodes of interest" then every node is a possible start done
     _startNodes = Calloc(G->n, sizeof(unsigned));
@@ -2086,6 +2102,6 @@ int main(int argc, char *argv[])
 #endif
 
     exitStatus = RunBlantFromGraph(_k, numSamples, G);
-    GraphFree(G);
+    if(&inputG[0] != G) GraphFree(G);
     return exitStatus;
 }

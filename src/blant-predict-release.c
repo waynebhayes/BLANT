@@ -2406,7 +2406,7 @@ int main(int argc, char *argv[])
     LoadMagicTable(); // needs _k to be set
 
     // Read it in using native Graph routine.
-    _G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, false);
+    _G = GraphReadEdgeList(NULL, fpGraph, SPARSE, _supportNodeNames, false);
     if(_supportNodeNames)
     {
 	assert(_G->name);

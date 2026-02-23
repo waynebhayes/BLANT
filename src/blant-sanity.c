@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     int k=atoi(argv[1]), n = atoi(argv[2]), lines;
     FILE *fp = fopen(argv[3], "r");
     _k = k;
-    GRAPH *G = GraphReadEdgeList(fp, true, false, false); // sparse = true, supportNodeNames=false since syeast.el is only ints.
+    GRAPH *G = GraphReadEdgeList(NULL, fp, false, false, false); // directed = false, supportNodeNames=false since syeast.el is only ints.
     assert(G->n >= k);
     fclose(fp);
 
