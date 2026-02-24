@@ -1,3 +1,6 @@
+[submodule "src/EdgePredict"]
+	path = src/EdgePredict
+	url = https://github.com/waynebhayes/EdgePredict.git
 [submodule "libwayne"]
 	path = libwayne
 	url = https://github.com/waynebhayes/libwayne.git
