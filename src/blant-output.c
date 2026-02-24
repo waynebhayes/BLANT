@@ -184,16 +184,21 @@ char *PrintIndexEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdinal, un
     // will be a bijection with orbit). However, if you want to extract ambiguous graphlets, you'll have to change the code
     // here (and code in a lot of other places)
     if (_outputMode & indexGraphletsRNO) {
+	// ensure write destination buf is at least twice as big as the one we're reading
+	assert(strlen(buf[which]) < sizeof(buf[1-which])/2);
         sprintf(buf[1-which], "%s+o%d", buf[which], perm[0]);
 	which=1-which;
     }
 
     for(j=0;j<k;j++) {
 	char jbuf[BUFSIZ];
-	sprintf(buf[1-which], "%s%s", buf[which], PrintNode(jbuf, ' ', Varray[(int)perm[j]]));
+	PrintNode(jbuf, ' ', Varray[(int)perm[j]]);
+	assert(strlen(buf[which]) + strlen(jbuf) < sizeof(buf[1-which])/2);
+	sprintf(buf[1-which], "%s%s", buf[which], jbuf);
 	which=1-which;
     }
     if(_G->weight) {
+	assert(strlen(buf[which]) < sizeof(buf[1-which])/2);
 	sprintf(buf[1-which], "%s %g", buf[which], weight);
 	which=1-which;
     }

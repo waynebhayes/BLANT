@@ -164,6 +164,10 @@ case "$net" in
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
 
+echo "Don't forget: edgeDensity threshold for GDVs should fluctuate randomly as the cluster is built, with threshold
+something like ED+N(ED,ED/2), so that the expected density is still ED, but we're allowed to add nodes both above
+and below the threshold, at random" >&2
+
 # Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0
 if [ "$BLANT_FILES" = "$TMPDIR" ]; then

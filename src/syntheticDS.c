@@ -14,7 +14,9 @@
 // credits - https://raw.githubusercontent.com/troydhanson/uthash/master/src/uthash.h
 
 int dictionary_create(Dictionary* dictionary){
+    if(!dictionary) return -1;
     dictionary->hashTable = NULL;
+    return 0;
 }
 
 int dictionary_get(Dictionary* dictionary, int key, int default_value){
@@ -436,7 +438,7 @@ int compareKHopByMedian(Dictionary* khop[2], int medians[2], int MAX_Keys[2]){
     for(i=0; i<2; i++){
         count = 0;
 
-        iter = getIterator(&(khop[i]));
+        iter = getIterator((khop[i]));
         while((getNext(&iter, &k, &v)) == 0){
             MAX_Keys[i] = MAX(MAX_Keys[i], k);
             count += v;
@@ -445,7 +447,7 @@ int compareKHopByMedian(Dictionary* khop[2], int medians[2], int MAX_Keys[2]){
         mi = (int) count/2;
         count = 0;
         for(l=0; l<=MAX_Keys[i]; l++){
-            count += dictionary_get(&(khop[i]), l, 0);
+            count += dictionary_get((khop[i]), l, 0);
             if (count >= mi){
                 medians[i] = l;
                 break;
