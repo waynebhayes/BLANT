@@ -321,7 +321,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     if(accums->canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
 	int i;
 	accums->canonNumStarMotifs[GintOrdinal] = 0;
-	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
+	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) {++accums->canonNumStarMotifs[GintOrdinal];fprintf(stderr,"a %d\n",accums->canonNumStarMotifs[GintOrdinal]);}
     }
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     accums->graphletCount[GintOrdinal]+=weight;
@@ -342,7 +342,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	else Predict_ProcessGraphlet(G,Varray,g,Gint,GintOrdinal);
     }
     if(_outputMode & indexOrbits) {
-	assert(TinyGraphDFSConnected(g,0));
+	if(!g->directed) assert(TinyGraphDFSConnected(g,0));
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
@@ -352,7 +352,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
 	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm, accums);
 	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm, accums);
-	else Fatal("unkwown _communityMode %c", _communityMode);
+	else Fatal("unknown _communityMode %c", _communityMode);
     }
 
     // the macros GDV and ODV access the global array and are thus only used in single thread (_MCMC_EVERY_EDGE) modes

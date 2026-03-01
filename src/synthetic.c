@@ -89,7 +89,7 @@ static Gordinal_type* _K[MAX_K];
 void SetGlobalCanonMaps(void){
     unsigned int _Bk;
     int i;
-    for(i=0; i<MAX_K; i++){  // for all values of 'k'
+    for(i=0; i<(_directed ? MAX_KD : MAX_K); i++){  // for all values of 'k'
         if (_k[i] == -1)
             break;
         assert(3 <= _k[i] && _k[i] <= 8);
@@ -435,7 +435,7 @@ double EHDObjective(int D[2][MAX_K][_maxNumCanon], int CanonicalEdges[MAX_K][_ma
     int i,j,k,l,m,x,diff,temp;
     double sum = 0;
 
-    for(i=0; i<MAX_K; i++){
+    for(i=0; i<(_directed : MAX_KD : MAX_K); i++){
         k = _k[i];
         if (k == -1)
             break;
@@ -483,7 +483,7 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
     static TINY_GRAPH *g[MAX_K];
     double oldcanondiff, temp_gdv_newcost;
 
-    for (i=0; i<MAX_K; i++){
+    for (i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         if (_k[i] == -1)
             break;
         int k = _k[i];
@@ -519,8 +519,7 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
                 newchange.k = k;
                 newchange.linenum = line;
                 newchange.original = (int) canon;
-
-
+                
                 TinyGraphInducedFromGraph(g[k-1], G, &(BLANT[k-1][line][1])); // address of the Varray without element 0
                 BLANT[k-1][line][0] = _K[k-1][TinyGraph2Int(g[k-1], k)];
                 Boolean  isConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
@@ -632,7 +631,7 @@ double GraphletEuclideanObjective(int D[2][MAX_K][_maxNumCanon]){
     int i,j;
     double logP = 0, sum2 = 0;
 
-    for (i=0; i<MAX_K; i++){
+    for (i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         if (_k[i] == -1) break;
         for (j=0; j<_numCanon[_k[i]-1]; j++){
         /*
@@ -664,7 +663,7 @@ double GraphletKernelObjective(const int D[2][MAX_K][_maxNumCanon], GKState* gks
     gkstate->sq_length_u = (long) 0;
     gkstate->sq_length_v = (long) 0;
 
-    for(i=0; i<MAX_K; i++){
+    for(i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         int k = _k[i];
         if (k == -1)
             break;
@@ -695,7 +694,7 @@ double SGKDiffObjective(int D[2][MAX_K][_maxNumCanon]){
     int i,j;
     double sum = 0;
 
-    for(i=0; i<MAX_K; i++){
+    for(i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         int k = _k[i];
         if (k == -1)
             break;
@@ -729,7 +728,7 @@ double GDVObjective(Dictionary GDVhistograms[2][MAX_K][_maxNumCanon]){
     Dictionary hist_tar, hist_syn;
     KeyValue *iter_tar, *iter_syn;
 
-    for(j=0; j<MAX_K; j++){
+    for(j=0; j<(_directed ? MAX_KD : MAX_K); j++){
         k = _k[j];
         if (k == -1) break;
 
@@ -1020,7 +1019,7 @@ int main(int argc, char *argv[]){
     }
 
     // initialize _k[]
-    for(i=0; i<MAX_K; i++)
+    for(i=0; i<(_directed ? MAX_KD : MAX_K); i++)
         _k[i] = -1;
 
     // Read objective function weights
@@ -1106,7 +1105,7 @@ int main(int argc, char *argv[]){
     // The distribution of graphlets (squiggly plot vectors) (initialization)
     assert(_maxNumCanon != -1);  // this should be set >0 by calling SetGlobalCanonMaps() first
     int D[2][MAX_K][_maxNumCanon];
-    for(i=0; i<MAX_K;i++)
+    for(i=0; i<(_directed ? MAX_KD : MAX_K);i++)
         for (j=0; j<_maxNumCanon; j++)
             D[0][i][j] = D[1][i][j] = 0;
 
@@ -1124,7 +1123,7 @@ int main(int argc, char *argv[]){
     (it won't actually be infinity, but it can get very large).*/
     int GDV[2][MAX_K][_maxNumCanon][_numNodes];  // 4 dimensional
     for(i=0; i<2; i++){
-        for(j=0; j<MAX_K; j++){
+        for(j=0; j<(_directed ? MAX_KD : MAX_K); j++){
             if (_k[j] == -1) break;
             int l;
             for (l=0; l<_numCanon[_k[j]-1]; l++){
@@ -1140,7 +1139,7 @@ int main(int argc, char *argv[]){
     // assume all blant files have same number of samples = _numSamples
     int **BLANT[2][MAX_K];
     for(i=0;i<2;i++){
-        for(j=0; j<MAX_K; j++){
+        for(j=0; j<(_directed ? MAX_KD : MAX_K); j++){
             if(_k[j] == -1)
                 break;
 
@@ -1184,7 +1183,7 @@ int main(int argc, char *argv[]){
 
     // sanity check - squiggly vectors
     for(i=0; i<2; i++){
-        for (j=0; j<MAX_K; j++){
+        for (j=0; j<(_directed ? MAX_KD : MAX_K); j++){
             if (_k[j] == -1)
                 break;
             int testCount = 0;
@@ -1198,7 +1197,7 @@ int main(int argc, char *argv[]){
     // sanity check - GDV vectors
     for(i=0; i<2; i++){
         int l,m;
-        for(j=0; j<MAX_K; j++){
+        for(j=0; j<(_directed ? MAX_KD : MAX_K); j++){
             long matrixsum = 0;
             if (_k[j] == -1) break;
             for (l=0; l<_numCanon[_k[j]-1]; l++){
@@ -1219,7 +1218,7 @@ int main(int argc, char *argv[]){
     int GDVbinsize[2][MAX_K][_maxNumCanon];  // // Bin-size for these GDVhistograms
     int* scratchspace = (int*) malloc(_numNodes * sizeof(int));  // used for sorting the GDV column
     for(i=0; i<2; i++){
-        for(j=0; j<MAX_K; j++){
+        for(j=0; j<(_directed ? MAX_KD : MAX_K); j++){
             if (_k[j] == -1) break;
 
             int l, b;
@@ -1253,7 +1252,7 @@ int main(int argc, char *argv[]){
 
     // sanity check GDV bin size
     for (i=0; i<2; i++){
-        for(j=0; j<MAX_K; j++){
+        for(j=0; j<(_directed ? MAX_KD : MAX_K); j++){
             if (_k[j] == -1)
                 break;
             int l=0;
@@ -1265,12 +1264,12 @@ int main(int argc, char *argv[]){
 
     // store what samples is a particular node part of
     SET **samples[MAX_K];
-    for(i=0; i<MAX_K; i++){
+    for(i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         if (_k[i] == -1) break;
         samples[_k[i]-1] = (SET**) Malloc(G[1]->n * sizeof(SET*));
     }
 
-    for(i=0; i<MAX_K; i++){
+    for(i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         if (_k[i] == -1) break;
 
         for (j=0; j<G[1]->n; j++)
@@ -1283,7 +1282,7 @@ int main(int argc, char *argv[]){
 
     // Varrays is the same as SET samples. It is used as an iterator
     unsigned **Varrays[MAX_K];
-    for (i=0; i<MAX_K; i++){
+    for (i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         if (_k[i] == -1) break;
         Varrays[_k[i]-1] = (int**) Malloc(G[1]->n * sizeof(int*));
 
@@ -1303,7 +1302,7 @@ int main(int argc, char *argv[]){
     // 2. Populate EHD[MAX_K][__maxNumCanon][_maxNumCanon]
     // 3. Populate EHDaway[MAX_K][_maxNumCanon][NC2(MAX_K)+1][1 + _maxNumCanon]
 
-    for(i=0; i<MAX_K; i++){
+    for(i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         int k = _k[i];
         if(k == -1) break;
         char FILENAME[100];
@@ -1331,7 +1330,7 @@ int main(int argc, char *argv[]){
         fclose(fp);
     }
 
-    for (i=0; i<MAX_K; i++){
+    for (i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         if(_k[i] == -1) break;
         int k = _k[i];
         char FILENAME[100];
@@ -1359,7 +1358,7 @@ int main(int argc, char *argv[]){
         fclose(fp);
     }
 
-    for (i=0; i<MAX_K; i++){
+    for (i=0; i<(_directed ? MAX_KD : MAX_K); i++){
         if(_k[i] == -1) break;
         int k = _k[i];
         int c1,c2,d,index;
@@ -1454,7 +1453,7 @@ int main(int argc, char *argv[]){
     sw.lowerHops = sw.upperHops = -1;
 
     RevertStack rvStack;
-    create_stack(&rvStack, 2 * MAX_K * _numSamples);
+    create_stack(&rvStack, 2 * (_directed ? MAX_KD : MAX_K) * _numSamples);
 
     max_abscost[GraphletEuclidean] = GraphletEuclideanObjective(D);
     max_abscost[GraphletKernel] = GraphletKernelObjective(D, &gkstate);

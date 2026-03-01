@@ -31,13 +31,14 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 	for(j=k-1;j>=i*(1-g->directed);j--)	
 	#endif
 	{
-	if(TinyGraphAreConnected(g,i,j))
-	{
-	bit = (((Gint_type)1) << bitPos);
-	Gint |= bit;
-	}
+            if(i==j&&!SELF_LOOPS) continue;
+	    if(TinyGraphAreConnected(g,i,j))
+	    {
+	        bit = (((Gint_type)1) << bitPos);
+	        Gint |= bit;
+	    }
 	    bitPos++;
-	assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
+	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
 	}
     }
     return Gint;

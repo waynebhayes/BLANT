@@ -60,7 +60,6 @@ double RandomUniform(void) {
 }
 #endif
 
-
 static int _numNodes, _numEdges, _maxEdges=1024, _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
 static float *_weights;
@@ -91,7 +90,6 @@ char _communityMode; // 'g' for graphlet or 'o' for orbit
 Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
 Boolean _weighted; // input network is weighted
 Boolean _rawCounts;
-Boolean _directed=0;
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -133,6 +131,7 @@ int _worstCanon=-1;
 
 double _desiredDigits, _desiredPrec, _confidence;
 
+Boolean _directed=0;
 
 // Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
 // So here we are allocating 256MB x sizeof(short int) = 512MB.
@@ -250,9 +249,11 @@ static int InitializeConnectedComponents(GRAPH *G)
 }
 
 static void InitializeStarMotifs(GRAPH *G) {
+    fprintf(stderr,"%d Initialized Stars\n", G->n);
     int i;
     _totalStarMotifs = 0.0;
-    for(i=0; i< G->n; i++) _totalStarMotifs += CombinChooseDouble(GraphDegree(G,i),_k-1);
+    for(i=0; i< G->n; i++) _totalStarMotifs += CombinChooseDouble(GraphDegree(G,i),_k-1)/*,fprintf(stderr,"Printing Gdeg%u\n",GraphDegree(G,i))*/;
+    fprintf(stderr,"Printing final i and total cnt %d %lf\n",i,_totalStarMotifs);
     if(_totalStarMotifs==0) Warning("cannot estimate absolute graphlet count because this network has no star motifs");
     //Note("totStarMotifs is %g", _totalStarMotifs);
     for(i=0; i<_numCanon; i++) _canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
@@ -491,7 +492,6 @@ void* RunBlantInThread(void* arg) {
     int threadId = args->threadId;
     int samplesPerThread = args->samplesPerThread;
     Accumulators *accums = args->accums;
-
     // initialize the random number generator
     RandomSeed(seed);
     RandomUniform();
@@ -505,7 +505,7 @@ void* RunBlantInThread(void* arg) {
 #endif
 
     SET *V = SetAlloc(G->n);
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k,false,false);
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k,G->selfAllowed,_directed);
     unsigned Varray[varraySize];
     double weight;
     unsigned long stuck = 0;
@@ -562,11 +562,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     SET *V = SetAlloc(G->n);
     SET *prev_node_set = SetAlloc(G->n);
     SET *intersect_node = SetAlloc(G->n);
-#if SELF_LOOPS
-    TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
-#else
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k,false,false); // allocate it here once, so functions below here don't need to do it repeatedly
-#endif
+    TINY_GRAPH *empty_g = TinyGraphAlloc(k,G->selfAllowed,_directed); // allocate it here once, so functions below here don't need to do it repeatedly
     int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
     unsigned Varray[varraySize];
     InitializeConnectedComponents(G);
@@ -741,7 +737,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		    Note("using batchSize %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
-
                 SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize, _numThreads);
 
                 samplesCounter += batchSize; // Correctly increment samples counter only once.
@@ -1339,26 +1334,6 @@ void BlantAddEdge(int v1, int v2, double weight)
     _numEdges++;
 }
 
-int RunBlantEdgesFinished(int k, unsigned long numSamples, int numNodes, char **nodeNames)
-{
-    GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, _weights,_directed);
-    Free(_pairs);
-    _nodeNames = nodeNames;
-    return RunBlantInForks(k, numSamples, G);
-}
-
-// Initialize the graph G from an edgelist; the user must allocate the pairs array
-// to have 2*numEdges elements (all integers), and each entry must be between 0 and
-// numNodes-1. The pairs array MUST be allocated using malloc or calloc, because
-// we are going to free it right after creating G (ie., before returning to the caller.)
-int RunBlantFromEdgeList(int k, unsigned long numSamples, int numNodes, int numEdges, unsigned *pairs, float *weights)
-{
-    assert(numNodes >= k);
-    GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, weights,_directed);
-    Free(pairs);
-    return RunBlantInForks(k, numSamples, G);
-}
-
 const char * const USAGE_SHORT =
 "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up to 8 nodes from a graph.\n"\
 "USAGE: blant [OPTIONS] -k graphletNodes graphInputFile\n"\
@@ -1497,20 +1472,21 @@ int main(int argc, char *argv[])
     int odv_fname_len = 0;
 
     // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
-    // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C and h)
+    // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C, D, and h)
     // have no colon appended.
-    while((opt = getopt(argc, argv, "a:d:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
+    while((opt = getopt(argc, argv, "a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
     {
 	switch(opt)
 	{
 	unsigned long nSampArg;
-	case 'D': _directed=1; break;
+	case 'D': _directed=1;
+	    break;
 	case 'q': do ++_quiet; while(optarg && *optarg++);
 	    break;
 	case 'h':
 	    printf("%s\n", USAGE_LONG);
 	    #if __MINGW32__ || __WIN32__ || __CYGWIN__
-	    printf("Note: current TSET size is %u bits\n", 8*sizeof(TSET));
+	    printf("Note: current TSET size is %u bits\n", 8*sizeof(TSET)); 
 	    #else
 	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
 	    #endif
@@ -1657,12 +1633,12 @@ int main(int argc, char *argv[])
 	case 'k': _k = atoi(optarg);
 	    if (_GRAPH_GEN && _k >= 33) {
 		_k_small = _k % 10; // used in windowing code, obsolete
-		if (!(3 <= _k_small && _k_small <= MAX_K))
-		    Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, MAX_K);
+		if (!(3 <= _k_small && _k_small <= (_directed ? MAX_KD : MAX_K)))
+		    Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, (_directed ? MAX_KD : MAX_K));
 		_k /= 10;
 		assert(_k_small <= _k);
 	    } // First k indicates stamping size, second k indicates KS test size.
-	    if (!(3 <= _k && _k <= MAX_K)) Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, MAX_K);
+	    if (!(3 <= _k && _k <=(_directed ? MAX_KD : MAX_K))) Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, (_directed ? MAX_KD : MAX_K));
 	    break;
 	case 'W': _window = true; _windowSize = atoi(optarg); break;
 	case 'w': _weighted = true; break;
@@ -1876,7 +1852,8 @@ int main(int argc, char *argv[])
     assert(optind == argc || _GRAPH_GEN || _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
 
     // Read network using native Graph routine. Derik: this is where you can add other graph reading functions
-    GRAPH *G = GraphReadEdgeList(fpGraph, SPARSE, _supportNodeNames, _weighted);
+    GRAPH *G = GraphReadEdgeList(NULL, fpGraph, _directed, _supportNodeNames, _weighted);
+
     if(_useComplement) G->useComplement = true;
 
     if(_supportNodeNames)

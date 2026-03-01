@@ -63,7 +63,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
         for (int i = 0; i < _numCanon; i++) {
             _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
             _graphletCount[i] += threadData[t].accums->graphletCount[i];
-            if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i];
+            if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i],fprintf(stderr,"%d\n",_canonNumStarMotifs[i]);
         }
 
         if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {

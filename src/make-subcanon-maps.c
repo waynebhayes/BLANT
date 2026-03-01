@@ -65,10 +65,8 @@ int main(int argc, char* argv[]) {
         }
         printf("\n");
     }
-
     assert(g && G);
     TinyGraphFree(g);
-    TinyGraphFree(G);
-
+    TinyGraphFree(G);;
     return 0;
 }

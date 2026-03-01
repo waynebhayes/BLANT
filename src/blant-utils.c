@@ -128,7 +128,7 @@ void SetGlobalCanonMaps(void)
 {
     int i;
     char BUF[BUFSIZ];
-    assert(3 <= _k && _k <= MAX_K);
+    assert(3 <= _k && _k <= (_directed ? MAX_KD : MAX_K));
 #if SELF_LOOPS
     _Bk = (1U <<(_k*(_k+1)/2));
 #else
@@ -275,8 +275,8 @@ TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *g, GRAPH *G, unsigned *Varray)
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(g);
-    assert(!G->selfAllowed);
-    for(i=0; i < g->n; i++) for(j=i+1; j < g->n; j++)
+    //assert(!G->selfAllowed);
+    for(i=0; i < g->n; i++) for(j=0; j < g->n; j++)
         if(GraphAreConnected(G, Varray[i], Varray[j]))
             TinyGraphConnect(g, i, j);
     return g;

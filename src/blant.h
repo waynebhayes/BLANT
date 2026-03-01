@@ -24,6 +24,8 @@ extern unsigned long _numSamples;
 extern double _confidence; // for confidence intervals
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
+extern Boolean _directed; //whether graphs are directed
+
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
 extern unsigned long _known_canonical_count[]; //known number of canonicals for k=0 to 12 inclusive (13 entries)
@@ -61,7 +63,8 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
   #if int_width >= 28 && short_width >= 16
     typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
     #define GINT_FMT "%u"
-    typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
+    typedef unsigned Gordinal_type;
+    //typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient (commented out b/c directed graphs require 18 bits)
     #define GORDINAL_FMT "%hu"
     #define MAX_BINTREE_K 8
   #else
