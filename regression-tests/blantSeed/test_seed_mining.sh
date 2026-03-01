@@ -1,6 +1,6 @@
 #!/bin/bash
 TMPDIR=`mktemp -d /tmp/$BASENAME.XXXXXX`
- trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+#trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 die(){ echo "FATAL ERROR:" "$@" >&2; exit 1; }
 pydied(){ echo "Ignoring Python failure because Python is a piece of shit." >&2; exit 0; }
 cd seed_mining
@@ -12,3 +12,4 @@ else
     echo "ERROR: seed + extract results different" >&2
     exit 1
 fi
+echo TMPDIR $TMPDIR

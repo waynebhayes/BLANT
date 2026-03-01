@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "blant.h"
 #include "blant-sampling.h"
 #include "blant-utils.h"
@@ -7,6 +9,12 @@
 #include "multisets.h"
 #include "blant-output.h"
 
+
+#if SYNTHETIC
+    int _transitionCount[MAX_CANONICALS][MAX_CANONICALS];
+    double _transitionProbs[MAX_CANONICALS][MAX_CANONICALS];
+#endif
+
 int _sampleMethod = -1, _sampleSubmethod = -1;
 FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
 char _sampleFileEOF;
@@ -15,7 +23,7 @@ int _samplesPerEdge = 0;
 unsigned _MCMC_L;
 unsigned long int _acceptRejectTotalTries;
 GRAPH *_EDGE_COVER_G;
-double _g_overcount; // MCMC overcount, needs to be global for simplicity
+double _g_overcount; // MCMC overcount, needs to be global for simplicity (ETHAN)
 
 // Update the most recent d-graphlet to a random neighbor of it
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
@@ -119,7 +127,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
 	} while(!(_componentSize[_whichComponent[X[0]]] < k));
     }
     else if (edge < 0) { // Pick a random edge from within a chosen connected component
-	do {
+	do{
 	    edge = G->numEdges * RandomUniform();
 	    X[0] = G->edgeList[2*edge];
 	} while(!SetIn(_componentSet[cc], X[0]) || !SetIn(_startNodeSet, X[0]));
@@ -148,6 +156,7 @@ void WalkLSteps(MULTISET *XLS, QUEUE *XLQ, int* X, GRAPH *G, int k, int cc, int 
     }
     numTries = 0;
 }
+
 
 // return how many nodes found. If you call it with startingNode == 0 then we automatically clear the visited array
 static TSET _visited;
@@ -220,9 +229,9 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	SetEmpty(outSet);
     // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
     // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
-    int nBuf=0; for(i=0; i < GraphDegree(G,Varray[0]); i++)
+    int nv0, nv1, nBuf=0; for(i=0; i < GraphDegree(G,Varray[0]); i++)
     {
-	int nv0 = GraphNextNeighbor(G,Varray[0],&nBuf); assert(nv0 != -1);
+	nv0 = GraphNextNeighbor(G,Varray[0],&nBuf); assert(nv0 != -1);
 	if(nv0 != Varray[1])
 	{
 #if PARANOID_ASSERTS
@@ -231,12 +240,14 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv0));
 	}
     }
-    assert(i==GraphDegree(G,Varray[0]));
-    assert(-1==GraphNextNeighbor(G,Varray[0],&nBuf));
+    // Note the order of these assertions is important: we need to call NextNeighbor one extra time being Degree, which
+    // forces it to return G->n, and only then can we check that vn0==G->n
+    assert(i==GraphDegree(G,Varray[0])); // now we SHOULD be at the end...
+    assert((nv0=GraphNextNeighbor(G,Varray[0],&nBuf))==G->n || nv0 == (unsigned)(-1));
 
     nBuf=0; for(i=0; i < GraphDegree(G,Varray[1]); i++)
     {
-	int nv1 = GraphNextNeighbor(G,Varray[1],&nBuf); assert(nv1 != -1);
+	nv1 = GraphNextNeighbor(G,Varray[1],&nBuf); assert(nv1 != -1);
 	if(nv1 != Varray[0] && !SetIn(outSet, nv1))
 	{
 #if PARANOID_ASSERTS
@@ -245,7 +256,8 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    SetAdd(outSet, (outbound[nOut++] = nv1));
 	}
     }
-    assert(GraphNextNeighbor(G,Varray[1],&nBuf) == -1);
+    assert(i==GraphDegree(G,Varray[1]));
+    assert((nv1=GraphNextNeighbor(G,Varray[1],&nBuf)) == G->n || nv1 == (unsigned)(-1)); // we should be at the end...
 
     double multiplier = 1;
     for(i=2; i<k; i++)
@@ -255,17 +267,17 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	j = nOut * RandomUniform();
 	if(!_rawCounts) multiplier *= nOut;
 	assert(multiplier > 0.0);
-	int v0 = outbound[j];
+	int v0 = outbound[j], v1;
 	SetDelete(outSet, v0);
 	SetAdd(V, v0); Varray[i] = v0;
 	outbound[j] = outbound[--nOut];	// nuke v0 from the list of outbound by moving the last one to its place
 	nBuf=0; for(j=0; j<GraphDegree(G,v0);j++) // another loop over neighbors that may take a long time...
 	{
-	    int v1 = GraphNextNeighbor(G,v0,&nBuf); assert(v1!=-1);
+	    v1 = GraphNextNeighbor(G,v0,&nBuf); assert(v1!=-1);
 	    if(!SetIn(outSet, v1) && !SetIn(V, v1))
 		SetAdd(outSet, (outbound[nOut++] = v1));
 	}
-	assert(-1==GraphNextNeighbor(G,v0,&nBuf));
+	assert(j==GraphDegree(G,v0) && ((v1=GraphNextNeighbor(G,v0,&nBuf))==G->n || v1 == (unsigned)(-1)));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
@@ -293,8 +305,8 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	accums->graphletConcentration[GintOrdinal] += ocount;
-	_g_overcount = ocount;
+    accums->graphletConcentration[GintOrdinal] += ocount;
+	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
 	TinyGraphFree(g);
     }
     SetFree(outSet);
@@ -351,7 +363,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	    }
 	}
     }
-    assert(-1==GraphNextNeighbor(G,v1,&nBuf));
+    assert(i==GraphDegree(G,v1) && GraphNextNeighbor(G,v1,&nBuf)==G->n);
     nBuf=0; for(i=0; i < GraphDegree(G,v2); i++)
     {
 	int nv2 =  GraphNextNeighbor(G,v2,&nBuf); assert(nv2!=-1);
@@ -365,7 +377,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 		visited[nv2] = 1;
 	    }
 	}
-	assert(-1==GraphNextNeighbor(G,v2,&nBuf));
+	assert(i==GraphDegree(G,v2) && G->n==GraphNextNeighbor(G,v2,&nBuf));
     }
     for(i=2; i<k; i++)
     {
@@ -417,7 +429,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 		    visited[v2] = 1;
 	    }
 	}
-	assert(-1==GraphNextNeighbor(G,v1,&nBuf));
+	assert(j==GraphDegree(G,v1) && G->n==GraphNextNeighbor(G,v1,&nBuf));
     }
     assert(i==k);
 #if PARANOID_ASSERTS
@@ -647,6 +659,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	accums->graphletConcentration[GintOrdinal] += ocount;
 
 	_g_overcount = ocount;
+	TinyGraphFree(g);
     }
 
     return 1.0;
@@ -812,15 +825,15 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 // foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]),
 // which needs to be returned (but must be a parameter since there's already a return value on the function)
 double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums) {
-    static Boolean setup = false;
-    static int currSamples = 0; // Counts how many samples weve done at the current starting point
-    static int currEdge = 0; // Current edge we are starting at for uniform sampling
-    static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
-    static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
-    static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
-    static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
+    _Thread_local static Boolean setup = false;
+    _Thread_local static int currSamples = 0; // Counts how many samples weve done at the current starting point
+    _Thread_local static int currEdge = 0; // Current edge we are starting at for uniform sampling
+    _Thread_local static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
+    _Thread_local static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
+    _Thread_local static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
+    _Thread_local static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
     if (!XLQ || !XLS || !g) {
-	//NON REENTRANT CODE
+	// Thread-local initialization - each thread maintains its own MCMC chain state
 	XLQ = QueueAlloc(k*mcmc_d);
 	XLS = MultisetAlloc(G->n);
 	g = TinyGraphAlloc(k,G->selfAllowed,false);
@@ -889,11 +902,11 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     unsigned char perm[k];
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
-    // SYNTH: this is where the new ordinal graphlet ID is computed
-#if SYNTHETIC // Akhil: hints here
+	// SYNTH: this is where the new ordinal graphlet ID is computed
+#if SYNTHETIC
     static int prevOrdinal;
-    printf("ordinal transition %d -> %d\n", prevOrdinal, GintOrdhinal);
-    ++transitionCount[prevOrdinal][GintOrdinal];
+    //printf("ordinal transition %d -> %d\n", prevOrdinal, GintOrdinal);
+    ++_transitionCount[prevOrdinal][GintOrdinal];
     prevOrdinal = GintOrdinal;
 #endif
 
@@ -935,7 +948,75 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     return 1.0;
 }
 
+#if SYNTHETIC
+void createProbs(){
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	int rowSum = 0;
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    rowSum += _transitionCount[i][j];
+	}
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    if(rowSum > 0){
+		_transitionProbs[i][j] = (double)_transitionCount[i][j] / rowSum;
+	    }
+	    else{
+		_transitionProbs[i][j] = 0.0;
+	    }
+	}
+    }
+}
 
+void printTransitionCounts(){
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    printf("%d -> %d : %d\n", i, j, _transitionCount[i][j]);
+	}
+    }
+}
+
+void printProbCounts(){
+    for(int i = 0; i < MAX_CANONICALS; i++){
+	for(int j = 0; j < MAX_CANONICALS; j++){
+	    printf("%d -> %d : %d%\n", i, j, _transitionProbs[i][j]);
+	}
+    }
+}
+
+void writeTransitionCountsToFile(const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        perror("Error opening file for writing transition counts");
+        return;
+    }
+
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        for (int j = 0; j < MAX_CANONICALS; j++) {
+            fprintf(file, "%d -> %d : %d\n", i, j, _transitionCount[i][j]);
+        }
+    }
+
+    fclose(file);
+    printf("Transition counts written to %s\n", filename);
+}
+
+void writeProbCountsToFile(const char *filename) {
+    FILE *file = fopen(filename, "w");
+    if (file == NULL) {
+        perror("Error opening file for writing probability counts");
+        return;
+    }
+
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        for (int j = 0; j < MAX_CANONICALS; j++) {
+            fprintf(file, "%d -> %d : %d%%\n", i, j, _transitionProbs[i][j]);
+        }
+    }
+
+    fclose(file);
+    printf("Probability counts written to %s\n", filename);
+}
+
+#endif
 
 #if 0 // SEC no longer supported
 // SampleGraphletSequentialEdgeChaining starts with a single edge and always chooses a new edge that shares one node

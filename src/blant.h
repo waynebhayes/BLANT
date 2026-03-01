@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef BLANT_H
 #define BLANT_H
 
@@ -111,7 +113,8 @@ extern unsigned int _Bk;
 
 extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
 
-extern char **_nodeNames, _supportNodeNames;
+extern char **_nodeNames;
+extern Boolean _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
 extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
 extern Gordinal_type L_K_Func(Gint_type Gint);
@@ -163,7 +166,7 @@ extern int *_startNodes, _numStartNodes;
 extern SET *_startNodeSet;
 
 extern double *_cumulativeProb;
-extern Boolean _child, _weighted;
+extern Boolean _child, _weighted, _directed;
 extern Boolean _rawCounts;
 extern int _quiet; // suppress notes and/or warnings, higher value = more quiet
 

@@ -6,12 +6,15 @@ ifndef PAUSE
 	PAUSE := 1
 endif
 # Uncomment either of these to remove them (removing 7 implies removing 8)
+MAX_K := 8
 EIGHT := 8
 SEVEN := 7
 ifdef NO8
+    MAX_K := 7
     EIGHT := 
 endif
 ifdef NO7
+    MAX_K := 6
     SEVEN :=
     EIGHT := # can't have 8 without 7
 endif
@@ -51,7 +54,7 @@ UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm
 
 STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
-CXX=g++$(GCC_VER) $(SPEED) $(NDEBUG)
+CXX=g++$(GXX_VER) $(SPEED) $(NDEBUG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED)
 LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
@@ -79,12 +82,10 @@ OBJDIR = _objs
 BLANT_CANON_DIR = canon_maps
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
-#ifneq ("$(wildcard $(blant-predict.c))","")
 ifneq ("$(wildcard $(SRCDIR)/EdgePredict/blant-predict.c)","")
     BLANT_PREDICT_SRC = $(SRCDIR)/EdgePredict/blant-predict.c
 else
-    BLANT_PREDICT_SRC = $(SRCDIR)/blant-predict-stub.c
-    $(info BLANT EdgePredict not found, and edge prediction will not be supported. Utilizing stub at $(BLANT_PREDICT_SRC) instead.)
+    BLANT_PREDICT_SRC = $(SRCDIR)/blant-predict.c
 endif
 
 
@@ -208,7 +209,7 @@ cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
 $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
-	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict-stub.c $(LIBWAYNE_BOTH); fi
+	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_BOTH); fi
 
 ### Object Files/Prereqs ###
 

@@ -1,19 +1,29 @@
 # BLANT: Basic Local Alignment of Network Topology
-If you want to just get straight to using BLANT, skip down a few paragraphs to USAGE and the "Quick Start Guide"
-## What is BLANT? An analogy with **BLAST**
-If you are in the bioinformatics field, you have probably heard of the tool named *BLAST*, the *Basic Local Alignment Search Tool*. BLAST is an algorithm for quickly finding local alignments in genomic (or proteomic) sequences. BLAST works by first creating a comprehensive database of all *k*-letter sequences (called "*k*-mers") that appear in the corpus of the sequence to be searched and/or aligned. Such *k*-mers can be used to "seed" a local alignment between two distant regions of sequence. Below we show a hypothetical alignment between two distant regions of sequence, both of which contain the **boldfaced** *k*-mer "**GAGACCGT**":
+If you want to _install_ BLANT, just follow the directions immediately below. If you first want to know _what_ BLANT is, look a little lower.
 
-  ACTAGAT*C*CAC*C*TCTAGGCAGGTA **GAGACCGT** GTTCTTCA*G*AGGTGA*A*GGAGACGCACAAACGGGCCC
- 
-  ACTAGAT*A*CAC*G*TCTAGGCAGGTA **GAGACCGT** GTTCTTCA*T*AGGTGA*C*GGAGACGCACAAACGGGCCC
+## Quick Start guide
+### Prediction
+If you happen to be here only to test the released version of BLANT-predict, then do this on the Unix/Bash command-line: (PS: ensure you have make, gcc, and other standard Unix tools available.)
 
-By storing every *k*-mer and its location, BLAST can "line up" the regions around two identical *k*-mers, and then check to see if this local alignment "extends" further beyond the *k*-mers. In the case above, even though the sequences contain minor differences (highlighted with *italics*), the fact that they contain the depicted *k*-mer seed means we can still find the near-perfect match. BLAST is extremely fast at performing the above operations, which is the reason BLAST has become the near-ubiquitous tool for comparing and aligning sequences that contain billions of letters. BLAST automatically chooses the appropriate value of *k* to create *k*-mer seeds in a particular search and alignment task, and uses a sophisticated extend algorithm to create full seed-and-extend local alignments.
+    git clone --recursive http://github.com/waynebhayes/BLANT &&
+        cd BLANT &&
+        PAUSE=0 NO7=1 make base && ./blant-predict-example.sh 100
 
-Our new tool, called BLANT (*Basic Local Aligment of Network Topology*), is intended to form the basis of a seed-and-extend local alignment algorithm, but for networks: given an undirected network *G*, and a value of *k*, it samples connected *k*-node subgraphs called *k-graphlets*. Since the number of *k*-graphlets in a graph of *n* nodes is exponential in both *k* and *n*, BLANT does not exhaustively enumerate all *k*-graphlets, but instead  samples them--either randomly as many as the user specifies, or deterministically using our own algorithm to create a index that can be used for actual local alignments. In the random case, uniform random sampling of *k*-graphlets is difficult, so there are several choices among sampling methods, each with different trade-offs. Finally, BLANT allows for several different methods of output: it can produce *orbit-degree vectors* (ODVs) like [ORCA](https://academic.oup.com/bioinformatics/article/30/4/559/205331), or graphlet frequencies, or an explicit list of *k*-graphlets that can be used as seeds for later extension. At present, BLANT does not provide an "extend" functionality; there are *many* seed-and-extend local alignment algorithms in the literature, each with its own method of seeding and extending. Although BLANT currently is by far the fastest method of producing a large number of *seeds*, we have not yet tested how the various extend algorithms perform using our seeds; this is a clear area of future work, and suggestions are welcome. Despite the lack of an "extend" feature, BLANT is still capable of useful bioinformatics, as described in our [tool paper in the journal *Bioinformatics*](https://doi.org/10.1093/bioinformatics/btz603).
+That should take a few minutes, and then print the number of correct predictions applied to Vidal's HI-union network out of 100 (it should be about 35-40% correct). After that, you can just run ./blant-predict-example.sh [N] with some other value of N.
 
-## USAGE
-### Quick Start guide
-#### Stack Size, unxz, 7z, and DOS/Windows CRLF
+### Building BLANT for the first time
+To make and then test *everything* just type
+
+    ./regression-test-all.sh -make
+  
+Be warned it may take up to an hour, especially creating the k=8 lookup tables--to make it run faster, add "NO8=1" in *front* of the above line.
+Note that doing the above performs a "make pristine", which is even cleaner than "make clean". In particular, "clean" cleans all executables but doesn't touch the lookup tables; use "make pristine" to remove even the lookup tables (which shouldn't be necessary since they never change, though they take up disk space).
+
+Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
+
+BLANT has been tested and runs on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 11 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS (both Intel and M1/M2) using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is a nightmare to work with on "real world" projects since it's prone to [horrible software rot](https://news.ycombinator.com/item?id=38982034) on a timescale of weeks to months. 
+
+### Things that may go wrong: Stack Size, unxz, 7z, and DOS/Windows CRLF
 You may need to install xz (a compression program) and 7z (another compression program).
 Before starting *anything* below, you need to ensure your OS allows your programs enough stack space. Some machines today still ship with a default limit of 8MB---a *ridiculously* small limit on any machine built after about 1999.  You do not require sudo privileges to change this. If you're running Linux or MacOS, type "ulimit -s unlimited" to your Bash shell; if you're running any other system, you're on your own.
 
@@ -28,18 +38,18 @@ Also, some useful utilities are in the directory libwayne/bin; you may want to a
 - wzcat: Wayne's "zcat", which is basically "cat" augmented to automatically decompress any files with recognized file extensions (eg filenames with the extension ".gz" will be automaticaly passed though "gunzip", ".xz" through "unxz", etc.)
 - wgcc: Wayne's gcc, which is just a front-end to gcc that automatically includes "libwayne" include and library directories.
 
-### Building BLANT for the first time
-To make and then test *everything* just type
+## What is BLANT? An analogy with **BLAST**
+If you are in the bioinformatics field, you have probably heard of the tool named *BLAST*, the *Basic Local Alignment Search Tool*. BLAST is an algorithm for quickly finding local alignments in genomic (or proteomic) sequences. BLAST works by first creating a comprehensive database of all *k*-letter sequences (called "*k*-mers") that appear in the corpus of the sequence to be searched and/or aligned. Such *k*-mers can be used to "seed" a local alignment between two distant regions of sequence. Below we show a hypothetical alignment between two distant regions of sequence, both of which contain the **boldfaced** *k*-mer "**GAGACCGT**":
 
-    ./regression-test-all.sh -make
-  
-Be warned it may take up to an hour, especially creating the k=8 lookup tables.
-Note that doing the above performs a "make pristine", which is even cleaner than "make clean". In particular, "clean" cleans all executables but doesn't touch the lookup tables; use "make pristine" to remove even the lookup tables (which shouldn't be necessary since they never change, though they take up disk space).
+  ACTAGAT*C*CAC*C*TCTAGGCAGGTA **GAGACCGT** GTTCTTCA*G*AGGTGA*A*GGAGACGCACAAACGGGCCC
+ 
+  ACTAGAT*A*CAC*G*TCTAGGCAGGTA **GAGACCGT** GTTCTTCA*T*AGGTGA*C*GGAGACGCACAAACGGGCCC
 
-Once the above is done, you should have an executable called "blant" in the main repo directory, as well as many files in the directory *canon_maps*; these are the lookup tables and associated files that allow BLANT to sample graphlets so fast. Except for major BLANT upgrades, you normally shouldn't *ever* need to touch anything in the canon_maps directory; make it once and forget about it. Note that even "make clean" doesn't nuke the contents of canon_maps; to do that, type "make pristine".
+By storing every *k*-mer and its location, BLAST can "line up" the regions around two identical *k*-mers, and then check to see if this local alignment "extends" further beyond the *k*-mers. In the case above, even though the sequences contain minor differences (highlighted with *italics*), the fact that they contain the depicted *k*-mer seed means we can still find the near-perfect match. BLAST is extremely fast at performing the above operations, which is the reason BLAST has become the near-ubiquitous tool for comparing and aligning sequences that contain billions of letters. BLAST automatically chooses the appropriate value of *k* to create *k*-mer seeds in a particular search and alignment task, and uses a sophisticated extend algorithm to create full seed-and-extend local alignments.
 
-BLANT has been tested and runs on a wide variety of systems, including various flavors of Linux running with GCC/G++ versions 4 through 11 inclusive; Windows CYGWIN both 32-bit and 64-bit (yes, BLANT runs fine on 32-bit machines); and MacOS (both Intel and M1/M2) using clang and/or GCC/G++ available via homebrew. The only parts that may fail are the parts written in Python, which is a nightmare to work with on "real world" projects since it's prone to [horrible software rot](https://news.ycombinator.com/item?id=38982034) on a timescale of weeks to months. 
+Our new tool, called BLANT (*Basic Local Aligment of Network Topology*), is intended to form the basis of a seed-and-extend local alignment algorithm, but for networks: given an undirected network *G*, and a value of *k*, it samples connected *k*-node subgraphs called *k-graphlets*. Since the number of *k*-graphlets in a graph of *n* nodes is exponential in both *k* and *n*, BLANT does not exhaustively enumerate all *k*-graphlets, but instead  samples them--either randomly as many as the user specifies, or deterministically using our own algorithm to create a index that can be used for actual local alignments. In the random case, uniform random sampling of *k*-graphlets is difficult, so there are several choices among sampling methods, each with different trade-offs. Finally, BLANT allows for several different methods of output: it can produce *orbit-degree vectors* (ODVs) like [ORCA](https://academic.oup.com/bioinformatics/article/30/4/559/205331), or graphlet frequencies, or an explicit list of *k*-graphlets that can be used as seeds for later extension. At present, BLANT does not provide an "extend" functionality; there are *many* seed-and-extend local alignment algorithms in the literature, each with its own method of seeding and extending. Although BLANT currently is by far the fastest method of producing a large number of *seeds*, we have not yet tested how the various extend algorithms perform using our seeds; this is a clear area of future work, and suggestions are welcome. Despite the lack of an "extend" feature, BLANT is still capable of useful bioinformatics, as described in our [tool paper in the journal *Bioinformatics*](https://doi.org/10.1093/bioinformatics/btz603).
 
+## USAGE
 ### Required Command-line arguments
 SYNOPSIS (things inside {} are mandatory; those inside [] are optional; if no source network is given, it is read from the standard input).
 Note that you can just run "./blant" without any arguments to get help.

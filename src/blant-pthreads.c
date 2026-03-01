@@ -1,20 +1,78 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "blant.h"
 #include "blant-output.h"
 #include "blant-sampling.h"
 #include "blant-pthreads.h"
+#include "rand48.h"
+#include "misc.h"
 #include <pthread.h>
+#include <errno.h>
+#include "atomic_utils.h"
+atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
+// Worker thread stack size: 1 MiB
+// Empirical measurements show ~257 bytes actual
+// 1 MiB provides ~4000x safety margin for larger k values and different networks
+static const size_t kWorkerThreadStackBytes = 1 * 1024 * 1024;
 
-// it would be potentially more efficient to just use a static set of accumulators struct across each batch, then memset(0) them at the start of every batch
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
-    // memory NEEDS to be optimized- but to do this we need to understand Ocalloc. Why is it used here? What's its purpose? Why not use malloc?
-    Accumulators *accums = calloc(1, sizeof(Accumulators)); // I don't really know how libwayne's Omalloc and Ofree works, confer during meeting later
+
+    // Ensure size is a multiple of alignment
+    size_t size = sizeof(Accumulators);
+    size_t aligned_size = ((size + CACHE_LINE_SIZE - 1) / CACHE_LINE_SIZE) * CACHE_LINE_SIZE;
+    
+    Accumulators *accums = aligned_alloc(CACHE_LINE_SIZE, aligned_size);
+
+    if (!accums) {
+        perror("Failed to allocate memory for Accumulators");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(accums, 0, aligned_size); // zero out everything including padding
+    
+    // Initialize batch counters
+    accums->batchRawTotalSamples = 0;
+    for (int i = 0; i < MAX_CANONICALS; i++) {
+        accums->batchRawCount[i] = 0;
+    }
+    
     // initialize GDV vectors if needed
-    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
-        for(int i=0; i<_numCanon; i++) accums->graphletDegreeVector[i] = calloc(G->n, sizeof(**accums->graphletDegreeVector));
+    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+        accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
+        if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
+        for(int i = 0; i < _numCanon; i++) {
+            size_t bytes = G->n * sizeof(double);
+            // Ensure that size is a multiple of CACHE_LINE_SIZE
+            if (bytes % CACHE_LINE_SIZE != 0) {
+                bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+            }
+            accums->graphletDegreeVector[i] = aligned_alloc(CACHE_LINE_SIZE, bytes);
+            if (!accums->graphletDegreeVector[i]) {
+                perror("Failed to allocate memory for GDV vector");
+                exit(EXIT_FAILURE);
+            }
+            memset(accums->graphletDegreeVector[i], 0, bytes);
+        }
+    }
+
     // initialize ODV vectors if needed
-    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
-        for(int i=0; i<_numOrbits; i++) accums->orbitDegreeVector[i] = calloc(G->n, sizeof(**accums->orbitDegreeVector));
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
+        for(int i=0; i<_numOrbits; i++) {
+            size_t bytes = G->n * sizeof(double);
+            // Ensure that size is a multiple of CACHE_LINE_SIZE
+            if (bytes % CACHE_LINE_SIZE != 0) {
+                bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+            }
+            accums->orbitDegreeVector[i] = aligned_alloc(CACHE_LINE_SIZE, bytes);
+            if (!accums->orbitDegreeVector[i]) {
+                perror("Failed to allocate memory for ODV vector");
+                exit(EXIT_FAILURE);
+            }
+            memset(accums->orbitDegreeVector[i], 0, bytes);
+        }
+    }
+
     // initialize communityNeighbors if needed
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
         
@@ -33,38 +91,89 @@ void FreeAccumulatorStruct(Accumulators *accums) {
     free(accums);
 }
 
-void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int numSamples, int numThreads) {
+void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads) {
+    // Reset the global “next” counter before launching workers
+    ATOMIC_STORE_U64(&nextIndex, 0);
+
+    if (numThreads < 1) numThreads = 1;
+    if (numSamples < 0) numSamples = 0;
+
     pthread_t threads[numThreads];
     ThreadData threadData[numThreads];
-    int samplesPerThread = numSamples / numThreads;
-    int leftover = numSamples - (samplesPerThread * numThreads);
+
+
+    // Choose a batch size
+    unsigned batchSize = G->numEdges * sqrt(G->n);
+    if (batchSize <= 0) batchSize = 1;
+
+    if (numSamples > 0 && batchSize > numSamples) batchSize = numSamples;
+
+    // make sure no single thread claims the entire workload when numSamples is small
+    int fairShare = numSamples > 0 ? (numSamples + numThreads - 1) / numThreads : 1;
+    if (batchSize > fairShare) batchSize = fairShare;
+    if (batchSize <= 0) batchSize = 1;
+
+    int totalBatches = batchSize > 0 ? (numSamples + batchSize - 1) / batchSize : 1; // Ceiling division to cover all samples
+    if (totalBatches <= 0) totalBatches = 1;
+
     // seed the threads with a base seed that may or may not be specified
-    long base_seed = seed == -1 ? GetFancySeed(true) : seed;
+    long base_seed = seed == -1 ? GetFancySeed(false) : seed;
+
+    // Setup pthread attributes for custom stack size
+    pthread_attr_t attr;
+    pthread_attr_t *attr_ptr = NULL;
+    Boolean use_custom_stack = false;
+    
+    if (pthread_attr_init(&attr) == 0) {
+        if (pthread_attr_setstacksize(&attr, kWorkerThreadStackBytes) == 0) {
+            use_custom_stack = true;
+            attr_ptr = &attr;
+        } else {
+            Warning("Failed to set worker thread stack size to %zu bytes; using system default.", kWorkerThreadStackBytes);
+            pthread_attr_destroy(&attr);
+        }
+    } else {
+        Warning("Failed to initialize pthread attributes; using system default stack size.");
+    }
 
     // initialize the threads and their data
-    for (unsigned t = 0; t < numThreads; t++)
+    for (int t = 0; t < numThreads; t++)
     {
-        threadData[t].samplesPerThread = samplesPerThread;
-        // distribute the leftover samples
-        if (leftover-- > 0) threadData[t].samplesPerThread++;
         threadData[t].k = k;
         threadData[t].G = G;
         threadData[t].varraySize = varraySize;
         threadData[t].threadId = t;
-        threadData[t].seed = base_seed + t; // each thread has it's own unique seed
-        threadData[t].accums = InitializeAccumulatorStruct(G);
+        threadData[t].seed = base_seed + t;
+        threadData[t].accums = NULL; // Will be initialized in the thread
 
-        pthread_create(&threads[t], NULL, RunBlantInThread, &threadData[t]);
+        // batching params consumed by RunBlantInThread
+        threadData[t].batchSize    = batchSize;
+        threadData[t].totalSamples = (unsigned long)numSamples;
+        threadData[t].totalBatches = totalBatches;
+
+        // create thread with error handling
+        if (pthread_create(&threads[t], attr_ptr, RunBlantInThread, &threadData[t]) != 0) {
+            Fatal("Failed to create thread");
+        }
+    }
+    
+    // Clean up pthread attributes if we used them
+    if (use_custom_stack) {
+        pthread_attr_destroy(&attr);
     }
 
-    // wait for each thread to finishe execution, then accumulate data from the thead into the passed accumulator
-    for (unsigned t = 0; t < _numThreads; t++) {
+    // wait for each thread to finish execution, then accumulate data from the thread into the passed accumulator
+    for (unsigned t = 0; t < numThreads; t++) {
         pthread_join(threads[t], NULL);
         for (int i = 0; i < _numCanon; i++) {
             _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
             _graphletCount[i] += threadData[t].accums->graphletCount[i];
-            if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i],fprintf(stderr,"%d\n",_canonNumStarMotifs[i]);
+            if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i];
+            // Accumulate batch counters
+            _batchRawCount[i] += threadData[t].accums->batchRawCount[i];
         }
+        // Accumulate total batch samples
+        _batchRawTotalSamples += threadData[t].accums->batchRawTotalSamples;
 
         if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
             for(int i=0; i<_numOrbits; i++) {

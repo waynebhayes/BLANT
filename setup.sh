@@ -6,7 +6,7 @@ PURPOSE: set up PATH and other things necessary for BLANT and its scripts to wor
 ################## SKELETON: DO NOT TOUCH CODE HERE
 # check that you really did add a usage message above
 USAGE=${USAGE:?"$0 should have a USAGE message before sourcing skel.sh"}
-die(){ echo "$USAGE${NL}FATAL ERROR in $BASENAME:" "$@" >&2; exit 1; }
+die(){ echo "$USAGE${NL}FATAL ERROR in $BASENAME:" "$@" >&2; }
 warn(){ (echo "WARNING: $@")>&2; }
 not(){ if eval "$@"; then return 1; else return 0; fi; }
 newlines(){ awk '{for(i=1; i<=NF;i++)print $i}' "$@"; }
@@ -28,10 +28,10 @@ case $# in
 esac
 if [ "$BLANT_HOME" = . ]; then BLANT_HOME=`/bin/pwd`; fi
 
-[ -d libwayne ] || die "need libwayne directory, please clone libwayne while in $BLANT_HOME"
-[ -d libwayne/bin ] || die "need libwayne/bin directory, please clone libwayne while in $BLANT_HOME"
-[ -x libwayne/bin/hawk ] || die "no hawk in libwayne/bin???"
+[ -d $BLANT_HOME/libwayne ] || die "need libwayne directory, please clone libwayne while in $BLANT_HOME"
+[ -d $BLANT_HOME/libwayne/bin ] || die "need libwayne/bin directory, please clone libwayne while in $BLANT_HOME"
+[ -x $BLANT_HOME/libwayne/bin/hawk ] || die "no hawk in libwayne/bin???"
 
-echo Setting PATH appropriately...
+#tty -s && echo Setting PATH appropriately...
 # the back-quote command removes duplicate directories in the PATH
 export PATH=`echo "$BLANT_HOME/libwayne/bin:$BLANT_HOME/scripts:$PATH" | tr : "$NL" | awk '!seen[$0]{print}{++seen[$0]}' | tr "$NL" :`

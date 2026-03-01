@@ -1,10 +1,12 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <math.h>
 #include "blant.h"
 #include "blant-utils.h"
 #include "blant-predict.h"
-#include "bintree.h"
+#include "tree.h"
 #include "sim_anneal.h"
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
@@ -28,12 +30,12 @@ static int CmpInt(foint a, foint b) {
     return a.i - b.i;
 }
 
-// Surprisingly, BinTree works MUCH faster than a HASH map.
+// Surprisingly, Tree works MUCH faster than a HASH map.
 static unsigned int L_K_Func_Memory(Gint_type Gint) {
     static BINTREE *B;
-    if(!B) B = BinTreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
+    if(!B) B = TreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
     foint f;
-    if(BinTreeLookup(B,(foint)(unsigned int)Gint,&f)) {
+    if(TreeLookup(B,(foint)(unsigned int)Gint,&f)) {
 	assert(_K && f.ui == _K[Gint]);
 	return f.ui;
     }
@@ -41,9 +43,9 @@ static unsigned int L_K_Func_Memory(Gint_type Gint) {
 	// For now, just cheat and use the pre-computed lookup table
 	// FIXME: this is where we need to insert the search that's currently inside fast-canon-map
 	assert(_K);
-	BinTreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
-	//Warning("BinTreeSize %d", B->n);
-	assert(BinTreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
+	TreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
+	//Warning("TreeSize %d", B->n);
+	assert(TreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
 	return _K[Gint];
     }
 }
@@ -78,7 +80,7 @@ double SA_Score(foint solution) {
 static _tInitials[] = {0,0,0, 40, 500, 6000, 150000, 8e6, 9e8};
 static _tDecays[] =   {0,0,0, 5.5, 6, 7, 9, 11, 14};
 
-Gint_type L_K_Func_SA(Gint_type Gint) {
+static Gint_type L_K_Func_SA(Gint_type Gint) {
     // Note the follownig is CHEATING (for now), SA doesn't work well if the sampled graphlet is already canonical
     if(_canonList[_K[Gint]] == Gint) return _K[Gint];
 
@@ -112,14 +114,15 @@ Gint_type L_K_Func_SA(Gint_type Gint) {
     return _K[Gint];
 }
 
-unsigned int L_K_Func(Gint_type Gint) {
+Gordinal_type L_K_Func(Gint_type Gint) {
     Gint_type m = L_K_Func_Memory(Gint);
     Gint_type s = L_K_Func_SA(Gint);
     assert(m==s);
     assert(m==_K[Gint]);
     return s;
 }
-
+#else
+Gordinal_type L_K_Func(Gint_type Gint) { Apology("no L_K_Func"); return -1; }
 #endif
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
@@ -178,13 +181,14 @@ void LoadMagicTable(void)
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
+    assert(Permutations);
     if(Permutations) {
 	int j, i32 = 0;
 	for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
 	for(j=0;j<_k;j++)
 	    perm[j] = (i32 >> 3*j) & 7;
 	return _K[Gint];
-    } else return Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
+    } else return 0; // Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])

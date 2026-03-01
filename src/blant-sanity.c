@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 // BLANT sanity checker: given a value of k, n and the name of a "large" graph input file G, read lines from
 // BLANT that have been sorted by the first column, which is the canonical graphlet ID.  Then, without caring
 // which graphlet it actually is, simply verify that adjacent lines that have the same value in the first column,
@@ -30,7 +32,7 @@ int main(int argc, char *argv[])
     int k=atoi(argv[1]), n = atoi(argv[2]), lines;
     FILE *fp = fopen(argv[3], "r");
     _k = k;
-    GRAPH *G = GraphReadEdgeList(fp, true, false, false); // sparse = true, supportNodeNames=false since syeast.el is only ints.
+    GRAPH *G = GraphReadEdgeList(NULL, fp, false, false, false); // directed = false, supportNodeNames=false since syeast.el is only ints.
     assert(G->n >= k);
     fclose(fp);
 

@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef _BLANT_FUNDAMENTALS_H
 #define _BLANT_FUNDAMENTALS_H
 
@@ -13,14 +15,24 @@
 #define SELF_LOOPS 0	// do we allow self-loops? MUST be 0 or 1, no other values allowed.
 #endif
 
+#ifndef SYNTHETIC
+#define SYNTHETIC 0 // off by default
+#endif
+
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
-#define MAX_K (8-SELF_LOOPS) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
-#define MAX_KD (8-SELF_LOOPS) //max k when graphs are directed
+#ifndef MAX_K
+#define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
+#define MAX_KD (6-SELF_LOOPS-(SYNTHETIC*2)) //placeholder value - will change later accordingly
+#endif
+
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
 #define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
 
-#if MAX_K <= 8
+#if MAX_K <= 6
+  #define MAX_CANONICALS 	156
+  #define MAX_ORBITS	544
+#elif MAX_K <= 8
   #define MAX_CANONICALS	12346
   #define MAX_ORBITS	79264
 #elif MAX_K == 9
@@ -68,6 +80,6 @@
 // It would be nice to get this working with the value 1 rather than 0.
 #define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
-#define DEFAULT_DIGITS 2 // 2 digits of precision by defalut
+#define DEFAULT_DIGITS 2 // 2 digits of precision by default
 
 #endif // _BLANT_FUNDAMENTALS_H

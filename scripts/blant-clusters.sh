@@ -125,6 +125,8 @@ echo "TMPDIR is $TMPDIR" >&2
 
 BLANT_CMD="$1 ${PRECISION} $QUIET";
 BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
+BLANT_DIR=`dirname "$BLANT_EXE"`
+source "$BLANT_DIR/setup.sh"
 Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
 EDs=($3)
@@ -161,6 +163,10 @@ case "$net" in
 *.elw) [ "X$WEIGHTED" = "X-w" ] || die "weighted edgelist given without -w option";;
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
+
+echo "Don't forget: edgeDensity threshold for GDVs should fluctuate randomly as the cluster is built, with threshold
+something like ED+N(ED,ED/2), so that the expected density is still ED, but we're allowed to add nodes both above
+and below the threshold, at random" >&2
 
 # Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0
