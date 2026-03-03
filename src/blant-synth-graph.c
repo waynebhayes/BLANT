@@ -210,7 +210,7 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k
     char BUF[BUFSIZ];
     SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small);
     SET *V = SetAlloc(G_Syn->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k);
+    TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
     step=0, numRemoveSample=0;
     do {
         while(SetCardinality(V) < k)
