@@ -10,6 +10,8 @@
 const char* _BLANT_DIR = DEFAULT_BLANT_DIR;
 const char* _CANON_DIR = DEFAULT_CANON_DIR;
 
+Boolean _directed;
+
 void SetBlantDirs(void) {
     char* temp = getenv("BLANT_DIR");
     if (temp)
@@ -28,9 +30,9 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
     for(i=k-1;i>0;i--)
     {
 	#if LOWER_TRIANGLE
-	for(j=k-1-(k-i)*(1-g->directed);j>=0;j--)
+	for(j=k-1-(k-i)*(1-_directed);j>=0;j--)
 	#else
-	for(j=k-1;j>=i*(1-g->directed);j--)	
+	for(j=k-1;j>=i*(1-_directed);j--)	
 	#endif
 	{
 	if(TinyGraphAreConnected(g,i,j))
@@ -56,9 +58,9 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
     TinyGraphEdgesAllDelete(G);
 	for(i=k-1;i>=0;i--){
 	#if LOWER_TRIANGLE
-	for(j=k-1-(k-i)*(1-G->directed);j>=0;j--)
+	for(j=k-1-(k-i)*(1-_directed);j>=0;j--)
 	#else
-	for(j=k-1;j>=i*(1-G->directed);j--)
+	for(j=k-1;j>=i*(1-_directed);j--)
 	#endif
 	{
 	    if(i==j && !G->selfLoops) continue;

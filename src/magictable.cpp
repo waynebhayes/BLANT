@@ -20,7 +20,7 @@ extern "C" {
     struct TINY_GRAPH;
     void mapCanonMap(char* BUF, short int *K, int k);
     void Int2TinyGraph(TINY_GRAPH* G, int Gint);
-    TINY_GRAPH *TinyGraphAlloc(unsigned int n, bool selfLoops, bool directed);
+    TINY_GRAPH *TinyGraphAlloc(unsigned int n);
     int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
     typedef unsigned char Boolean;
     Boolean TinyGraphDFSConnected(TINY_GRAPH *G, int seed);
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
         if (G) {
             free(G);
         }
-        G = TinyGraphAlloc(k,false,false);
+        G = TinyGraphAlloc(k);
 
         //Load canon_list and canon_map
         char BUF[BUFSIZ];

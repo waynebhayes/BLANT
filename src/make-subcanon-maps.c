@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
     if (k>7) Fatal("cannot make_subcanon_maps when SELF_LOOPS");
     TINY_GRAPH* G = TinyGraphSelfAlloc(k);
 #else
-    TINY_GRAPH* G = TinyGraphAlloc(k,false,false);
+    TINY_GRAPH* G = TinyGraphAlloc(k);
 #endif
     //Create k canon list
     char BUF[BUFSIZ];
@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
             print newline
 
     */
-    TINY_GRAPH *g = TinyGraphAlloc(k,G->selfLoops,false);
+    TINY_GRAPH *g = G->selfLoops ? TinyGraphSelfAlloc(k) : TinyGraphAlloc(k);
     TSET induceTSET = TSET_NULLSET;
     Gint_type Gint = 0;
     int tsetBit;
