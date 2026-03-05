@@ -231,10 +231,18 @@ int main(int argc, char* argv[]){
 	directed=true;
     } else assert(argc==2);
     k = atoi(argv[1]); assert(2<=k && k<=8);
+    if(directed && k != 6) {
+	fprintf(stderr, "Error: directed graphs are only supported for k=6 (got k=%d)\n", k);
+	exit(1);
+    }
     numBitValues = (1UL << (k*(k-1)/(2-directed)));
     assert(numBitValues>0);
-    data = calloc(sizeof(xChar),numBitValues);
-    done = calloc(sizeof(bool),numBitValues);
+    data = calloc(numBitValues, sizeof(xChar));
+    done = calloc(numBitValues, sizeof(bool));
+    if (!data || !done) {
+	fprintf(stderr, "Memory allocation failed\n");
+	exit(1);
+    }
     canon_map();
 
     return 0;
