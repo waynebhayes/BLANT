@@ -151,20 +151,13 @@ int _worstCanon = -1;
 
 double _desiredDigits, _desiredPrec, _confidence;
 
-<<<<<<< HEAD
 Boolean _directed=0;
 
-// Here's the actual mapping from non-canonical to canonical, same argument as above wasting memory, and also mmap'd.
-// So here we are allocating 256MB x sizeof(short int) = 512MB.
-// Grand total statically allocated memory is exactly 1.25GB.
-//static short int _K[maxBk] __attribute__ ((aligned (8192)));
-=======
 // Here's the actual mapping from non-canonical to canonical, same argument as
 // above wasting memory, and also mmap'd. So here we are allocating 256MB x
 // sizeof(short int) = 512MB. Grand total statically allocated memory is
 // exactly 1.25GB.
 // static short int _K[maxBk] __attribute__ ((aligned (8192)));
->>>>>>> b31eabcca1c8afa4b4f0f4ac03460b9e85b79f17
 Gordinal_type *_K = NULL; // Allocating memory dynamically
 
 /* AND NOW THE CODE */
@@ -279,16 +272,6 @@ static int InitializeConnectedComponents(GRAPH *G) {
 }
 
 static void InitializeStarMotifs(GRAPH *G) {
-<<<<<<< HEAD
-    fprintf(stderr,"%d Initialized Stars\n", G->n);
-    int i;
-    _totalStarMotifs = 0.0;
-    for(i=0; i< G->n; i++) _totalStarMotifs += CombinChooseDouble(GraphDegree(G,i),_k-1)/*,fprintf(stderr,"Printing Gdeg%u\n",GraphDegree(G,i))*/;
-    fprintf(stderr,"Printing final i and total cnt %d %lf\n",i,_totalStarMotifs);
-    if(_totalStarMotifs==0) Warning("cannot estimate absolute graphlet count because this network has no star motifs");
-    //Note("totStarMotifs is %g", _totalStarMotifs);
-    for(i=0; i<_numCanon; i++) _canonNumStarMotifs[i] = -1; // 0 is a valid value so use -1 to mean "not yet initialized"
-=======
   int i;
   _totalStarMotifs = 0.0;
   for (i = 0; i < G->n; i++)
@@ -300,7 +283,6 @@ static void InitializeStarMotifs(GRAPH *G) {
   for (i = 0; i < _numCanon; i++)
     _canonNumStarMotifs[i] =
         -1; // 0 is a valid value so use -1 to mean "not yet initialized"
->>>>>>> b31eabcca1c8afa4b4f0f4ac03460b9e85b79f17
 }
 
 const char *SampleMethodStr(void) {
@@ -525,73 +507,7 @@ void *RunBlantInThread(void *arg) {
 
 #endif
 
-<<<<<<< HEAD
-    SET *V = SetAlloc(G->n);
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k,G->selfAllowed,_directed);
-    unsigned Varray[varraySize];
-    double weight;
-    unsigned long stuck = 0;
-    SET *prev_node_set = SetAlloc(G->n);
-    SET *intersect_node = SetAlloc(G->n);
-
-    if (_outputMode & graphletDistribution) {
-        SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
-        SetCopy(prev_node_set, V);
-        TinyGraphInducedFromGraph(empty_g, G, Varray);
-    }
-
-	const uint64_t total = args->totalSamples;
-    const uint64_t chunk = (uint64_t)args->batchSize;
-
-    for (;;) {
-		uint64_t start = ATOMIC_FETCH_ADD_U64(&nextIndex, chunk);
-        if (start >= total) break;
-        uint64_t end = start + chunk;
-        if (end > total) end = total;
-
-		unsigned long stuck = 0;
-		// Original per-sample loop (unchanged)
-		for (uint64_t i = start; i < end; i++) {
-			if (_window) {
-				Fatal("Multithreading not yet implemented for any window related output modes."); // needs to be done
-			} 
-
-			if (_outputMode & graphletDistribution) {
-				// calls SampleGraphlet internally  
-				ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set, intersect_node);
-			} else {
-                double weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
-				if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
-					stuck = 0; // reset stuck counter when finding a newly processed graphlet
-				} else {
-					// processing failed, ignore sample
-					--i;
-					if(++stuck > MAX(G->n, _numSamples)) {
-						if(_quiet<2) Warning("Sampling aborted for thread %d: no new graphlets discovered after %d attempts", threadId, stuck);
-						break;
-					}
-				}
-			}
-		}
-    }
-    SetFree(prev_node_set);
-    SetFree(intersect_node);
-    SetFree(V);
-    TinyGraphFree(empty_g);
-    pthread_exit(0);
-}
-
-static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G, int varraySize, Accumulators *accums) {
-	// Initialize this thread's (the main thread's) random seed
-    // Note: _seed is the global seed.
-    RandomSeed(_seed); 
-    RandomUniform();
-
-    // Setup loop-local variables (copied from RunBlantInThread)
-    SET *V = SetAlloc(G->n);
-=======
   SET *V = SetAlloc(G->n);
->>>>>>> b31eabcca1c8afa4b4f0f4ac03460b9e85b79f17
 #if SELF_LOOPS
   TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
@@ -724,19 +640,6 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
 // numSamples == 0, because we may be the parent of many threads that finished
 // and we have nothing to do except output their accumulated results.
 static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
-<<<<<<< HEAD
-    unsigned i, j;
-    assert(k <= G->n);
-    assert(k == _k);
-    SET *V = SetAlloc(G->n);
-    SET *prev_node_set = SetAlloc(G->n);
-    SET *intersect_node = SetAlloc(G->n);
-    TINY_GRAPH *empty_g = TinyGraphAlloc(k,G->selfAllowed,_directed); // allocate it here once, so functions below here don't need to do it repeatedly
-    int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
-    unsigned Varray[varraySize];
-    InitializeConnectedComponents(G);
-    InitializeStarMotifs(G);
-=======
   unsigned i, j;
   assert(k <= G->n);
   assert(k == _k);
@@ -754,7 +657,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
   unsigned Varray[varraySize];
   InitializeConnectedComponents(G);
   InitializeStarMotifs(G);
->>>>>>> b31eabcca1c8afa4b4f0f4ac03460b9e85b79f17
 
   // these initialize the global accumulators, which are the ones being outputed
   // each thread also has it's own copy of accumulators, which are then "summed
@@ -2028,285 +1930,6 @@ int main(int argc, char *argv[]) {
 
   int odv_fname_len = 0;
 
-<<<<<<< HEAD
-    // When adding new options, please insert them in ALPHABETICAL ORDER. Note that options that require arguments
-    // (eg "-k3", where 3 is the argument) require a colon appended; binary options (currently only A, C, D, and h)
-    // have no colon appended.
-    while((opt = getopt(argc, argv, "a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1)
-    {
-	switch(opt)
-	{
-	unsigned long nSampArg;
-	case 'D': _directed=1;
-	    break;
-	case 'q': do ++_quiet; while(optarg && *optarg++);
-	    break;
-	case 'h':
-	    printf("%s\n", USAGE_LONG);
-	    #if __MINGW32__ || __WIN32__ || __CYGWIN__
-	    printf("Note: current TSET size is %u bits\n", 8*sizeof(TSET)); 
-	    #else
-	    printf("Note: current TSET size is %lu bits\n", 8*sizeof(TSET));
-	    #endif
-	    exit(1); break;
-	case 'i':
-	    interestFile = fopen(optarg, "r");
-	    if(!interestFile) Fatal("cannot open nodes-of-interest file '%s' while processing -i option", optarg);
-	    // file will be read later, after we read the graph input file so we have the names
-	    break;
-	case 'F':
-	    if(_freqDisplayMode != freq_display_mode_undef) Fatal("-C option cannot appear more than once");
-	    switch (*optarg)
-	    {
-		case 'n': _freqDisplayMode = freq_display_mode_count; break;
-		case 'c': _freqDisplayMode = freq_display_mode_concentration; break;
-		case 'a': case 'e': _freqDisplayMode = freq_display_mode_estimate_absolute; break;
-		default: Fatal("-C%c: unknown frequency display mode", *optarg); break;
-	    }
-	    break;
-	case 'm':
-	    if(_outputMode != undef) Fatal("tried to define output mode twice");
-	    switch(*optarg)
-	    {
-	    // SYNTH case 's': _outputMode |= synthetic;
-	    case 'c': _outputMode |= communityDetection;
-		switch(*(optarg+1)) {
-		case 'o': _communityMode='o'; break;
-		case '\0': case 'g': _communityMode='g'; break;
-		default: Fatal("-mc%c: unknown community mode; valid values g or o\n", *(optarg+1)); break;
-		}
-		break;
-	    case 'm': _outputMode |= indexMotifs; break;
-	    case 'M': _outputMode |= indexMotifOrbits; break;
-	    case 'i': _outputMode |= indexGraphlets; break;
-	    case 'r': _outputMode |= indexGraphletsRNO; break;
-	    case 'j': _outputMode |= indexOrbits; break;
-	    case 'f': _outputMode |= graphletFrequency; break;
-	    case 'g': _outputMode |= outputGDV; break;
-	    case 'o': _outputMode |= outputODV; break;
-	    case 'd': _outputMode |= graphletDistribution; break;
-	    case 'p': _outputMode |= (predict|outputGDV|outputODV);
-		char *s = optarg+1; _predictOrbit1 = atoi(s);
-		until (*s++==':')  /* do nothing */ ;
-		_predictOrbit2 = atoi(s);
-		break;
-	    case 'q': _outputMode |= predict_merge; break;
-	    default: Fatal("-m%c: unknown output mode \"%c\"", *optarg,*optarg);
-	    break;
-	    }
-	    break;
-	case 'd':
-	    if (_displayMode != undefined) Fatal("tried to define canonical display mode twice");
-	    switch(*optarg)
-	    {
-	    case 'b': _displayMode = binary; break;
-	    case 'd': _displayMode = decimal; break;
-	    case 'i': _displayMode = ordinal; break;
-	    case 'j': _displayMode = jesse; break;
-	    case 'o': _displayMode = orca; break;
-	    case 'n': _displayMode = noncanonical; break;
-	    default: Fatal("-d%c: unknown canonical display mode:n"
-		    "\tmodes are i=integer ordinal, d=decimal, b=binary, o=orca, j=jesse", *optarg);
-	    break;
-	    }
-	    break;
-	case 't': 
-        _numThreads = atoi(optarg);
-        if(_numThreads > _maxThreads) Warning("More threads specified than available on system.");
-	    break;
-	case 'r': _seed = atoi(optarg); if(_seed==-1)Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
-	    break;
-	case 'R': _rawCounts=true;
-	    break;
-	case 's':
-	    if (_sampleMethod != -1) Fatal("Tried to define sampling method twice");
-	    else if (strncmp(optarg, "NBE", 3) == 0)
-		_sampleMethod = SAMPLE_NODE_EXPANSION;
-	    else if (strncmp(optarg, "SEC", 3) == 0) //_sampleMethod = SAMPLE_SEQUENTIAL_CHAINING;
-		Apology("SEC is no longer supported due to fundamentally unfixable problems with the method");
-	    else if (strncmp(optarg, "FAYE", 4) == 0) {
-		if (strncmp(optarg, "FAYE!",5) != 0) Warning("FAYE is an ancient variant of NBE and produces counts with potentially large biases; suppress this warning by appending an exclamation mark");
-		_sampleMethod = SAMPLE_FAYE;
-	    }
-	    else if (strncmp(optarg, "EBE", 3) == 0) {
-		// if (strncmp(optarg, "EBE!",4) != 0) Warning("EBE is very fast on dense networks but produces counts with potentially extreme biases; suppress this warning by appending an exclamation mark");
-		_sampleMethod = SAMPLE_EDGE_EXPANSION;
-	    }
-	    else if (strncmp(optarg, "MCMC",4) == 0) {
-		//if (strncmp(optarg, "MCMC!",5) != 0) Warning("MCMC produces unbiased but high variance graphlet counts; suppress this warning by appending an exclamation mark");
-		_sampleMethod = SAMPLE_MCMC;
-		if (strchr(optarg, 'u') || strchr(optarg, 'U'))
-		    _MCMC_EVERY_EDGE=true;
-	    }
-	    else if (strncmp(optarg, "EDGE_COVER", 10) == 0) {
-		_sampleMethod = SAMPLE_MCMC;
-		_sampleSubmethod = SAMPLE_MCMC_EC;
-	    }
-	    else if (strncmp(optarg, "RES", 3) == 0) {
-		if (strncmp(optarg, "RES!",4) != 0) Warning("Reservoir sampling (RES) is unbiased but VERY slow; append an exclamation mark to supress this warning");
-		_sampleMethod = SAMPLE_RESERVOIR;
-	    }
-	    else if (strncmp(optarg, "AR", 2) == 0){
-		_sampleMethod = SAMPLE_ACCEPT_REJECT;
-		if (strncmp(optarg, "AR!",3) != 0) Warning("Accept/Reject sampling (AR) is unbiased but EXTREMELY slow; append an exclamation mark to supress this warning");
-	    }
-	    else if (strncmp(optarg, "INDEX", 5) == 0)
-		_sampleMethod = SAMPLE_INDEX;
-	    else
-	    {
-		_sampleFileName = optarg;
-		if(strcmp(optarg,"STDIN") == 0) _sampleFile = stdin;
-		else _sampleFile = fopen(_sampleFileName, "r");
-		if(!_sampleFile)
-		    Fatal("Unrecognized sampling method '%s'; recognized options are NBE, MCMC, EBE, RES, FAYE, AR, or a filename (that can be 'STDIN'), but file '%s' cannot be opened", optarg, _sampleFileName);
-		_sampleMethod = SAMPLE_FROM_FILE;
-	    }
-	    break;
-	case 'P': _precisionMode = worst; // fall through, do not break
-	case 'p':
-	    if(atof(optarg) < 1) { // user has asked for relative precision
-		_desiredPrec = atof(optarg);
-		if(_desiredPrec <= 0)
-		    Fatal("invalid requested precision %g must be in (0,1)", _desiredPrec);
-		_desiredDigits = -log(_desiredPrec)/log(10);
-	    }
-	    else { // user has requested digits of precision
-		_desiredDigits = atof(optarg);
-		if(_desiredDigits <= 0) Fatal("invalid requested digits of precision %g must be > 0", _desiredDigits);
-		_desiredPrec = pow(10, -_desiredDigits);
-	    }
-	    if(_desiredDigits > 3)
-		Warning("requesting more than 3 digits of precision may be infeasible; you've requested %g", _desiredDigits);
-	    if(_confidence) Fatal("Please specify confidence (-c option) AFTER specifying precision with -p or -P");
-	    char wChar = optarg[strlen(optarg)-1];
-	    if(isalpha(wChar)) {
-		switch(wChar) {
-		case 'w': case 'W': _precisionWt=PrecWtRaw; break;
-		case 'l': case 'L': _precisionWt=PrecWtLog; break;
-		default: Fatal("unknown precision weighting %c", wChar);
-		}
-	    }
-	    _stopMode = stopOnPrecision;
-	    break;
-	case 'c': _confidence = atof(optarg);
-	    if(_confidence <= 0) Fatal("confidence must be in (0,1), not %g", _confidence);
-	    if(_confidence >= 1) _confidence /= 100; // user specified percent
-	    break;
-	case 'k': _k = atoi(optarg);
-	    if (_GRAPH_GEN && _k >= 33) {
-		_k_small = _k % 10; // used in windowing code, obsolete
-		if (!(3 <= _k_small && _k_small <= (_directed ? MAX_KD : MAX_K)))
-		    Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k_small, (_directed ? MAX_KD : MAX_K));
-		_k /= 10;
-		assert(_k_small <= _k);
-	    } // First k indicates stamping size, second k indicates KS test size.
-	    if (!(3 <= _k && _k <=(_directed ? MAX_KD : MAX_K))) Warning("%s\nk [%d] must be between 3 and %d\n%s", USAGE_SHORT, _k, (_directed ? MAX_KD : MAX_K));
-	    break;
-	case 'W': _window = true; _windowSize = atoi(optarg); break;
-	case 'w': _weighted = true; break;
-	case 'D': _directed = true; break;
-	case 'x':
-	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");
-	    else if (strncmp(optarg, "DMIN", 4) == 0)
-		_windowSampleMethod = WINDOW_SAMPLE_MIN_D;
-	    else if (strncmp(optarg, "DMAX", 4) == 0)
-		_windowSampleMethod = WINDOW_SAMPLE_MAX_D;
-	    else if (strncmp(optarg, "MIN", 3) == 0)
-		_windowSampleMethod = WINDOW_SAMPLE_MIN;
-	    else if (strncmp(optarg, "MAX", 3) == 0)
-		_windowSampleMethod = WINDOW_SAMPLE_MAX;
-	    else if (strncmp(optarg, "LFMIN", 5) == 0)
-		_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MIN;
-	    else if (strncmp(optarg, "LFMAX", 5) == 0)
-		_windowSampleMethod = WINDOW_SAMPLE_LEAST_FREQ_MAX;
-	    else if (strncmp(optarg, "DEGMAX", 6) == 0)
-		_windowSampleMethod = WINDOW_SAMPLE_DEG_MAX;
-	    else
-		Fatal("Unrecognized window searching method specified. Options are: -p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
-	    break;
-	case 'X':
-	    if (strncmp(optarg, "COMB", 4) == 0)
-		_windowIterationMethod = WINDOW_ITER_COMB;
-	    else if (strncmp(optarg, "DFS", 3) == 0)
-		_windowIterationMethod = WINDOW_ITER_DFS;
-	    else
-		Fatal("Unrecognized window Iteration method specified. Options are: -P{COMB|DFS}\n");
-	    break;
-	case 'l':
-	    if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF) Fatal("Tried to define window limiting method twice");
-	    if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
-		_windowRep_limit_neglect_trivial = true; optarg += 1;
-	    }
-	    if (strncmp(optarg, "DEG", 3) == 0) {
-		    _windowRep_limit_method = WINDOW_LIMIT_DEGREE; optarg += 3;
-	    }
-	    else if (strncmp(optarg, "EDGE", 4) == 0) {
-		    _windowRep_limit_method = WINDOW_LIMIT_EDGES; optarg += 4;
-	    }
-	    else
-		    Fatal("Unrecognized window limiting method specified. Options are: -l{DEG}{EDGE}{limit_num}\n");
-	    _numWindowRepLimit = atoi(optarg);
-	    if (!_numWindowRepLimit) {_numWindowRepLimit = 10; _numWindowRepArrSize = _numWindowRepLimit;}
-	    _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
-	    break;
-	case 'n': sscanf(optarg, "%lu", &nSampArg);
-	    if(nSampArg < 0) Fatal("%s\nFatal Error: numSamples [%s] must be a non-negative integer", USAGE_SHORT, optarg);
-	    //Note("got numSamples %ld from string \"%s\"", nSampArg, optarg);
-	    numSamples = nSampArg;
-	    char lastChar = optarg[strlen(optarg)-1];
-	    if(!isdigit(lastChar))
-		switch(lastChar) {
-		case 'b': case 'B': case 'g': case 'G': numSamples *= 1024; // do NOT break, fall through
-		case 'm': case 'M': numSamples *= 1024; // do NOT break, fall through
-		case 'k': case 'K': numSamples *= 1024; break;
-		default: Fatal("%s\nERROR: numSamples can be appended by k, m, b, or g but not %c\n%s", USAGE_SHORT, lastChar);
-        _stopMode = stopOnSamples;
-        _numSamples = numSamples;
-		break;
-	    }
-	    //fprintf(stderr, "numSamples set to %d\n", numSamples);
-	    break;
-	case 'K': _KS_NUMSAMPLES = atoi(optarg);
-	    break;
-	case 'e':
-	    _min_edge_count = _GRAPH_GEN_EDGES = atoi(optarg);
-	    windowRep_edge_density = atof(optarg);
-	    break;
-	case 'g':
-	    if (!GEN_SYN_GRAPH) Fatal("Turn on Global Variable GEN_SYN_GRAPH");
-	    _GRAPH_GEN = true;
-	    if (_genGraphMethod != -1) Fatal("Tried to define synthetic graph generating method twice");
-	    else if (strncmp(optarg, "NBE", 3) == 0) _genGraphMethod = GEN_NODE_EXPANSION;
-	    else if (strncmp(optarg, "MCMC", 4) == 0) Apology("MCMC for Graph Syn is not ready");  // _genGraphMethod = GEN_MCMC;
-	    else Fatal("Unrecognized synthetic graph generating method specified. Options are: -g{NBE|MCMC}\n");
-	    break;
-	case 'M': multiplicity = atoi(optarg);
-	    if(multiplicity < 0) Fatal("%s\nERROR: multiplicity [%d] must be non-negative\n", USAGE_SHORT, multiplicity);
-	    break;
-	case 'T': _topThousandth = atoi(optarg);
-	    break;
-	case 'o': _orbitNumber = atoi(optarg);
-	    break;
-	case 'f':
-	    odv_fname_len = strlen(optarg);
-	    _odvFile = malloc(sizeof(char) * odv_fname_len);
-	    strncpy(_odvFile, optarg, odv_fname_len);
-	    break;
-	case 'a':
-	    _alphabeticTieBreaking = (atoi(optarg) != 0);
-	    break;
-	default: Fatal("Run without command arguments for short usage message, or with -h for longer one");
-	    break;
-	}
-    }
-
-
-    if (_orbitNumber != -1) {
-        if (_odvFile != NULL) {
-            parseOdvFromFile(_odvFile);
-        } else {
-            Fatal("an ODV orbit number was provided, but no ODV file path was supplied");
-=======
   // When adding new options, please insert them in ALPHABETICAL ORDER. Note
   // that options that require arguments (eg "-k3", where 3 is the argument)
   // require a colon appended; binary options (currently only A, C and h) have
@@ -2377,7 +2000,6 @@ int main(int argc, char *argv[]) {
           Fatal("-mc%c: unknown community mode; valid values g or o\n",
                 *(optarg + 1));
           break;
->>>>>>> b31eabcca1c8afa4b4f0f4ac03460b9e85b79f17
         }
         break;
       case 'm':
