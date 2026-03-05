@@ -33,7 +33,7 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 	for(j=k-1;j>=i*(1-g->directed);j--)	
 	#endif
 	{
-            if(i==j&&!SELF_LOOPS) continue;
+	    if(i==j&&!SELF_LOOPS) continue;
 	    if(TinyGraphAreConnected(g,i,j))
 	    {
 	        bit = (((Gint_type)1) << bitPos);

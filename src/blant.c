@@ -2637,15 +2637,8 @@ int main(int argc, char *argv[]) {
   }
 #endif
 
-<<<<<<< HEAD
-    exitStatus = RunBlantFromGraph(_k, numSamples, G);
-    if(&inputG[0] != G) GraphFree(G);
-    return exitStatus;
-}
-=======
   exitStatus = RunBlantFromGraph(_k, numSamples, G);
   if (&inputG[0] != G)
     GraphFree(G);
   return exitStatus;
 }
->>>>>>> b31eabcca1c8afa4b4f0f4ac03460b9e85b79f17

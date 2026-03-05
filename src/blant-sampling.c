@@ -650,7 +650,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
 	if (_outputMode & outputGDV) {
 	    for (j = 0; j < k; j++) {
-        accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+        	accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if(ocount < 0) {
