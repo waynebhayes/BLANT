@@ -1252,7 +1252,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     int i, j, neigh;
     // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
     TINY_GRAPH *g = TinyGraphAlloc(_k,G->selfAllowed,false);
-
+    //TinyGraphPrintAdjMatrix(stderr,g);
     // base case for the recursion: a k-graphlet is found, print it and return
     if (prev_nodes_count == _k) {
         // ProcessGraphlet creates the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of

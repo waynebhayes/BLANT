@@ -1096,7 +1096,11 @@ int main(int argc, char *argv[]){
         FILE *fpGraph = fopen(argv[optind], "r");
         if(!fpGraph) Fatal("cannot open graph input file '%s'\n", argv[optind]);
         // Read it in using native Graph routine.
-        G[i] = GraphReadEdgeList(fpGraph, true, _supportNodeNames,false); // sparse=true
+        // the first argument is an (initially NULL) GRAPH pointer, followed by
+        // the file, a directed flag, support-node-names flag and weight flag.
+        // previous versions of this source mistakenly treated the second
+        // argument as "sparse"; that caused the directed flag to be wrong.
+        G[i] = GraphReadEdgeList(NULL, fpGraph, _directed, _supportNodeNames, false);
         if(_supportNodeNames)
             assert(G[i]->name);
         fclose(fpGraph);
