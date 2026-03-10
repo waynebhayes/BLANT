@@ -196,7 +196,7 @@ void canon_map(void){
     //saving canonical decimal and permutation in the file
     long canonDec;
     long long canonPerm;
-    TINY_GRAPH *G = TinyGraphAlloc(k);
+    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
 	printPerm[k]='\0';
