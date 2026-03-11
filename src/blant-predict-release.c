@@ -408,7 +408,7 @@ static SET *SampleGraphletNodeBasedExpansion(SET *V, int *Varray, GRAPH *G, int 
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
 	    // Ensure the damn thing really *is* connected.
-	    TINY_GRAPH *T = TinyGraphAlloc(k);
+	    TINY_GRAPH *T = TinyGraphAlloc(k,false,false);
 	    TinyGraphInducedFromGraph(T, G, Varray);
 	    assert(NumReachableNodes(T,0) == k);
 	    TinyGraphFree(T);
@@ -516,7 +516,7 @@ static SET *SampleGraphletFaye(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 	    V = SampleGraphletNodeBasedExpansion(V, Varray, G, k, whichCC);
 	    depth--;
 	    // Ensure the damn thing really *is* connected.
-	    TINY_GRAPH *T = TinyGraphAlloc(k);
+	    TINY_GRAPH *T = TinyGraphAlloc(k,false,false);
 	    TinyGraphInducedFromGraph(T, G, Varray);
 	    assert(NumReachableNodes(T,0) == k);
 	    TinyGraphFree(T);
@@ -824,7 +824,7 @@ static SET *SampleGraphletLuBressanReservoir(SET *V, int *Varray, GRAPH *G, int 
 	    if(reservoir_alpha < k/(double)i)
 	    {
 		static TINY_GRAPH *T;
-		if(!T) T = TinyGraphAlloc(k);
+		if(!T) T = TinyGraphAlloc(k,false,false);
 		static int graphetteArray[maxK], distArray[maxK];
 #if PARANOID_ASSERTS
 		// ensure it's connected before we do the replacement
@@ -1040,7 +1040,7 @@ static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC
 		//NON REENTRANT CODE
 		XLQ = QueueAlloc(k*mcmc_d);
 		XLS = MultisetAlloc(G->n);
-		g = TinyGraphAlloc(k);
+		g = TinyGraphAlloc(k,false,false);
 	}
 
 	// The first time we run this, or when we restart. We want to find our initial L d graphlets.
@@ -1272,7 +1272,7 @@ static SET *SampleGraphletAcceptReject(SET *V, int *Varray, GRAPH *G, int k)
 {
     int arrayV[k], i;
     int nodeArray[G->n], distArray[G->n];
-    TINY_GRAPH *g = TinyGraphAlloc(k);
+    TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
     int graphetteArray[k];
 
     int tries = 0;
@@ -1896,7 +1896,7 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
     _seed = time(0)+getpid();
     RandomSeed(_seed);
     SET *V = SetAlloc(G->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k);
+    TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
     int varraySize = _windowSize > 0 ? _windowSize : maxK + 1;
     unsigned Varray[varraySize]; 
     InitializeConnectedComponents(G);
@@ -2064,7 +2064,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 	_predictOrbit2 += _orbitList[_predictOrd][0];
 	fprintf(stderr, "Sanity check: k %d, ordinal %d (integer %d), global orbitPair (%d,%d)\n",
 	    _k, _predictOrd, _canonList[_predictOrd], _predictOrbit1, _predictOrbit2);
-	TINY_GRAPH *T = TinyGraphAlloc(_k);
+	TINY_GRAPH *T = TinyGraphAlloc(_k,false,false);
 	for(c=0; c<_numCanon; c++) {
 	    if(!SetIn(_connectedCanonicals, c)) continue;
 	    int GintCanonInt = _canonList[c];
