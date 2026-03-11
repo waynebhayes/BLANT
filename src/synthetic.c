@@ -90,23 +90,23 @@ static Gordinal_type* _synthK[MAX_K];
 // Assuming the global variable _k_array[] is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
 void SetGlobalCanonMaps(void){
-    unsigned int _Bk;
+    unsigned int _localBk;
     int i;
     for(i=0; i<MAX_K; i++){  // for all values of 'k'
         if (_k_array[i] == -1)
             break;
         assert(3 <= _k_array[i] && _k_array[i] <= 8);
-        _Bk = (1U <<(_k_array[i]*(_k_array[i]-1)/2));
+        _localBk = (1U <<(_k_array[i]*(_k_array[i]-1)/2));
         char BUF[BUFSIZ];
         _synthConnectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList2D[_k_array[i]-1], _k_array[i], _canonEdges2D[i]);
 	_numCanonSynth[_k_array[i]-1] = _synthConnectedCanonicals[_k_array[i]-1]->maxElem;
         _maxNumCanon = MAX(_maxNumCanon, _numCanonSynth[_k_array[i]-1]);  // set max number of canonicals for a k
-        _synthK[_k_array[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_Bk * sizeof(Gordinal_type), 8192));
+        _synthK[_k_array[i]-1] = (Gordinal_type*) aligned_alloc(8192, MAX(_localBk * sizeof(Gordinal_type), 8192));
         assert(_synthK[_k_array[i]-1] != NULL);
         mapCanonMap(BUF, _synthK[_k_array[i]-1], _k_array[i]);
         sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k_array[i]);
         int pfd = open(BUF, 0*O_RDONLY);
-        kperm *Pf = Mmap(Permutations, _Bk*sizeof(Permutations[0]), pfd);
+        kperm *Pf = Mmap(Permutations, _localBk*sizeof(Permutations[0]), pfd);
         assert(Pf == Permutations);
     }
 }
