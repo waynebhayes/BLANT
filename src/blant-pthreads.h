@@ -42,7 +42,7 @@ typedef struct ThreadData {
 // Function declarations
 Accumulators* InitializeAccumulatorStruct(GRAPH* G);
 void FreeAccumulatorStruct(Accumulators *accums);
-void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads);
+void SampleNGraphletsInThreads(long base_seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads);
 
 // Anytime a function must take an Accumulator as a parameter, but you don't intend on actually using the data, pass it this. 
 // The data here is never used, and maintaining only one copy of this saves memory.

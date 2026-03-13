@@ -15,7 +15,6 @@
 #include "misc.h"
 #include "multisets.h"
 #include "queue.h"
-#include "rand48.h"
 #include "sorts.h"
 #include "tinygraph.h"
 #include <ctype.h>
@@ -41,9 +40,9 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're
 #include "stats.h"
 
 // define random variable algorithm
-#define USE_MarsenneTwister 0
+#define USE_MarsenneTwister 0 // not yet implemented correctly
 #if USE_MarsenneTwister
-#include "../C++/mt19937.h" // not yet implemented correctly
+#include "../C++/mt19937.h"
 _Thread_local MT19937 *mt19937Seed;
 void RandomSeed(long seed) {
   if (mt19937Seed)
@@ -54,17 +53,21 @@ double RandomUniform(void) { return Mt19937NextDouble(mt19937Seed); }
 #else
 #include "rand48.h"
 _Thread_local unsigned short erand48Seed[3];
+_Thread_local unsigned _seeded;
 void RandomSeed(long seed) {
+  if(_seeded>0) Warning("have already seeded %d times; should NEVER seed more than once", _seeded);
+  ++_seeded;
   // split the number seed into 3 portions of 16 bits
   erand48Seed[0] = (unsigned short)(seed & 0xFFFF);         // Lower 16 bits
   erand48Seed[1] = (unsigned short)((seed >> 16) & 0xFFFF); // Middle 16 bits
-  erand48Seed[2] = 0x330E; // Upper 16 bits, set to this to mimic srand48
+  if(sizeof(seed) > 4) erand48Seed[2] = (unsigned short)((seed >> 32) & 0xFFFF); // Upper 16 bits
+  else erand48Seed[2] = 0x330E; // Upper 16 bits, set to this to mimic srand48
 }
 double RandomUniform(void) { return erand48(erand48Seed); }
 #endif
 
-static int _numNodes, _numEdges, _maxEdges = 1024,
-                                 _seed = -1; // -1 means "not initialized"
+static int _numNodes, _numEdges, _maxEdges = 1024;
+static long _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
 static float *_weights;
 char **_nodeNames;
@@ -494,7 +497,6 @@ void *RunBlantInThread(void *arg) {
 
   // initialize the random number generator
   RandomSeed(seed);
-  RandomUniform();
 
 #if PARANOID_ASSERTS
   for (int i = 0; i < _numCanon; i++) {
@@ -572,11 +574,6 @@ void *RunBlantInThread(void *arg) {
 
 static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
                                      int varraySize, Accumulators *accums) {
-  // Initialize this thread's (the main thread's) random seed
-  // Note: _seed is the global seed.
-  RandomSeed(_seed);
-  RandomUniform();
-
   // Setup loop-local variables (copied from RunBlantInThread)
   SET *V = SetAlloc(G->n);
 #if SELF_LOOPS
@@ -867,26 +864,28 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
       singleThreadAccums = InitializeAccumulatorStruct(G);
     }
 
+    int whileLoopCounter=-1;
     while (!confMet && !_earlyAbort) {
-      if (_stopMode == stopOnSamples) {
+      ++whileLoopCounter;
+      switch (_stopMode) {
+      case stopOnSamples:
         // one and done, distribute the n samples amongst the threads and stop
         // there
         if (_numThreads == 1) {
           RunBlantLoopInMainThread(k, numSamples, G, varraySize,
                                    singleThreadAccums);
         } else {
-          SampleNGraphletsInThreads(_seed, k, G, varraySize, numSamples,
-                                    _numThreads);
+	  // inside we use base_seed+threadId, so bump the base_seed by _numThreads with each new call
+          SampleNGraphletsInThreads(_seed+_numThreads*whileLoopCounter, k, G, varraySize, numSamples, _numThreads);
         }
         samplesCounter += numSamples;
-        break;
-      } else if (_stopMode == stopOnPrecision) {
+	break;
+      case stopOnPrecision:
         // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than
         // this lead to spurious early stops
-        unsigned batchSize = G->numEdges * sqrt(G->n);
-
-        STAT *sTotal[MAX_CANONICALS];
         if (_desiredPrec && _quiet < 2) {
+	  unsigned batchSize = G->numEdges * sqrt(G->n);
+	  STAT *sTotal[MAX_CANONICALS];
           Note("using batchSize %u to estimate counts with relative precision "
                "%g (%g digit%s) with %g%% confidence",
                batchSize, _desiredPrec, _desiredDigits,
@@ -896,12 +895,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
               sTotal[i] = StatAlloc(0, 0, 0, false, false);
 
           if (_numThreads == 1) {
-            _seed = _seed + batchCounter;
             RunBlantLoopInMainThread(k, (unsigned long)batchSize, G, varraySize,
                                      singleThreadAccums);
           } else {
-            SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize,
-                                      _numThreads);
+            SampleNGraphletsInThreads(_seed+_numThreads*whileLoopCounter, k, G, varraySize, batchSize, _numThreads);
           }
 
           samplesCounter +=
@@ -1026,6 +1023,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         } else {
           Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
         }
+        break;
+      default: Fatal("Unknown stopmode %d", _stopMode);
+        break;
       }
     }
 
@@ -1439,8 +1439,7 @@ FILE *ForkBlant(int k, unsigned long numSamples, GRAPH *G) {
   int fds[2] = {-1, -1};
   if (pipe(fds) < 0)
     Fatal("pipe(2) failed");
-  int threadSeed =
-      INT_MAX * RandomUniform(); // this must happen BEFORE the fork for each
+  int threadSeed = INT_MAX * RandomUniform(); // this must happen BEFORE the fork for each
                                  // thread to get a different seed
   int pid = fork();
   if (pid > 0) // we are the parent
@@ -2343,6 +2342,10 @@ int main(int argc, char *argv[]) {
       break;
     }
   }
+
+  if(_seed == -1) _seed = GetFancySeed(false);
+  Note("_seed is %ld", _seed);
+  RandomSeed(_seed);
 
   if (_orbitNumber != -1) {
     if (_odvFile != NULL) {
