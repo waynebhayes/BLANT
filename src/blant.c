@@ -151,8 +151,6 @@ int _worstCanon = -1;
 
 double _desiredDigits, _desiredPrec, _confidence;
 
-Boolean _directed=0;
-
 // Here's the actual mapping from non-canonical to canonical, same argument as
 // above wasting memory, and also mmap'd. So here we are allocating 256MB x
 // sizeof(short int) = 512MB. Grand total statically allocated memory is
@@ -331,11 +329,14 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
   }
 
   if (_sampleMethod == SAMPLE_NODE_EXPANSION) {
-    sprintf(BUF, "%s/%s/alpha_list_NBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    if(!_directed) sprintf(BUF, "%s/%s/alpha_list_NBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    else sprintf(BUF, "%s/%s/directed/alpha_list_NBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
   } else if (_sampleMethod == SAMPLE_EDGE_EXPANSION) {
-    sprintf(BUF, "%s/%s/alpha_list_EBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    if(!_directed) sprintf(BUF, "%s/%s/alpha_list_EBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    else sprintf(BUF, "%s/%s/directed/alpha_list_EBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
   } else {
-    sprintf(BUF, "%s/%s/alpha_list_MCMC%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    if(!_directed) sprintf(BUF, "%s/%s/alpha_list_MCMC%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    else sprintf(BUF, "%s/%s/directed/alpha_list_MCMC%d.txt", _BLANT_DIR, _CANON_DIR, k);
   }
   FILE *fp_ord = fopen(BUF, "r");
   if (!fp_ord)
@@ -2391,7 +2392,7 @@ int main(int argc, char *argv[]) {
   SetBlantDirs();       // Needs to be done before reading any files in BLANT
                         // directory
   SetGlobalCanonMaps(); // needs _k to be set
-  LoadMagicTable();     // needs _k to be set
+  if(!_directed) LoadMagicTable();     // needs _k to be set
 
   if (_window && _windowSize >= 3) {
     if (_windowSampleMethod == -1)

@@ -8,6 +8,7 @@
 
 Gint_type _canonList[MAX_CANONICALS], _alphaList[MAX_CANONICALS];
 char _canonNumEdges[MAX_CANONICALS];
+Boolean directed=false;
 
 Gint_type CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
     seen = TSetUnion(seen, candidates);
@@ -65,23 +66,28 @@ Gint_type ComputeAlphaNode(TINY_GRAPH* g, int k) {
 SET* _connectedCanonicals;
 int main(int argc, char* argv[]) {
     if (argc != 2 && argc != 3 && argc != 4) {
-        fprintf(stderr, "USAGE: %s k\nOr,  %s k ID\nOr,  %s k start end [inclusive]\n", argv[0], argv[0], argv[0]);
+        fprintf(stderr, "USAGE: %s k\nOr,  %s k ID\nOr,  %s k start end [inclusive]\n Or, %s k -1 (for directed graphs)\n", argv[0], argv[0], argv[0], argv[0]);
         exit(-1);
     }
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
     TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, directed);
     Gordinal_type numCanon = _connectedCanonicals->maxElem;
 
 	int start, end;
 	if(argc == 2) {
 		start = 0, end = numCanon - 1;
 	} else if (argc == 3) {
-		start = atoi(argv[2]), end = atoi(argv[2]);
-		if(start < 0 || start >= numCanon) {
-			fprintf(stderr, "Invalid ID\n");
-			exit(-1);
+		if(strcmp(argv[2], "-1") == 0) {
+			directed = true;
+			start = 0, end = numCanon - 1;
+		} else {
+			start = atoi(argv[2]), end = atoi(argv[2]);
+			if(start < 0 || start >= numCanon) {
+				fprintf(stderr, "Invalid ID\n");
+				exit(-1);
+			}
 		}
 	} else {
 		start = atoi(argv[2]), end = atoi(argv[3]);

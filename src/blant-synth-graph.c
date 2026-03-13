@@ -208,7 +208,7 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k
     unsigned Varray[k];
     Gint_type canonList_small[MAX_CANONICALS], Gint;
     char BUF[BUFSIZ];
-    SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small);
+    SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small, false);
     SET *V = SetAlloc(G_Syn->n);
     TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
     step=0, numRemoveSample=0;

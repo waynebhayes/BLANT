@@ -141,11 +141,11 @@ void SetGlobalCanonMaps(void)
 	#endif
     }
     else _Bk = (1U <<(_k*_k));
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges, _directed);
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
-    _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
-    _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
+    _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k, _directed);
+    _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k, _directed);
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
     if(pfd>=0) {
@@ -191,6 +191,7 @@ Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 	for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
 	for(j=0;j<_k;j++)
 	    perm[j] = (i32 >> 3*j) & 7;
+    assert(_K[Gint] < _numCanon);
 	return _K[Gint];
     } else return 0; // Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
 }

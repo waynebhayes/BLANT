@@ -15,10 +15,22 @@
 static Gordinal_type *K; // The (k-1)-graphlet canonmap.
 static Gint_type canon_list[MAX_CANONICALS];
 static char canon_num_edges[MAX_CANONICALS];
+Boolean directed=false;
 
 int main(int argc, char* argv[]) {
     int i, j, k;
-    k=atoi(argv[1]);
+    if(argc == 3) {
+	if(strcmp(argv[2], "directed")!=0) {
+	    fprintf(stderr, "if given two arguments, the second must be the word \"directed\"\n");
+	    exit(1);
+	}
+	directed=true;
+    } else assert(argc==2);
+    k = atoi(argv[1]); assert(2<=k && k<=8);
+    if(directed && k > 6) {
+	fprintf(stderr, "Error: directed graphs are only supported for k<=6 (got k=%d)\n", k);
+	exit(1);
+    }
 
 #if SELF_LOOPS
     if (k>7) Fatal("cannot make_subcanon_maps when SELF_LOOPS");
@@ -28,12 +40,12 @@ int main(int argc, char* argv[]) {
 #endif
     //Create k canon list
     char BUF[BUFSIZ];
-    SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
+    SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges, directed);
     int numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);
 
     //Create canon map for k-1
-    K = mapCanonMap(BUF, K, k-1);
+    K = mapCanonMap(BUF, K, k-1, directed);
 
     /*
         For every canonical in canonical_list

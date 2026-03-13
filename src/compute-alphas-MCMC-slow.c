@@ -11,6 +11,7 @@ char _canonNumEdges[MAX_CANONICALS];
 
 static Gint_type _L, _alpha, *_Darray;
 static COMBIN *_Lcombin;
+Boolean directed=false;
 
 #define ON_THE_FLY 1 // print only the non-zero ones, on-the-fly
 
@@ -114,24 +115,29 @@ SET *_connectedCanonicals;
 
 int main(int argc, char* argv[]) {
     if (argc != 2 && argc != 3 && argc != 4) {
-        fprintf(stderr, "USAGE: %s k\nOr,  %s k ID\nOr,  %s k start end [inclusive]\n", argv[0], argv[0], argv[0]);
+        fprintf(stderr, "USAGE: %s k\nOr,  %s k ID\nOr,  %s k start end [inclusive]\n Or, %s k -1 (for directed graphs)\n", argv[0], argv[0], argv[0], argv[0]);
         exit(-1);
     }
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
     TINY_GRAPH *gk = TinyGraphAlloc(k, SELF_LOOPS, false);
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d, SELF_LOOPS, false);
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, directed);
     Gordinal_type numCanon = _connectedCanonicals->maxElem;
 
 	int start, end;
 	if(argc == 2) {
 		start = 0, end = numCanon - 1;
 	} else if (argc == 3) {
-		start = atoi(argv[2]), end = atoi(argv[2]);
-		if(start < 0 || start >= numCanon) {
-			fprintf(stderr, "Invalid ID\n");
-			exit(-1);
+		if(strcmp(argv[2], "-1") == 0) {
+			directed = true;
+			start = 0, end = numCanon - 1;
+		} else {
+			start = atoi(argv[2]), end = atoi(argv[2]);
+			if(start < 0 || start >= numCanon) {
+				fprintf(stderr, "Invalid ID\n");
+				exit(-1);
+			}
 		}
 	} else {
 		start = atoi(argv[2]), end = atoi(argv[3]);
