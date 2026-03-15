@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
             print newline
 
     */
-    TINY_GRAPH *g = TinyGraphAlloc(k,G->selfLoops,false);
+    TINY_GRAPH *g = TinyGraphAlloc(k-1,G->selfLoops,false);
     TSET induceTSET = TSET_NULLSET;
     Gint_type Gint = 0;
     int tsetBit;

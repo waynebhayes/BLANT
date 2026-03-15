@@ -109,14 +109,15 @@ extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
-extern unsigned int _Bk;
+extern unsigned int _Bk,_Bkd;
 
 extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
 
 extern char **_nodeNames;
 extern Boolean _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
-extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
+extern Gordinal_type *_K, *_Kud; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
+
 extern Gordinal_type L_K_Func(Gint_type Gint);
 #if DYNAMIC_CANON_MAP
 #define L_K(Gint) L_K_Func(Gint)

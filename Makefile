@@ -110,7 +110,6 @@ endif
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
 alpha_sampling_methods := NBE EBE MCMC
 alpha_txts_ud := $(foreach method,$(alpha_sampling_methods),$(UND_CANON_DIR)/alpha_list_$(method))
-alpha_txts_dir := $(foreach method,$(alpha_sampling_methods),$(DIR_CANON_DIR)/alpha_list_$(method))
 canon_txt_ud := $(UND_CANON_DIR)/canon_map $(UND_CANON_DIR)/canon_list $(UND_CANON_DIR)/canon-ordinal-to-signature $(UND_CANON_DIR)/orbit_map $(alpha_txts_ud)
 canon_txt_dir := $(DIR_CANON_DIR)/canon_map $(DIR_CANON_DIR)/canon_list $(DIR_CANON_DIR)/canon-ordinal-to-signature $(DIR_CANON_DIR)/orbit_map $(alpha_txts_dir)
 canon_bin_ud := $(UND_CANON_DIR)/canon_map $(UND_CANON_DIR)/perm_map
@@ -289,16 +288,6 @@ $(BLANT_CANON_DIR)/alpha_list_EBE%.txt: compute-alphas-EBE $(BLANT_CANON_DIR)/ca
 $(BLANT_CANON_DIR)/alpha_list_MCMC%.txt: compute-alphas-MCMC $(BLANT_CANON_DIR)/canon_list%.txt
 	./compute-alphas-MCMC $* > $(BLANT_CANON_DIR)/alpha_list_MCMC$*.txt;
 
-# directed counterparts (only k<=6 supported)
-$(DIR_CANON_DIR)/alpha_list_NBE%.txt: compute-alphas-NBE $(DIR_CANON_DIR)/canon_list%.txt
-	./compute-alphas-NBE $* -1 > $(DIR_CANON_DIR)/alpha_list_NBE$*.txt
-
-$(DIR_CANON_DIR)/alpha_list_EBE%.txt: compute-alphas-EBE $(DIR_CANON_DIR)/canon_list%.txt
-	./compute-alphas-EBE $* -1 > $(DIR_CANON_DIR)/alpha_list_EBE$*.txt
-
-$(DIR_CANON_DIR)/alpha_list_MCMC%.txt: compute-alphas-MCMC $(DIR_CANON_DIR)/canon_list%.txt
-	./compute-alphas-MCMC $* -1 > $(DIR_CANON_DIR)/alpha_list_MCMC$*.txt;
-
 $(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps
 	./make-orbit-maps $* > $(BLANT_CANON_DIR)/orbit_map$*.txt
 
@@ -313,7 +302,11 @@ $(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: $(SRCDIR)/cr
 	[ -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
 
 # and copy bin versions for directed k<=6
-$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: $(SRCDIR)/create-bin-data.c $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon_map%.txt
+$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
+	$(SRCDIR)/create-bin-data.c \
+	$(DIR_CANON_DIR)/canon_list%.txt \
+	$(DIR_CANON_DIR)/canon_map%.txt \
+	$(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin
 	# reuse same create-bin-data executable, but tell it we are working with directed data
 	[ -f $(DIR_CANON_DIR)/canon_map$*.bin -a -f $(DIR_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$* directed
 

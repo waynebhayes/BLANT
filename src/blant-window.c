@@ -143,7 +143,7 @@ void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int nu
 {
     int pending_D;
     memset(perm, 0, _k);
-    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);
     if (_windowRep_limit_neglect_trivial && GintOrdinal == _k - 1) return;
     if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
     {

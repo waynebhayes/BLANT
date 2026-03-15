@@ -78,7 +78,7 @@ char *_sampleFileName;
 // _k is the global variable storing k; _Bk=actual number of entries in the
 // canon_map for given k.
 unsigned int _k, _min_edge_count;
-unsigned int _Bk, _k_small;
+unsigned int _Bk, _k_small, _Bkd;
 
 unsigned long _known_canonical_count[] = {
     0,    1,     2,      4,        11,         34,          156,
@@ -156,7 +156,7 @@ double _desiredDigits, _desiredPrec, _confidence;
 // sizeof(short int) = 512MB. Grand total statically allocated memory is
 // exactly 1.25GB.
 // static short int _K[maxBk] __attribute__ ((aligned (8192)));
-Gordinal_type *_K = NULL; // Allocating memory dynamically
+Gordinal_type *_K = NULL, *_Kud=NULL; // Allocating memory dynamically
 
 /* AND NOW THE CODE */
 
@@ -329,14 +329,11 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
   }
 
   if (_sampleMethod == SAMPLE_NODE_EXPANSION) {
-    if(!_directed) sprintf(BUF, "%s/%s/alpha_list_NBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
-    else sprintf(BUF, "%s/%s/directed/alpha_list_NBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    sprintf(BUF, "%s/%s/alpha_list_NBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
   } else if (_sampleMethod == SAMPLE_EDGE_EXPANSION) {
-    if(!_directed) sprintf(BUF, "%s/%s/alpha_list_EBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
-    else sprintf(BUF, "%s/%s/directed/alpha_list_EBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    sprintf(BUF, "%s/%s/alpha_list_EBE%d.txt", _BLANT_DIR, _CANON_DIR, k);
   } else {
-    if(!_directed) sprintf(BUF, "%s/%s/alpha_list_MCMC%d.txt", _BLANT_DIR, _CANON_DIR, k);
-    else sprintf(BUF, "%s/%s/directed/alpha_list_MCMC%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    sprintf(BUF, "%s/%s/alpha_list_MCMC%d.txt", _BLANT_DIR, _CANON_DIR, k);
   }
   FILE *fp_ord = fopen(BUF, "r");
   if (!fp_ord)
@@ -344,9 +341,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
   Gint_type numAlphas = 0;
   if (1 != fscanf(fp_ord, GINT_FMT, &numAlphas) || numAlphas <= 0)
     Fatal("alphaListPopulate: fscanf failed to read numAlphas");
-#if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
-  assert(numAlphas == _numCanon);
-#endif
+  if(!_directed) assert(numAlphas == _numCanon);
   for (i = 0; i < numAlphas; i++)
     if (1 != fscanf(fp_ord, GINT_FMT, &alpha_list[i]))
       Fatal("alphaListPopulate: fscanf failed to read alpha[%d]", i);
@@ -512,7 +507,7 @@ void *RunBlantInThread(void *arg) {
 #if SELF_LOOPS
   TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
-  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, false);
 #endif
   unsigned Varray[varraySize];
   SET *prev_node_set = SetAlloc(G->n);
@@ -585,7 +580,7 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
 #if SELF_LOOPS
   TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
-  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, false);
 #endif
   unsigned Varray[varraySize];
   SET *prev_node_set = SetAlloc(G->n);

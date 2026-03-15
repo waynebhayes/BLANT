@@ -335,7 +335,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     TinyGraphInducedFromGraph(ug, G, Varray);
     Gint_type Gint = TinyGraph2Int(g,k);
     unsigned char perm[MAX_K];
-    Gordinal_type GintOrdinal=ExtractPerm(perm, Gint), j;
+    Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
 
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
