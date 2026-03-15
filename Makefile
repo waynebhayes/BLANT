@@ -266,6 +266,9 @@ libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libway
 # canon_map, canon_list, and canon-...-signature are all targeted together, because they all depend on output from fast-canon-map
 # for simplicity and readability, they can be created seperately, in which canon_list depends on canon_map, and sig depends on canon_list, but it doesn't really matter
 $(BLANT_CANON_DIR)/canon_map%.txt $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon-ordinal-to-signature%.txt: fast-canon-map
+	mkdir -p $(BLANT_CANON_DIR)
+	[ $* -eq 8 -a '(' -f $(BLANT_CANON_DIR)/canon_map$*.txt -o -f $(BLANT_CANON_DIR)/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee $(BLANT_CANON_DIR)/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee $(BLANT_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(BLANT_CANON_DIR)/canon-ordinal-to-signature$*.txt
+
 # directed counterpart (only k values listed in K_DIR)
 $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p $(DIR_CANON_DIR)
@@ -318,7 +321,7 @@ $(BLANT_CANON_DIR)/EdgeHammingDistance%.txt: makeEHD | $(BLANT_CANON_DIR)/canon_
 .INTERMEDIATE: .created-subcanon-maps
 sub$(BLANT_CANON_DIR): $(subcanon_txts) ;
 $(subcanon_txts): .created-subcanon-maps
-..created-subcanon-maps: make-subcanon-maps | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
+.created-subcanon-maps: make-subcanon-maps | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
 	# only do it for k > 3 since it's 4-3, 5-4, etc.
 	for k in $(K); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k > $(BLANT_CANON_DIR)/subcanon_map$$k-$$(($$k-1)).txt; fi; done
 	# make directed subcanon maps as well for k values where they exist
@@ -370,7 +373,7 @@ pristine: clean clean_$(BLANT_CANON_DIR)
 ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
-	@/bin/rm -f $(BLANT_CANON_DIR)/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
+	@find $(BLANT_CANON_DIR) -maxdepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
 	@./scripts/delete-python-shit.sh $(UNAME)
 
