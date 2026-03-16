@@ -47,7 +47,7 @@ Boolean _permuteDgraphlets(int size, int* array) {
 	Given preallocated k graphlet and d graphlet. Assumes Gk is connected
 */
 Gint_type ComputeAlpha(TINY_GRAPH *Gk, TINY_GRAPH *Gd, unsigned* combinArrayD, unsigned* combinArrayL, int k, Gint_type L) {
-    assert(k >= 3 && k <=MAX_K); //TSET used limits to 8 bits of set represntation.
+    assert(k >= 3 && k <=(_directed ? MAX_KD : MAX_K)); //TSET used limits to 8 bits of set represntation.
     assert(_L == L);
     _alpha = 0;
     Gint_type numDGraphlets = CombinChoose(k, mcmc_d); //The number of possible d graphlets in our k graphlet
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
     char BUF[BUFSIZ];
     TINY_GRAPH *gk = TinyGraphAlloc(k, SELF_LOOPS, false);
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d, SELF_LOOPS, false);
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges,false);
     Gordinal_type numCanon = _connectedCanonicals->maxElem;
 
 	int start, end;

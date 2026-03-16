@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
     TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges,false);
     Gordinal_type numCanon = _connectedCanonicals->maxElem;
 
 	int start, end;

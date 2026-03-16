@@ -103,7 +103,7 @@ char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
 // The following is > 2^32, and would requires a SET implementation allowing members with value > 32 bits.
 //#define MCMC_MAX_HASH 8589934591UL // 2^33-9, according to https://www.dcode.fr/closest-prime-number; about 1GB
 
-static GRAPH *_G; // local copy of GRAPH *G
+static GRAPH *_G,*_realG; // local copy of GRAPH *G
 
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 // Now THREAD-SAFE: uses _Thread_local storage instead of static shared state
@@ -112,6 +112,8 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     if (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_MCMC_EC && _sampleMethod != SAMPLE_INDEX) return false;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
+    if(_realG) assert(_realG == (_directed ? (G+1) : G));
+    else _realG=(_directed ? (G+1) : G);
     // Now thread-safe: each thread maintains its own duplicate detection state
     // Use heap allocation instead of stack for large circular buffer (512MB is too big for thread-local stack)
     _Thread_local static unsigned *circBuf = NULL;
@@ -246,6 +248,8 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
     SET*** _tCommunityNeighbors=accums->communityNeighbors;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
+    if(_realG) assert(_realG == (_directed ? (G+1) : G));
+    else _realG=(_directed ? (G+1) : G);
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
 #if SORT_INDEX_MODE
@@ -288,6 +292,8 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
     SET*** _tCommunityNeighbors=accums->communityNeighbors;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
+    if(_realG) assert(_realG == (_directed ? (G+1) : G));
+    else _realG=(_directed ? (G+1) : G);
     assert(TinyGraphDFSConnected(g,0));
     int c,d; // canonical nodes
 #if SORT_INDEX_MODE
@@ -321,12 +327,17 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 {
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
+    if(_realG) assert(_realG == (_directed ? (G+1) : G));
+    else _realG=(_directed ? (G+1) : G);
     Boolean processed = true;
-    TinyGraphInducedFromGraph(g, G, Varray);
+    g->directed = _directed;
+    TinyGraphInducedFromGraph(g, _realG, Varray);
+    TINY_GRAPH *ug = TinyGraphAlloc(k, g->selfLoops, g->directed);
+    TinyGraphInducedFromGraph(ug, G, Varray);
     Gint_type Gint = TinyGraph2Int(g,k);
+    assert(g->directed == _directed);
     unsigned char perm[MAX_K];
-    Gordinal_type GintOrdinal=ExtractPerm(perm, Gint), j;
-
+    Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
@@ -334,7 +345,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     if(accums->canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
 	int i;
 	accums->canonNumStarMotifs[GintOrdinal] = 0;
-	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
+	for(i=0; i<_k; i++) if(TinyGraphDegree(ug,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
     }
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     accums->graphletCount[GintOrdinal]+=weight;
@@ -352,10 +363,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     if(_outputMode & predict) {
 	assert(!G->weight);
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else Predict_ProcessGraphlet(G,Varray,g,Gint,GintOrdinal);
+	else Predict_ProcessGraphlet(G,Varray,ug,Gint,GintOrdinal);
     }
     if(_outputMode & indexOrbits) {
-	assert(TinyGraphDFSConnected(g,0));
+	if(!g->directed) assert(TinyGraphDFSConnected(g,0));
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G,Varray,k) ||
 	    (_sampleMethod == SAMPLE_INDEX && !SetIn(_windowRep_allowed_ambig_set, GintOrdinal))) processed=false;
@@ -363,11 +374,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     }
     if(_outputMode & communityDetection) {
 	if(_canonNumEdges[GintOrdinal] < _min_edge_count) processed=false;
-	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm, accums);
-	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, g, k, weight, perm, accums);
-	else Fatal("unkwown _communityMode %c", _communityMode);
+	else if(_communityMode == 'o') ProcessNodeOrbitNeighbors(G, Gint, GintOrdinal, Varray, ug, k, weight, perm, accums);
+	else if(_communityMode == 'g') ProcessNodeGraphletNeighbors(G, Gint, GintOrdinal, Varray, ug, k, weight, perm, accums);
+	else Fatal("unknown _communityMode %c", _communityMode);
     }
-
     // the macros GDV and ODV access the global array and are thus only used in single thread (_MCMC_EVERY_EDGE) modes
     if (_MCMC_EVERY_EDGE || (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_NODE_EXPANSION && 
         _sampleMethod != SAMPLE_EDGE_EXPANSION)) {

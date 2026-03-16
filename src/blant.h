@@ -26,6 +26,8 @@ extern unsigned long _numSamples;
 extern double _confidence; // for confidence intervals
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
+extern Boolean _directed; //whether graphs are directed
+
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
 extern unsigned long _known_canonical_count[]; //known number of canonicals for k=0 to 12 inclusive (13 entries)
@@ -63,8 +65,9 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
   #if int_width >= 28 && short_width >= 16
     typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
     #define GINT_FMT "%u"
-    typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
-    #define GORDINAL_FMT "%hu"
+    typedef unsigned Gordinal_type;
+    //typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient (commented out b/c directed graphs require 18 bits)
+    #define GORDINAL_FMT "%u"
     #define MAX_BINTREE_K 8
   #else
     #error "cannot do TINY_SET_SIZE 8 due to no integers long enough"
@@ -82,10 +85,10 @@ void SetBlantDirs(void);
 double GetCPUseconds(void);
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
-Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k);
-SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges); // returns a SET containing list of connected ordinals
+Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed);
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges, Boolean directed); // returns a SET containing list of connected ordinals
 Gint_type orbitListPopulate(char *BUF, Gint_type orbit_list[MAX_CANONICALS][MAX_K],
-    Gordinal_type orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], Gordinal_type numCanon, int k);
+    Gordinal_type orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], Gordinal_type numCanon, int k, Boolean directed);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
 
@@ -106,14 +109,15 @@ extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
-extern unsigned int _Bk;
+extern unsigned int _Bk,_Bkd;
 
 extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
 
 extern char **_nodeNames;
 extern Boolean _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
-extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
+extern Gordinal_type *_K, *_Kud; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
+
 extern Gordinal_type L_K_Func(Gint_type Gint);
 #if DYNAMIC_CANON_MAP
 #define L_K(Gint) L_K_Func(Gint)

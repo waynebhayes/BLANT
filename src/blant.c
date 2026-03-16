@@ -81,7 +81,7 @@ char *_sampleFileName;
 // _k is the global variable storing k; _Bk=actual number of entries in the
 // canon_map for given k.
 unsigned int _k, _min_edge_count;
-unsigned int _Bk, _k_small;
+unsigned int _Bk, _k_small, _Bkd;
 
 unsigned long _known_canonical_count[] = {
     0,    1,     2,      4,        11,         34,          156,
@@ -159,7 +159,7 @@ double _desiredDigits, _desiredPrec, _confidence;
 // sizeof(short int) = 512MB. Grand total statically allocated memory is
 // exactly 1.25GB.
 // static short int _K[maxBk] __attribute__ ((aligned (8192)));
-Gordinal_type *_K = NULL; // Allocating memory dynamically
+Gordinal_type *_K = NULL, *_Kud=NULL; // Allocating memory dynamically
 
 /* AND NOW THE CODE */
 
@@ -344,9 +344,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
   Gint_type numAlphas = 0;
   if (1 != fscanf(fp_ord, GINT_FMT, &numAlphas) || numAlphas <= 0)
     Fatal("alphaListPopulate: fscanf failed to read numAlphas");
-#if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
-  assert(numAlphas == _numCanon);
-#endif
+  if(!_directed) assert(numAlphas == _numCanon);
   for (i = 0; i < numAlphas; i++)
     if (1 != fscanf(fp_ord, GINT_FMT, &alpha_list[i]))
       Fatal("alphaListPopulate: fscanf failed to read alpha[%d]", i);
@@ -511,7 +509,7 @@ void *RunBlantInThread(void *arg) {
 #if SELF_LOOPS
   TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
-  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, false);
 #endif
   unsigned Varray[varraySize];
   SET *prev_node_set = SetAlloc(G->n);
@@ -579,7 +577,7 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
 #if SELF_LOOPS
   TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
-  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, false);
 #endif
   unsigned Varray[varraySize];
   SET *prev_node_set = SetAlloc(G->n);
@@ -720,8 +718,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
            "be ran.");
       _numThreads = 1; // this is unecessary since the below code doesn't use
                        // _numThreads at all, but keep anyway
-    }
-
+    }  
     unsigned prev_nodes_array[_k];
 
     // Get heuristic values based on orbit number, if ODV file provided
@@ -757,7 +754,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     }
 
     qsort((void *)nwhn_arr, G->n, sizeof(node_whn), comp_func);
-
     for (i = 0; i < G->n; i++) {
       prev_nodes_array[0] = nwhn_arr[i].node;
       SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, heuristicValues);
@@ -850,7 +846,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         _numThreads = 1;
       }
     }
-
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -863,7 +858,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     if (_numThreads == 1) {
       singleThreadAccums = InitializeAccumulatorStruct(G);
     }
-
     int whileLoopCounter=-1;
     while (!confMet && !_earlyAbort) {
       ++whileLoopCounter;
@@ -879,6 +873,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
           SampleNGraphletsInThreads(_seed+_numThreads*whileLoopCounter, k, G, varraySize, numSamples, _numThreads);
         }
         samplesCounter += numSamples;
+        confMet = true; //to exit loop
 	break;
       case stopOnPrecision:
         // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than
@@ -1028,7 +1023,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         break;
       }
     }
-
     // If we ran in single-threaded mode, we must now merge the
     // singleThreadAccums into the global accumulators.
     // This logic is copied from the end of SampleNGraphletsInThreads.
@@ -2390,7 +2384,7 @@ int main(int argc, char *argv[]) {
   SetBlantDirs();       // Needs to be done before reading any files in BLANT
                         // directory
   SetGlobalCanonMaps(); // needs _k to be set
-  LoadMagicTable();     // needs _k to be set
+  if(!_directed) LoadMagicTable();     // needs _k to be set
 
   if (_window && _windowSize >= 3) {
     if (_windowSampleMethod == -1)
@@ -2475,7 +2469,6 @@ int main(int argc, char *argv[]) {
       Fatal("must specify either desired precision using -[Pp] (preferred) or "
             "number of samples (less preferred)");
   }
-
   // Derik: start here
   FILE *fpGraph;
   int piped = 0;
@@ -2520,7 +2513,6 @@ int main(int argc, char *argv[]) {
     Note("undirected G has %d edges; directed has %d", G->numEdges,
          (G + 1)->numEdges);
   }
-
   if (_useComplement)
     G->useComplement = true;
 
@@ -2580,7 +2572,6 @@ int main(int argc, char *argv[]) {
       SetAdd(_startNodeSet, l);
     }
   }
-
   if (_outputMode & communityDetection) {
     if (_communityMode == 'o' ||
         _communityMode == 'g') // allocate sets for [node][orbit], but 2nd
@@ -2635,7 +2626,6 @@ int main(int argc, char *argv[]) {
     exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
   }
 #endif
-
   exitStatus = RunBlantFromGraph(_k, numSamples, G);
   if (&inputG[0] != G)
     GraphFree(G);

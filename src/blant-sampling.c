@@ -262,7 +262,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     double multiplier = 1;
     for(i=2; i<k; i++)
     {
-	if(nOut == 0) // the graphlet has saturated it's connected component
+	if(nOut == 0) // the graphlet has saturated its connected component
 	    Apology("NBE found a connected component with fewer than k nodes; this should be detected earlier!");
 	j = nOut * RandomUniform();
 	if(!_rawCounts) multiplier *= nOut;
@@ -285,12 +285,14 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(nOut == SetCardinality(outSet));
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+	TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
+	TINY_GRAPH *gd = TinyGraphAlloc(k, SELF_LOOPS, _directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
-	Gint_type Gint = TinyGraph2Int(g, k);
+	gd = TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
+	Gint_type Gint = TinyGraph2Int(g, k),Gdint = TinyGraph2Int(gd, k);
 	unsigned char perm[k];
 	memset(perm, 0, k);
-	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint,false),GintOrdinalD = ExtractPerm(perm, Gdint,_directed);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
@@ -299,13 +301,13 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
 	if (_outputMode & outputGDV) {
 	    for (j = 0; j < k; j++) {
-        accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+        	accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if(ocount < 0) {
-	Warning("ocount (%g) is less than 0\n", ocount);
+	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-    accums->graphletConcentration[GintOrdinal] += ocount;
+    accums->graphletConcentration[GintOrdinalD] += ocount;
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
 	TinyGraphFree(g);
     }
@@ -404,7 +406,7 @@ double SampleGraphletFaye(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	    SampleGraphletFaye(G, V, Varray, k, whichCC);
 	    depth--;
 	    // Ensure the damn thing really *is* connected.
-	    TINY_GRAPH *T = TinyGraphAlloc(k,false,false);
+	    TINY_GRAPH *T = TinyGraphAlloc(k,G->selfAllowed,false);
 	    TinyGraphInducedFromGraph(T, G, Varray);
 #if PARANOID_ASSERTS
 	    assert(NumReachableNodes(T,0) == k);
@@ -636,27 +638,31 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(vCount == k);
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
+	TINY_GRAPH *g = TinyGraphAlloc(k,G->selfAllowed,false);
+	TINY_GRAPH *gd = TinyGraphAlloc(k,G->selfAllowed,_directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
+	TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
+	Gint_type Gdint = TinyGraph2Int(gd, k);
 	unsigned char perm[k];
 	memset(perm, 0, k);
-	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);
+	Gordinal_type GintOrdinalD = ExtractPerm(perm, Gdint, _directed);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
-		accums->orbitDegreeVector[_orbitList[GintOrdinal][j]][Varray[(int)perm[j]]] += ocount;
+		accums->orbitDegreeVector[_orbitList[GintOrdinalD][j]][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode & outputGDV) {
 	    for (j = 0; j < k; j++) {
-        accums->graphletDegreeVector[GintOrdinal][Varray[(int)perm[j]]] += ocount;
+        	accums->graphletDegreeVector[GintOrdinalD][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	accums->graphletConcentration[GintOrdinal] += ocount;
+	accums->graphletConcentration[GintOrdinalD] += ocount;
 
 	_g_overcount = ocount;
 	TinyGraphFree(g);
@@ -764,7 +770,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 	    if(reservoir_alpha < k/(double)i)
 	    {
 		static TINY_GRAPH *T;
-		if(!T) T = TinyGraphAlloc(k,false,false);
+		if(!T) T = TinyGraphAlloc(k,G->selfAllowed,false);
 #if PARANOID_ASSERTS
 		static int graphetteArray[MAX_K], distArray[MAX_K];
 		// ensure it's connected before we do the replacement
@@ -832,11 +838,13 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     _Thread_local static QUEUE *XLQ = NULL; // A queue holding L dgraphlets as separate vertex integers
     _Thread_local static int Xcurrent[mcmc_d]; // holds the most recently walked d graphlet as an invariant
     _Thread_local static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
+    _Thread_local static TINY_GRAPH *gd = NULL; // Tinygraph for computing overcounting;
     if (!XLQ || !XLS || !g) {
 	// Thread-local initialization - each thread maintains its own MCMC chain state
 	XLQ = QueueAlloc(k*mcmc_d);
 	XLS = MultisetAlloc(G->n);
-	g = TinyGraphAlloc(k,false,false);
+	g = TinyGraphAlloc(k,G->selfAllowed,false);
+	gd = TinyGraphAlloc(k,G->selfAllowed,_directed);
     }
     // SYNTH: currentOrdinal =....
     // The first time we run this, or when we restart. We want to find our initial L d graphlets.
@@ -898,10 +906,13 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	assert(multiplier > 0.0);
     }
     TinyGraphInducedFromGraph(g, G, Varray);
+    TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
     Gint_type Gint = TinyGraph2Int(g, k);
+	Gint_type Gdint = TinyGraph2Int(gd, k);
     unsigned char perm[k];
     memset(perm, 0, k);
-    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);
+    Gordinal_type GintOrdinalD = ExtractPerm(perm, Gdint, _directed);
 	// SYNTH: this is where the new ordinal graphlet ID is computed
 #if SYNTHETIC
     static int prevOrdinal;
@@ -941,7 +952,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
     }
-    accums->graphletConcentration[GintOrdinal] += ocount;
+    accums->graphletConcentration[GintOrdinalD] += ocount;
 
     // SYNTH: increment row[old], column[new] by 1
     _g_overcount = ocount;
@@ -1027,7 +1038,7 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     static TINY_GRAPH *g = NULL; // Tinygraph for computing overcounting;
     if (!g) {
 	//NON REENTRANT CODE
-	g = TinyGraphAlloc(k,false,false);
+	g = TinyGraphAlloc(k,G->selfAllowed,false);
     }
 
     double multiplier = 1;
@@ -1169,7 +1180,7 @@ double SampleGraphletLuBressan_MCMC_MHS_with_Ooze(GRAPH *G, SET *V, unsigned *Va
 */
 double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k)
 {
-    TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
+    TINY_GRAPH *g = TinyGraphAlloc(k,G->selfAllowed,false);
 
     int tries = 0;
     do
@@ -1251,8 +1262,8 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     // i, j, and neigh are just used in for loops in this function
     int i, j, neigh;
     // the tiny_graph is not used in this function. it is only used as a temporary data object as part of ProcessGraphlet (see below)
-    TINY_GRAPH *g = TinyGraphAlloc(_k,false,false);
-
+    TINY_GRAPH *g = TinyGraphAlloc(_k,G->selfAllowed,false);
+    //TinyGraphPrintAdjMatrix(stderr,g);
     // base case for the recursion: a k-graphlet is found, print it and return
     if (prev_nodes_count == _k) {
         // ProcessGraphlet creates the k-node induced graphlet from prev_nodes_array, and then determine if said graphlet is of

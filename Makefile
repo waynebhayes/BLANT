@@ -80,6 +80,21 @@ BLANT_SRCS = blant.c \
 
 OBJDIR = _objs
 BLANT_CANON_DIR = canon_maps
+UND_CANON_DIR := $(BLANT_CANON_DIR)
+DIR_CANON_DIR := $(BLANT_CANON_DIR)/directed
+
+# directed canonical values; start with the full range 3..6
+# and then remove entries when NO8 or NO7 are set.  This keeps the
+# format identical to the `K` list used for undirected data.
+K_DIR := 3 4 5 6
+ifdef NO8
+	# don't build k=6 if undirected 8 is disabled
+	K_DIR := $(filter-out 6,$(K_DIR))
+endif
+ifdef NO7
+	# NO7 implies NO8; drop both 5 and 6
+	K_DIR := $(filter-out 5 6,$(K_DIR))
+endif
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
 ifneq ("$(wildcard $(SRCDIR)/EdgePredict/blant-predict.c)","")
@@ -94,12 +109,16 @@ endif
 # these variables serve only to help in the creation of the generated file lists variables
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
 alpha_sampling_methods := NBE EBE MCMC
-alpha_txts := $(foreach method,$(alpha_sampling_methods),$(BLANT_CANON_DIR)/alpha_list_$(method))
-canon_txt := $(BLANT_CANON_DIR)/canon_map $(BLANT_CANON_DIR)/canon_list $(BLANT_CANON_DIR)/canon-ordinal-to-signature $(BLANT_CANON_DIR)/orbit_map $(alpha_txts)
-canon_bin := $(BLANT_CANON_DIR)/canon_map $(BLANT_CANON_DIR)/perm_map
+alpha_txts_ud := $(foreach method,$(alpha_sampling_methods),$(UND_CANON_DIR)/alpha_list_$(method))
+canon_txt_ud := $(UND_CANON_DIR)/canon_map $(UND_CANON_DIR)/canon_list $(UND_CANON_DIR)/canon-ordinal-to-signature $(UND_CANON_DIR)/orbit_map $(alpha_txts_ud)
+canon_txt_dir := $(DIR_CANON_DIR)/canon_map $(DIR_CANON_DIR)/canon_list $(DIR_CANON_DIR)/canon-ordinal-to-signature $(DIR_CANON_DIR)/orbit_map $(alpha_txts_dir)
+canon_bin_ud := $(UND_CANON_DIR)/canon_map $(UND_CANON_DIR)/perm_map
+canon_bin_dir := $(DIR_CANON_DIR)/canon_map $(DIR_CANON_DIR)/perm_map
 
 # actual generated file lists variables
-canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix $(k).bin, $(canon_bin)))
+canon_all_ud := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt_ud)) $(addsuffix $(k).bin, $(canon_bin_ud)))
+canon_all_dir := $(foreach k, $(K_DIR), $(addsuffix $(k).txt, $(canon_txt_dir)) $(addsuffix $(k).bin, $(canon_bin_dir)))
+canon_all := $(canon_all_ud) $(canon_all_dir)
 subcanon_txts := $(if $(EIGHT),$(BLANT_CANON_DIR)/subcanon_map8-7.txt) $(if $(SEVEN),$(BLANT_CANON_DIR)/subcanon_map7-6.txt) $(BLANT_CANON_DIR)/subcanon_map6-5.txt $(BLANT_CANON_DIR)/subcanon_map5-4.txt $(BLANT_CANON_DIR)/subcanon_map4-3.txt
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
 
@@ -248,6 +267,16 @@ libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libway
 # for simplicity and readability, they can be created seperately, in which canon_list depends on canon_map, and sig depends on canon_list, but it doesn't really matter
 $(BLANT_CANON_DIR)/canon_map%.txt $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p $(BLANT_CANON_DIR)
+	[ $* -eq 8 -a '(' -f $(BLANT_CANON_DIR)/canon_map$*.txt -o -f $(BLANT_CANON_DIR)/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee $(BLANT_CANON_DIR)/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee $(BLANT_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(BLANT_CANON_DIR)/canon-ordinal-to-signature$*.txt
+
+# directed counterpart (only k values listed in K_DIR)
+$(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon-ordinal-to-signature%.txt: fast-canon-map
+	mkdir -p $(DIR_CANON_DIR)
+	@# run only if this k is in K_DIR
+	@if echo "$(K_DIR)" | grep -qw "$*"; then \
+		./fast-canon-map $* directed | tee $(DIR_CANON_DIR)/canon_map$*.txt | awk -F '\t' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee $(DIR_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(DIR_CANON_DIR)/canon-ordinal-to-signature$*.txt; \
+	fi
+	mkdir -p $(BLANT_CANON_DIR)
 	@# It's cheap to make all but k=8 canon maps, so make all but skip 8 if it already exists. Then, print and output it all to respective map, list, and signature txt files
 	[ $* -eq 8 -a '(' -f $(BLANT_CANON_DIR)/canon_map$*.txt -o -f $(BLANT_CANON_DIR)/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee $(BLANT_CANON_DIR)/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee $(BLANT_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(BLANT_CANON_DIR)/canon-ordinal-to-signature$*.txt
 	@# If k=8 and canon_map.txt exists but not the compressed version, generate compressed version
@@ -265,11 +294,24 @@ $(BLANT_CANON_DIR)/alpha_list_MCMC%.txt: compute-alphas-MCMC $(BLANT_CANON_DIR)/
 $(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps
 	./make-orbit-maps $* > $(BLANT_CANON_DIR)/orbit_map$*.txt
 
+# directed orbit maps
+$(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps
+	./make-orbit-maps $* directed > $(DIR_CANON_DIR)/orbit_map$*.txt
+
 # future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
 $(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: $(SRCDIR)/create-bin-data.c $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.txt
 	# compile create-bin-data.c to create-bin-data[k] executables
 	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	[ -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
+
+# and copy bin versions for directed k<=6
+$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
+	$(SRCDIR)/create-bin-data.c \
+	$(DIR_CANON_DIR)/canon_list%.txt \
+	$(DIR_CANON_DIR)/canon_map%.txt \
+	$(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin
+	# reuse same create-bin-data executable, but tell it we are working with directed data
+	[ -f $(DIR_CANON_DIR)/canon_map$*.bin -a -f $(DIR_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$* directed
 
 # Currently unused target
 $(BLANT_CANON_DIR)/EdgeHammingDistance%.txt: makeEHD | $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.bin
@@ -282,6 +324,8 @@ $(subcanon_txts): .created-subcanon-maps
 .created-subcanon-maps: make-subcanon-maps | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
 	# only do it for k > 3 since it's 4-3, 5-4, etc.
 	for k in $(K); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k > $(BLANT_CANON_DIR)/subcanon_map$$k-$$(($$k-1)).txt; fi; done
+	# make directed subcanon maps as well for k values where they exist
+	for k in $(K_DIR); do if [ $$k -gt 3 ]; then ./make-subcanon-maps $$k directed > $(DIR_CANON_DIR)/subcanon_map$$k-$$(($$k-1)).txt; fi; done
 
 magic_table: $(magic_table_txts) ;
 $(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_txts) $(canon_map_bins)
@@ -319,6 +363,7 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 clean:
 	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
 	@/bin/rm -rf $(OBJDIR)/*
+	@/bin/rm -rf $(DIR_CANON_DIR)/* || true
 
 realclean:
 	echo "'realclean' is now called 'pristine'; try again"
@@ -328,10 +373,11 @@ pristine: clean clean_$(BLANT_CANON_DIR)
 ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
-	@/bin/rm -f $(BLANT_CANON_DIR)/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
+	@find $(BLANT_CANON_DIR) -maxdepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
 	@./scripts/delete-python-shit.sh $(UNAME)
 
 clean_$(BLANT_CANON_DIR):
 	@/bin/rm -f $(BLANT_CANON_DIR)/*[3-7].* # don't remove 8 since it takes too long to create
+	@/bin/rm -f $(DIR_CANON_DIR)/*[3-6].* || true # directed only goes through k=6
 	@/bin/rm -f orca_jesse_blant_table/UpperToLower*.txt
