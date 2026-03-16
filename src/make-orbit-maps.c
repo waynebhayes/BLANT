@@ -26,7 +26,7 @@ Boolean nextPermutation(int permutation[])
 	if(permutation[i]>permutation[i-1])
 	{
 	    int j;
-	    for(j=k-1;j>(directed ? -1 : i-1);j--){
+	    for(j=k-1;j>i-1;j--){
 		if(permutation[i-1]<permutation[j]){
 		    t=permutation[i-1];
 		    permutation[i-1]=permutation[j];
@@ -35,7 +35,7 @@ Boolean nextPermutation(int permutation[])
 		}
 	    }
 	    int l=i;
-	    for(j=k-1;j>(directed ? -1 : l);j--)
+	    for(j=k-1;j>l;j--)
 	    {
 		if(i<j){
 		    t=permutation[i];
@@ -58,7 +58,7 @@ Gint_type getDecimal(int adj[k][k+1]) {
     for(i=k-1;i>0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
-    for(i=k-2;i>=0;i--)
+    for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
 #endif
 	{
@@ -75,7 +75,7 @@ void getGraph(Gint_type base10, int adj[k][k+1]){
     for(i=k-1;i>0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
-    for(i=k-2;i>=0;i--)
+    for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
 #endif
 	{

@@ -330,13 +330,14 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     if(_realG) assert(_realG == (_directed ? (G+1) : G));
     else _realG=(_directed ? (G+1) : G);
     Boolean processed = true;
+    g->directed = _directed;
     TinyGraphInducedFromGraph(g, _realG, Varray);
     TINY_GRAPH *ug = TinyGraphAlloc(k, g->selfLoops, g->directed);
     TinyGraphInducedFromGraph(ug, G, Varray);
     Gint_type Gint = TinyGraph2Int(g,k);
+    assert(g->directed == _directed);
     unsigned char perm[MAX_K];
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
-
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif

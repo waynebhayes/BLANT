@@ -25,12 +25,12 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
     int i, j, bitPos=0;
     Gint_type Gint = 0, bit;
 
-    for(i=k-1;i>0;i--)
+    for(i=k-1;i>=0;i--)
     {
 	#if LOWER_TRIANGLE
-	for(j=k-1-(k-i)*(1-g->directed);j>=0;j--)
+	for(j=(g->directed ? k-1 : i-!SELF_LOOPS);j>=0;j--)
 	#else
-	for(j=k-1;j>=i*(1-g->directed);j--)	
+	for(j=k-1;j>=(g->directed ? 0 : i+!SELF_LOOPS);j--)
 	#endif
 	{
 	    if(i==j&&!SELF_LOOPS) continue;
@@ -57,9 +57,9 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
     TinyGraphEdgesAllDelete(G);
 	for(i=k-1;i>=0;i--){
 	#if LOWER_TRIANGLE
-	for(j=k-1-(k-i)*(1-G->directed);j>=0;j--)
+	for(j=(G->directed ? k-1 : i-!SELF_LOOPS);j>=0;j--)
 	#else
-	for(j=k-1;j>=i*(1-G->directed);j--)
+	for(j=k-1;j>=(G->directed ? 0 : i+!SELF_LOOPS);j--)
 	#endif
 	{
 	    if(i==j && !G->selfLoops) continue;

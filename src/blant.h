@@ -67,7 +67,7 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
     #define GINT_FMT "%u"
     typedef unsigned Gordinal_type;
     //typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient (commented out b/c directed graphs require 18 bits)
-    #define GORDINAL_FMT "%hu"
+    #define GORDINAL_FMT "%u"
     #define MAX_BINTREE_K 8
   #else
     #error "cannot do TINY_SET_SIZE 8 due to no integers long enough"

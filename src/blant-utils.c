@@ -137,7 +137,7 @@ void SetGlobalCanonMaps(void)
     #else
 	_Bk = (1U <<(_k*(_k-1)/2));
     #endif
-    _Bkd = (1U <<(_k*_k));
+    _Bkd = (1U <<((_k-1)*_k));
     _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges, _directed);
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
@@ -197,7 +197,7 @@ Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint, Boolean direct
     for(j=0;j<3;j++) i32 |= ( directed ? (dPerm[Gint][j] << j*8) : (Permutations[Gint][j] << j*8));
     for(j=0;j<_k;j++)
 	perm[j] = (i32 >> 3*j) & 7;
-    assert(_K[Gint] < _numCanon); //not valid for directed
+    assert(_K[Gint] < _numCanon);
     return (directed ? _K[Gint] : ( _directed ? _Kud[Gint] : _K[Gint]));
 }
 

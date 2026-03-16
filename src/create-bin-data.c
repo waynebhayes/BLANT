@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Usage: %s [directed]\n", argv[0]);
         exit(1);
     }
-    unsigned Bk=( directed ? (1U <<(kk*kk)) : (1U <<(kk*(kk-1)/2 + kk*SELF_LOOPS)) );
+    unsigned Bk=( directed ? (1U <<(kk*(kk-1))) : (1U <<(kk*(kk-1)/2 + kk*SELF_LOOPS)) );
     K = (Gordinal_type*) calloc(Bk, sizeof(Gordinal_type));
     Permutations = (kperm*) calloc(Bk, sizeof(kperm));
     assert(K != NULL&&Permutations != NULL);
@@ -123,7 +123,6 @@ int main(int argc, char *argv[])
 	    else Fatal("too many count errors");
 	}
 #endif
-	ord=canon2ordinal(numCanon, canon_list, canonical);
 	assert(0<=ord && ord < numCanon);
 	K[line]=ord;
 	for(i=0;i<kk;i++)perm[i] -= '0';
@@ -144,6 +143,7 @@ int main(int argc, char *argv[])
     fp=fopen(buf,"wb");
     fwrite((void*)K,sizeof(K[0]),Bk,fp);
     fclose(fp);
+
     if(directed) sprintf(buf, "%s/%s/directed/perm_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
     else sprintf(buf, "%s/%s/perm_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
     fp=fopen(buf,"wb");
