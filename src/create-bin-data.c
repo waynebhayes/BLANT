@@ -123,6 +123,7 @@ int main(int argc, char *argv[])
 	    else Fatal("too many count errors");
 	}
 #endif
+    ord=canon2ordinal(numCanon, canon_list, canonical);
 	assert(0<=ord && ord < numCanon);
 	K[line]=ord;
 	for(i=0;i<kk;i++)perm[i] -= '0';
