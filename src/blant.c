@@ -1299,7 +1299,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     for (i = 0; i < G->n; i++) {
       PrintNode(buf, 0, i);
       for (j = 0; j < _numConnectedOrbits; j++) {
-        if (k == 4 || k == 5)
+        if ((k == 4 || k == 5) && !_directed)
           orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
         else
           orbit_index = _connectedOrbits[j];
