@@ -65,7 +65,7 @@
 #endif
 #endif
 #define MAX_CANONICALS 1540944 // for k=6, directed
-#define MAX_ORBITS 191021
+#define MAX_ORBITS 9174824
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
