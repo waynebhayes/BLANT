@@ -86,7 +86,7 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed)
 #else
     int Bk = (1U <<(k*(k-1)/2));
 #endif
-    if(directed) Bk = (1U <<(k*k));
+    if(directed) Bk = (1U <<(k*(k-1)));
     if(directed) sprintf(BUF, "%s/%s/directed/canon_map%d.bin", _BLANT_DIR, _CANON_DIR, k);
     else sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, _CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
