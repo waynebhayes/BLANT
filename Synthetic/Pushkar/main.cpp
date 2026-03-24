@@ -78,6 +78,14 @@ int getcomponents(const GraphMap &graph, vector< pair<int, int> > &csize) {
     return cnum;
 }
 
+
+struct NodeData {
+    double clusCoff;
+    int eccentricity;
+    double betweenness;
+    NodeData() : clusCoff(0), eccentricity(0), betweenness(0) {}
+};
+
 void getprops(const string &input_file_name, int evalues = -1) {
     // Create an output filename using a helper function and stringstream conversion instead of to_string.
     ostringstream oss;
@@ -141,12 +149,6 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<int, int> degree_dist;
 
     // Use a struct to store all per-node data together, similar to nodeMap from the python
-    struct NodeData {
-        double clusCoff;
-        int eccentricity;
-        double betweenness;
-        NodeData() : clusCoff(0), eccentricity(0), betweenness(0) {}
-    };
     vector<NodeData> nodedata(nodes);
     
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
