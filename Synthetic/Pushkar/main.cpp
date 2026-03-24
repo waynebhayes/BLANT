@@ -141,21 +141,23 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<int, int> degree_dist;
 
 	// Per-node storage structure, mirroring nodeMap from the Python
-	vector< vector<string> > nodemap(nodes);
+	struct NodeData {
+	    double clusCoff;
+	    int eccentricity;
+	    double betweenness;
+	    NodeData() : clusCoff(0), eccentricity(0), betweenness(0) {}
+	};
+	vector<NodeData> nodedata(nodes);
 	
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         double cc = GetNodeClustCf(snap_graph, nodeid);
         cc_sum += cc;
 		// store the clustering coefficient for this node rather than discarding it
-		ostringstream cc_oss;
-		cc_oss << cc;
-		nodemap[nodeid].push_back(cc_oss.str());
+		nodedata[nodeid].clusCoff = cc;
         int ecc = GetNodeEcc(snap_graph, nodeid, false);
         diameter = max(diameter, ecc);
 		// store eccentricity for the node as well
-		ostringstream ecc_oss;
-        ecc_oss << ecc;
-        nodemap[nodeid].push_back(ecc_oss.str());
+		nodedata[nodeid].eccentricity = ecc;
         
         TIntPrV nodevec;
         GetNodesAtHops(snap_graph, nodeid, nodevec, false);
@@ -193,9 +195,9 @@ void getprops(const string &input_file_name, int evalues = -1) {
 	for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
         int nodeid = it.GetKey();
         double val = it.GetDat();
-        ostringstream bw_oss;
-        bw_oss << val;
-        nodemap[nodeid].push_back(bw_oss.str());
+        if (nodeid >= 0 && nodeid < nodes) {  // Bounds check
+            nodedata[nodeid].betweenness = val;
+        }
     }
 
     // Output results.
@@ -236,10 +238,11 @@ void getprops(const string &input_file_name, int evalues = -1) {
     }
 
     cout << "node1 node2 edge_betweenness" << endl;
-    for (TIntPrFltH::TIter it = ebw.BegI(); it != ebw.EndI(); it++) {
-        TIntPr nodepid = it.GetKey();
-        TFlt val = it.GetDat();
-        cout << id2name[nodepid.GetVal1()] << " : " << id2name[nodepid.GetVal2()] << " " << val << " " << endl;
+    for (int nodeid = 0; nodeid < nodes; nodeid++) {
+        cout << id2name[nodeid] << " " 
+             << nodedata[nodeid].clusCoff << " "
+             << nodedata[nodeid].eccentricity << " "
+             << nodedata[nodeid].betweenness << endl;
     }
 
     cout << "########################################################### End-of-output\n";
