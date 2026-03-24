@@ -140,11 +140,22 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<int, int> khop;
     map<int, int> degree_dist;
 
+	// Per-node storage structure, mirroring nodeMap from the Python
+	vector<vector<string>> nodemap(nodes);
+	
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         double cc = GetNodeClustCf(snap_graph, nodeid);
         cc_sum += cc;
+		// store the clustering coefficient for this node rather than discarding it
+		ostringstream cc_oss;
+		cc_oss << cc;
+		nodeMap[nodeid].push_back(cc_oss.str());
         int ecc = GetNodeEcc(snap_graph, nodeid, false);
         diameter = max(diameter, ecc);
+		// store eccentricity for the node as well
+		ostringstream ecc_oss;
+        ecc_oss << ecc;
+        nodemap[nodeid].push_back(ecc_oss.str());
         
         TIntPrV nodevec;
         GetNodesAtHops(snap_graph, nodeid, nodevec, false);
@@ -178,6 +189,14 @@ void getprops(const string &input_file_name, int evalues = -1) {
     TIntFltH nbw;
     TIntPrFltH ebw;
     GetBetweennessCentr(snap_graph, nbw, ebw, 1.0, false);
+	// Store node betweenness in nodemap
+	for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
+        int nodeid = it.GetKey();
+        double val = it.GetDat();
+        ostringstream bw_oss;
+        bw_oss << val;
+        nodemap[nodeid].push_back(bw_oss.str());
+    }
 
     // Output results.
     cout << "\n########################################################### Global" << endl;
@@ -206,11 +225,14 @@ void getprops(const string &input_file_name, int evalues = -1) {
     }
     cout << endl;
 
-    cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
-    for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
-        TInt nodeid = it.GetKey();
-        TFlt val = it.GetDat();
-        cout << id2name[nodeid] << " " << val << endl;
+    // Output all four columns from nodemap
+	cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
+    for (int nodeid = 0; nodeid < nodes; nodeid++) {
+        cout << id2name[nodeid];
+        for (size_t j = 0; j < nodemap[nodeid].size(); j++) {
+            cout << " " << nodemap[nodeid][j];
+        }
+        cout << endl;
     }
 
     cout << "node1 node2 edge_betweenness" << endl;
