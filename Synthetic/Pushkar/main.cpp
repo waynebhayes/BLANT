@@ -103,12 +103,12 @@ void getprops(const string &input_file_name, int evalues = -1) {
         // assign each unique node-string an integer ID
         if (!idmap.count(su)) {
             idmap[su] = nextId;
-	    id2name.push_back(su);
+            id2name.push_back(su);
             snap_graph->AddNode(nextId++);
         }
         if (!idmap.count(sv)) {
             idmap[sv] = nextId;
-	    id2name.push_back(sv);
+            id2name.push_back(sv);
             snap_graph->AddNode(nextId++);
         }
         // add the undirected edge
@@ -116,9 +116,13 @@ void getprops(const string &input_file_name, int evalues = -1) {
     }
     gfile.close();
 
-    // Now it’s safe to call TSnap routines on snap_graph:
+    // Now it's safe to call TSnap routines on snap_graph:
     int nodes = snap_graph->GetNodes();
     int edges = snap_graph->GetEdges();
+
+    // DEBUG: Print basic graph info
+    cerr << "DEBUG: nodes=" << nodes << " edges=" << edges << endl;
+    cerr << "DEBUG: id2name.size()=" << id2name.size() << endl;
     
     // Build an adjacency list graph. Note: we use vector<set<int> > for storing unique neighbors.
     vector< set<int> > adj_list_graph(nodes);
@@ -140,24 +144,33 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<int, int> khop;
     map<int, int> degree_dist;
 
-	// Per-node storage structure, mirroring nodeMap from the Python
-	struct NodeData {
-	    double clusCoff;
-	    int eccentricity;
-	    double betweenness;
-	    NodeData() : clusCoff(0), eccentricity(0), betweenness(0) {}
-	};
-	vector<NodeData> nodedata(nodes);
-	
+    // Storage for per-node data
+    struct NodeData {
+        double clusCoff;
+        int eccentricity;
+        double betweenness;
+        NodeData() : clusCoff(0), eccentricity(0), betweenness(0) {}
+    };
+    vector<NodeData> nodedata(nodes);
+
+    cerr << "DEBUG: nodedata.size()=" << nodedata.size() << endl;
+    
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         double cc = GetNodeClustCf(snap_graph, nodeid);
         cc_sum += cc;
-		// store the clustering coefficient for this node rather than discarding it
-		nodedata[nodeid].clusCoff = cc;
+        nodedata[nodeid].clusCoff = cc;
+        
         int ecc = GetNodeEcc(snap_graph, nodeid, false);
         diameter = max(diameter, ecc);
-		// store eccentricity for the node as well
-		nodedata[nodeid].eccentricity = ecc;
+        nodedata[nodeid].eccentricity = ecc;
+        
+        // DEBUG: Print first 5 nodes' cc and ecc
+        if (nodeid < 5) {
+            cerr << "DEBUG: After cc/ecc loop - node " << nodeid 
+                 << " (" << id2name[nodeid] << ")"
+                 << " cc=" << nodedata[nodeid].clusCoff 
+                 << " ecc=" << nodedata[nodeid].eccentricity << endl;
+        }
         
         TIntPrV nodevec;
         GetNodesAtHops(snap_graph, nodeid, nodevec, false);
@@ -191,13 +204,34 @@ void getprops(const string &input_file_name, int evalues = -1) {
     TIntFltH nbw;
     TIntPrFltH ebw;
     GetBetweennessCentr(snap_graph, nbw, ebw, 1.0, false);
-	// Store node betweenness in nodemap
-	for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
+    
+    cerr << "DEBUG: nbw.Len()=" << nbw.Len() << endl;
+    
+    int bw_count = 0;
+    for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
         int nodeid = it.GetKey();
         double val = it.GetDat();
-        if (nodeid >= 0 && nodeid < nodes) {  // Bounds check
-            nodedata[nodeid].betweenness = val;
+        
+        // DEBUG: Print first 5 betweenness values
+        if (bw_count < 5) {
+            cerr << "DEBUG: Betweenness - nodeid=" << nodeid << " val=" << val << endl;
         }
+        bw_count++;
+        
+        if (nodeid >= 0 && nodeid < nodes) {
+            nodedata[nodeid].betweenness = val;
+        } else {
+            cerr << "DEBUG: WARNING - nodeid " << nodeid << " out of range [0," << nodes << ")" << endl;
+        }
+    }
+
+    // DEBUG: Check nodedata for first 5 nodes AFTER all data is stored
+    cerr << "DEBUG: Final nodedata check (first 5 nodes):" << endl;
+    for (int i = 0; i < 5 && i < nodes; i++) {
+        cerr << "DEBUG: node " << i << " (" << id2name[i] << ")"
+             << " cc=" << nodedata[i].clusCoff
+             << " ecc=" << nodedata[i].eccentricity
+             << " bw=" << nodedata[i].betweenness << endl;
     }
 
     // Output results.
@@ -227,22 +261,20 @@ void getprops(const string &input_file_name, int evalues = -1) {
     }
     cout << endl;
 
-    // Output all four columns from nodemap
-	cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
-    for (int nodeid = 0; nodeid < nodes; nodeid++) {
-        cout << id2name[nodeid];
-        for (size_t j = 0; j < nodemap[nodeid].size(); j++) {
-            cout << " " << nodemap[nodeid][j];
-        }
-        cout << endl;
-    }
-
-    cout << "node1 node2 edge_betweenness" << endl;
+    // Output node data
+    cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         cout << id2name[nodeid] << " " 
              << nodedata[nodeid].clusCoff << " "
              << nodedata[nodeid].eccentricity << " "
              << nodedata[nodeid].betweenness << endl;
+    }
+
+    cout << "node1 node2 edge_betweenness" << endl;
+    for (TIntPrFltH::TIter it = ebw.BegI(); it != ebw.EndI(); it++) {
+        TIntPr nodepid = it.GetKey();
+        TFlt val = it.GetDat();
+        cout << id2name[nodepid.GetVal1()] << " " << id2name[nodepid.GetVal2()] << " " << val << endl;
     }
 
     cout << "########################################################### End-of-output\n";
