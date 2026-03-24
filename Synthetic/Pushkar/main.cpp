@@ -119,10 +119,6 @@ void getprops(const string &input_file_name, int evalues = -1) {
     // Now it's safe to call TSnap routines on snap_graph:
     int nodes = snap_graph->GetNodes();
     int edges = snap_graph->GetEdges();
-
-    // DEBUG: Print basic graph info
-    cerr << "DEBUG: nodes=" << nodes << " edges=" << edges << endl;
-    cerr << "DEBUG: id2name.size()=" << id2name.size() << endl;
     
     // Build an adjacency list graph. Note: we use vector<set<int> > for storing unique neighbors.
     vector< set<int> > adj_list_graph(nodes);
@@ -144,7 +140,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<int, int> khop;
     map<int, int> degree_dist;
 
-    // Storage for per-node data
+    // Use a struct to store all per-node data together, similar to nodeMap from the python
     struct NodeData {
         double clusCoff;
         int eccentricity;
@@ -152,25 +148,15 @@ void getprops(const string &input_file_name, int evalues = -1) {
         NodeData() : clusCoff(0), eccentricity(0), betweenness(0) {}
     };
     vector<NodeData> nodedata(nodes);
-
-    cerr << "DEBUG: nodedata.size()=" << nodedata.size() << endl;
     
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         double cc = GetNodeClustCf(snap_graph, nodeid);
         cc_sum += cc;
-        nodedata[nodeid].clusCoff = cc;
+        nodedata[nodeid].clusCoff = cc;  // Store directly in struct
         
         int ecc = GetNodeEcc(snap_graph, nodeid, false);
         diameter = max(diameter, ecc);
-        nodedata[nodeid].eccentricity = ecc;
-        
-        // DEBUG: Print first 5 nodes' cc and ecc
-        if (nodeid < 5) {
-            cerr << "DEBUG: After cc/ecc loop - node " << nodeid 
-                 << " (" << id2name[nodeid] << ")"
-                 << " cc=" << nodedata[nodeid].clusCoff 
-                 << " ecc=" << nodedata[nodeid].eccentricity << endl;
-        }
+        nodedata[nodeid].eccentricity = ecc;  // Store directly in struct
         
         TIntPrV nodevec;
         GetNodesAtHops(snap_graph, nodeid, nodevec, false);
@@ -205,33 +191,13 @@ void getprops(const string &input_file_name, int evalues = -1) {
     TIntPrFltH ebw;
     GetBetweennessCentr(snap_graph, nbw, ebw, 1.0, false);
     
-    cerr << "DEBUG: nbw.Len()=" << nbw.Len() << endl;
-    
-    int bw_count = 0;
+    // Store betweenness using the SNAP node ID from the hash
     for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
         int nodeid = it.GetKey();
         double val = it.GetDat();
-        
-        // DEBUG: Print first 5 betweenness values
-        if (bw_count < 5) {
-            cerr << "DEBUG: Betweenness - nodeid=" << nodeid << " val=" << val << endl;
-        }
-        bw_count++;
-        
-        if (nodeid >= 0 && nodeid < nodes) {
+        if (nodeid >= 0 && nodeid < nodes) {  // Bounds check
             nodedata[nodeid].betweenness = val;
-        } else {
-            cerr << "DEBUG: WARNING - nodeid " << nodeid << " out of range [0," << nodes << ")" << endl;
         }
-    }
-
-    // DEBUG: Check nodedata for first 5 nodes AFTER all data is stored
-    cerr << "DEBUG: Final nodedata check (first 5 nodes):" << endl;
-    for (int i = 0; i < 5 && i < nodes; i++) {
-        cerr << "DEBUG: node " << i << " (" << id2name[i] << ")"
-             << " cc=" << nodedata[i].clusCoff
-             << " ecc=" << nodedata[i].eccentricity
-             << " bw=" << nodedata[i].betweenness << endl;
     }
 
     // Output results.
@@ -261,7 +227,6 @@ void getprops(const string &input_file_name, int evalues = -1) {
     }
     cout << endl;
 
-    // Output node data
     cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         cout << id2name[nodeid] << " " 
@@ -269,7 +234,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
              << nodedata[nodeid].eccentricity << " "
              << nodedata[nodeid].betweenness << endl;
     }
-
+    
     cout << "node1 node2 edge_betweenness" << endl;
     for (TIntPrFltH::TIter it = ebw.BegI(); it != ebw.EndI(); it++) {
         TIntPr nodepid = it.GetKey();
