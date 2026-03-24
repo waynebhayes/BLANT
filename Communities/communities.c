@@ -910,7 +910,8 @@ int main(int argc, char *argv[])
     Boolean sparse=maybe, supportNames = true;
     FILE *fp = Fopen(argv[1], "r"); // edge list file is given on the command line  
 
-    GRAPH *G = GraphReadEdgeList(fp, sparse, supportNames, false);
+    // we don't care about directed here, graph is assumed undirected
+    GRAPH *G = GraphReadEdgeList(NULL, fp, false, supportNames, false);
     
     printf("G has %d nodes, %d edges\n", G->n, G->numEdges);
 

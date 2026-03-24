@@ -196,7 +196,7 @@ void canon_map(void){
     //saving canonical decimal and permutation in the file
     long canonDec;
     long long canonPerm;
-    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed);
+    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed), *Gu = TinyGraphAlloc(k,0,false);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
 	printPerm[k]='\0';
@@ -208,8 +208,10 @@ void canon_map(void){
 	fprintf(fcanon,"%lu\t%s", canonicalDecimal[canonDec], printPerm);
 	if(canonPerm == 0) {
 	    TinyGraphEdgesAllDelete(G);
+	    TinyGraphEdgesAllDelete(Gu);
 	    Int2TinyGraph(G, i);
-	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(G, 0, k, nodeArray, distArray) == k);
+	    TinyGraphToUndirected(G, Gu);
+	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(Gu, 0, k, nodeArray, distArray) == k);
 	    fprintf(fcanon, "\t%c %d", '0'+connected, TinyGraphNumEdges(G));
 	    int u,v,sep='\t';
 	    for(u=0;u<k;u++)for(v=(1-directed)*u;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
@@ -231,8 +233,8 @@ int main(int argc, char* argv[]){
 	directed=true;
     } else assert(argc==2);
     k = atoi(argv[1]); assert(2<=k && k<=8);
-    if(directed && k != 6) {
-	fprintf(stderr, "Error: directed graphs are only supported for k=6 (got k=%d)\n", k);
+    if(directed && k > 6) {
+	fprintf(stderr, "Error: directed graphs are only supported for k<=6 (got k=%d)\n", k);
 	exit(1);
     }
     numBitValues = (1UL << (k*(k-1)/(2-directed)));

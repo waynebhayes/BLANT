@@ -91,7 +91,7 @@ void FreeAccumulatorStruct(Accumulators *accums) {
     free(accums);
 }
 
-void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads) {
+void SampleNGraphletsInThreads(long base_seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads) {
     // Reset the global “next” counter before launching workers
     ATOMIC_STORE_U64(&nextIndex, 0);
 
@@ -116,9 +116,6 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
     int totalBatches = batchSize > 0 ? (numSamples + batchSize - 1) / batchSize : 1; // Ceiling division to cover all samples
     if (totalBatches <= 0) totalBatches = 1;
 
-    // seed the threads with a base seed that may or may not be specified
-    long base_seed = seed == -1 ? GetFancySeed(false) : seed;
-
     // Setup pthread attributes for custom stack size
     pthread_attr_t attr;
     pthread_attr_t *attr_ptr = NULL;
@@ -136,6 +133,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, unsign
         Warning("Failed to initialize pthread attributes; using system default stack size.");
     }
 
+    Note("SampleN base_seed = %ld", base_seed);
     // initialize the threads and their data
     for (int t = 0; t < numThreads; t++)
     {

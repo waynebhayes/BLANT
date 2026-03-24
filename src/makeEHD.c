@@ -23,9 +23,9 @@ void SetGlobalCanonMaps(int k){
     char BUF[BUFSIZ];
     Gint_type _canonList[MAX_CANONICALS];
     char _canonNumEdges[MAX_CANONICALS];
-    SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, false);
     _numCanon = _connectedCanonicals->maxElem;
-    _K = (Gordinal_type*) mapCanonMap(BUF, _K, k);
+    _K = (Gordinal_type*) mapCanonMap(BUF, _K, k, false);
 
     sprintf(BUF, "%s/perm_map%d.bin", _CANON_DIR, k);
 }

@@ -77,4 +77,3 @@ int main(int argc, char *argv[])
     if(n != lines) Fatal("blant-sanity: expected %d lines but got %d\n",n,lines);
     return 0;
 }
-

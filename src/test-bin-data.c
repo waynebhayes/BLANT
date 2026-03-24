@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 {
     char BUF[BUFSIZ];
     SetBlantDirs();
-    _connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
+    _connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges, false);
     int numCanon = _connectedCanonicals->maxElem;
     SetFree(_connectedCanonicals);
 

@@ -35,9 +35,8 @@
 #endif
 
 typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 24 bits
-#define Bk (1U <<(kk*(kk-1)/2 + kk*SELF_LOOPS))
-Gordinal_type K[Bk];
-kperm Permutations[Bk];
+Gordinal_type *K;
+kperm *Permutations;
 static Gint_type canon_list[MAX_CANONICALS];
 static char canon_num_edges[MAX_CANONICALS];
 
@@ -75,16 +74,36 @@ int main(int argc, char *argv[])
 {
     int i;
     char buf[BUFSIZ];
+    Boolean directed = false;
+
+    /* optional argument flag */
+    if(argc == 2) {
+        if(strcmp(argv[1], "directed") == 0) {
+            directed = true;
+        } else {
+            fprintf(stderr, "Usage: %s [directed]\n", argv[0]);
+            exit(1);
+        }
+    } else if(argc > 2) {
+        fprintf(stderr, "Usage: %s [directed]\n", argv[0]);
+        exit(1);
+    }
+    unsigned Bk=( directed ? (1U <<(kk*(kk-1))) : (1U <<(kk*(kk-1)/2 + kk*SELF_LOOPS)) );
+    K = (Gordinal_type*) calloc(Bk, sizeof(Gordinal_type));
+    Permutations = (kperm*) calloc(Bk, sizeof(kperm));
+    assert(K != NULL&&Permutations != NULL);
+
 #if SELF_LOOPS
     if (kk>7) Fatal("cannot create_bin_data for k>7 when SELF_LOOPS is 1");
 #endif
     SetBlantDirs();
     fprintf(stderr, "Note: Gint_type is size %lu bytes (%lu bits); Gordinal_type is %lu (%lu bits)\n",
 	sizeof(Gint_type), 8*sizeof(Gint_type), sizeof(Gordinal_type), 8*sizeof(Gordinal_type));
-    SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges);
+    SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges, directed);
     int numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);
-    sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, _CANON_DIR, kString);
+    if(directed) sprintf(buf, "%s/%s/directed/canon_map%s.txt", _BLANT_DIR, _CANON_DIR, kString);
+    else sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, _CANON_DIR, kString);
     FILE *fp=fopen(buf,"r");
     assert(fp);
     int line;
@@ -104,7 +123,7 @@ int main(int argc, char *argv[])
 	    else Fatal("too many count errors");
 	}
 #endif
-	ord=canon2ordinal(numCanon, canon_list, canonical);
+    ord=canon2ordinal(numCanon, canon_list, canonical);
 	assert(0<=ord && ord < numCanon);
 	K[line]=ord;
 	for(i=0;i<kk;i++)perm[i] -= '0';
@@ -120,11 +139,14 @@ int main(int argc, char *argv[])
     }
     fprintf(stderr, "Finished reading ASCII files; now writing binary ones\n"); fflush(stderr);
     fclose(fp);
-    sprintf(buf, "%s/%s/canon_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
+    if(directed) sprintf(buf, "%s/%s/directed/canon_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
+    else sprintf(buf, "%s/%s/canon_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
     fp=fopen(buf,"wb");
     fwrite((void*)K,sizeof(K[0]),Bk,fp);
     fclose(fp);
-    sprintf(buf, "%s/%s/perm_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
+
+    if(directed) sprintf(buf, "%s/%s/directed/perm_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
+    else sprintf(buf, "%s/%s/perm_map%s.bin", _BLANT_DIR, _CANON_DIR, kString);
     fp=fopen(buf,"wb");
     fwrite((void*)Permutations,sizeof(Permutations[0]),Bk,fp);
     fclose(fp);

@@ -15,7 +15,6 @@
 #include "misc.h"
 #include "multisets.h"
 #include "queue.h"
-#include "rand48.h"
 #include "sorts.h"
 #include "tinygraph.h"
 #include <ctype.h>
@@ -41,9 +40,9 @@ Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're
 #include "stats.h"
 
 // define random variable algorithm
-#define USE_MarsenneTwister 0
+#define USE_MarsenneTwister 0 // not yet implemented correctly
 #if USE_MarsenneTwister
-#include "../C++/mt19937.h" // not yet implemented correctly
+#include "../C++/mt19937.h"
 _Thread_local MT19937 *mt19937Seed;
 void RandomSeed(long seed) {
   if (mt19937Seed)
@@ -54,17 +53,21 @@ double RandomUniform(void) { return Mt19937NextDouble(mt19937Seed); }
 #else
 #include "rand48.h"
 _Thread_local unsigned short erand48Seed[3];
+_Thread_local unsigned _seeded;
 void RandomSeed(long seed) {
+  if(_seeded>0) Warning("have already seeded %d times; should NEVER seed more than once", _seeded);
+  ++_seeded;
   // split the number seed into 3 portions of 16 bits
   erand48Seed[0] = (unsigned short)(seed & 0xFFFF);         // Lower 16 bits
   erand48Seed[1] = (unsigned short)((seed >> 16) & 0xFFFF); // Middle 16 bits
-  erand48Seed[2] = 0x330E; // Upper 16 bits, set to this to mimic srand48
+  if(sizeof(seed) > 4) erand48Seed[2] = (unsigned short)((seed >> 32) & 0xFFFF); // Upper 16 bits
+  else erand48Seed[2] = 0x330E; // Upper 16 bits, set to this to mimic srand48
 }
 double RandomUniform(void) { return erand48(erand48Seed); }
 #endif
 
-static int _numNodes, _numEdges, _maxEdges = 1024,
-                                 _seed = -1; // -1 means "not initialized"
+static int _numNodes, _numEdges, _maxEdges = 1024;
+static long _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
 static float *_weights;
 char **_nodeNames;
@@ -78,7 +81,7 @@ char *_sampleFileName;
 // _k is the global variable storing k; _Bk=actual number of entries in the
 // canon_map for given k.
 unsigned int _k, _min_edge_count;
-unsigned int _Bk, _k_small;
+unsigned int _Bk, _k_small, _Bkd;
 
 unsigned long _known_canonical_count[] = {
     0,    1,     2,      4,        11,         34,          156,
@@ -156,7 +159,7 @@ double _desiredDigits, _desiredPrec, _confidence;
 // sizeof(short int) = 512MB. Grand total statically allocated memory is
 // exactly 1.25GB.
 // static short int _K[maxBk] __attribute__ ((aligned (8192)));
-Gordinal_type *_K = NULL; // Allocating memory dynamically
+Gordinal_type *_K = NULL, *_Kud=NULL; // Allocating memory dynamically
 
 /* AND NOW THE CODE */
 
@@ -341,9 +344,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
   Gint_type numAlphas = 0;
   if (1 != fscanf(fp_ord, GINT_FMT, &numAlphas) || numAlphas <= 0)
     Fatal("alphaListPopulate: fscanf failed to read numAlphas");
-#if SELF_LOOPS || !SELF_LOOPS // this should be true regardless
-  assert(numAlphas == _numCanon);
-#endif
+  if(!_directed) assert(numAlphas == _numCanon);
   for (i = 0; i < numAlphas; i++)
     if (1 != fscanf(fp_ord, GINT_FMT, &alpha_list[i]))
       Fatal("alphaListPopulate: fscanf failed to read alpha[%d]", i);
@@ -494,7 +495,6 @@ void *RunBlantInThread(void *arg) {
 
   // initialize the random number generator
   RandomSeed(seed);
-  RandomUniform();
 
 #if PARANOID_ASSERTS
   for (int i = 0; i < _numCanon; i++) {
@@ -509,7 +509,7 @@ void *RunBlantInThread(void *arg) {
 #if SELF_LOOPS
   TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
-  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, false);
 #endif
   unsigned Varray[varraySize];
   SET *prev_node_set = SetAlloc(G->n);
@@ -572,17 +572,12 @@ void *RunBlantInThread(void *arg) {
 
 static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
                                      int varraySize, Accumulators *accums) {
-  // Initialize this thread's (the main thread's) random seed
-  // Note: _seed is the global seed.
-  RandomSeed(_seed);
-  RandomUniform();
-
   // Setup loop-local variables (copied from RunBlantInThread)
   SET *V = SetAlloc(G->n);
 #if SELF_LOOPS
   TINY_GRAPH *empty_g = TinyGraphSelfAlloc(k);
 #else
-  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+  TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, false);
 #endif
   unsigned Varray[varraySize];
   SET *prev_node_set = SetAlloc(G->n);
@@ -723,8 +718,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
            "be ran.");
       _numThreads = 1; // this is unecessary since the below code doesn't use
                        // _numThreads at all, but keep anyway
-    }
-
+    }  
     unsigned prev_nodes_array[_k];
 
     // Get heuristic values based on orbit number, if ODV file provided
@@ -760,7 +754,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     }
 
     qsort((void *)nwhn_arr, G->n, sizeof(node_whn), comp_func);
-
     for (i = 0; i < G->n; i++) {
       prev_nodes_array[0] = nwhn_arr[i].node;
       SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, heuristicValues);
@@ -853,7 +846,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         _numThreads = 1;
       }
     }
-
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
@@ -866,27 +858,29 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     if (_numThreads == 1) {
       singleThreadAccums = InitializeAccumulatorStruct(G);
     }
-
+    int whileLoopCounter=-1;
     while (!confMet && !_earlyAbort) {
-      if (_stopMode == stopOnSamples) {
+      ++whileLoopCounter;
+      switch (_stopMode) {
+      case stopOnSamples:
         // one and done, distribute the n samples amongst the threads and stop
         // there
         if (_numThreads == 1) {
           RunBlantLoopInMainThread(k, numSamples, G, varraySize,
                                    singleThreadAccums);
         } else {
-          SampleNGraphletsInThreads(_seed, k, G, varraySize, numSamples,
-                                    _numThreads);
+	  // inside we use base_seed+threadId, so bump the base_seed by _numThreads with each new call
+          SampleNGraphletsInThreads(_seed+_numThreads*whileLoopCounter, k, G, varraySize, numSamples, _numThreads);
         }
         samplesCounter += numSamples;
-        break;
-      } else if (_stopMode == stopOnPrecision) {
+        confMet = true; //to exit loop
+	break;
+      case stopOnPrecision:
         // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than
         // this lead to spurious early stops
-        unsigned batchSize = G->numEdges * sqrt(G->n);
-
-        STAT *sTotal[MAX_CANONICALS];
         if (_desiredPrec && _quiet < 2) {
+	  unsigned batchSize = G->numEdges * sqrt(G->n);
+	  STAT *sTotal[MAX_CANONICALS];
           Note("using batchSize %u to estimate counts with relative precision "
                "%g (%g digit%s) with %g%% confidence",
                batchSize, _desiredPrec, _desiredDigits,
@@ -896,12 +890,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
               sTotal[i] = StatAlloc(0, 0, 0, false, false);
 
           if (_numThreads == 1) {
-            _seed = _seed + batchCounter;
             RunBlantLoopInMainThread(k, (unsigned long)batchSize, G, varraySize,
                                      singleThreadAccums);
           } else {
-            SampleNGraphletsInThreads(_seed, k, G, varraySize, batchSize,
-                                      _numThreads);
+            SampleNGraphletsInThreads(_seed+_numThreads*whileLoopCounter, k, G, varraySize, batchSize, _numThreads);
           }
 
           samplesCounter +=
@@ -1026,9 +1018,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         } else {
           Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
         }
+        break;
+      default: Fatal("Unknown stopmode %d", _stopMode);
+        break;
       }
     }
-
     // If we ran in single-threaded mode, we must now merge the
     // singleThreadAccums into the global accumulators.
     // This logic is copied from the end of SampleNGraphletsInThreads.
@@ -1305,7 +1299,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     for (i = 0; i < G->n; i++) {
       PrintNode(buf, 0, i);
       for (j = 0; j < _numConnectedOrbits; j++) {
-        if (k == 4 || k == 5)
+        if ((k == 4 || k == 5) && !_directed)
           orbit_index = _connectedOrbits[_orca_orbit_mapping[j]];
         else
           orbit_index = _connectedOrbits[j];
@@ -1439,8 +1433,7 @@ FILE *ForkBlant(int k, unsigned long numSamples, GRAPH *G) {
   int fds[2] = {-1, -1};
   if (pipe(fds) < 0)
     Fatal("pipe(2) failed");
-  int threadSeed =
-      INT_MAX * RandomUniform(); // this must happen BEFORE the fork for each
+  int threadSeed = INT_MAX * RandomUniform(); // this must happen BEFORE the fork for each
                                  // thread to get a different seed
   int pid = fork();
   if (pid > 0) // we are the parent
@@ -2344,6 +2337,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  if(_seed == -1) _seed = GetFancySeed(false);
+  Note("_seed is %ld", _seed);
+  RandomSeed(_seed);
+
   if (_orbitNumber != -1) {
     if (_odvFile != NULL) {
       parseOdvFromFile(_odvFile);
@@ -2387,7 +2384,7 @@ int main(int argc, char *argv[]) {
   SetBlantDirs();       // Needs to be done before reading any files in BLANT
                         // directory
   SetGlobalCanonMaps(); // needs _k to be set
-  LoadMagicTable();     // needs _k to be set
+  if(!_directed) LoadMagicTable();     // needs _k to be set
 
   if (_window && _windowSize >= 3) {
     if (_windowSampleMethod == -1)
@@ -2472,7 +2469,6 @@ int main(int argc, char *argv[]) {
       Fatal("must specify either desired precision using -[Pp] (preferred) or "
             "number of samples (less preferred)");
   }
-
   // Derik: start here
   FILE *fpGraph;
   int piped = 0;
@@ -2517,7 +2513,6 @@ int main(int argc, char *argv[]) {
     Note("undirected G has %d edges; directed has %d", G->numEdges,
          (G + 1)->numEdges);
   }
-
   if (_useComplement)
     G->useComplement = true;
 
@@ -2577,7 +2572,6 @@ int main(int argc, char *argv[]) {
       SetAdd(_startNodeSet, l);
     }
   }
-
   if (_outputMode & communityDetection) {
     if (_communityMode == 'o' ||
         _communityMode == 'g') // allocate sets for [node][orbit], but 2nd
@@ -2632,7 +2626,6 @@ int main(int argc, char *argv[]) {
     exitStatus = GenSynGraph(_k, _k_small, numSamples, G, fpSynGraph);
   }
 #endif
-
   exitStatus = RunBlantFromGraph(_k, numSamples, G);
   if (&inputG[0] != G)
     GraphFree(G);

@@ -20,7 +20,7 @@ static void PreProcessPredict(TINY_GRAPH *g, int topCanon) {
   int i, j, Gint = TinyGraph2Int(g, _k), GintOrd = _K[Gint];
   unsigned char perm[MAX_K];
   memset(perm, 0, _k);
-  ExtractPerm(perm, Gint);
+  ExtractPerm(perm, Gint, false);
 #if PARANOID_ASSERTS
   if (depth == 0) {
     assert(topCanon == GintOrd); // we should only be called on canonicals
@@ -69,7 +69,7 @@ void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g,
   assert(_g_overcount);
   unsigned char perm[MAX_K];
   memset(perm, 0, _k);
-  ExtractPerm(perm, Gint);
+  ExtractPerm(perm, Gint, false);
   double totalWeight = 0.0;
   for (i = 0; i < _k; i++)
     totalWeight += 1.0 / GraphDegree(_G, Varray[i]);
