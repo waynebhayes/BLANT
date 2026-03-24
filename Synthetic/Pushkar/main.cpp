@@ -141,7 +141,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<int, int> degree_dist;
 
 	// Per-node storage structure, mirroring nodeMap from the Python
-	vector<vector<string>> nodemap(nodes);
+	vector< vector<string> > nodemap(nodes);
 	
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         double cc = GetNodeClustCf(snap_graph, nodeid);
