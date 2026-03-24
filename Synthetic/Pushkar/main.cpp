@@ -149,7 +149,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
 		// store the clustering coefficient for this node rather than discarding it
 		ostringstream cc_oss;
 		cc_oss << cc;
-		nodeMap[nodeid].push_back(cc_oss.str());
+		nodemap[nodeid].push_back(cc_oss.str());
         int ecc = GetNodeEcc(snap_graph, nodeid, false);
         diameter = max(diameter, ecc);
 		// store eccentricity for the node as well
