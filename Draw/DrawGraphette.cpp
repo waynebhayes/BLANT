@@ -15,6 +15,7 @@
 #include "graphette2dotutils.h"
 #include "Graphette.h"
 
+
 using std::cout;
 using std::cerr;
 using std::string;
@@ -59,20 +60,24 @@ void printGraphConversionInstruction(const Graphette2DotParams& params);
 extern "C" {
 	struct SET;
 	SET *SetAlloc(unsigned int n);
-    int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k);
+    SET *canonListPopulate(char *BUF, int *canon_list, int k, char *canon_num_edges, bool directed);
 	#define maxK 8
 	#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
 	#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 	#define MAX_ORBITS	79264	// This is the number of orbits for k=8
-	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k);
+	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k, bool directed);
 	void mapCanonMap(char* BUF, short int *K, int k);
 }
 
 // Canon Maps Loading
-static unsigned int _Bk;
-static int _numCanon, _canonList[MAX_CANONICALS];
+static unsigned _Bk;
+static int _numCanon;
+static int _canonList[MAX_CANONICALS];
 static SET *_connectedCanonicals;
-static int _numOrbits, _orbitList[MAX_CANONICALS][maxK];
+static int _numOrbits;
+static int _orbitList[MAX_CANONICALS][maxK];
+static char _canonNumEdges[MAX_CANONICALS];
+static char _orbitCanonNodeMapping[MAX_ORBITS];
 static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
@@ -80,8 +85,8 @@ void loadCanonMaps(int k) {
 	char BUF[BUFSIZ];
 	_Bk = (1 <<(k*(k-1)/2));
 	SET *_connectedCanonicals = SetAlloc(_Bk);
-	_numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
-	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, k);
+	_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, false);
+	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, k, false);
 	mapCanonMap(BUF, _K, k);
 }
 
@@ -91,7 +96,6 @@ int main(int argc, char* argv[]) {
 	parseInput(argc, argv, params);
 	createDotfileFromBit(params);
 	printGraphConversionInstruction(params);
-
 	return EXIT_SUCCESS;
 }
 
@@ -260,7 +264,6 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 
 	if (params.k > 11 && inputDecimals.size() > 0)
 		cerr << DECIMAL_INPUT_WARNING;
-
 	loadCanonMaps(params.k);
 
 	for (const auto& bitString : inputBitStrings) {
