@@ -45,6 +45,7 @@ typedef struct _Graphette2DotParams {
 	TriangularRepresentation triangularRepresentation = TriangularRepresentation::lower;
 	OutputMode outputMode = OutputMode::circular;
 	bool showOrbits = false;
+	bool directed = false;
 } Graphette2DotParams;
 
 void parseInput(int argc, char* argv[], Graphette2DotParams& params);
@@ -81,12 +82,12 @@ static char _orbitCanonNodeMapping[MAX_ORBITS];
 static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
-void loadCanonMaps(int k) {
+void loadCanonMaps(int k, bool directed) {
 	char BUF[BUFSIZ];
-	_Bk = (1 <<(k*(k-1)/2));
+	_Bk = ( directed ? (1 <<(k*(k-1))) : (1 <<(k*(k-1)/2)) );
 	SET *_connectedCanonicals = SetAlloc(_Bk);
-	_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, false);
-	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, k, false);
+	_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, directed);
+	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, k, directed);
 	mapCanonMap(BUF, _K, k);
 }
 
@@ -112,7 +113,7 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 	vector<uint64_t> inputDecimals;
 	vector<string> inputBitStrings;
 
-	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:apnhul")) != -1)
+	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:Dapnhul")) != -1)
     {
 		switch(opt)
 		{
@@ -191,7 +192,11 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 			}
 			params.edgewidth = atoi(optarg);
 			break;
-
+		
+		case 'D':
+			params.directed = true;
+			break;
+		
 		case 'a':
 			params.showOrbits = true;
 			break;
@@ -264,7 +269,7 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 
 	if (params.k > 11 && inputDecimals.size() > 0)
 		cerr << DECIMAL_INPUT_WARNING;
-	loadCanonMaps(params.k);
+	loadCanonMaps(params.k, params.directed);
 
 	for (const auto& bitString : inputBitStrings) {
 		params.graphettes.emplace_back(bitString, params.triangularRepresentation, params.k, _K);
@@ -321,7 +326,7 @@ void printHelp() {
  * Then the edges are written to the file.
  * */
 void createDotfileFromBit(const Graphette2DotParams& params) {
-	int finalBitstringSize = (params.k * (params.k - 1)) / 2;
+	int finalBitstringSize = ( params.directed ? (params.k * (params.k - 1)) / 2 : (params.k * (params.k - 1)) / 2 );
 	int size;
 
 	for (const auto& graphette : params.graphettes) {
