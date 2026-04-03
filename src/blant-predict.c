@@ -6,13 +6,12 @@
 
 static int _predictOrd = -1;
 int _predictOrbit1 = -1, _predictOrbit2 = -1;
-static int _PredictMotifCount[MAX_CANONICALS][MAX_K][MAX_K];
+static int _PredictMotifCount[MAX_K][MAX_K];
 static float **_PredictCount; // will be allocated later
 static GRAPH *_G;
 
-// Recursively count the specified orbits in the specified canonical motifs of
-// g.
-static void PreProcessPredict(TINY_GRAPH *g, int topCanon) {
+// Count the specified orbits in the specified canonical motifs of g.
+static void CountSubmotifs(TINY_GRAPH *g, int topCanon) {
   static int depth;
 #if PARANOID_ASSERTS
   assert(g->n == _k && TinyGraphNumReachableNodes(g, 0) == g->n);
@@ -21,13 +20,12 @@ static void PreProcessPredict(TINY_GRAPH *g, int topCanon) {
   unsigned char perm[MAX_K];
   memset(perm, 0, _k);
   ExtractPerm(perm, Gint, false);
-#if PARANOID_ASSERTS
   if (depth == 0) {
     assert(topCanon == GintOrd); // we should only be called on canonicals
     for (i = 0; i < _k; i++)
       assert(perm[i] == i);
+    for (i=0; i < _k; i++) for (j=0; j<_k; j++) _PredictMotifCount[i][j]=0;
   }
-#endif
   // Check to see if the whole thing is the cononical of interest before we
   // start removing edges.
   if (GintOrd == _predictOrd) {
@@ -38,7 +36,7 @@ static void PreProcessPredict(TINY_GRAPH *g, int topCanon) {
                _orbitList[GintOrd][j] == _predictOrbit2) ||
               (_orbitList[GintOrd][i] == _predictOrbit2 &&
                _orbitList[GintOrd][j] == _predictOrbit1))
-            ++_PredictMotifCount[topCanon][(int)perm[i]][(int)perm[j]];
+            ++_PredictMotifCount[(int)perm[i]][(int)perm[j]];
         }
   }
 
@@ -50,7 +48,7 @@ static void PreProcessPredict(TINY_GRAPH *g, int topCanon) {
         TinyGraphDisconnect(g, i, j);
         if (TinyGraphNumReachableNodes(g, 0) == g->n) {
           ++depth;
-          PreProcessPredict(g, topCanon);
+          CountSubmotifs(g, topCanon);
           --depth;
         }
         TinyGraphConnect(g, i, j);
@@ -70,6 +68,9 @@ void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g,
   unsigned char perm[MAX_K];
   memset(perm, 0, _k);
   ExtractPerm(perm, Gint, false);
+  TINY_GRAPH *gc = TinyGraphAlloc(g->n,false,false);
+  Int2TinyGraph(gc, _canonList[GintOrd]);
+  CountSubmotifs(gc, GintOrd);
   double totalWeight = 0.0;
   for (i = 0; i < _k; i++)
     totalWeight += 1.0 / GraphDegree(_G, Varray[i]);
@@ -79,10 +80,9 @@ void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g,
       int G_u = Varray[g_u], G_v = Varray[g_v];
       double remove_uv =
           1.0 / GraphDegree(_G, G_u) + 1.0 / GraphDegree(_G, G_v);
-      _PredictCount[G_u][G_v] += (_PredictMotifCount[GintOrd][i][j] +
-                                  _PredictMotifCount[GintOrd][j][i]) *
-                                 (totalWeight - remove_uv);
+      _PredictCount[G_u][G_v] += (totalWeight - remove_uv)*(_PredictMotifCount[i][j] + _PredictMotifCount[j][i]);
     }
+  TinyGraphFree(gc);
 }
 
 void Predict_Init(GRAPH *G) {
@@ -111,27 +111,6 @@ void Predict_Init(GRAPH *G) {
       stderr,
       "Sanity check: k %d, ordinal %d (integer %d), global orbitPair (%d,%d)\n",
       _k, _predictOrd, _canonList[_predictOrd], _predictOrbit1, _predictOrbit2);
-  TINY_GRAPH *T = TinyGraphAlloc(_k, false, false);
-  for (Gordinal_type c = 0; c < _numCanon; c++) {
-    if (!SetIn(_connectedCanonicals, c))
-      continue;
-    int GintCanonInt = _canonList[c];
-    if (_K[GintCanonInt] != c)
-      Fatal("_K[%d]=%d when c=%d", GintCanonInt, _K[GintCanonInt], c);
-    TinyGraphEdgesAllDelete(T);
-    Int2TinyGraph(T, GintCanonInt);
-    assert(TinyGraphNumReachableNodes(T, 0) == _k && T->n == _k);
-    PreProcessPredict(T, c);
-#if VERBOSE
-    for (i = 0; i < _k; i++) {
-      for (j = 0; j < _k; j++)
-        if (_PredictMotifCount[c][i][j])
-          printf("c=%d, i=%d, j=%d, PreProc=%d\n", c, i, j,
-                 _PredictMotifCount[c][i][j]);
-      puts("");
-    }
-#endif
-  }
 }
 
 void Predict_Flush(GRAPH *G) {
