@@ -78,6 +78,14 @@ int getcomponents(const GraphMap &graph, vector< pair<int, int> > &csize) {
     return cnum;
 }
 
+
+struct NodeData {
+    double clusCoff;
+    int eccentricity;
+    double betweenness;
+    NodeData() : clusCoff(0), eccentricity(0), betweenness(0) {}
+};
+
 void getprops(const string &input_file_name, int evalues = -1) {
     // Create an output filename using a helper function and stringstream conversion instead of to_string.
     ostringstream oss;
@@ -103,12 +111,12 @@ void getprops(const string &input_file_name, int evalues = -1) {
         // assign each unique node-string an integer ID
         if (!idmap.count(su)) {
             idmap[su] = nextId;
-	    id2name.push_back(su);
+            id2name.push_back(su);
             snap_graph->AddNode(nextId++);
         }
         if (!idmap.count(sv)) {
             idmap[sv] = nextId;
-	    id2name.push_back(sv);
+            id2name.push_back(sv);
             snap_graph->AddNode(nextId++);
         }
         // add the undirected edge
@@ -116,7 +124,7 @@ void getprops(const string &input_file_name, int evalues = -1) {
     }
     gfile.close();
 
-    // Now it’s safe to call TSnap routines on snap_graph:
+    // Now it's safe to call TSnap routines on snap_graph:
     int nodes = snap_graph->GetNodes();
     int edges = snap_graph->GetEdges();
     
@@ -140,11 +148,17 @@ void getprops(const string &input_file_name, int evalues = -1) {
     map<int, int> khop;
     map<int, int> degree_dist;
 
+    // Use a struct to store all per-node data together, similar to nodeMap from the python
+    vector<NodeData> nodedata(nodes);
+    
     for (int nodeid = 0; nodeid < nodes; nodeid++) {
         double cc = GetNodeClustCf(snap_graph, nodeid);
         cc_sum += cc;
+        nodedata[nodeid].clusCoff = cc;  // Store directly in struct
+        
         int ecc = GetNodeEcc(snap_graph, nodeid, false);
         diameter = max(diameter, ecc);
+        nodedata[nodeid].eccentricity = ecc;  // Store directly in struct
         
         TIntPrV nodevec;
         GetNodesAtHops(snap_graph, nodeid, nodevec, false);
@@ -178,6 +192,15 @@ void getprops(const string &input_file_name, int evalues = -1) {
     TIntFltH nbw;
     TIntPrFltH ebw;
     GetBetweennessCentr(snap_graph, nbw, ebw, 1.0, false);
+    
+    // Store betweenness using the SNAP node ID from the hash
+    for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
+        int nodeid = it.GetKey();
+        double val = it.GetDat();
+        if (nodeid >= 0 && nodeid < nodes) {  // Bounds check
+            nodedata[nodeid].betweenness = val;
+        }
+    }
 
     // Output results.
     cout << "\n########################################################### Global" << endl;
@@ -207,17 +230,18 @@ void getprops(const string &input_file_name, int evalues = -1) {
     cout << endl;
 
     cout << "nodeName clusCoff eccentricity node_betweenness" << endl;
-    for (TIntFltH::TIter it = nbw.BegI(); it != nbw.EndI(); it++) {
-        TInt nodeid = it.GetKey();
-        TFlt val = it.GetDat();
-        cout << id2name[nodeid] << " " << val << endl;
+    for (int nodeid = 0; nodeid < nodes; nodeid++) {
+        cout << id2name[nodeid] << " " 
+             << nodedata[nodeid].clusCoff << " "
+             << nodedata[nodeid].eccentricity << " "
+             << nodedata[nodeid].betweenness << endl;
     }
-
+    
     cout << "node1 node2 edge_betweenness" << endl;
     for (TIntPrFltH::TIter it = ebw.BegI(); it != ebw.EndI(); it++) {
         TIntPr nodepid = it.GetKey();
         TFlt val = it.GetDat();
-        cout << id2name[nodepid.GetVal1()] << " : " << id2name[nodepid.GetVal2()] << " " << val << " " << endl;
+        cout << id2name[nodepid.GetVal1()] << " " << id2name[nodepid.GetVal2()] << " " << val << endl;
     }
 
     cout << "########################################################### End-of-output\n";

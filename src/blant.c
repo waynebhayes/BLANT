@@ -83,11 +83,21 @@ char *_sampleFileName;
 unsigned int _k, _min_edge_count;
 unsigned int _Bk, _k_small, _Bkd;
 
-unsigned long _known_canonical_count[] = {
-    0,    1,     2,      4,        11,         34,          156,
-    1044, 12346, 274668, 12005168, 1018997864, 165091172592}; // note (k=12) too
-                                                              // big for 32 bits
-// k=1  2  3   4   5   6     7     8      9        10         11          12
+unsigned long _known_canonical_count[2][13] = {
+    // undirected
+    { 0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592}, // note k=12 toobig for 32 bits
+    // k=1  2  3   4   5    6     7     8      9        10         11          12
+    { 0, 1, 4,16,218,9608,1540944} // unknown for k>6 directed
+    // directed
+};
+unsigned long _known_orbit_count[2][13] = {
+    // undirected
+    { 0, 1, 3, 6, 20, 90, 544, 5096, 79264, 2208612, 12005168, 1018997864, 165091172592}, // note k=12 toobig for 32 bits
+    // k=1  2  3   4   5    6     7     8      9        10         11          12
+    { 0, 1, 0,40,815,46881,9174824} // unknown for k>6 directed
+    // directed
+};
+
 
 Gint_type _alphaList[MAX_CANONICALS];
 Gordinal_type _numCanon;

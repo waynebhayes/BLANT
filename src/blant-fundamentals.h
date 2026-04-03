@@ -29,21 +29,20 @@
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
 #define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
 
-#if 0
 #if MAX_K <= 6
-  #define MAX_CANONICALS 	156
-  #define MAX_ORBITS	544
+  #define MAX_CANONICALS 156
+  #define MAX_ORBITS	 544
 #elif MAX_K <= 8
-  #define MAX_CANONICALS	12346
-  #define MAX_ORBITS	79264
+  #define MAX_CANONICALS 12346
+  #define MAX_ORBITS	 79264
 #elif MAX_K == 9
-  #define MAX_CANONICALS	274668
+  #define MAX_CANONICALS 274668
   #define MAX_ORBITS	2208612
 #elif MAX_K == 10
-  #define MAX_CANONICALS	12005168
+  #define MAX_CANONICALS 12005168
   #define MAX_ORBITS	113743760
 #elif MAX_K == 11
-  #define MAX_CANONICALS	1018997864
+  #define MAX_CANONICALS 1018997864
   #if long_width < 34
     #error "cannot do MAX_K==11 since unsigned long doesn't have enough bits to store MAX_ORBITS"
   #else
@@ -63,9 +62,9 @@
 #else
   #error "MAX_K too big"
 #endif
-#endif
-#define MAX_CANONICALS 1540944 // for k=6, directed
-#define MAX_ORBITS 9174824
+
+#define MAX_DIR_CANONICALS 1540944 // for k=6, directed
+#define MAX_DIR_ORBITS 9174824
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses

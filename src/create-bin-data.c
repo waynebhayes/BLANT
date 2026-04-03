@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     if (kk>7) Fatal("cannot create_bin_data for k>7 when SELF_LOOPS is 1");
 #endif
     SetBlantDirs();
-    fprintf(stderr, "Note: Gint_type is size %lu bytes (%lu bits); Gordinal_type is %lu (%lu bits)\n",
+    fprintf(stderr, "Note: Gint_type is size %u bytes (%u bits); Gordinal_type is %u (%u bits)\n",
 	sizeof(Gint_type), 8*sizeof(Gint_type), sizeof(Gordinal_type), 8*sizeof(Gordinal_type));
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges, directed);
     int numCanon = connectedCanonicals->maxElem;
