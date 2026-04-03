@@ -86,7 +86,7 @@ DIR_CANON_DIR := $(BLANT_CANON_DIR)/directed
 # directed canonical values; start with the full range 3..6
 # and then remove entries when NO8 or NO7 are set.  This keeps the
 # format identical to the `K` list used for undirected data.
-K_DIR := 3 4 5 6
+K_DIR := 3 4 5 #6
 ifdef NO8
 	# don't build k=6 if undirected 8 is disabled
 	K_DIR := $(filter-out 6,$(K_DIR))
@@ -276,11 +276,6 @@ $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR
 	@if echo "$(K_DIR)" | grep -qw "$*"; then \
 		./fast-canon-map $* directed | tee $(DIR_CANON_DIR)/canon_map$*.txt | awk -F '\t' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee $(DIR_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(DIR_CANON_DIR)/canon-ordinal-to-signature$*.txt; \
 	fi
-	mkdir -p $(BLANT_CANON_DIR)
-	@# It's cheap to make all but k=8 canon maps, so make all but skip 8 if it already exists. Then, print and output it all to respective map, list, and signature txt files
-	[ $* -eq 8 -a '(' -f $(BLANT_CANON_DIR)/canon_map$*.txt -o -f $(BLANT_CANON_DIR)/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee $(BLANT_CANON_DIR)/canon_map$*.txt | awk -F '	' 'BEGIN{n=0}!seen[$$1]{seen[$$1]=$$0;map[n++]=$$1}END{print n;for(i=0;i<n;i++)print seen[map[i]]}' | cut -f1,3- | tee $(BLANT_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(BLANT_CANON_DIR)/canon-ordinal-to-signature$*.txt
-	@# If k=8 and canon_map.txt exists but not the compressed version, generate compressed version
-	#if [ $* -eq 8 -a -f $(BLANT_CANON_DIR)/canon_map$*.txt -a ! -f $(BLANT_CANON_DIR)/canon_map$*.txt.gz ]; then gzip $(BLANT_CANON_DIR)/canon_map$*.txt & fi
 
 $(BLANT_CANON_DIR)/alpha_list_NBE%.txt: compute-alphas-NBE $(BLANT_CANON_DIR)/canon_list%.txt
 	./compute-alphas-NBE $* > $@
@@ -309,7 +304,7 @@ $(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
 	$(SRCDIR)/create-bin-data.c \
 	$(DIR_CANON_DIR)/canon_list%.txt \
 	$(DIR_CANON_DIR)/canon_map%.txt \
-	$(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin
+	$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin
 	# reuse same create-bin-data executable, but tell it we are working with directed data
 	[ -f $(DIR_CANON_DIR)/canon_map$*.bin -a -f $(DIR_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$* directed
 

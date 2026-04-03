@@ -30,9 +30,19 @@ extern Boolean _directed; //whether graphs are directed
 
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
-extern unsigned long _known_canonical_count[]; //known number of canonicals for k=0 to 12 inclusive (13 entries)
-	//{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592};
-	//  k=1  2  3   4   5   6     7     8      9        10         11          12
+// known number of canonicals for k=0 to 12 inclusive (13 entries), for both undirected and directed cases
+extern unsigned long _known_canonical_count[2][13];
+    //  undirected
+    //{ 0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592}, // note k=12 toobig for 32 bits
+    //   k=1  2  3   4   5    6     7     8      9        10         11          12
+    //{ 0, 1, 4,16,218,9608,1540944} // unknown for k>6 directed
+    // directed
+extern unsigned long _known_orbit_count[2][13];
+    // undirected
+    //{ 0, 1, 3, 6, 20, 90, 544, 5096, 79264, 2208612, 12005168, 1018997864, 165091172592}, // note k=12 toobig for 32 bits
+    //   k=1  2  3   4   5    6     7     8      9        10         11          12
+    //{ 0, 1, 0,40,815,46881,9174824} // unknown for k>6 directed
+    // directed
 
 // This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
 #if TINY_SET_SIZE == 16

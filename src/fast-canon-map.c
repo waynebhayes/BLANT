@@ -8,7 +8,8 @@
 
 #include "blant.h"
 
-#define totalCanons 1540944 // for k=6, directed, without self-loops
+#define ALLOW_DIRECTED 0
+
 #define udGraphSize 14 //undirected graph size; k=8
 #define dGraphSize 30 //directed graph size; k=6
 
@@ -67,27 +68,30 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 
 #endif
 
-
+#if ALLOW_DIRECTED
 // 64 bits for the index of canonical decimal plus permutation:
 // 30 bits to store the graph, largest numCanon is 1540944 (for k=6)
-typedef unsigned char xChar[8]; 
+#define XCHAR_SIZE 8
+#else
+#define XCHAR_SIZE 5 //40 bits for saving index of canonical decimal and permutation
+#endif
+typedef unsigned char xChar[XCHAR_SIZE]; 
 
 static xChar* data;
 static bool* done;
-static unsigned long canonicalDecimal[totalCanons];
+static unsigned long canonicalDecimal[MAX_CANONICALS];
 
 void encodeChar(xChar ch, long indexD, long long indexP){
     unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? dGraphSize : udGraphSize));
-    for(int i=7; i>=0; i--){
+    for(int i=XCHAR_SIZE-1; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
     }
 }
 
 void decodeChar(xChar ch, long* indexD, long long* indexP){
-
     unsigned long long x=0,y=0,w,m;
-    for(int i=7; i>=0; i--){
+    for(int i=XCHAR_SIZE-1; i>=0; i--){
 	w=(long long)ch[i];
 	m=(1ll<<y);
 	x+=w*m;

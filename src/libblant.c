@@ -106,6 +106,8 @@ SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_
     Gordinal_type numCanon=0, i;
     int connected;
     if(1!=fscanf(fp_ord, GORDINAL_FMT "\n",&numCanon) || numCanon==0) Fatal("canonListPopulate failed to read numCanon");
+    if(numCanon > MAX_CANONICALS)
+	Apology("numCanon from canon_list%d.txt is %d but MAX_CANONICALS is %d", k, numCanon, MAX_CANONICALS);
     SET *connectedCanonicals = SetAlloc(numCanon);
     for(i=0; i<numCanon; i++) {
 	char buf[BUFSIZ], *tmp;
@@ -132,6 +134,8 @@ Gint_type orbitListPopulate(char *BUF,
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     Gint_type o, numOrbits;
     if(1!=fscanf(fp_ord, GINT_FMT, &numOrbits)) Fatal("orbitListPopulate failed to read numOrbits");
+    if(numOrbits > MAX_ORBITS)
+	Apology("numOrbits from orbit_map%d.txt is %d, but MAX_ORBITS is %d", k, numCanon, MAX_ORBITS);
     for(o=0;o<numOrbits;o++)
 	orbit_canon_node_mapping[o] = -1;
     Gordinal_type c; int j;
