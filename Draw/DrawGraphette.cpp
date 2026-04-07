@@ -59,7 +59,7 @@ void printGraphConversionInstruction(const Graphette2DotParams& params);
 
 //Functions from libwayne and libblant.c
 extern "C" {
-	struct SET;
+	#include <sets.h>
 	SET *SetAlloc(unsigned int n);
     SET *canonListPopulate(char *BUF, int *canon_list, int k, char *canon_num_edges, bool directed);
 	#define maxK 8
@@ -67,7 +67,7 @@ extern "C" {
 	#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 	#define MAX_ORBITS	79264	// This is the number of orbits for k=8
 	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k, bool directed);
-	void mapCanonMap(char* BUF, short int *K, int k);
+	void mapCanonMap(char* BUF, short int *K, int k, bool directed);
 }
 
 // Canon Maps Loading
@@ -85,10 +85,10 @@ static short int _K[maxBk] __attribute__ ((aligned (8192)));
 void loadCanonMaps(int k, bool directed) {
 	char BUF[BUFSIZ];
 	_Bk = ( directed ? (1 <<(k*(k-1))) : (1 <<(k*(k-1)/2)) );
-	SET *_connectedCanonicals = SetAlloc(_Bk);
 	_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, directed);
+	_numCanon = _connectedCanonicals->maxElem;
 	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, k, directed);
-	mapCanonMap(BUF, _K, k);
+	mapCanonMap(BUF, _K, k, directed);
 }
 
 int main(int argc, char* argv[]) {
