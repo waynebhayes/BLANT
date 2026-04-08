@@ -1295,7 +1295,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                                  _sampleMethod != SAMPLE_EDGE_EXPANSION))
           sprintf(buf + strlen(buf), " %.15g", GDV(i, canon));
         else
-          sprintf(buf + strlen(buf), " %llu",
+            sprintf(buf + strlen(buf), " %llu",
                   (unsigned long long)llround(_absoluteCountMultiplier *
                                               _graphletDegreeVector[canon][i]));
       if (strlen(buf) >= printBuf)

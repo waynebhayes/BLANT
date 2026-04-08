@@ -3,9 +3,9 @@
 #include <string>
 #include <stdint.h>
 
-std::string appendLeadingZeros(const std::string& inputBitstring, int k);
+std::string appendLeadingZeros(const std::string& inputBitstring, int k, bool directed);
 
 //Converts 64 bit decimal input into a bit string
 std::string toBitString(uint64_t inputDecimalNum, int k);
 
-uint64_t toDecimal(const std::string& inputBitstring, int k);
+uint64_t toDecimal(const std::string& inputBitstring, int k, bool directed);

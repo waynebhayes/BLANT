@@ -15,6 +15,7 @@
 #include "graphette2dotutils.h"
 #include "Graphette.h"
 
+
 using std::cout;
 using std::cerr;
 using std::string;
@@ -44,6 +45,7 @@ typedef struct _Graphette2DotParams {
 	TriangularRepresentation triangularRepresentation = TriangularRepresentation::lower;
 	OutputMode outputMode = OutputMode::circular;
 	bool showOrbits = false;
+	bool directed = false;
 } Graphette2DotParams;
 
 void parseInput(int argc, char* argv[], Graphette2DotParams& params);
@@ -52,37 +54,41 @@ void printHelp();
 
 void createDotfileFromBit(const Graphette2DotParams& params);
 string getPos(int i, int k);
-void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edgewidth);
+void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edgewidth, bool directed);
 void printGraphConversionInstruction(const Graphette2DotParams& params);
 
 //Functions from libwayne and libblant.c
 extern "C" {
-	struct SET;
+	#include <sets.h>
 	SET *SetAlloc(unsigned int n);
-    int canonListPopulate(char *BUF, int *canon_list, SET *connectedCanonicals, int k);
+    SET *canonListPopulate(char *BUF, int *canon_list, int k, char *canon_num_edges, bool directed);
 	#define maxK 8
-	#define maxBk (1 << (maxK*(maxK-1)/2)) // maximum number of entries in the canon_map
+	#define maxBk 1 << (maxK*(maxK-1)/2) // maximum number of entries in the canon_map - need to change for k=6 directed graphs
 	#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 	#define MAX_ORBITS	79264	// This is the number of orbits for k=8
-	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], int numCanon, int k);
-	void mapCanonMap(char* BUF, short int *K, int k);
+	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k, bool directed);
+	void mapCanonMap(char* BUF, short int *K, int k, bool directed);
 }
 
 // Canon Maps Loading
-static unsigned int _Bk;
-static int _numCanon, _canonList[MAX_CANONICALS];
+static unsigned _Bk;
+static int _numCanon;
+static int _canonList[MAX_CANONICALS];
 static SET *_connectedCanonicals;
-static int _numOrbits, _orbitList[MAX_CANONICALS][maxK];
+static int _numOrbits;
+static int _orbitList[MAX_CANONICALS][maxK];
+static char _canonNumEdges[MAX_CANONICALS];
+static char _orbitCanonNodeMapping[MAX_ORBITS];
 static int _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 static short int _K[maxBk] __attribute__ ((aligned (8192)));
 
-void loadCanonMaps(int k) {
+void loadCanonMaps(int k, bool directed) {
 	char BUF[BUFSIZ];
-	_Bk = (1 <<(k*(k-1)/2));
-	SET *_connectedCanonicals = SetAlloc(_Bk);
-	_numCanon = canonListPopulate(BUF, _canonList, _connectedCanonicals, k);
-	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _numCanon, k);
-	mapCanonMap(BUF, _K, k);
+	_Bk = ( directed ? (1 <<(k*(k-1))) : (1 <<(k*(k-1)/2)) );
+	_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, directed);
+	_numCanon = _connectedCanonicals->maxElem;
+	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, k, directed);
+	mapCanonMap(BUF, _K, k, directed);
 }
 
 int main(int argc, char* argv[]) {
@@ -91,7 +97,6 @@ int main(int argc, char* argv[]) {
 	parseInput(argc, argv, params);
 	createDotfileFromBit(params);
 	printGraphConversionInstruction(params);
-
 	return EXIT_SUCCESS;
 }
 
@@ -108,7 +113,7 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 	vector<uint64_t> inputDecimals;
 	vector<string> inputBitStrings;
 
-	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:apnhul")) != -1)
+	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:Dapnhul")) != -1)
     {
 		switch(opt)
 		{
@@ -187,7 +192,11 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 			}
 			params.edgewidth = atoi(optarg);
 			break;
-
+		
+		case 'D':
+			params.directed = true;
+			break;
+		
 		case 'a':
 			params.showOrbits = true;
 			break;
@@ -260,21 +269,20 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 
 	if (params.k > 11 && inputDecimals.size() > 0)
 		cerr << DECIMAL_INPUT_WARNING;
-
-	loadCanonMaps(params.k);
+	loadCanonMaps(params.k, params.directed);
 
 	for (const auto& bitString : inputBitStrings) {
-		params.graphettes.emplace_back(bitString, params.triangularRepresentation, params.k, _K);
+		params.graphettes.emplace_back(bitString, params.triangularRepresentation, params.k, _K, params.directed);
 	}
 	for (const auto& ordinal : lowerOrdinals) {
 		if (ordinal < 0 || ordinal >= _numCanon) {
 			cerr << "Ordinal for k: " << params.k << " must be between 0 and " << _numCanon << '\n';
 			exit(EXIT_FAILURE);
 		}
-		params.graphettes.emplace_back(ordinal, params.triangularRepresentation, params.k, _canonList);
+		params.graphettes.emplace_back(ordinal, params.triangularRepresentation, params.k, _canonList, params.directed);
 	}
 	for (const auto& decimal : inputDecimals) {
-		params.graphettes.emplace_back(appendLeadingZeros(toBitString(decimal, params.k), params.k), params.triangularRepresentation, params.k, _K);
+		params.graphettes.emplace_back(appendLeadingZeros(toBitString(decimal, params.k), params.k, params.directed), params.triangularRepresentation, params.k, _K, params.directed);
 	}
 
 	if (!lowerOrdinals.empty()) {
@@ -318,7 +326,7 @@ void printHelp() {
  * Then the edges are written to the file.
  * */
 void createDotfileFromBit(const Graphette2DotParams& params) {
-	int finalBitstringSize = (params.k * (params.k - 1)) / 2;
+	int finalBitstringSize = ( params.directed ? (params.k * (params.k - 1)) : (params.k * (params.k - 1)) / 2 );
 	int size;
 
 	for (const auto& graphette : params.graphettes) {
@@ -340,7 +348,7 @@ void createDotfileFromBit(const Graphette2DotParams& params) {
 		exit(EXIT_FAILURE);
 	}
 	
-	outfile << "graph {\n" << GRAPH_ARGS;
+	outfile << (params.directed ? "digraph {\n" : "graph {\n") << GRAPH_ARGS;
 
 	int i = 0;
 	if (params.namesFile != "") {
@@ -386,7 +394,7 @@ void createDotfileFromBit(const Graphette2DotParams& params) {
 		i++;
 	}
 
-	writeEdges(outfile, params.graphettes, params.edgewidth);
+	writeEdges(outfile, params.graphettes, params.edgewidth, params.directed);
 
 	if (params.graphTitle != "") {
 		outfile << "labelloc=\"b\";\n"
@@ -403,7 +411,7 @@ string getPos(int i, int k) {
 	return ss.str();
 }
 
-void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edgewidth) {
+void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edgewidth, bool directed) {
 	string penwidth = "";
 	if (edgewidth != 1) {
 		penwidth = (", penwidth=" + std::to_string(edgewidth));
@@ -422,24 +430,30 @@ void writeEdges(ofstream& outfile, const vector<Graphette>& graphettes, int edge
 				break;
 			case TriangularRepresentation::none: exit(EXIT_FAILURE); break;
 		}
+		if(directed) {
+			i = 0;
+			j = 1;
+		}
 		for (size_t k = 0; k < graphettes[c].bitstring.size(); k++) {
 			if (graphettes[c].bitstring[k] == '1')
-				outfile << "n" << i << " -- " << "n" << j << "[color=" << COLORS[c] << penwidth << ", " << EDGE_ARGS << "]" << "\n";
+				outfile << "n" << i << (directed ? " -> " : " -- ") << "n" << j << "[color=" << COLORS[c] << penwidth << ", " << EDGE_ARGS << "]" << "\n";
 			else if (graphettes[c].bitstring[k] != '0')
 				cerr << "Unknown input: " << graphettes[c].bitstring[k] << " in input bitstring.\n";
 			switch (graphettes[c].triangularRepresentation) {
 				case TriangularRepresentation::lower:
 					j++;
-					if (j == i) {
+					if(directed&&(j == i)) j++;
+					if (j >= (directed ? graphettes[c].k : i)) {
 						i++;
 						j = 0;
 					}
 					break;
 				case TriangularRepresentation::upper:
 					j++;
-					if (j == k) {
+					if(directed&&(j == i)) j++;
+					if (j >= graphettes[c].k) {
 						i++;
-						j = i + 1;
+						j = (directed ? 0 : i + 1);
 					}
 					break;
 				case TriangularRepresentation::none: exit(EXIT_FAILURE); break;

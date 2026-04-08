@@ -8,9 +8,9 @@ enum class TriangularRepresentation { none, lower, upper };
 
 class Graphette {
 	public:
-	Graphette(const std::string& bitstring, TriangularRepresentation triangularRepresentation, int k, short int* _K);
+	Graphette(const std::string& bitstring, TriangularRepresentation triangularRepresentation, int k, short int* _K, bool directed);
 
-	Graphette(uint64_t lowerOrdinal, TriangularRepresentation triangularRepresentation, int k, int* _canonList);
+	Graphette(uint64_t lowerOrdinal, TriangularRepresentation triangularRepresentation, int k, int* _canonList, bool directed);
  
 	std::string bitstring;
 	uint64_t lowerOrdinal;
