@@ -891,10 +891,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         if (_desiredPrec && _quiet < 2) {
 	  unsigned batchSize = G->numEdges * sqrt(G->n);
 	  STAT *sTotal[MAX_CANONICALS];
-          Note("using batchSize %u to estimate counts with relative precision "
-               "%g (%g digit%s) with %g%% confidence",
-               batchSize, _desiredPrec, _desiredDigits,
-               (fabs(1 - _desiredDigits) < 1e-6 ? "" : "s"), 100 * _confidence);
+          Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+               batchSize, _desiredPrec, _desiredDigits, (fabs(1 - _desiredDigits) < 1e-6 ? "" : "s"), 100 * _confidence);
           for (i = 0; i < _numCanon; i++)
             if (SetIn(_connectedCanonicals, i))
               sTotal[i] = StatAlloc(0, 0, 0, false, false);
@@ -998,11 +996,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 strcpy(buf, "(time failed)");
               // Note: batchCounter is used here instead of the non-effective
               // batchSize increment
-              Note("%s batch %d CPU %gs samples %lu prec mean %.3g worst %.3g "
-                   "(g%d count %.0f)",
-                   buf, batchCounter, GetCPUseconds(), samplesCounter,
-                   _meanPrec, worstInterval, _worstCanon,
-                   _graphletCount[_worstCanon]);
+              Note("%s batch %d CPU %gs samples %lu prec mean %.3g (%.1f digits) worst %.3g (g%d count %.0f)",
+                   buf, batchCounter, GetCPUseconds(), samplesCounter, _meanPrec, -(log(_meanPrec?_meanPrec:1)/log(10)),
+		   worstInterval, _worstCanon, _graphletCount[_worstCanon]);
             }
 
             if (batchCounter >= maxNumBatches ||
@@ -1187,8 +1183,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 					buf[strlen(buf)-1] = '\0'; // nuke the newline
 				    }
 				    else strcpy(buf, "(time failed)");
-				    Note("%s batch %d CPU %gs samples %ld prec mean %.3g worst %.3g (g%d count %.0f)",buf,batch,
-					GetCPUseconds(), i, _meanPrec, worstInterval, _worstCanon, _graphletCount[_worstCanon]);
+				    Note("%s batch %d CPU %gs samples %ld prec mean %.3g (%.1f digits) "
+					"worst %.3g (g%d count %.0f)",buf,batch,
+					GetCPUseconds(), i, _meanPrec, -(log(_meanPrec?_meanPrec:1)/log(10)),
+					worstInterval, _worstCanon, _graphletCount[_worstCanon]);
 				}
 				if(batch>=maxNumBatches || (batch >= minNumBatches && precision < _desiredPrec))
 				    confMet=true; // don't reset the counts if we're done
