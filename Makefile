@@ -42,6 +42,10 @@ else
     endif
 endif
 
+ifdef STATIC
+    STATIC_LINK=-static
+endif
+
 # Darwin needs gcc-6 ever since a commit on 22 May 2022:
 # Wayne needs gcc-6 on MacOS:
 #GCC= $(shell $(CC) -v 2>&1 | awk '/gcc/{++gcc}{V=$$3}END{if(gcc && (V ~ /[0-9]\.[0-9]\.[0-9]*/))print "$(UNAME).gcc"V; else exit 1}')
@@ -56,7 +60,7 @@ STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,-
 CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 CXX=g++$(GXX_VER) $(SPEED) $(NDEBUG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
-LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED)
+LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED) $(STATIC_LINK)
 LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 
 # Name of BLANT source directory
