@@ -58,8 +58,13 @@ Gint_type getDecimal(int adj[k][k+1]) {
     for(i=k-1;i>0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
+#if !MIRRORED_UPPER_TRIANGLE
     for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
+#else
+    for(i=k-1;i>=0;i--)
+	for(j=(directed ? 0 : i+1);j<k;j++)
+#endif
 #endif
 	{
 	    if(adj[i][j]==1) D+= (((Gint_type)1) << bitPos);
@@ -75,8 +80,13 @@ void getGraph(Gint_type base10, int adj[k][k+1]){
     for(i=k-1;i>0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
+#if !MIRRORED_UPPER_TRIANGLE
     for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
+#else
+    for(i=k-1;i>=0;i--)
+	for(j=(directed ? 0 : i+1);j<k;j++)
+#endif
 #endif
 	{
 	    adj[i][j]=base10%2;

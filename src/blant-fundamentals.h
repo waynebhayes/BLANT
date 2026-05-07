@@ -70,7 +70,9 @@
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
 // (the graphlet / orbit generation code of Ine Melckenbeeck and friends Ghent university), and they published first.
 // NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
-#define LOWER_TRIANGLE	1
+#define LOWER_TRIANGLE	0
+
+#define MIRRORED_UPPER_TRIANGLE 1 //use with LOWER_TRIANGLE=0
 
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
 // two.  We default to the permutation from the canonical to the sampled non-canonical; thus, when we list the nodes

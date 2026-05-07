@@ -45,6 +45,8 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 
 #else
 
+#if !MIRRORED_UPPER_TRIANGLE
+
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long num=0;
     int lf=0;
@@ -67,6 +69,32 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 	}
 }
 
+#else
+
+
+unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
+    unsigned long num=0;
+    int lf=0;
+    for(int i = 0; i < k; i++)
+	for(int j = k-1; j >= (directed ? 0 : i+1); j--){
+   	    if(i==j) continue;
+	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
+	    lf++;
+    }
+    return num;
+}
+
+void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
+    for(int i=k-1; i>=0; i--)
+	for(int j=(directed ? 0 : i+1); j<k; j++){
+	    if(i==j) continue;
+	    bitMatrix[i][j] = D%2;
+	    if(!directed) bitMatrix[j][i]=bitMatrix[i][j];
+	    D = D/2;
+	}
+}
+
+#endif
 #endif
 
 #if ALLOW_DIRECTED
