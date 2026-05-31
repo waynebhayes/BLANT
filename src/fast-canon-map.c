@@ -45,8 +45,6 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 
 #else
 
-#if !MIRRORED_UPPER_TRIANGLE
-
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
     unsigned long num=0;
     int lf=0;
@@ -69,32 +67,6 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 	}
 }
 
-#else
-
-
-unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
-    unsigned long num=0;
-    int lf=0;
-    for(int i = 0; i < k; i++)
-	for(int j = k-1; j >= (directed ? 0 : i+1); j--){
-   	    if(i==j) continue;
-	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
-	    lf++;
-    }
-    return num;
-}
-
-void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
-    for(int i=k-1; i>=0; i--)
-	for(int j=(directed ? 0 : i+1); j<k; j++){
-	    if(i==j) continue;
-	    bitMatrix[i][j] = D%2;
-	    if(!directed) bitMatrix[j][i]=bitMatrix[i][j];
-	    D = D/2;
-	}
-}
-
-#endif
 #endif
 
 #if ALLOW_DIRECTED
@@ -188,15 +160,34 @@ void canon_map(void){
     long num_canon=0;
 
     //finding canonical forms of all graphettes
-    for(int t=1; t<numBitValues; t++){
+    for(int t=1; t<numBitValues; t++){ //technically, this takes twice as long as it needs to (for canon_ascending_neighbors) - fix later
 	assert(t>=0);
+	decimalToBitArray(bitMatrix, t);
+	#if CANON_ASCENDING_NEIGHBORS
+	assert(!directed);
+	TINY_GRAPH *G = TinyGraphAlloc(k,0,0);
+	TinyGraphEdgesAllDelete(G);
+	Int2TinyGraph(G, t);
+	Boolean flag=1;
+	int prevcount=-1;
+	for(int v=0;v<k;v++)
+	{
+	    if(G->degree[v]<prevcount)
+	    {
+		flag=0;
+		break;
+	    }
+	    prevcount=G->degree[v];
+	}
+	if(!flag) continue;
+	#endif
 	if(done[t]) continue;
 	done[t]=1; // this is a new canonical, and it the lowest by construction
 	encodeChar(data[t],++num_canon,0);
 	canonicalDecimal[num_canon]=t;
 
 	int num = 0;
-	decimalToBitArray(bitMatrix, t);
+
 	for(long long nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
 	{
 	    assert(nP>0);

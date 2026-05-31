@@ -30,11 +30,7 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 	#if LOWER_TRIANGLE
 	for(j=(g->directed ? k-1 : i-!SELF_LOOPS);j>=0;j--)
 	#else
-	#if !MIRRORED_UPPER_TRIANGLE
 	for(j=k-1;j>=(g->directed ? 0 : i+!SELF_LOOPS);j--)
-	#else
-	for(j=(g->directed ? 0 : i+!SELF_LOOPS);j<k;j++)
-	#endif
 	#endif
 	{
 	    if(i==j&&!SELF_LOOPS) continue;
@@ -63,11 +59,7 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 	#if LOWER_TRIANGLE
 	for(j=(G->directed ? k-1 : i-!SELF_LOOPS);j>=0;j--)
 	#else
-	#if !MIRRORED_UPPER_TRIANGLE
 	for(j=k-1;j>=(G->directed ? 0 : i+!SELF_LOOPS);j--)
-	#else
-	for(j=(G->directed ? 0 : i+!SELF_LOOPS);j<k;j++)
-	#endif
 	#endif
 	{
 	    if(i==j && !G->selfLoops) continue;

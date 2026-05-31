@@ -70,9 +70,12 @@
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
 // (the graphlet / orbit generation code of Ine Melckenbeeck and friends Ghent university), and they published first.
 // NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
-#define LOWER_TRIANGLE	0
+#define LOWER_TRIANGLE	1
 
-#define MIRRORED_UPPER_TRIANGLE 1 //use with LOWER_TRIANGLE=0
+//Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
+// If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
+// among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
+#define CANON_ASCENDING_NEIGHBORS 1
 
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
 // two.  We default to the permutation from the canonical to the sampled non-canonical; thus, when we list the nodes
@@ -83,7 +86,7 @@
 // This compile-time constant defines whether or not we perform dynamic on-the-fly construction of the canon_map lookup
 // table (stored in _K) rather than reading in canon_map/* files. The default (for now) is 0, meaning read in the files.
 // It would be nice to get this working with the value 1 rather than 0.
-#define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
+#define DYNAMIC_CANON_MAP 1 // it kinda does work now but let's keep it off to be safe
 
 #define DEFAULT_DIGITS 2 // 2 digits of precision by default
 
