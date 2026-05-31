@@ -26,6 +26,7 @@ static kperm *Permutations = NULL, *dPerm = NULL;
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
 
 #if DYNAMIC_CANON_MAP
+#if !CANON_ASCENDING_NEIGHBORS
 static int CmpInt(foint a, foint b) {
     return a.i - b.i;
 }
@@ -113,7 +114,7 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
 	    Gint, canonInt, _canonList[_K[Gint]]);
     return _K[Gint];
 }
-
+#endif
 static Gint_type _sortBest;
 
 static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos) {
@@ -157,7 +158,7 @@ static Gint_type L_K_Func_Sort(Gint_type Gint) {
 Gordinal_type L_K_Func(Gint_type Gint) {
     #if CANON_ASCENDING_NEIGHBORS
     Gint_type s = L_K_Func_Sort(Gint);
-    assert(s==_K[Gint]);
+    return s;
     #else
     Gint_type m = L_K_Func_Memory(Gint);
     Gint_type s = L_K_Func_SA(Gint);

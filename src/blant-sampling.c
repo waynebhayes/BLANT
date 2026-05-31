@@ -282,22 +282,20 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(i==k);
 #if PARANOID_ASSERTS
     assert(SetCardinality(V) == k);
+
     assert(nOut == SetCardinality(outSet));
 #endif
     if(!_window) {
+	TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
 	TINY_GRAPH *gd = TinyGraphAlloc(k, SELF_LOOPS, _directed);
+	TinyGraphInducedFromGraph(g, G, Varray);
 	gd = TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
-	Gint_type Gdint = TinyGraph2Int(gd, k);
+	Gint_type Gint = TinyGraph2Int(g, k),Gdint = TinyGraph2Int(gd, k);
 	unsigned char perm[k];
 	memset(perm, 0, k);
-	Gordinal_type GintOrdinalD = ExtractPerm(perm, Gdint,_directed);
+	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint,false),GintOrdinalD = ExtractPerm(perm, Gdint,_directed);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
-	    for (j = 0; j < k; j++) {
-		accums->orbitDegreeVector[_orbitList[GintOrdinalD][j]][Varray[(int)perm[j]]] += ocount;
-	    }
-	}
-	if (_outputMode & outputGDV) {
 	    for (j = 0; j < k; j++) {
         	accums->graphletDegreeVector[GintOrdinalD][Varray[(int)perm[j]]] += ocount;
 	    }
