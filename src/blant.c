@@ -862,6 +862,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     unsigned long samplesCounter = 0;
     int batchCounter = 0;
     Boolean confMet = false;
+    unsigned batchSize = G->numEdges * sqrt(G->n); // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than
+    STAT *sTotal[MAX_CANONICALS];
+    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+         batchSize, _desiredPrec, _desiredDigits, (fabs(1 - _desiredDigits) < 1e-6 ? "" : "s"), 100 * _confidence);
+    for (i = 0; i < _numCanon; i++)
+      if (SetIn(_connectedCanonicals, i))
+        sTotal[i] = StatAlloc(0, 0, 0, false, false);
 
     // Accumulators for single threaded mode
     Accumulators *singleThreadAccums = NULL;
@@ -886,17 +893,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         confMet = true; //to exit loop
 	break;
       case stopOnPrecision:
-        // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than
-        // this lead to spurious early stops
         if (_desiredPrec && _quiet < 2) {
-	  unsigned batchSize = G->numEdges * sqrt(G->n);
-	  STAT *sTotal[MAX_CANONICALS];
-          Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
-               batchSize, _desiredPrec, _desiredDigits, (fabs(1 - _desiredDigits) < 1e-6 ? "" : "s"), 100 * _confidence);
-          for (i = 0; i < _numCanon; i++)
-            if (SetIn(_connectedCanonicals, i))
-              sTotal[i] = StatAlloc(0, 0, 0, false, false);
-
           if (_numThreads == 1) {
             RunBlantLoopInMainThread(k, (unsigned long)batchSize, G, varraySize,
                                      singleThreadAccums);
@@ -928,8 +925,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             }
           }
 
-          int minNumBatches =
-              13 - k + 1 / sqrt(1 - _confidence) / k; // heuristic
+          int minNumBatches = 8 - k + 1 / sqrt(1 - _confidence) / k; // heuristic
+          if(minNumBatches < 3) minNumBatches=3;
           int maxNumBatches = 1000 * minNumBatches;   // huge
           double worstInterval = 0, intervalSum = 0;
           _worstCanon = -1;
