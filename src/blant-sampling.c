@@ -300,6 +300,11 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
         	accums->graphletDegreeVector[GintOrdinalD][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
+	if (_outputMode & outputGDV) {
+	    for (j = 0; j < k; j++) {
+        	accums->graphletDegreeVector[GintOrdinalD][Varray[(int)perm[j]]] += ocount;
+	    }
+	}
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
