@@ -307,9 +307,10 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-    accums->graphletConcentration[GintOrdinalD] += ocount;
+	accums->graphletConcentration[GintOrdinalD] += ocount;
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
 	TinyGraphFree(g);
+	TinyGraphFree(gd);
     }
     SetFree(outSet);
     return 1.0;
@@ -666,6 +667,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 
 	_g_overcount = ocount;
 	TinyGraphFree(g);
+	TinyGraphFree(gd);
     }
 
     return 1.0;
@@ -908,7 +910,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     TinyGraphInducedFromGraph(g, G, Varray);
     TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
     Gint_type Gint = TinyGraph2Int(g, k);
-	Gint_type Gdint = TinyGraph2Int(gd, k);
+    Gint_type Gdint = TinyGraph2Int(gd, k);
     unsigned char perm[k];
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);

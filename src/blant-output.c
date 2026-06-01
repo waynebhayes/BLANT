@@ -397,8 +397,8 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
         }
     }
 
-
     if(!_outputMode) Abort("ProcessGraphlet: unknown or un-implemented outputMode %d", _outputMode);
+    TinyGraphFree(ug);
 
     return processed;
 }
