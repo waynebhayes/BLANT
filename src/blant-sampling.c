@@ -296,7 +296,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
-        	accums->graphletDegreeVector[GintOrdinalD][Varray[(int)perm[j]]] += ocount;
+        	accums->orbitDegreeVector[GintOrdinalD][Varray[(int)perm[j]]] += ocount;
 	    }
 	}
 	if (_outputMode & outputGDV) {
