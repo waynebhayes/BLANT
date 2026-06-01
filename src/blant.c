@@ -724,8 +724,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
   // single threaded?
   if (_sampleMethod == SAMPLE_INDEX) {
     if (_numThreads > 1) {
-      Note("Index sampling must be single threaded, thus only one thread will "
-           "be ran.");
+      Note("Index sampling must be single threaded; switching to one thread");
       _numThreads = 1; // this is unecessary since the below code doesn't use
                        // _numThreads at all, but keep anyway
     }  
@@ -862,7 +861,16 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     unsigned long samplesCounter = 0;
     int batchCounter = 0;
     Boolean confMet = false;
-    unsigned batchSize = G->numEdges * sqrt(G->n); // 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than
+    // scale batches with graph size for reliability, and with threads to reduce relative cost of barriers.
+    unsigned batchSize = G->numEdges * sqrt(G->n) * ceil(sqrt(_numThreads));
+    Report(batchSize, "%u");
+    Report(_numThreads, "%u");
+    int minNumBatches = ceil((13 - k)/sqrt(_numThreads)); // + 1 / sqrt(1 - _confidence) / k; // heuristic
+    if(minNumBatches < 3) minNumBatches=3;
+    Report(_confidence, "%g");
+    Report(minNumBatches, "%d");
+    int maxNumBatches = 1000 * minNumBatches;   // huge
+    Report(maxNumBatches, "%d");
     STAT *sTotal[MAX_CANONICALS];
     Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
          batchSize, _desiredPrec, _desiredDigits, (fabs(1 - _desiredDigits) < 1e-6 ? "" : "s"), 100 * _confidence);
@@ -925,9 +933,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             }
           }
 
-          int minNumBatches = 8 - k + 1 / sqrt(1 - _confidence) / k; // heuristic
-          if(minNumBatches < 3) minNumBatches=3;
-          int maxNumBatches = 1000 * minNumBatches;   // huge
           double worstInterval = 0, intervalSum = 0;
           _worstCanon = -1;
 
@@ -2163,14 +2168,9 @@ int main(int argc, char *argv[]) {
       char wChar = optarg[strlen(optarg) - 1];
       if (isalpha(wChar)) {
         switch (wChar) {
-        case 'w':
-        case 'W':
-          _precisionWt = PrecWtRaw;
-          break;
-        case 'l':
-        case 'L':
-          _precisionWt = PrecWtLog;
-          break;
+        case 'w': case 'W': _precisionWt = PrecWtRaw; break;
+        case 'l': case 'L': _precisionWt = PrecWtLog; break;
+        case 's': case 'S': _precisionWt = PrecWtNone; break;
         default:
           Fatal("unknown precision weighting %c", wChar);
         }
