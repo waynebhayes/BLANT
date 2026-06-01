@@ -282,7 +282,6 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(i==k);
 #if PARANOID_ASSERTS
     assert(SetCardinality(V) == k);
-
     assert(nOut == SetCardinality(outSet));
 #endif
     if(!_window) {

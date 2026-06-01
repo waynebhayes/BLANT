@@ -124,7 +124,6 @@ int main(int argc, char *argv[])
 	}
 #endif
 	ord=canon2ordinal(numCanon, canon_list, canonical);
-	if(0>ord || ord >= numCanon) fprintf(stderr, "Error: line %d has canonical %d which is not in canon_list and ord is %d\n", line, canonical, ord);
 	assert(0<=ord && ord < numCanon);
 	K[line]=ord;
 	for(i=0;i<kk;i++)perm[i] -= '0';
