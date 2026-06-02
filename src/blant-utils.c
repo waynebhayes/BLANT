@@ -26,6 +26,7 @@ static kperm *Permutations = NULL, *dPerm = NULL;
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
 
 #if DYNAMIC_CANON_MAP
+#if !CANON_ASCENDING_NEIGHBORS
 static int CmpInt(foint a, foint b) {
     return a.i - b.i;
 }
@@ -113,13 +114,58 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
 	    Gint, canonInt, _canonList[_K[Gint]]);
     return _K[Gint];
 }
+#endif
+static Gint_type _sortBest;
+
+static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos) {
+    int start = groupStart[gi];
+    int groupSize = groupStart[gi+1] - start;
+    if(pos == groupSize) {
+        if(gi + 1 == numGroups) {
+            Gint_type val = TinyGraph2Int(g, _k);
+            if(val < _sortBest) _sortBest = val;
+        } else {
+            _tryGroupPerms(g, groupStart, numGroups, gi+1, 0);
+        }
+        return;
+    }
+    int i;
+    for(i = pos; i < groupSize; i++) {
+        if(i != pos) TinyGraphSwapNodes(g, start+pos, start+i);
+        _tryGroupPerms(g, groupStart, numGroups, gi, pos+1);
+        if(i != pos) TinyGraphSwapNodes(g, start+pos, start+i);
+    }
+}
+
+static Gint_type L_K_Func_Sort(Gint_type Gint) {
+    static TINY_GRAPH g;
+    g.n = _k;
+    TinyGraphEdgesAllDelete(&g);
+    Int2TinyGraph(&g, Gint);
+    TinyGraphSortByDegree(&g);
+
+    int groupStart[_k + 1], numGroups = 0, i;
+    groupStart[0] = 0;
+    for(i = 1; i <= _k; i++)
+        if(i == _k || g.degree[i] != g.degree[i-1])
+            groupStart[++numGroups] = i;
+
+    _sortBest = ~(Gint_type)0;
+    _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
+    return _sortBest;
+}
 
 Gordinal_type L_K_Func(Gint_type Gint) {
+    #if CANON_ASCENDING_NEIGHBORS
+    Gint_type s = L_K_Func_Sort(Gint);
+    return s;
+    #else
     Gint_type m = L_K_Func_Memory(Gint);
     Gint_type s = L_K_Func_SA(Gint);
     assert(m==s);
     assert(m==_K[Gint]);
     return s;
+    #endif
 }
 #else
 Gordinal_type L_K_Func(Gint_type Gint) { Apology("no L_K_Func"); return -1; }
