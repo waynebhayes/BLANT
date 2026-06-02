@@ -72,6 +72,11 @@
 // NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
 #define LOWER_TRIANGLE	1
 
+//Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
+// If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
+// among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
+#define CANON_ASCENDING_NEIGHBORS 0
+
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
 // two.  We default to the permutation from the canonical to the sampled non-canonical; thus, when we list the nodes
 // in the graphlet on BLANT's output, the ordering means that the columns of identical graphlets correspond to an exact
