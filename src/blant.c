@@ -943,15 +943,15 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
             // the batch means *are* Normally distributed, so we can compute
             // confidence intervals.
             for (int l = 0; l < _numCanon; l++)
-              if (SetIn(_connectedCanonicals, l) && _batchRawCount[l]) {
+              if (SetIn(_connectedCanonicals, l) /* JOEL: try taking this out:*/ && _batchRawCount[l]) {
                 double sample = _batchRawCount[l];
                 if (_precisionWt == PrecWtNone)
                   StatAddSample(sTotal[l], sample);
                 else {
                   double w = sample;
                   if (_precisionWt == PrecWtLog) {
-                    if (w > 1)
-                      w = log(w);
+		    if(w==0) w = -100; // bad but not -oo  JOEL: this was (w>1)
+                    else w = log(w);
                   } else
                     assert(_precisionWt == PrecWtRaw);
                   StatAddWeightedSample(sTotal[l], w, sample);
