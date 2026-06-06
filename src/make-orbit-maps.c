@@ -11,9 +11,14 @@
 #include "blant.h"
 
 static int k;
+static Gordinal_type *K;
+
+static Gint_type canon_list[MAX_CANONICALS];
+static char canon_num_edges[MAX_CANONICALS];
 
 Boolean suitablePerm(int permutation[], int adj[k][k+1]);
 Gint_type permuteNodes(int permutation[], int adj[k][k+1]); // returns the integer version of the adjacency matrix
+Gint_type swapNodes(int a, int b, int adj[k][k+1]);
 void makeOrbit(int permutation[], long orbit[k]);
 void getCycle(int permutation[], int cycle[], int seed, int current, Boolean visited[]);
 Boolean directed=false;
@@ -51,7 +56,6 @@ Boolean nextPermutation(int permutation[])
 }
 
 Gint_type getDecimal(int adj[k][k+1]) {
-
     int i, j, bitPos=0;
     Gint_type D=0;
 #if LOWER_TRIANGLE
@@ -90,6 +94,25 @@ void getGraph(Gint_type base10, int adj[k][k+1]){
 }
 
 void orbits(Gint_type Decimal, long orbit[k]){
+    #if USE_PAIRS_ORBITS
+    int adj[k][k+1];
+    for(int i=0; i<k; i++){
+	orbit[i]=i;
+	for(int j=0;j<k;j++) adj[i][j]=0;
+    }
+    getGraph(Decimal, adj);
+    for(int i=0;i<k;i++){
+	if(orbit[i]!=i) continue; //then i+1...k would already be checked
+	for(int j=i+1;j<k;j++){
+	    fprintf(stderr,"%d before swapping %d %d %d\n",Decimal, i, j, swapNodes(i,j,adj));
+	    if(canon_list[K[swapNodes(i,j,adj)]]==Decimal){
+		orbit[j]=orbit[i];
+	    }
+	}
+    }
+    for(int i=0;i<k;i++) fprintf(stderr,"%d ",orbit[i]);
+    fprintf(stderr,"\n");
+    #else
     int permutation[k], i, j;
 
     //initially,the permutation is (0, 1, ..., numNodes_-1)
@@ -109,6 +132,7 @@ void orbits(Gint_type Decimal, long orbit[k]){
         if(permuteNodes(permutation, adj) == Decimal) //Check for automorphism
 	    makeOrbit(permutation, orbit);
     }
+    #endif
 }
 
 Boolean suitablePerm(int permutation[], int adj[k][k+1]){
@@ -120,6 +144,23 @@ Boolean suitablePerm(int permutation[], int adj[k][k+1]){
     }
     return true;
 }
+#if USE_PAIRS_ORBITS
+Gint_type swapNodes(int a, int b, int adj[k][k+1]){
+    int nAdj[k][k+1],i,j;
+    for(i=0; i<k; i++)
+     for(j=0; j<k+1; j++)
+        nAdj[i][j]=adj[i][j];
+    for(i = 0; i < k; i++){
+	if(i==a || i==b) continue;
+	nAdj[a][i]=adj[b][i];
+	nAdj[i][a]=adj[i][b];
+	nAdj[b][i]=adj[a][i];
+	nAdj[i][b]=adj[i][a];
+    }
+    nAdj[a][b]=adj[b][a],nAdj[b][a]=adj[a][b],nAdj[a][a]=adj[b][b],nAdj[b][b]=adj[a][a];
+    return getDecimal(nAdj);
+}
+#endif
 
 Gint_type permuteNodes(int permutation[], int adj[k][k+1]){
     //To store adjMatrix_ after permutation
@@ -135,7 +176,6 @@ Gint_type permuteNodes(int permutation[], int adj[k][k+1]){
             if(!directed) pAdj[pj][pi] = pAdj[pi][pj];
         }
     }
-
     return getDecimal(pAdj);
 }
 
@@ -167,9 +207,6 @@ void getCycle(int permutation[], int cycle[], int seed, int current, Boolean vis
         getCycle(permutation, cycle, seed, permutation[current], visited);
 }
 
-static Gint_type canon_list[MAX_CANONICALS];
-static char canon_num_edges[MAX_CANONICALS];
-
 int main(int argc, char* argv[]){
     if(argc == 3) {
 	if(strcmp(argv[2], "directed")!=0) {
@@ -192,6 +229,8 @@ int main(int argc, char* argv[]){
     fprintf(stderr, "last canonical "GORDINAL_FMT" has Gint "GINT_FMT" with %d edges\n",
 	numCanon, canon_list[numCanon-1], canon_num_edges[numCanon-1]);
     SetFree(connectedCanonicals);
+    K = mapCanonMap(BUF, K, k, directed);
+    assert(K);
     int j;
     long numOrbits=0, orbit[numCanon][k]; // must be signed in order to check for overflow below
     for(i=0; i<numCanon; i++){

@@ -72,6 +72,9 @@
 // NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
 #define LOWER_TRIANGLE	1
 
+#define USE_PAIRS_ORBITS 1
+// If 1, then we find orbits through checking if swapping nodes in pairs results in an autoisomorphism. If 0, then we find orbits through permuting all the nodes.
+
 //Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
 // If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
 // among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
