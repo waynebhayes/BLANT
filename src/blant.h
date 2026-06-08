@@ -19,6 +19,7 @@ double RandomUniform(void);
 
 #define USE_INSERTION_SORT 0
 #define GEN_SYN_GRAPH 0
+#define Report(x,fmt) Note("%s = "fmt, #x, x)
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
 extern int _numThreads, _maxThreads;
