@@ -76,6 +76,8 @@
 // If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
 // among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
 #define CANON_ASCENDING_NEIGHBORS 0
+#define SORT_CUBED_SUM 0
+//When canon_ascending_neighbors is on - instead of sorting by degree, we sort by the sum of the cubes of the degrees of the neighbors of nodes
 
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
 // two.  We default to the permutation from the canonical to the sampled non-canonical; thus, when we list the nodes

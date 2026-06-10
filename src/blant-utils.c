@@ -142,14 +142,27 @@ static Gint_type L_K_Func_Sort(Gint_type Gint) {
     g.n = _k;
     TinyGraphEdgesAllDelete(&g);
     Int2TinyGraph(&g, Gint);
-    TinyGraphSortByDegree(&g);
-
+    #if SORT_CUBED_SUM
+    TinyGraphSort(&g, true);
+    #else
+    TinyGraphSort(&g, false);
+    #endif
     int groupStart[_k + 1], numGroups = 0, i;
     groupStart[0] = 0;
-    for(i = 1; i <= _k; i++)
+    for(i = 1; i <= _k; i++){
+        #if SORT_CUBED_SUM
+        int sum = 0, sumPrev = 0;
+        for(int k = 0; k < _k; k++) {
+            if(TinyGraphAreConnected(&g, i, k)) sum += g.degree[k] * g.degree[k] * g.degree[k];
+            if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
+        }
+        if(i == _k || sum < sumPrev)
+            groupStart[++numGroups] = i;
+        #else
         if(i == _k || g.degree[i] != g.degree[i-1])
             groupStart[++numGroups] = i;
-
+        #endif
+        }
     _sortBest = ~(Gint_type)0;
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
     return _sortBest;
