@@ -75,8 +75,8 @@ COMPLEMENT=''
 TURAN=false
 DEBUG=false # set to true to store BLANT output
 VERBOSE=0
-QUIET=-qq
-PRECISION=-p1L
+QUIET=-q
+PRECISION=-p0.9L
 PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
 
@@ -119,7 +119,7 @@ done
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
- trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+#trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 echo "TMPDIR is $TMPDIR" >&2
 [ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
 

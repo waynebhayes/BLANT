@@ -273,14 +273,14 @@ libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libway
 # for simplicity and readability, they can be created seperately, in which canon_list depends on canon_map, and sig depends on canon_list, but it doesn't really matter
 $(BLANT_CANON_DIR)/canon_map%.txt $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p $(BLANT_CANON_DIR)
-	[ $* -eq 8 -a '(' -f $(BLANT_CANON_DIR)/canon_map$*.txt -o -f $(BLANT_CANON_DIR)/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee $(BLANT_CANON_DIR)/canon_map$*.txt | awk -F '	' '{if(!($$1 in seen)){seen[$$1]=$$0}else if(NF>split(seen[$$1],tmp,"\t")){seen[$$1]=$$0}}END{n=asorti(seen,sorted,"@ind_num_asc");print n;for(i=1;i<=n;i++)print seen[sorted[i]]}' | cut -f1,3- | tee $(BLANT_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(BLANT_CANON_DIR)/canon-ordinal-to-signature$*.txt
+	[ $* -eq 8 -a '(' -f $(BLANT_CANON_DIR)/canon_map$*.txt -o -f $(BLANT_CANON_DIR)/canon_map$*.txt.gz ')' ] || ./fast-canon-map $* | tee $(BLANT_CANON_DIR)/canon_map$*.txt | gawk -F '	' '{if(!($$1 in seen)){seen[$$1]=$$0}else if(NF>split(seen[$$1],tmp,"\t")){seen[$$1]=$$0}}END{n=asorti(seen,sorted,"@ind_num_asc");print n;for(i=1;i<=n;i++)print seen[sorted[i]]}' | cut -f1,3- | tee $(BLANT_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(BLANT_CANON_DIR)/canon-ordinal-to-signature$*.txt
 
 # directed counterpart (only k values listed in K_DIR)
 $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p $(DIR_CANON_DIR)
 	@# run only if this k is in K_DIR
 	@if echo "$(K_DIR)" | grep -qw "$*"; then \
-		./fast-canon-map $* directed | tee $(DIR_CANON_DIR)/canon_map$*.txt | awk -F '\t' '{if(!($$1 in seen)){seen[$$1]=$$0}else if(NF>split(seen[$$1],tmp,"\t")){seen[$$1]=$$0}}END{n=asorti(seen,sorted,"@ind_num_asc");print n;for(i=1;i<=n;i++)print seen[sorted[i]]}' | cut -f1,3- | tee $(DIR_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(DIR_CANON_DIR)/canon-ordinal-to-signature$*.txt; \
+		./fast-canon-map $* directed | tee $(DIR_CANON_DIR)/canon_map$*.txt | gawk -F '\t' '{if(!($$1 in seen)){seen[$$1]=$$0}else if(NF>split(seen[$$1],tmp,"\t")){seen[$$1]=$$0}}END{n=asorti(seen,sorted,"@ind_num_asc");print n;for(i=1;i<=n;i++)print seen[sorted[i]]}' | cut -f1,3- | tee $(DIR_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(DIR_CANON_DIR)/canon-ordinal-to-signature$*.txt; \
 	fi
 
 $(BLANT_CANON_DIR)/alpha_list_NBE%.txt: compute-alphas-NBE $(BLANT_CANON_DIR)/canon_list%.txt
