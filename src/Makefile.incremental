@@ -1,0 +1,31 @@
+# Incremental build: recompile changed .c files for all built variants only.
+# Run from libwayne/ via: make incremental
+# Discovers which variants exist by looking for ../libwayne*.a files.
+# Uses per-variant ../build/VARIANT/.cflags to know what flags to compile with.
+# Stamps live in build/.stamps/ — no .o files are written to src/.
+
+SRCS=llfile.c stream48.c longlong.c bitvec.c sets.c smallgraph-transitive.c misc.c dverk.c rkd78.c lsode.c ddriv2.c bsode.c ldbsode.c rk4.c rk4s.c rk12.c rk23.c stack.c event.c heap.c linked-list.c stats.c queue.c compressedInt.c Oalloc.c variable_leapfrog.c leapfrog.c htree.c avltree.c bintree.c eigen.c mem-debug.c smallgraph.c tinygraph.c graph.c combin.c matvec.c sorts.c heun_euler.c multisets.c dynarray.c #raw_hashmap.c #qrkd78.c iqrkd78.c
+
+STAMP_DIR := ../build/.stamps
+STAMPS := $(patsubst %.c,$(STAMP_DIR)/%.stamp,$(filter %.c,$(SRCS)))
+
+INCLUDE=-I../include
+CFLAGS=$(INCLUDE)
+
+BUILT_VARIANTS := $(patsubst ../%.a,%,$(wildcard ../libwayne*.a))
+
+all: mk-dirs $(STAMPS)
+
+mk-dirs:
+	@mkdir -p $(STAMP_DIR)
+	@for V in $(BUILT_VARIANTS); do mkdir -p ../build/$$V; done
+
+$(STAMP_DIR)/%.stamp: %.c
+	@for V in $(BUILT_VARIANTS); do \
+	    F=$$(cat ../build/$$V/.cflags 2>/dev/null || echo "-O2"); \
+	    $(CC) $(CFLAGS) $$F -c -o ../build/$$V/$*.o $< && ar rcvu ../$$V.a ../build/$$V/$*.o & \
+	done; \
+	wait
+	touch $@
+
+.PHONY: all mk-dirs
