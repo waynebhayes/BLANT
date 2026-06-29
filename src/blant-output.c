@@ -51,8 +51,14 @@ void VarraySort(unsigned *Varray, int k)
 
 char *PrintGraphletID(char buf[], Gint_type Gint)
 {
+    #if DYNAMIC_CANON_MAP
+    assert(!_directed);
+    assert(_outputMode == indexGraphlets);
+    sprintf(buf, GINT_FMT, L_K_Func_Sort(Gint, NULL));
+    #else
     if(_displayMode == noncanonical) sprintf(buf, GINT_FMT, Gint);
     else PrintOrdinal(buf, L_K(Gint));
+    #endif
     return buf;
 }
 
@@ -337,6 +343,14 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     Gint_type Gint = TinyGraph2Int(g,k);
     assert(g->directed == _directed);
     unsigned char perm[MAX_K];
+    #if DYNAMIC_CANON_MAP
+    assert(_outputMode == indexGraphlets);
+    assert(!_directed);
+    char buf[BUFSIZ];
+    L_K_Func_Sort(Gint, perm);
+    if(NodeSetSeenRecently(G, Varray,k)) processed=false;
+    else puts(PrintIndexEntry(buf, Gint, -1, Varray, k, weight, perm)); //GintOrdinal technically not used at all
+    #else
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
@@ -398,6 +412,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     }
 
     if(!_outputMode) Abort("ProcessGraphlet: unknown or un-implemented outputMode %d", _outputMode);
+    #endif
     TinyGraphFree(ug);
 
     return processed;

@@ -116,6 +116,8 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
 }
 #endif
 static Gint_type _sortBest;
+static int _curLabel[MAX_K];   // _curLabel[pos] = original sampled index now at position pos
+static int _bestPerm[MAX_K];   // snapshot of _curLabel that produced _sortBest
 
 static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos) {
     int start = groupStart[gi];
@@ -123,7 +125,11 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
     if(pos == groupSize) {
         if(gi + 1 == numGroups) {
             Gint_type val = TinyGraph2Int(g, _k);
-            if(val < _sortBest) _sortBest = val;
+            if(val < _sortBest) {
+                int j;
+                _sortBest = val;
+                for(j = 0; j < _k; j++) _bestPerm[j] = _curLabel[j];
+            }
         } else {
             _tryGroupPerms(g, groupStart, numGroups, gi+1, 0);
         }
@@ -131,21 +137,28 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
     }
     int i;
     for(i = pos; i < groupSize; i++) {
-        if(i != pos) TinyGraphSwapNodes(g, start+pos, start+i);
+        if(i != pos) {
+            TinyGraphSwapNodes(g, start+pos, start+i);
+            int t = _curLabel[start+pos]; _curLabel[start+pos] = _curLabel[start+i]; _curLabel[start+i] = t;
+        }
         _tryGroupPerms(g, groupStart, numGroups, gi, pos+1);
-        if(i != pos) TinyGraphSwapNodes(g, start+pos, start+i);
+        if(i != pos) {
+            TinyGraphSwapNodes(g, start+pos, start+i);
+            int t = _curLabel[start+pos]; _curLabel[start+pos] = _curLabel[start+i]; _curLabel[start+i] = t;
+        }
     }
 }
 
-static Gint_type L_K_Func_Sort(Gint_type Gint) {
+Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     static TINY_GRAPH g;
     g.n = _k;
     TinyGraphEdgesAllDelete(&g);
     Int2TinyGraph(&g, Gint);
+    for(int p = 0; p < _k; p++) _curLabel[p] = p; // identity: position p holds sampled node p
     #if SORT_CUBED_SUM
-    TinyGraphSort(&g, true);
+    TinyGraphSortPerm(&g, true, _curLabel);
     #else
-    TinyGraphSort(&g, false);
+    TinyGraphSortPerm(&g, false, _curLabel);
     #endif
     int groupStart[_k + 1], numGroups = 0, i;
     groupStart[0] = 0;
@@ -165,12 +178,13 @@ static Gint_type L_K_Func_Sort(Gint_type Gint) {
         }
     _sortBest = ~(Gint_type)0;
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
+    if(permOut) for(i = 0; i < _k; i++) permOut[i] = (unsigned char)_bestPerm[i];
     return _sortBest;
 }
 
 Gordinal_type L_K_Func(Gint_type Gint) {
     #if CANON_ASCENDING_NEIGHBORS
-    Gint_type s = L_K_Func_Sort(Gint);
+    Gint_type s = L_K_Func_Sort(Gint, NULL);
     return s;
     #else
     Gint_type m = L_K_Func_Memory(Gint);

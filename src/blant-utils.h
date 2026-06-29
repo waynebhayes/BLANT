@@ -36,6 +36,11 @@ long int orbitpair_copy(long int src);
 Boolean arrayIn(unsigned *arr, int size, int item);
 void printIntArray(int* arr, int n, char* name);
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint, Boolean directed);
+#if DYNAMIC_CANON_MAP
+// Dynamically computes the canonical decimal of Gint (no ordinal). If permOut != NULL, fills it
+// with the canonical->sampled permutation: Varray[permOut[j]] is the node for canonical column j.
+Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]);
+#endif
 void InvertPerm(unsigned char inverse[_k], unsigned const char perm[_k]);
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, unsigned *Varray);
 int asccompFunc(const foint i, const foint j);
