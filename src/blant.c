@@ -74,7 +74,7 @@ char **_nodeNames;
 Boolean _supportNodeNames = true;
 static FILE *interestFile;
 Boolean _child; // are we a child process?
-int _quiet;     // suppress notes and/or warnings, higher value = more quiet
+int _quiet=1;     // suppress notes and/or warnings, higher value = more quiet; 0=verbose
 
 char *_sampleFileName;
 
@@ -863,17 +863,21 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     Boolean confMet = false;
     // scale batches with graph size for reliability, and with threads to reduce relative cost of barriers.
     unsigned batchSize = G->numEdges * sqrt(G->n) * ceil(sqrt(_numThreads));
-    Report(batchSize, "%u");
-    Report(_numThreads, "%u");
+    ReportVal(batchSize, "%u");
+    ReportVal(_numThreads, "%u");
     int minNumBatches = ceil((13 - k)/sqrt(_numThreads)); // + 1 / sqrt(1 - _confidence) / k; // heuristic
     if(minNumBatches < 3) minNumBatches=3;
-    Report(_confidence, "%g");
-    Report(minNumBatches, "%d");
+    ReportVal(_confidence, "%g");
+    ReportVal(minNumBatches, "%d");
     int maxNumBatches = 1000 * minNumBatches;   // huge
-    Report(maxNumBatches, "%d");
+    ReportVal(maxNumBatches, "%d");
     STAT *sTotal[MAX_CANONICALS];
-    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
-         batchSize, _desiredPrec, _desiredDigits, (fabs(1 - _desiredDigits) < 1e-6 ? "" : "s"), 100 * _confidence);
+    if(_desiredPrec) {
+	assert(numSamples==0 && _numSamples==0);
+	if(!_quiet)
+	    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
+		batchSize, _desiredPrec, _desiredDigits, (fabs(1 - _desiredDigits) < 1e-6 ? "" : "s"), 100 * _confidence);
+    }
     for (i = 0; i < _numCanon; i++)
       if (SetIn(_connectedCanonicals, i))
         sTotal[i] = StatAlloc(0, 0, 0, false, false);
@@ -1861,6 +1865,7 @@ const char *const USAGE_LONG =
     "1, 2, 3, etc.\n"
     "Less Common OPTIONS:\n"
     "    -q quiet mode: suppress progress reports; -qq=supress all notes; "
+    "    -v less quiet mode (verbose): increase progress reports; "
     "-qqq=supress warnings (not recommended)\n"
     "    -w (EXPERIMENTAL) input network has edge weights in 3rd column; "
     "output currently not well-defined\n"
@@ -1938,11 +1943,10 @@ int main(int argc, char *argv[]) {
               "a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1) {
     switch (opt) {
       unsigned long nSampArg;
-    case 'q':
-      do
-        ++_quiet;
-      while (optarg && *optarg++);
-      break;
+    // -q decreases verboseness; -v increases it
+    case 'q': do ++_quiet; while (optarg && *optarg++); break;
+    case 'v': do --_quiet; while (optarg && *optarg++); if(_quiet<0)_quiet=0; break;
+
     case 'h':
       printf("%s\n", USAGE_LONG);
 #if __MINGW32__ || __WIN32__ || __CYGWIN__
@@ -2343,7 +2347,7 @@ int main(int argc, char *argv[]) {
   }
 
   if(_seed == -1) _seed = GetFancySeed(false);
-  Note("_seed is %ld", _seed);
+  ReportVal(_seed, "%ld");
   RandomSeed(_seed);
 
   if (_orbitNumber != -1) {
