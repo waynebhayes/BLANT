@@ -374,7 +374,7 @@ pristine: clean clean_$(BLANT_CANON_DIR)
 ifndef NO_CLEAN_LIBWAYNE
 	@cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
-	@find $(BLANT_CANON_DIR) -maxdepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
+	@find $(BLANT_CANON_DIR) -mindepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
 	@./scripts/delete-python-shit.sh $(UNAME)
 
