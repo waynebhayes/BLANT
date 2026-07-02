@@ -6,7 +6,7 @@
 
 N=3000000
 for S in EBE NBE; do
-for k in 3 4 5 6 7 8; do
+for k in 3 4 5 6 $SEVEN $EIGHT; do
     if [ -f canon_maps/canon_map$k.bin ]; then
 	echo "Checking $S's raw frequency of $k-graphlets is Poisson using $N samples from networks/syeast.el"
 	./scripts/test-raw-counts.sh ./blant $S $N $k ./regression-tests/0-sanity/syeast.$S.raw.3e9.k$k.txt $CORES |
