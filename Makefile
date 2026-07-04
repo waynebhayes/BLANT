@@ -183,7 +183,7 @@ $(BLANT_CANON_DIR): base $(canon_all) sub$(BLANT_CANON_DIR)
 ### Executables ###
 
 fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
+	$(CC) '-std=gnu11' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
 
 slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_BOTH)
@@ -196,7 +196,7 @@ blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # 
 	./canon-upper.sh
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
-	@mkdir -p $(dir $@)
+	mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(LIBWAYNE_COMP)
 
 synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
@@ -239,19 +239,19 @@ $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
 ### Object Files/Prereqs ###
 
 $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
-	@mkdir -p $(dir $@)
+	mkdir -p $(dir $@)
 	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=gnu++11
 
 $(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	cd $(LIBWAYNE_HOME)/C++ && $(MAKE)
 
 $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
-	@mkdir -p $(dir $@)
+	mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
 
 
 $(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
-	@mkdir -p $(dir $@)
+	mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/makeEHD.c -o $@ $(LIBWAYNE_COMP)
 
 
@@ -278,8 +278,8 @@ $(BLANT_CANON_DIR)/canon_map%.txt $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CAN
 # directed counterpart (only k values listed in K_DIR)
 $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon-ordinal-to-signature%.txt: fast-canon-map
 	mkdir -p $(DIR_CANON_DIR)
-	@# run only if this k is in K_DIR
-	@if echo "$(K_DIR)" | grep -qw "$*"; then \
+	# run only if this k is in K_DIR
+	if echo "$(K_DIR)" | grep -qw "$*"; then \
 		./fast-canon-map $* directed | tee $(DIR_CANON_DIR)/canon_map$*.txt | gawk -F '\t' '{if(!($$1 in seen)){seen[$$1]=$$0}else if(NF>split(seen[$$1],tmp,"\t")){seen[$$1]=$$0}}END{n=asorti(seen,sorted,"@ind_num_asc");print n;for(i=1;i<=n;i++)print seen[sorted[i]]}' | cut -f1,3- | tee $(DIR_CANON_DIR)/canon_list$*.txt | awk 'NR>1{print NR-2, $$1}' > $(DIR_CANON_DIR)/canon-ordinal-to-signature$*.txt; \
 	fi
 
@@ -302,8 +302,8 @@ $(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(DIR_CANON_DIR)/canon_map%.txt
 # future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
 $(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: $(SRCDIR)/create-bin-data.c $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.txt
 	# compile create-bin-data.c to create-bin-data[k] executables
-	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
-	./create-bin-data$*
+	$(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
+	[ -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
 
 # and copy bin versions for directed k<=6
 $(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
@@ -316,7 +316,7 @@ $(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
 
 # Currently unused target
 $(BLANT_CANON_DIR)/EdgeHammingDistance%.txt: makeEHD | $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.bin
-	@if [ ! -f $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
+	if [ ! -f $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
 	#(cd $(BLANT_CANON_DIR).correct && ls EdgeHammingDistance$*.txt*) | awk '{printf "cmp $(BLANT_CANON_DIR).correct/%s $(BLANT_CANON_DIR)/%s\n",$$1,$$1}' | sh
 
 .INTERMEDIATE: .created-subcanon-maps
@@ -339,8 +339,8 @@ blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
 
 test_stamp: blant blant-sanity $(canon_all) $(subcanon_txts)
 	@echo Touching test_stamp so $(BLANT_CANON_DIR)/check_maps and $(BLANT_CANON_DIR)/test_index_mode tests only occur if the $(BLANT_CANON_DIR) are changed.
-	@# If $(BLANT_CANON_DIR)/canon_map8.txt is the only outdated prerequisite, it's fine, because the .gz version exists
-	@if [ -n "$?" ] && { [ "$$(echo "$?" | wc -w)" -ne 1 ] || [ "$?" != "$(BLANT_CANON_DIR)/canon_map8.txt" ]; }; then \
+	# If $(BLANT_CANON_DIR)/canon_map8.txt is the only outdated prerequisite, it's fine, because the .gz version exists
+	if [ -n "$?" ] && { [ "$$(echo "$?" | wc -w)" -ne 1 ] || [ "$?" != "$(BLANT_CANON_DIR)/canon_map8.txt" ]; }; then \
 		touch test_stamp; \
 	fi
 
@@ -362,9 +362,9 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
-	@/bin/rm -rf $(OBJDIR)/*
-	@/bin/rm -rf $(DIR_CANON_DIR)/* || true
+	/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
+	/bin/rm -rf $(OBJDIR)/*
+	/bin/rm -rf $(DIR_CANON_DIR)/* || true
 
 realclean:
 	echo "'realclean' is now called 'pristine'; try again"
@@ -372,13 +372,13 @@ realclean:
 
 pristine: clean clean_$(BLANT_CANON_DIR)
 ifndef NO_CLEAN_LIBWAYNE
-	@cd $(LIBWAYNE_HOME); $(MAKE) clean
+	cd $(LIBWAYNE_HOME); $(MAKE) clean
 endif
-	@find $(BLANT_CANON_DIR) -maxdepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
+	find $(BLANT_CANON_DIR) -mindepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
-	@./scripts/delete-python-shit.sh $(UNAME)
+	./scripts/delete-python-shit.sh $(UNAME)
 
 clean_$(BLANT_CANON_DIR):
-	@/bin/rm -f $(BLANT_CANON_DIR)/*[3-7].* # don't remove 8 since it takes too long to create
-	@/bin/rm -f $(DIR_CANON_DIR)/*[3-6].* || true # directed only goes through k=6
-	@/bin/rm -f orca_jesse_blant_table/UpperToLower*.txt
+	/bin/rm -f $(BLANT_CANON_DIR)/*[3-7].* # don't remove 8 since it takes too long to create
+	/bin/rm -f $(DIR_CANON_DIR)/*[3-6].* || true # directed only goes through k=6
+	/bin/rm -f orca_jesse_blant_table/UpperToLower*.txt

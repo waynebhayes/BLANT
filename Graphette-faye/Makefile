@@ -1,7 +1,7 @@
 CC = g++
 
-#CXXFLAGS = -Wall -fno-inline -O2 -std=c++11 -g
-CXXFLAGS = -U__STRICT_ANSI__ -Wall -std=c++11 -O3 #-pg -ggdb
+#CXXFLAGS = -Wall -fno-inline -O2 -std=gnu++11 -g
+CXXFLAGS = -U__STRICT_ANSI__ -Wall -std=gnu++11 -O3 #-pg -ggdb
 
 INCLUDES =
 LFLAGS =
