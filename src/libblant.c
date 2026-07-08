@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <assert.h>
@@ -23,28 +25,30 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
     int i, j, bitPos=0;
     Gint_type Gint = 0, bit;
 
-    for(i=k-1;i>0;i--)
+    for(i=k-1;i>=0;i--)
     {
 	#if LOWER_TRIANGLE
-	for(j=k-1-(k-i)*(1-g->directed);j>=0;j--)
+	for(j=(g->directed ? k-1 : i-!SELF_LOOPS);j>=0;j--)
 	#else
-	for(j=k-1;j>=i*(1-g->directed);j--)	
+	for(j=k-1;j>=(g->directed ? 0 : i+!SELF_LOOPS);j--)
 	#endif
 	{
-	if(TinyGraphAreConnected(g,i,j))
-	{
-	bit = (((Gint_type)1) << bitPos);
-	Gint |= bit;
-	}
+	    if(i==j&&!SELF_LOOPS) continue;
+	    if(TinyGraphAreConnected(g,i,j))
+	    {
+	        bit = (((Gint_type)1) << bitPos);
+	        Gint |= bit;
+	    }
 	    bitPos++;
-	assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
+	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
 	}
     }
     return Gint;
 }
 
 /*
-** Int to directed graph 
+** Decode an integer into a TinyGraph.
+** Respects G->directed (directed vs. undirected) and SELF_LOOPS for self-loop handling.
 */
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 {
@@ -53,12 +57,12 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
     TinyGraphEdgesAllDelete(G);
 	for(i=k-1;i>=0;i--){
 	#if LOWER_TRIANGLE
-	for(j=k-1-(k-i)*(1-G->directed);j>=0;j--)
+	for(j=(G->directed ? k-1 : i-!SELF_LOOPS);j>=0;j--)
 	#else
-	for(j=k-1;j>=i*(1-G->directed);j--)
+	for(j=k-1;j>=(G->directed ? 0 : i+!SELF_LOOPS);j--)
 	#endif
 	{
-	    if(i==j&&!SELF_LOOPS) continue;
+	    if(i==j && !G->selfLoops) continue;
 	    if(!Gint2) break;
 	    Gint_type bit = ((Gint_type)1 << bitPos);
 	    if(Gint & bit) TinyGraphConnect(G,i,j);
@@ -75,14 +79,16 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 ** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array.
 */
-Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
+Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed) {
 #if SELF_LOOPS
     if (k > 7) Fatal("cannot have k>7 when SELF_LOOPS");
     int Bk = (1U <<(k*(k+1)/2));
 #else
     int Bk = (1U <<(k*(k-1)/2));
 #endif
-    sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, _CANON_DIR, k);
+    if(directed) Bk = (1U <<(k*(k-1)));
+    if(directed) sprintf(BUF, "%s/%s/directed/canon_map%d.bin", _BLANT_DIR, _CANON_DIR, k);
+    else sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, _CANON_DIR, k);
     int Kfd = open(BUF, 0*O_RDONLY);
     if(Kfd <= 0) return NULL;
     //short int *Kf = Mmap(K, Bk*sizeof(short int), Kfd); // Using Mmap will cause error due to MAP_FIXED flag
@@ -92,13 +98,16 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
 }
 
 
-SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges) {
-    sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges, Boolean directed) {
+    if(directed) sprintf(BUF, "%s/%s/directed/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    else sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     Gordinal_type numCanon=0, i;
     int connected;
     if(1!=fscanf(fp_ord, GORDINAL_FMT "\n",&numCanon) || numCanon==0) Fatal("canonListPopulate failed to read numCanon");
+    if(numCanon > MAX_CANONICALS)
+	Apology("numCanon from canon_list%d.txt is %d but MAX_CANONICALS is %d", k, numCanon, MAX_CANONICALS);
     SET *connectedCanonicals = SetAlloc(numCanon);
     for(i=0; i<numCanon; i++) {
 	char buf[BUFSIZ], *tmp;
@@ -118,12 +127,15 @@ Gint_type orbitListPopulate(char *BUF,
 	Gint_type orbit_list[MAX_CANONICALS][MAX_K],
 	Gordinal_type orbit_canon_mapping[MAX_ORBITS],
 	char orbit_canon_node_mapping[MAX_ORBITS],
-	Gordinal_type numCanon, int k) {
-    sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, _CANON_DIR, k);
+	Gordinal_type numCanon, int k, Boolean directed) {
+	if(directed) sprintf(BUF, "%s/%s/directed/orbit_map%d.txt", _BLANT_DIR, _CANON_DIR, k);
+	else sprintf(BUF, "%s/%s/orbit_map%d.txt", _BLANT_DIR, _CANON_DIR, k);
     FILE *fp_ord=fopen(BUF, "r");
     if(!fp_ord) Fatal("cannot find %s\n", BUF);
     Gint_type o, numOrbits;
     if(1!=fscanf(fp_ord, GINT_FMT, &numOrbits)) Fatal("orbitListPopulate failed to read numOrbits");
+    if(numOrbits > MAX_ORBITS)
+	Apology("numOrbits from orbit_map%d.txt is %d, but MAX_ORBITS is %d", k, numCanon, MAX_ORBITS);
     for(o=0;o<numOrbits;o++)
 	orbit_canon_node_mapping[o] = -1;
     Gordinal_type c; int j;

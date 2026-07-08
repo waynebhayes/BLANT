@@ -16,7 +16,7 @@ do
     EBE)  TOL=1.5e-4; exp=3;;
     esac
 
-    for k in 3 4 5 6 7 8
+    for k in 3 4 5 6 $SEVEN $EIGHT
     do
 	CORRECT=regression-tests/0-sanity/syeast.$S.gdv.abs.3e9.k$k.txt.xz
 	if [ -f canon_maps/canon_map$k.bin -a -f $CORRECT ]; then

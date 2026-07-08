@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "blant-synth-graph.h"
 #include "blant-sampling.h"
 #include "blant-utils.h"
@@ -206,9 +208,9 @@ void StampGraphletNBE(GRAPH *G, GRAPH *G_Syn, double graphletCDF[], int k, int k
     unsigned Varray[k];
     Gint_type canonList_small[MAX_CANONICALS], Gint;
     char BUF[BUFSIZ];
-    SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small);
+    SET *connectedCanonicals_small = canonListPopulate(BUF, canonList_small, k_small, false);
     SET *V = SetAlloc(G_Syn->n);
-    TINY_GRAPH *g = TinyGraphAlloc(k,false,false);
+    TINY_GRAPH *g = TinyGraphAlloc(k, false, false);
     step=0, numRemoveSample=0;
     do {
         while(SetCardinality(V) < k)

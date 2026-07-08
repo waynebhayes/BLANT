@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef BLANT_H
 #define BLANT_H
 
@@ -17,6 +19,7 @@ double RandomUniform(void);
 
 #define USE_INSERTION_SORT 0
 #define GEN_SYN_GRAPH 0
+#define ReportVal(x,fmt) if(!_quiet) Note("%s = "fmt, #x, x)
 
 #define MAX_POSSIBLE_THREADS 64 // set this to something reasonable on your machine (eg odin.ics.uci.edu has 64 cores)
 extern int _numThreads, _maxThreads;
@@ -24,11 +27,23 @@ extern unsigned long _numSamples;
 extern double _confidence; // for confidence intervals
 extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
+extern Boolean _directed; //whether graphs are directed
+
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
-extern unsigned long _known_canonical_count[]; //known number of canonicals for k=0 to 12 inclusive (13 entries)
-	//{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592};
-	//  k=1  2  3   4   5   6     7     8      9        10         11          12
+// known number of canonicals for k=0 to 12 inclusive (13 entries), for both undirected and directed cases
+extern unsigned long _known_canonical_count[2][13];
+    //  undirected
+    //{ 0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592}, // note k=12 toobig for 32 bits
+    //   k=1  2  3   4   5    6     7     8      9        10         11          12
+    //{ 0, 1, 4,16,218,9608,1540944} // unknown for k>6 directed
+    // directed
+extern unsigned long _known_orbit_count[2][13];
+    // undirected
+    //{ 0, 1, 3, 6, 20, 90, 544, 5096, 79264, 2208612, 12005168, 1018997864, 165091172592}, // note k=12 toobig for 32 bits
+    //   k=1  2  3   4   5    6     7     8      9        10         11          12
+    //{ 0, 1, 0,40,815,46881,9174824} // unknown for k>6 directed
+    // directed
 
 // This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
 #if TINY_SET_SIZE == 16
@@ -61,8 +76,9 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
   #if int_width >= 28 && short_width >= 16
     typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
     #define GINT_FMT "%u"
-    typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
-    #define GORDINAL_FMT "%hu"
+    typedef unsigned Gordinal_type;
+    //typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient (commented out b/c directed graphs require 18 bits)
+    #define GORDINAL_FMT "%u"
     #define MAX_BINTREE_K 8
   #else
     #error "cannot do TINY_SET_SIZE 8 due to no integers long enough"
@@ -80,10 +96,10 @@ void SetBlantDirs(void);
 double GetCPUseconds(void);
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
-Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k);
-SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges); // returns a SET containing list of connected ordinals
+Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed);
+SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges, Boolean directed); // returns a SET containing list of connected ordinals
 Gint_type orbitListPopulate(char *BUF, Gint_type orbit_list[MAX_CANONICALS][MAX_K],
-    Gordinal_type orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], Gordinal_type numCanon, int k);
+    Gordinal_type orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], Gordinal_type numCanon, int k, Boolean directed);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
 
@@ -104,13 +120,15 @@ extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
-extern unsigned int _Bk;
+extern unsigned int _Bk,_Bkd;
 
 extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
 
-extern char **_nodeNames, _supportNodeNames;
+extern char **_nodeNames;
+extern Boolean _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
-extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
+extern Gordinal_type *_K, *_Kud; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
+
 extern Gordinal_type L_K_Func(Gint_type Gint);
 #if DYNAMIC_CANON_MAP
 #define L_K(Gint) L_K_Func(Gint)

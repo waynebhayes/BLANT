@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <stdio.h>
 #include "misc.h"
 #include "tinygraph.h"
@@ -63,9 +65,9 @@ int main(int argc, char *argv[])
     k = atoi(argv[1]);
     assert(k > 2 && k <= 8);
     int numParallel=atoi(argv[2]), coreID=atoi(argv[3]);
-    G = TinyGraphAlloc(k,false,false);
+    G = TinyGraphAlloc(k,SELF_LOOPS,false);
     for(i=0; i<MAX_CANONICALS; i++)
-	_canonicalGraph[i] = TinyGraphAlloc(k,false,false);
+	_canonicalGraph[i] = TinyGraphAlloc(k,SELF_LOOPS,false);
 
     int maxGint = (1U<<(k*(k-1)/2)), Gint;
     int numPerCore = maxGint / numParallel;

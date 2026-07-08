@@ -1,0 +1,6 @@
+The file README.md contains full instructions, but really the only command to get going
+is below. It makes everything and runs regression tests; NOTE it make take an hour or more.
+
+    ./regression-test-all.sh -make
+
+Note that running "make" by itself probably won't give you what you expect.

@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -38,7 +40,7 @@ int main(int argc, char *argv[])
 {
     char BUF[BUFSIZ];
     SetBlantDirs();
-    _connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges);
+    _connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges, false);
     int numCanon = _connectedCanonicals->maxElem;
     SetFree(_connectedCanonicals);
 

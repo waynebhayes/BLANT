@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef _BLANT_FUNDAMENTALS_H
 #define _BLANT_FUNDAMENTALS_H
 
@@ -13,24 +15,34 @@
 #define SELF_LOOPS 0	// do we allow self-loops? MUST be 0 or 1, no other values allowed.
 #endif
 
+#ifndef SYNTHETIC
+#define SYNTHETIC 0 // off by default
+#endif
+
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
-#define MAX_K (8-SELF_LOOPS) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
+#ifndef MAX_K
+#define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
+#define MAX_KD (6-SELF_LOOPS-(SYNTHETIC*2)) //placeholder value - will change later accordingly
+#endif
 
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
 #define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
 
-#if MAX_K <= 8
-  #define MAX_CANONICALS	12346
-  #define MAX_ORBITS	79264
+#if MAX_K <= 6
+  #define MAX_CANONICALS 156
+  #define MAX_ORBITS	 544
+#elif MAX_K <= 8
+  #define MAX_CANONICALS 12346
+  #define MAX_ORBITS	 79264
 #elif MAX_K == 9
-  #define MAX_CANONICALS	274668
+  #define MAX_CANONICALS 274668
   #define MAX_ORBITS	2208612
 #elif MAX_K == 10
-  #define MAX_CANONICALS	12005168
+  #define MAX_CANONICALS 12005168
   #define MAX_ORBITS	113743760
 #elif MAX_K == 11
-  #define MAX_CANONICALS	1018997864
+  #define MAX_CANONICALS 1018997864
   #if long_width < 34
     #error "cannot do MAX_K==11 since unsigned long doesn't have enough bits to store MAX_ORBITS"
   #else
@@ -51,11 +63,21 @@
   #error "MAX_K too big"
 #endif
 
+#define MAX_DIR_CANONICALS 1540944 // for k=6, directed
+#define MAX_DIR_ORBITS 9174824
+
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
 // (the graphlet / orbit generation code of Ine Melckenbeeck and friends Ghent university), and they published first.
 // NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
 #define LOWER_TRIANGLE	1
+
+//Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
+// If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
+// among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
+#define CANON_ASCENDING_NEIGHBORS 0
+#define SORT_CUBED_SUM 0
+//When canon_ascending_neighbors is on - instead of sorting by degree, we sort by the sum of the cubes of the degrees of the neighbors of nodes
 
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
 // two.  We default to the permutation from the canonical to the sampled non-canonical; thus, when we list the nodes
@@ -68,6 +90,6 @@
 // It would be nice to get this working with the value 1 rather than 0.
 #define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
-#define DEFAULT_DIGITS 2 // 2 digits of precision by defalut
+#define DEFAULT_DIGITS 2 // 2 digits of precision by default
 
 #endif // _BLANT_FUNDAMENTALS_H

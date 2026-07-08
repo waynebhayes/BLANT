@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "misc.h"
 #include "sets.h"
 #include "graph.h"
@@ -204,7 +206,9 @@ void init(int argc, char *argv[]){
     Boolean sparse = true, names=false;
 
     FILE* netFile = fopen(argv[4],"r");
-    _inputNet = GraphReadEdgeList(netFile,sparse,false,false);
+    // graph is undirected (no directed argument in this program), so pass
+    // false for directed.  also supply NULL for initial GRAPH pointer.
+    _inputNet = GraphReadEdgeList(NULL, netFile, false, names, false);
     _Gn=_inputNet->n;
     assert(_Gn>0);
     _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));

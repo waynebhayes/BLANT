@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "combin.h"
 #include "tinygraph.h"
 #include "blant.h"
@@ -68,39 +70,45 @@ int main(int argc, char* argv[]) {
     }
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
-    TINY_GRAPH *g = TinyGraphAlloc(k, false, false);
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, false);
     Gordinal_type numCanon = _connectedCanonicals->maxElem;
 
-	int start, end;
-	if(argc == 2) {
-		start = 0, end = numCanon - 1;
-	} else if (argc == 3) {
-		start = atoi(argv[2]), end = atoi(argv[2]);
-		if(start < 0 || start >= numCanon) {
-			fprintf(stderr, "Invalid ID\n");
-			exit(-1);
-		}
-	} else {
-		start = atoi(argv[2]), end = atoi(argv[3]);
-		if(start < 0 || start >= numCanon || end < 0 || end >= numCanon || start > end) {
-			fprintf(stderr, "Invalid range\n");
-			exit(-1);
-		}
-	}
+    int start, end;
+    if(argc == 2) {
+	    start = 0, end = numCanon - 1;
+    } else if (argc == 3) {
+	    start = atoi(argv[2]), end = atoi(argv[2]);
+	    if(start < 0 || start >= numCanon) {
+		    fprintf(stderr, "Invalid ID\n");
+		    exit(-1);
+	    }
+    } else {
+	    start = atoi(argv[2]), end = atoi(argv[3]);
+	    if(start < 0 || start >= numCanon || end < 0 || end >= numCanon || start > end) {
+		    fprintf(stderr, "Invalid range\n");
+		    exit(-1);
+	    }
+    }
 
+#define PRETTY_ALPHA 0
+#if PRETTY_ALPHA
+#define ALPHA_FMT GINT_FMT "\n" // for pretty-printing and debugging
+#else
+#define ALPHA_FMT GINT_FMT " "  // default: space-separated
+#endif
+
+    printf(GORDINAL_FMT "\n", numCanon);
     int i;
     for (i = start; i <= end; i++) {
 	Int2TinyGraph(g, _canonList[i]);
-    if (!SetIn(_connectedCanonicals, i)) _alphaList[i] = 0;
-    else _alphaList[i] = ComputeAlphaNode(g, k);
+	if (!SetIn(_connectedCanonicals, i)) _alphaList[i] = 0;
+	else _alphaList[i] = ComputeAlphaNode(g, k);
+	printf(ALPHA_FMT, _alphaList[i]);
     }
-
-    printf(GORDINAL_FMT "\n", numCanon);
-    for (i = 0; i < numCanon; i++) {
-	printf(GINT_FMT " ", _alphaList[i]);
-    }
-    printf("\n");
+#if !PRETTY_ALPHA
+    puts(""); // print a newline
+#endif
 
     TinyGraphFree(g);
     SetFree(_connectedCanonicals);

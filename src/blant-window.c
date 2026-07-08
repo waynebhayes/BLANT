@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "blant-window.h"
 #include "blant-output.h"
 #include "blant-sampling.h"
@@ -141,7 +143,7 @@ void updateWindowRep(GRAPH *G, int *windowRepInt, int *D, Gint_type Gint, int nu
 {
     int pending_D;
     memset(perm, 0, _k);
-    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+    Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);
     if (_windowRep_limit_neglect_trivial && GintOrdinal == _k - 1) return;
     if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MAX)
     {
@@ -276,7 +278,7 @@ void FindWindowRepByDeg(GRAPH *Gi, unsigned *WArray)
     float curr_deg, prev_deg = -1;
     unsigned SeedArray[_windowSize], NodeAddedArr[_k];
     SET *savedNodesSET = SetAlloc(Gi->n), *neighborNodeSet = SetAlloc(Gi->n);
-    TINY_GRAPH *g = TinyGraphAlloc(_k,false,false);
+    TINY_GRAPH *g = TinyGraphAlloc(_k, false, false);
     for (i=0; i < _windowSize; i++)
     {
 	    curr_deg = _supportNodeImportance ? _graphNodeImportance[WArray[i]] : Gi->degree[i];

@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "graphette2dotutils.h"
 #include <sstream>
 #include <iostream>
@@ -6,8 +8,8 @@
 using std::stringstream;
 using std::string;
 
-string appendLeadingZeros(const string& inputBitstring, int k) {
-	size_t bitStringFinalSize = static_cast<size_t>(k * (k - 1) / 2);
+string appendLeadingZeros(const string& inputBitstring, int k, bool directed) {
+	size_t bitStringFinalSize = static_cast<size_t>(k * (k - 1) / (directed ? 1 : 2));
 	size_t inputSize = inputBitstring.size();
 	if (bitStringFinalSize > inputSize) {
 		size_t leadingZeros = bitStringFinalSize - inputSize;
@@ -37,8 +39,8 @@ string toBitString(uint64_t inputDecimalNum, int k) {
 	return result;
 }
 
-uint64_t toDecimal(const std::string& inputBitstring, int k) {
-    int _Bk = k * (k - 1) / 2;
+uint64_t toDecimal(const std::string& inputBitstring, int k, bool directed) {
+    int _Bk = k * (k - 1) / (directed ? 1 : 2);
     if (_Bk < inputBitstring.size()) {
         std::cerr << "Input Bitstring too long for k=" << k << ". Max Size: " << _Bk << " Found: " << inputBitstring.size() << "\n";
         exit(EXIT_FAILURE);

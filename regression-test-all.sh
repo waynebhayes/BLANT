@@ -20,8 +20,8 @@ case "$1" in
 esac
 
 if [ "X$GCC_VER" = "X" ] && hostname | egrep Waynes-Air; then
-    echo "Assuming this is Wayne's MacBook Air, needing gcc-14"
-    export GCC_VER=-14
+    echo "Assuming this is Wayne's MacBook Air, needing gcc-13"
+    export GCC_VER=-13
 fi
 
 USAGE="USAGE: $0 [ -make ] [ -x BLANT_EXE ][ list of tests to run, defaults to regression-tests/*/*.sh ]"
@@ -94,6 +94,7 @@ if $MAKE ; then
     #WHAT='"DEBUG=1" all'
 fi
 
+export SEVEN=7
 export EIGHT=8
 if [ "$CI" = true ]; then # continuous integration needs to run faster
     echo '$CI'" variable is '$CI', so assuming we are doing continuous integration" >&2
@@ -108,6 +109,8 @@ echo "Using $MAKE_CORES cores to make and $CORES cores for regression tests"
 export EXE CORES MAKE_CORES
 
 if [ "$NO8" != "" ]; then unset EIGHT; fi
+if [ "$NO7" != "" ]; then unset SEVEN; unset EIGHT; fi
+
 make -j$MAKE_CORES $WHAT || die "failed to make"
 # The gzip below is now done in the Makefile
 #F=canon_maps/canon_map8.txt; [ -f $F ] && nice -19 gzip -9 $F &

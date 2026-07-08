@@ -1,10 +1,12 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <math.h>
 #include "blant.h"
 #include "blant-utils.h"
 #include "blant-predict.h"
-#include "bintree.h"
+#include "tree.h"
 #include "sim_anneal.h"
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
@@ -19,21 +21,22 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 // So we're allocating 256MBx3=768MB even if we need much less.  I figure anything less than 1GB isn't a big deal
 // these days. It needs to be aligned to a page boundary since we're going to mmap the binary file into this array.
 //static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
-kperm *Permutations = NULL; // Allocating memory dynamically
+static kperm *Permutations = NULL, *dPerm = NULL;
 
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
 
 #if DYNAMIC_CANON_MAP
+#if !CANON_ASCENDING_NEIGHBORS
 static int CmpInt(foint a, foint b) {
     return a.i - b.i;
 }
 
-// Surprisingly, BinTree works MUCH faster than a HASH map.
+// Surprisingly, Tree works MUCH faster than a HASH map.
 static unsigned int L_K_Func_Memory(Gint_type Gint) {
     static BINTREE *B;
-    if(!B) B = BinTreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
+    if(!B) B = TreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
     foint f;
-    if(BinTreeLookup(B,(foint)(unsigned int)Gint,&f)) {
+    if(TreeLookup(B,(foint)(unsigned int)Gint,&f)) {
 	assert(_K && f.ui == _K[Gint]);
 	return f.ui;
     }
@@ -41,9 +44,9 @@ static unsigned int L_K_Func_Memory(Gint_type Gint) {
 	// For now, just cheat and use the pre-computed lookup table
 	// FIXME: this is where we need to insert the search that's currently inside fast-canon-map
 	assert(_K);
-	BinTreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
-	//Warning("BinTreeSize %d", B->n);
-	assert(BinTreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
+	TreeInsert(B,(foint)(unsigned int)Gint,(foint)(unsigned int)_K[Gint]);
+	//Warning("TreeSize %d", B->n);
+	assert(TreeLookup(B,(foint)(unsigned int)Gint,&f) && f.ui == _K[Gint]);
 	return _K[Gint];
     }
 }
@@ -78,7 +81,7 @@ double SA_Score(foint solution) {
 static _tInitials[] = {0,0,0, 40, 500, 6000, 150000, 8e6, 9e8};
 static _tDecays[] =   {0,0,0, 5.5, 6, 7, 9, 11, 14};
 
-Gint_type L_K_Func_SA(Gint_type Gint) {
+static Gint_type L_K_Func_SA(Gint_type Gint) {
     // Note the follownig is CHEATING (for now), SA doesn't work well if the sampled graphlet is already canonical
     if(_canonList[_K[Gint]] == Gint) return _K[Gint];
 
@@ -111,15 +114,74 @@ Gint_type L_K_Func_SA(Gint_type Gint) {
 	    Gint, canonInt, _canonList[_K[Gint]]);
     return _K[Gint];
 }
+#endif
+static Gint_type _sortBest;
 
-unsigned int L_K_Func(Gint_type Gint) {
+static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos) {
+    int start = groupStart[gi];
+    int groupSize = groupStart[gi+1] - start;
+    if(pos == groupSize) {
+        if(gi + 1 == numGroups) {
+            Gint_type val = TinyGraph2Int(g, _k);
+            if(val < _sortBest) _sortBest = val;
+        } else {
+            _tryGroupPerms(g, groupStart, numGroups, gi+1, 0);
+        }
+        return;
+    }
+    int i;
+    for(i = pos; i < groupSize; i++) {
+        if(i != pos) TinyGraphSwapNodes(g, start+pos, start+i);
+        _tryGroupPerms(g, groupStart, numGroups, gi, pos+1);
+        if(i != pos) TinyGraphSwapNodes(g, start+pos, start+i);
+    }
+}
+
+static Gint_type L_K_Func_Sort(Gint_type Gint) {
+    static TINY_GRAPH g;
+    g.n = _k;
+    TinyGraphEdgesAllDelete(&g);
+    Int2TinyGraph(&g, Gint);
+    #if SORT_CUBED_SUM
+    TinyGraphSort(&g, true);
+    #else
+    TinyGraphSort(&g, false);
+    #endif
+    int groupStart[_k + 1], numGroups = 0, i;
+    groupStart[0] = 0;
+    for(i = 1; i <= _k; i++){
+        #if SORT_CUBED_SUM
+        int sum = 0, sumPrev = 0;
+        for(int k = 0; k < _k; k++) {
+            if(TinyGraphAreConnected(&g, i, k)) sum += g.degree[k] * g.degree[k] * g.degree[k];
+            if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
+        }
+        if(i == _k || sum < sumPrev)
+            groupStart[++numGroups] = i;
+        #else
+        if(i == _k || g.degree[i] != g.degree[i-1])
+            groupStart[++numGroups] = i;
+        #endif
+        }
+    _sortBest = ~(Gint_type)0;
+    _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
+    return _sortBest;
+}
+
+Gordinal_type L_K_Func(Gint_type Gint) {
+    #if CANON_ASCENDING_NEIGHBORS
+    Gint_type s = L_K_Func_Sort(Gint);
+    return s;
+    #else
     Gint_type m = L_K_Func_Memory(Gint);
     Gint_type s = L_K_Func_SA(Gint);
     assert(m==s);
     assert(m==_K[Gint]);
     return s;
+    #endif
 }
-
+#else
+Gordinal_type L_K_Func(Gint_type Gint) { Apology("no L_K_Func"); return -1; }
 #endif
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
@@ -128,22 +190,32 @@ void SetGlobalCanonMaps(void)
 {
     int i;
     char BUF[BUFSIZ];
-    assert(3 <= _k && _k <= MAX_K);
-#if SELF_LOOPS
-    _Bk = (1U <<(_k*(_k+1)/2));
-#else
-    _Bk = (1U <<(_k*(_k-1)/2));
-#endif
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges);
+    assert(3 <= _k && _k <= (_directed ? MAX_KD : MAX_K));
+    #if SELF_LOOPS
+	_Bk = (1U <<(_k*(_k+1)/2));
+    #else
+	_Bk = (1U <<(_k*(_k-1)/2));
+    #endif
+    _Bkd = (1U <<((_k-1)*_k));
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges, _directed);
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
-    _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
-    _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
+    _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k, _directed);
+    _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k, _directed);
+    if(_directed) _Kud = (Gordinal_type*) mapCanonMap(BUF, _Kud, _k, false);
     sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k);
     int pfd = open(BUF, 0*O_RDONLY);
     if(pfd>=0) {
 	Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
 	assert(Permutations != MAP_FAILED);
+    }
+    if(_directed) {
+	sprintf(BUF, "%s/%s/directed/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k);
+	pfd = open(BUF, 0*O_RDONLY);
+	if(pfd>=0) {
+	    dPerm = (kperm*) mmap(dPerm, sizeof(kperm)*_Bkd, PROT_READ, MAP_PRIVATE, pfd, 0);
+	    assert(dPerm != MAP_FAILED);
+	}
     }
     _numConnectedOrbits = 0;
     for (i=0; i < _numOrbits; i++)
@@ -176,15 +248,16 @@ void LoadMagicTable(void)
 
 // You provide a permutation array, we fill it with the permutation extracted from the compressed Permutation mapping.
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
-Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
+Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint, Boolean directed)
 {
-    if(Permutations) {
-	int j, i32 = 0;
-	for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
-	for(j=0;j<_k;j++)
-	    perm[j] = (i32 >> 3*j) & 7;
-	return _K[Gint];
-    } else return Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
+    if(!directed) assert(Permutations);
+    else assert(dPerm&&_directed);
+    int j, i32 = 0;
+    for(j=0;j<3;j++) i32 |= ( directed ? (dPerm[Gint][j] << j*8) : (Permutations[Gint][j] << j*8));
+    for(j=0;j<_k;j++)
+	perm[j] = (i32 >> 3*j) & 7;
+    assert(_K[Gint] < _numCanon);
+    return (directed ? _K[Gint] : ( _directed ? _Kud[Gint] : _K[Gint]));
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
@@ -275,8 +348,8 @@ TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *g, GRAPH *G, unsigned *Varray)
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(g);
-    assert(!G->selfAllowed);
-    for(i=0; i < g->n; i++) for(j=i+1; j < g->n; j++)
+    //assert(!G->selfAllowed);
+    for(i=0; i < g->n; i++) for(j=0; j < g->n; j++)
         if(GraphAreConnected(G, Varray[i], Varray[j]))
             TinyGraphConnect(g, i, j);
     return g;

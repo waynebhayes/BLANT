@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "combin.h"
 #include "tinygraph.h"
 #include "blant.h"
@@ -62,8 +64,8 @@ int main(int argc, char* argv[]) {
     }
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
-    TINY_GRAPH *g = TinyGraphAlloc(k, false, false);
-    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges);
+    TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
+    _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges,false);
     int numCanon = _connectedCanonicals->maxElem;
 
 	int start, end;

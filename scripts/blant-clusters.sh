@@ -75,8 +75,8 @@ COMPLEMENT=''
 TURAN=false
 DEBUG=false # set to true to store BLANT output
 VERBOSE=0
-QUIET=-qq
-PRECISION=-p1L
+QUIET=-q
+PRECISION=-p0.9L
 PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
 
@@ -119,12 +119,14 @@ done
 
 # Temporary Filename + Directory (both, you can use either, note they'll have different random stuff in the XXXXXX part)
 TMPDIR=`mktemp -d ${LOCAL_TMP:-"/tmp"}/$BASENAME.XXXXXX`
- trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
+#trap "/bin/rm -rf $TMPDIR; exit" 0 1 2 3 15 # call trap "" N to remove the trap for signal N
 echo "TMPDIR is $TMPDIR" >&2
 [ "$BLANT_FILES" ] || BLANT_FILES="$TMPDIR"
 
 BLANT_CMD="$1 ${PRECISION} $QUIET";
 BLANT_EXE=`echo $BLANT_CMD | awk '{print $1}'`
+BLANT_DIR=`dirname "$BLANT_EXE"`
+source "$BLANT_DIR/setup.sh"
 Ks=(`echo $2 | newlines | sort -nr`); # sort the Ks highest to lowest so the below parallel runs start the higher values of k first
 #[ `echo "${Ks[@]}" | wc -w` -eq 1 ] || die "no more multiple K's at the same time"
 EDs=($3)
@@ -161,6 +163,10 @@ case "$net" in
 *.elw) [ "X$WEIGHTED" = "X-w" ] || die "weighted edgelist given without -w option";;
 *) die "network '$net' must be an edgeList file ending in .el";;
 esac
+
+echo "Don't forget: edgeDensity threshold for GDVs should fluctuate randomly as the cluster is built, with threshold
+something like ED+N(ED,ED/2), so that the expected density is still ED, but we're allowed to add nodes both above
+and below the threshold, at random" >&2
 
 # Pre-run the BLANTs for each k, and re-use the files for each edge density.
 BLANT_EXIT_CODE=0

@@ -1,3 +1,5 @@
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <stdio.h>
 #include <sys/file.h>
 #include <stdlib.h>
@@ -6,7 +8,8 @@
 
 #include "blant.h"
 
-#define totalCanons 1540944 // for k=6, directed, without self-loops
+#define ALLOW_DIRECTED 0
+
 #define udGraphSize 14 //undirected graph size; k=8
 #define dGraphSize 30 //directed graph size; k=6
 
@@ -46,46 +49,50 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
     unsigned long num=0;
     int lf=0;
     for(int i = 0; i < k; i++)
-    for(int j = (i+1)*(1-directed); j < k; j++){
-	if(i==j) continue;
-	num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
-	lf++;
+	for(int j = (directed ? 0 : i+1); j < k; j++){
+   	    if(i==j) continue;
+	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
+	    lf++;
     }
     return num;
 }
 
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
     for(int i=k-1; i>=0; i--)
-	for(int j=k-1; j>=(i+1)*(1-directed); j--){
+	for(int j=k-1; j>=(directed ? 0 : i+1); j--){
 	    if(i==j) continue;
 	    bitMatrix[i][j] = D%2;
+	    if(!directed) bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
 	}
 }
 
 #endif
 
-
+#if ALLOW_DIRECTED
 // 64 bits for the index of canonical decimal plus permutation:
 // 30 bits to store the graph, largest numCanon is 1540944 (for k=6)
-typedef unsigned char xChar[8]; 
+#define XCHAR_SIZE 8
+#else
+#define XCHAR_SIZE 5 //40 bits for saving index of canonical decimal and permutation
+#endif
+typedef unsigned char xChar[XCHAR_SIZE]; 
 
 static xChar* data;
 static bool* done;
-static unsigned long canonicalDecimal[totalCanons];
+static unsigned long canonicalDecimal[MAX_CANONICALS];
 
 void encodeChar(xChar ch, long indexD, long long indexP){
     unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? dGraphSize : udGraphSize));
-    for(int i=7; i>=0; i--){
+    for(int i=XCHAR_SIZE-1; i>=0; i--){
 	ch[i]=(char)(x%(1<<8));
 	x>>=8;
     }
 }
 
 void decodeChar(xChar ch, long* indexD, long long* indexP){
-
     unsigned long long x=0,y=0,w,m;
-    for(int i=7; i>=0; i--){
+    for(int i=XCHAR_SIZE-1; i>=0; i--){
 	w=(long long)ch[i];
 	m=(1ll<<y);
 	x+=w*m;
@@ -153,15 +160,34 @@ void canon_map(void){
     long num_canon=0;
 
     //finding canonical forms of all graphettes
-    for(int t=1; t<numBitValues; t++){
+    for(int t=1; t<numBitValues; t++){ //technically, this takes twice as long as it needs to (for canon_ascending_neighbors) - fix later
 	assert(t>=0);
+	decimalToBitArray(bitMatrix, t);
+	#if CANON_ASCENDING_NEIGHBORS
+	assert(!directed);
+	TINY_GRAPH *G = TinyGraphAlloc(k,0,0);
+	TinyGraphEdgesAllDelete(G);
+	Int2TinyGraph(G, t);
+	Boolean flag=1;
+	int prevcount=-1;
+	for(int v=0;v<k;v++)
+	{
+	    if(G->degree[v]<prevcount)
+	    {
+		flag=0;
+		break;
+	    }
+	    prevcount=G->degree[v];
+	}
+	if(!flag) continue;
+	#endif
 	if(done[t]) continue;
 	done[t]=1; // this is a new canonical, and it the lowest by construction
 	encodeChar(data[t],++num_canon,0);
 	canonicalDecimal[num_canon]=t;
 
 	int num = 0;
-	decimalToBitArray(bitMatrix, t);
+
 	for(long long nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
 	{
 	    assert(nP>0);
@@ -194,7 +220,7 @@ void canon_map(void){
     //saving canonical decimal and permutation in the file
     long canonDec;
     long long canonPerm;
-    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed);
+    TINY_GRAPH *G = TinyGraphAlloc(k,0,directed), *Gu = TinyGraphAlloc(k,0,false);
     for(unsigned long i=0; i<numBitValues; i++){
 	char printPerm[k+1];
 	printPerm[k]='\0';
@@ -206,8 +232,10 @@ void canon_map(void){
 	fprintf(fcanon,"%lu\t%s", canonicalDecimal[canonDec], printPerm);
 	if(canonPerm == 0) {
 	    TinyGraphEdgesAllDelete(G);
+	    TinyGraphEdgesAllDelete(Gu);
 	    Int2TinyGraph(G, i);
-	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(G, 0, k, nodeArray, distArray) == k);
+	    TinyGraphToUndirected(G, Gu);
+	    int nodeArray[k], distArray[k], connected = (TinyGraphBFS(Gu, 0, k, nodeArray, distArray) == k);
 	    fprintf(fcanon, "\t%c %d", '0'+connected, TinyGraphNumEdges(G));
 	    int u,v,sep='\t';
 	    for(u=0;u<k;u++)for(v=(1-directed)*u;v<k;v++) if(TinyGraphAreConnected(G,u,v)) {
@@ -229,12 +257,19 @@ int main(int argc, char* argv[]){
 	directed=true;
     } else assert(argc==2);
     k = atoi(argv[1]); assert(2<=k && k<=8);
+    if(directed && k > 6) {
+	fprintf(stderr, "Error: directed graphs are only supported for k<=6 (got k=%d)\n", k);
+	exit(1);
+    }
     numBitValues = (1UL << (k*(k-1)/(2-directed)));
     assert(numBitValues>0);
-    data = calloc(sizeof(xChar),numBitValues);
-    done = calloc(sizeof(bool),numBitValues);
+    data = calloc(numBitValues, sizeof(xChar));
+    done = calloc(numBitValues, sizeof(bool));
+    if (!data || !done) {
+	fprintf(stderr, "Memory allocation failed\n");
+	exit(1);
+    }
     canon_map();
 
     return 0;
 }
-
