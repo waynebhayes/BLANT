@@ -72,11 +72,14 @@
 // NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
 #define LOWER_TRIANGLE	1
 
+#define USE_PAIRS_ORBITS 1
+// If 1, then we find orbits through checking if swapping nodes in pairs results in an autoisomorphism. If 0, then we find orbits through permuting all the nodes.
+
 //Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
 // If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
 // among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
-#define CANON_ASCENDING_NEIGHBORS 0
-#define SORT_CUBED_SUM 0
+#define CANON_ASCENDING_NEIGHBORS 1
+#define SORT_CUBED_SUM 1
 //When canon_ascending_neighbors is on - instead of sorting by degree, we sort by the sum of the cubes of the degrees of the neighbors of nodes
 
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
@@ -88,7 +91,7 @@
 // This compile-time constant defines whether or not we perform dynamic on-the-fly construction of the canon_map lookup
 // table (stored in _K) rather than reading in canon_map/* files. The default (for now) is 0, meaning read in the files.
 // It would be nice to get this working with the value 1 rather than 0.
-#define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
+#define DYNAMIC_CANON_MAP 1 // it kinda does work now but let's keep it off to be safe
 
 #define DEFAULT_DIGITS 2 // 2 digits of precision by default
 
