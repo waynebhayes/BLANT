@@ -290,6 +290,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	TinyGraphInducedFromGraph(g, G, Varray);
 	gd = TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
 	Gint_type Gint = TinyGraph2Int(g, k),Gdint = TinyGraph2Int(gd, k);
+	#if !DYNAMIC_CANON_MAP
 	unsigned char perm[k];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint,false),GintOrdinalD = ExtractPerm(perm, Gdint,_directed);
@@ -311,6 +312,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
 	TinyGraphFree(g);
 	TinyGraphFree(gd);
+	#endif
     }
     SetFree(outSet);
     return 1.0;
@@ -645,6 +647,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	Gint_type Gdint = TinyGraph2Int(gd, k);
+	#if !DYNAMIC_CANON_MAP
 	unsigned char perm[k];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);
@@ -668,6 +671,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	_g_overcount = ocount;
 	TinyGraphFree(g);
 	TinyGraphFree(gd);
+	#endif
     }
 
     return 1.0;
@@ -911,6 +915,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
     Gint_type Gint = TinyGraph2Int(g, k);
     Gint_type Gdint = TinyGraph2Int(gd, k);
+	#if !DYNAMIC_CANON_MAP
     unsigned char perm[k];
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);
@@ -958,6 +963,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 
     // SYNTH: increment row[old], column[new] by 1
     _g_overcount = ocount;
+	#endif
     return 1.0;
 }
 

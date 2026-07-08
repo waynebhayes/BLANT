@@ -366,6 +366,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
 // The alpha value represents the number of ways to get that graphlet
 // Concentrations are initialized to 0
 void initialize(GRAPH *G, int k, unsigned long numSamples) {
+  #if !DYNAMIC_CANON_MAP
   int i;
 
   char BUF[BUFSIZ];
@@ -373,6 +374,7 @@ void initialize(GRAPH *G, int k, unsigned long numSamples) {
   alphaListPopulate(BUF, _alphaList, k);
   for (i = 0; i < _numCanon; i++)
     _graphletConcentration[i] = 0.0;
+  #endif
 }
 
 // Loads alpha values(overcounting ratios) for MCMC sampling from files
@@ -382,6 +384,7 @@ void initialize(GRAPH *G, int k, unsigned long numSamples) {
 // sampling Global variable _numSamples needed for the algorithm to reseed
 // halfway through Concentrations are initialized to 0
 void initializeMCMC(GRAPH *G, int k, unsigned long numSamples) {
+  #if !DYNAMIC_CANON_MAP
   _MCMC_L = k - mcmc_d + 1;
   // Count the number of valid edges to start from
   int i, validEdgeCount = 0;
@@ -399,6 +402,7 @@ void initializeMCMC(GRAPH *G, int k, unsigned long numSamples) {
   if (!_window) {
     initialize(G, k, numSamples);
   }
+  #endif
 }
 
 // Convert the graphlet frequencies to concentrations
@@ -2392,7 +2396,9 @@ int main(int argc, char *argv[]) {
 
   SetBlantDirs();       // Needs to be done before reading any files in BLANT
                         // directory
+  #if !DYNAMIC_CANON_MAP
   SetGlobalCanonMaps(); // needs _k to be set
+  #endif
   if(!_directed) LoadMagicTable();     // needs _k to be set
 
   if (_window && _windowSize >= 3) {
