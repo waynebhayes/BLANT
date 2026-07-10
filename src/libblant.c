@@ -64,7 +64,7 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 	{
 	    if(i==j && !G->selfLoops) continue;
 	    if(!Gint2) break;
-	    Gint_type bit = ((Gint_type)1 << bitPos);
+	    Gint_type bit = (((Gint_type)1) << bitPos);
 	    if(Gint & bit) TinyGraphConnect(G,i,j);
 
 	    Gint2 &= ~bit;

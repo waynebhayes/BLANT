@@ -156,6 +156,7 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
 }
 
 Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
+    //fprintf(stderr,"no error yet\n");
     static TINY_GRAPH g;
     /* Clear any stale state on the static temporary graph, then set basic fields */
     memset(&g, 0, sizeof(g));
@@ -172,20 +173,24 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     #endif
     int groupStart[_k + 1], numGroups = 0, i;
     groupStart[0] = 0;
-    for(i = 1; i < _k; i++){
+    for(i = 1; i <= _k; i++){
         #if SORT_CUBED_SUM
         int sum = 0, sumPrev = 0;
-        for(int k = 0; k < _k; k++) {
-            if(TinyGraphAreConnected(&g, i, k)) sum += g.degree[k] * g.degree[k] * g.degree[k];
-            if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
+        if(i!=_k){
+            for(int k = 0; k < _k; k++) {
+                if(TinyGraphAreConnected(&g, i, k)) sum += g.degree[k] * g.degree[k] * g.degree[k];
+                if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
+            }
         }
-        if(i == _k || sum < sumPrev)
+        if(i == _k || sum != sumPrev)
             groupStart[++numGroups] = i;
         #else
         if(i == _k || g.degree[i] != g.degree[i-1])
             groupStart[++numGroups] = i;
         #endif
-        }
+    }
+    //fprintf(stderr,"2no error yet\n");
+    groupStart[++numGroups] = _k;
     _sortBest = ~(Gint_type)0;
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
     if(permOut) for(i = 0; i < _k; i++) permOut[i] = (unsigned char)_bestPerm[i];
