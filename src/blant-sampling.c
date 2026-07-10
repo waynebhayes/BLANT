@@ -284,7 +284,9 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(SetCardinality(V) == k);
     assert(nOut == SetCardinality(outSet));
 #endif
+#if !DYNAMIC_CANON_MAP
     if(!_window) {
+#endif
 	TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
 	TINY_GRAPH *gd = TinyGraphAlloc(k, SELF_LOOPS, _directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -312,8 +314,8 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
 	TinyGraphFree(g);
 	TinyGraphFree(gd);
-	#endif
     }
+    #endif
     SetFree(outSet);
     return 1.0;
 }
@@ -640,7 +642,9 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(SetCardinality(V) == k);
     assert(vCount == k);
 #endif
+#if !DYNAMIC_CANON_MAP
     if(!_window) {
+#endif
 	TINY_GRAPH *g = TinyGraphAlloc(k,G->selfAllowed,false);
 	TINY_GRAPH *gd = TinyGraphAlloc(k,G->selfAllowed,_directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
@@ -671,8 +675,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	_g_overcount = ocount;
 	TinyGraphFree(g);
 	TinyGraphFree(gd);
-	#endif
     }
+#endif
 
     return 1.0;
 }
@@ -1215,7 +1219,7 @@ double SampleGraphletAcceptReject(GRAPH *G, SET *V, unsigned *Varray, int k)
     _acceptRejectTotalTries += tries;
     return 1.0;
 }
-
+#if !DYNAMIC_CANON_MAP
 // Fit SampleGraphletMCMC for windowRep implementation (alphalist and overcounting is not used here)
 double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
 {
@@ -1254,7 +1258,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
 	}
 	return 1.0;
 }
-
+#endif
 /*
  * This function builds graphlets to be included into the index for the -s INDEX sampling mode. For each valid sample it takes,
  * it calls the ProcessGraphlet function to print the graphlet directly. It is called inside RunBlantFromGraph function to take
@@ -1264,6 +1268,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
  * @param prev_nodes  the temporary set of nodes in the graphlet to build
  * @param heur_arr  the array containing the heuristic values for all nodes which is used to determine which nodes in next_step to expand to
  */
+#if !DYNAMIC_CANON_MAP
 void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr) {
     if(G->useComplement) Fatal("Sorry, complemented graphs not supported in INDEX mode");
     if(_numStartNodes != G->n) Fatal("Sorry, nodes-of-interest not implemented for Index+Print");
@@ -1316,13 +1321,13 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     }
 
     int (*comp_func)(const void*, const void*);
-
+    #if !DYNAMIC_CANON_MAP
     if (_alphabeticTieBreaking) {
         comp_func = nwhn_des_alph_comp_func;
     } else {
         comp_func = nwhn_des_rev_comp_func;
     }
-
+    #endif
     qsort((void*)next_step_nwhn_arr, next_step_count, sizeof(node_whn), comp_func); // sort by heuristic first and name second
 
     // Loop through neighbor nodes with Top N (-lDEGN) distinct heur values
@@ -1341,7 +1346,6 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     }
     int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000; // algo=base
     // int num_distinct_values_to_skip = _k - prev_nodes_count - 1; // algo=stairs
-
     int num_distinct_values = 0;
     old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics not being -1
     i = 0;
@@ -1358,12 +1362,10 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
             ++i;
             continue;
         }
-
         // break once we've gotten enough distinct heur values
         if (_numWindowRepLimit != 0 && num_distinct_values - num_distinct_values_to_skip > _numWindowRepLimit) {
             break;
         }
-
         // perform the standard DFS step of set next, recurse with size + 1, and then unset next
         prev_nodes_array[prev_nodes_count] = next_step_nwhn.node;
         SampleGraphletIndexAndPrint(G, prev_nodes_array, prev_nodes_count + 1, heur_arr);
@@ -1372,7 +1374,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         ++i;
     }
 }
-
+#endif
 
 // if cc == G->n, then we choose it randomly. Otherwise use cc given.
 double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumulators *accums) {
@@ -1399,11 +1401,15 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
 	SampleGraphletEdgeBasedExpansion(G, V, Varray, k, cc, accums); // Faster than NBE but less well tested and understood.
 	break;
     case SAMPLE_MCMC:
+        #if DYNAMIC_CANON_MAP
+	SampleGraphletMCMC(G, V, Varray, k, cc, accums);
+	#else
         if(!_window) {
 	    SampleGraphletMCMC(G, V, Varray, k, cc, accums);
         } else {
             SampleWindowMCMC(G, V, Varray, k, cc);
         }
+	#endif
 	break;
     case SAMPLE_FROM_FILE:
 	SampleGraphletFromFile(G, V, Varray, k);

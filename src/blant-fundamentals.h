@@ -19,10 +19,16 @@
 #define SYNTHETIC 0 // off by default
 #endif
 
+#define DYNAMIC_CANON_MAP 1 // it kinda does work now but let's keep it off to be safe
+
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
 #ifndef MAX_K
+#if DYNAMIC_CANON_MAP
+#define MAX_K 16
+#else
 #define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
+#endif
 #define MAX_KD (6-SELF_LOOPS-(SYNTHETIC*2)) //placeholder value - will change later accordingly
 #endif
 
@@ -59,7 +65,7 @@
   #else
     #define MAX_ORBITS	1956363435360UL
   #endif
-#else
+#elif !DYNAMIC_CANON_MAP
   #error "MAX_K too big"
 #endif
 
@@ -91,7 +97,6 @@
 // This compile-time constant defines whether or not we perform dynamic on-the-fly construction of the canon_map lookup
 // table (stored in _K) rather than reading in canon_map/* files. The default (for now) is 0, meaning read in the files.
 // It would be nice to get this working with the value 1 rather than 0.
-#define DYNAMIC_CANON_MAP 1 // it kinda does work now but let's keep it off to be safe
 
 #define DEFAULT_DIGITS 2 // 2 digits of precision by default
 

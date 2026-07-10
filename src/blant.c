@@ -98,7 +98,7 @@ unsigned long _known_orbit_count[2][13] = {
     // directed
 };
 
-
+#if !DYNAMIC_CANON_MAP
 Gint_type _alphaList[MAX_CANONICALS];
 Gordinal_type _numCanon;
 char _canonNumEdges[MAX_CANONICALS];
@@ -108,6 +108,7 @@ int _canonNumStarMotifs[MAX_CANONICALS]; // However, the per-canonical values
                                          // are integers
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation
                                       // of the canonical
+#endif
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
 char _communityMode;    // 'g' for graphlet or 'o' for orbit
@@ -121,7 +122,7 @@ int _numConnectedComponents;
 int *_componentSize;
 int *_startNodes, _numStartNodes;
 SET *_startNodeSet;
-
+#if !DYNAMIC_CANON_MAP
 Gint_type _numOrbits,
     _orbitList[MAX_CANONICALS]
               [MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
@@ -129,24 +130,28 @@ Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical
                                               // (including disconnected)
 char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including
                                          // disconnected)
+#endif
 int *_whichComponent;
 
 enum OutputMode _outputMode = undef;
 unsigned long _numSamples;
+#if !DYNAMIC_CANON_MAP
 int **_graphletDistributionTable;
 double _graphletCount[MAX_CANONICALS], _graphletConcentration[MAX_CANONICALS],
     _absoluteCountMultiplier = 1;
+
 unsigned long _batchRawCount[MAX_CANONICALS],
     _batchRawTotalSamples; // batches for confidence intervals
-
+#endif
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
-
+#if !DYNAMIC_CANON_MAP
 int _outputMapping[MAX_CANONICALS];
 
 int _orca_orbit_mapping[58];
 int _connectedOrbits[MAX_ORBITS];
 int _numConnectedOrbits;
+#endif
 
 // A bit counter-intuitive: we need to allocate this many vectors each of length
 // [_numNodes], and then the degree for node v, graphlet/orbit g is
@@ -154,9 +159,10 @@ int _numConnectedOrbits;
 // of MAX_CANONICALS so we pre-know the length of the first dimension, otherwise
 // we'd need to get more funky with the pointer allocation. Only one of these
 // actually get allocated, depending upon outputMode.
+#if !DYNAMIC_CANON_MAP
 double *_graphletDegreeVector[MAX_CANONICALS];
 double *_orbitDegreeVector[MAX_ORBITS];
-
+#endif
 double *_cumulativeProb, _worstPrecision, _meanPrec;
 enum PrecisionMode _precisionMode = mean;
 enum PrecisionWeights _precisionWt = PrecWtNone;
@@ -281,7 +287,7 @@ static int InitializeConnectedComponents(GRAPH *G) {
   Free(Varray); // but do NOT set it to NULL, as a flag not to run this again
   return _numConnectedComponents;
 }
-
+#if !DYNAMIC_CANON_MAP
 static void InitializeStarMotifs(GRAPH *G) {
   int i;
   _totalStarMotifs = 0.0;
@@ -295,7 +301,7 @@ static void InitializeStarMotifs(GRAPH *G) {
     _canonNumStarMotifs[i] =
         -1; // 0 is a valid value so use -1 to mean "not yet initialized"
 }
-
+#endif
 const char *SampleMethodStr(void) {
   switch (_sampleMethod) {
   case SAMPLE_NODE_EXPANSION:
@@ -332,7 +338,7 @@ const char *SampleMethodStr(void) {
   Fatal("SampleMethodStr: unknown _sampleMethod %d", _sampleMethod);
   return NULL;
 }
-
+#if !DYNAMIC_CANON_MAP
 Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
   int i;
   if (_rawCounts) { // turn off alphas by making them all 1.
@@ -361,7 +367,7 @@ Gint_type alphaListPopulate(char *BUF, Gint_type *alpha_list, int k) {
   fclose(fp_ord);
   return numAlphas;
 }
-
+#endif
 // Loads alpha values(overcounting ratios) for NBE/EBE/MCMC sampling from files
 // The alpha value represents the number of ways to get that graphlet
 // Concentrations are initialized to 0
@@ -406,6 +412,7 @@ void initializeMCMC(GRAPH *G, int k, unsigned long numSamples) {
 }
 
 // Convert the graphlet frequencies to concentrations
+#if !DYNAMIC_CANON_MAP
 void finalize(GRAPH *G, unsigned long numSamples) {
   double totalConcentration = 0;
   int i, j;
@@ -494,7 +501,7 @@ double computeAbsoluteMultiplier(unsigned long numSamples) {
   }
   return total;
 }
-
+#endif
 void *RunBlantInThread(void *arg) {
   // variable unpacking
   ThreadData *args = (ThreadData *)arg;
@@ -506,11 +513,10 @@ void *RunBlantInThread(void *arg) {
   int threadId = args->threadId;
   Accumulators *accums = InitializeAccumulatorStruct(G);
   args->accums = accums;
-
   // initialize the random number generator
   RandomSeed(seed);
 
-#if PARANOID_ASSERTS
+#if PARANOID_ASSERTS&&!DYNAMIC_CANON_MAP
   for (int i = 0; i < _numCanon; i++) {
     // printf("graphletConcentration[%d] = %g\n", i,
     // accums->graphletConcentration[i]);
@@ -528,13 +534,13 @@ void *RunBlantInThread(void *arg) {
   unsigned Varray[varraySize];
   SET *prev_node_set = SetAlloc(G->n);
   SET *intersect_node = SetAlloc(G->n);
-
+  #if !DYNAMIC_CANON_MAP
   if (_outputMode & graphletDistribution) {
     SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
     SetCopy(prev_node_set, V);
     TinyGraphInducedFromGraph(empty_g, G, Varray);
   }
-
+  #endif
   const uint64_t total = args->totalSamples;
   const uint64_t chunk = (uint64_t)args->batchSize;
 
@@ -549,15 +555,18 @@ void *RunBlantInThread(void *arg) {
     unsigned long stuck = 0;
     // Original per-sample loop (unchanged)
     for (uint64_t i = start; i < end; i++) {
+      #if !DYNAMIC_CANON_MAP
       if (_window) {
         Fatal("Multithreading not yet implemented for any window related "
               "output modes."); // needs to be done
       }
-
+      #endif
       if (_outputMode & graphletDistribution) {
+        #if !DYNAMIC_CANON_MAP
         // calls SampleGraphlet internally
         ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set,
                                   intersect_node);
+        #endif
       } else {
         double weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
         if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
@@ -603,18 +612,20 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
     SetCopy(prev_node_set, V);
     TinyGraphInducedFromGraph(empty_g, G, Varray);
   }
-
   unsigned long stuck = 0;
   // This is the sampling loop from RunBlantInThread
   for (uint64_t i = 0; i < numSamples; i++) {
+    #if !DYNAMIC_CANON_MAP
     if (_window) {
       Fatal("Multithreading not yet implemented for any window related output "
             "modes.");
     }
-
+    #endif
     if (_outputMode & graphletDistribution) {
+      #if !DYNAMIC_CANON_MAP
       ProcessWindowDistribution(G, V, Varray, k, empty_g, prev_node_set,
                                 intersect_node);
+      #endif
     } else {
       double weight = SampleGraphlet(G, V, Varray, k, G->n, accums);
       if (ProcessGraphlet(G, V, Varray, k, empty_g, weight, accums)) {
@@ -658,9 +669,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 #else
   TINY_GRAPH *empty_g = TinyGraphAlloc(k, SELF_LOOPS, _directed); // allocate it here once, so functions below don't need to do it repeatedly
 #endif
-  int varraySize = _windowSize > 0 ? _windowSize : MAX_K + 1;
+  int varraySize =
+  #if !DYNAMIC_CANON_MAP
+  _windowSize > 0 ? _windowSize : 
+  #endif
+  MAX_K + 1;
   unsigned Varray[varraySize];
   InitializeConnectedComponents(G);
+  #if !DYNAMIC_CANON_MAP
   InitializeStarMotifs(G);
 
   // these initialize the global accumulators, which are the ones being outputed
@@ -703,13 +719,16 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     _graphletConcentration[i] = 0;
     _graphletCount[i] = 0;
   }
-
+  #endif
   if (_sampleMethod == SAMPLE_MCMC)
-    _window ? initializeMCMC(G, _windowSize, numSamples)
-            : initializeMCMC(G, k, numSamples);
+    #if !DYNAMIC_CANON_MAP
+    _window ? initializeMCMC(G, _windowSize, numSamples) : 
+    #endif
+    initializeMCMC(G, k, numSamples);
   else if (_sampleMethod == SAMPLE_NODE_EXPANSION ||
            _sampleMethod == SAMPLE_EDGE_EXPANSION)
     initialize(G, k, numSamples);
+  #if !DYNAMIC_CANON_MAP
   if (_outputMode & graphletDistribution) {
     // accumulators must be provided but no need for them
     SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
@@ -723,10 +742,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
       !(_outputMode & indexOrbits))
     Fatal("currently only -mi and -mj output modes are supported for INDEX and "
           "EDGE_COVER sampling methods");
-
+  #endif
   // ethan note: nothing written about SAMPLE_INDEX sampling, but it must be
   // single threaded?
   if (_sampleMethod == SAMPLE_INDEX) {
+    #if !DYNAMIC_CANON_MAP
     if (_numThreads > 1) {
       Note("Index sampling must be single threaded; switching to one thread");
       _numThreads = 1; // this is unecessary since the below code doesn't use
@@ -736,7 +756,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
     // Get heuristic values based on orbit number, if ODV file provided
     double heuristicValues[G->n];
-
     if (_orbitNumber != -1) {
       getOdvValues(heuristicValues, _orbitNumber, _nodeNames, G->n);
     } else {
@@ -744,7 +763,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                          G); // since heuristic values are doubles, we need to
                              // convert degree values to doubles
     }
-
     int percentToPrint = 1;
     node_whn
         nwhn_arr[G->n]; // nodes sorted first by the heuristic function and then
@@ -759,13 +777,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
     // sort array
     int (*comp_func)(const void *, const void *);
-
     if (_alphabeticTieBreaking) {
       comp_func = nwhn_des_alph_comp_func;
     } else {
       comp_func = nwhn_des_rev_comp_func;
     }
-
     qsort((void *)nwhn_arr, G->n, sizeof(node_whn), comp_func);
     for (i = 0; i < G->n; i++) {
       prev_nodes_array[0] = nwhn_arr[i].node;
@@ -775,6 +791,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         ++percentToPrint;
       }
     }
+    #endif
   } else if (_sampleMethod == SAMPLE_MCMC_EC) {
     Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
 #if 0
@@ -824,7 +841,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         }
         // Only allow threading for modes that are safe (no NodeSetSeenRecently,
         // no windowing)
-        else if (_window == 0 &&
+        else if (
+          #if !DYNAMIC_CANON_MAP
+          _window == 0 &&
+          #endif
                  (_outputMode & graphletFrequency || _outputMode & outputGDV ||
                   _outputMode & outputODV ||
                   _outputMode & communityDetection)) {
@@ -875,6 +895,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     ReportVal(minNumBatches, "%d");
     int maxNumBatches = 1000 * minNumBatches;   // huge
     ReportVal(maxNumBatches, "%d");
+    #if !DYNAMIC_CANON_MAP
     STAT *sTotal[MAX_CANONICALS];
     if(_desiredPrec) {
 	assert(numSamples==0 && _numSamples==0);
@@ -885,7 +906,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     for (i = 0; i < _numCanon; i++)
       if (SetIn(_connectedCanonicals, i))
         sTotal[i] = StatAlloc(0, 0, 0, false, false);
-
+    #endif
     // Accumulators for single threaded mode
     Accumulators *singleThreadAccums = NULL;
     if (_numThreads == 1) {
@@ -894,8 +915,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     int whileLoopCounter=-1;
     while (!confMet && !_earlyAbort) {
       ++whileLoopCounter;
+      #if !DYNAMIC_CANON_MAP
       switch (_stopMode) {
       case stopOnSamples:
+      #endif
         // one and done, distribute the n samples amongst the threads and stop
         // there
         if (_numThreads == 1) {
@@ -903,11 +926,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                                    singleThreadAccums);
         } else {
 	  // inside we use base_seed+threadId, so bump the base_seed by _numThreads with each new call
+          #if !DYNAMIC_CANON_MAP
           SampleNGraphletsInThreads(_seed+_numThreads*whileLoopCounter, k, G, varraySize, numSamples, _numThreads);
+          #endif
         }
         samplesCounter += numSamples;
         confMet = true; //to exit loop
 	break;
+      #if !DYNAMIC_CANON_MAP
       case stopOnPrecision:
         if (_desiredPrec && _quiet < 2) {
           if (_numThreads == 1) {
@@ -1038,7 +1064,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
       default: Fatal("Unknown stopmode %d", _stopMode);
         break;
       }
+      #endif
     }
+    #if !DYNAMIC_CANON_MAP
     // If we ran in single-threaded mode, we must now merge the
     // singleThreadAccums into the global accumulators.
     // This logic is copied from the end of SampleNGraphletsInThreads.
@@ -1412,8 +1440,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
   if (_outputMode & predict) {
     Predict_Flush(G);
     Predict_Shutdown(G);
+  #endif
   }
-
   if (!_outputMode)
     Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
 
@@ -1440,7 +1468,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
   TinyGraphFree(empty_g);
   return _earlyAbort;
 }
-
+#if !DYNAMIC_CANON_MAP
 /*
 ** Fork a BLANT process and return a FILE pointer where it'll be sending stuff.
 ** Caller is responsible for reading all the stuff from the returned FILE
@@ -1691,7 +1719,6 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G) {
   }
   return result;
 }
-
 void BlantAddEdge(int v1, int v2, double weight) {
   if (!_pairs)
     _pairs = Malloc(2 * _maxEdges * sizeof(_pairs[0]));
@@ -1727,7 +1754,7 @@ void BlantAddEdge(int v1, int v2, double weight) {
   assert(_pairs[2 * _numEdges] < _pairs[2 * _numEdges + 1]);
   _numEdges++;
 }
-
+#endif
 const char *const USAGE_SHORT =
     "BLANT (Basic Local Alignment of Network Topology): sample graphlets of up "
     "to 8 nodes from a graph.\n"
@@ -2037,11 +2064,13 @@ int main(int argc, char *argv[]) {
         _outputMode |= graphletDistribution;
         break;
       case 'p':
+        #if !DYNAMIC_CANON_MAP
         _outputMode |= (predict | outputGDV | outputODV);
         char *s = optarg + 1;
         _predictOrbit1 = atoi(s);
         until(*s++ == ':') /* do nothing */;
         _predictOrbit2 = atoi(s);
+        #endif
         break;
       case 'q':
         _outputMode |= predict_merge;
@@ -2207,8 +2236,10 @@ int main(int argc, char *argv[]) {
                 MAX_K);
       break;
     case 'W':
+      #if !DYNAMIC_CANON_MAP
       _window = true;
       _windowSize = atoi(optarg);
+      #endif
       break;
     case 'w':
       _weighted = true;
@@ -2217,6 +2248,7 @@ int main(int argc, char *argv[]) {
       _directed = true;
       break;
     case 'x':
+      #if !DYNAMIC_CANON_MAP
       if (_windowSampleMethod != -1)
         Fatal("Tried to define window sampling method twice");
       else if (strncmp(optarg, "DMIN", 4) == 0)
@@ -2236,8 +2268,10 @@ int main(int argc, char *argv[]) {
       else
         Fatal("Unrecognized window searching method specified. Options are: "
               "-p[u|U]{MIN|MAX|DMIN|DMAX|LFMIN|LFMAX|DEGMAX}\n");
+      #endif
       break;
     case 'X':
+      #if !DYNAMIC_CANON_MAP
       if (strncmp(optarg, "COMB", 4) == 0)
         _windowIterationMethod = WINDOW_ITER_COMB;
       else if (strncmp(optarg, "DFS", 3) == 0)
@@ -2245,8 +2279,10 @@ int main(int argc, char *argv[]) {
       else
         Fatal("Unrecognized window Iteration method specified. Options are: "
               "-P{COMB|DFS}\n");
+      #endif
       break;
     case 'l':
+      #if !DYNAMIC_CANON_MAP
       if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF)
         Fatal("Tried to define window limiting method twice");
       if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
@@ -2268,6 +2304,7 @@ int main(int argc, char *argv[]) {
         _numWindowRepArrSize = _numWindowRepLimit;
       }
       _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
+      #endif
       break;
     case 'n':
       sscanf(optarg, "%lu", &nSampArg);
@@ -2330,18 +2367,26 @@ int main(int argc, char *argv[]) {
               USAGE_SHORT, multiplicity);
       break;
     case 'T':
+      #if !DYNAMIC_CANON_MAP
       _topThousandth = atoi(optarg);
+      #endif
       break;
     case 'o':
+      #if !DYNAMIC_CANON_MAP
       _orbitNumber = atoi(optarg);
+      #endif
       break;
     case 'f':
+      #if !DYNAMIC_CANON_MAP
       odv_fname_len = strlen(optarg);
       _odvFile = malloc(sizeof(char) * odv_fname_len);
       strncpy(_odvFile, optarg, odv_fname_len);
+      #endif
       break;
     case 'a':
+      #if !DYNAMIC_CANON_MAP
       _alphabeticTieBreaking = (atoi(optarg) != 0);
+      #endif
       break;
     default:
       Fatal("Run without command arguments for short usage message, or with -h "
@@ -2353,7 +2398,7 @@ int main(int argc, char *argv[]) {
   if(_seed == -1) _seed = GetFancySeed(false);
   ReportVal(_seed, "%ld");
   RandomSeed(_seed);
-
+  #if !DYNAMIC_CANON_MAP
   if (_orbitNumber != -1) {
     if (_odvFile != NULL) {
       parseOdvFromFile(_odvFile);
@@ -2362,7 +2407,7 @@ int main(int argc, char *argv[]) {
             "supplied");
     }
   }
-
+  #endif
   if (_sampleMethod == SAMPLE_INDEX && _k <= 5)
     Fatal("k is %d but must be at least 6 for INDEX sampling method because "
           "there are no unambiguous graphlets for k<=5",
@@ -2398,9 +2443,7 @@ int main(int argc, char *argv[]) {
                         // directory
   #if !DYNAMIC_CANON_MAP
   SetGlobalCanonMaps(); // needs _k to be set
-  #endif
   if(!_directed) LoadMagicTable();     // needs _k to be set
-
   if (_window && _windowSize >= 3) {
     if (_windowSampleMethod == -1)
       Fatal("Haven't specified window searching method. Options are: "
@@ -2426,13 +2469,14 @@ int main(int argc, char *argv[]) {
       Fatal("WindowRep minimum number of edges must be larger than 0. Check "
             "edge density\n");
   }
-
+  #endif
   // This section of code computes the info necessary to implement
   // "multiplicity" mode ('M' above), which controls whether to output a sampled
   // graphlet at all during INDEXING based on how much "ambiguity" there is in
   // its local alignment. The more permutations of the graphlet there are, the
   // less useful it is for seeding local alignments and therefore the less
   // useful as a database index entry.
+  #if !DYNAMIC_CANON_MAP
   if (_sampleMethod == SAMPLE_INDEX || _window) {
     _windowRep_allowed_ambig_set = SetAlloc(_numCanon);
     SET *orbit_temp = SetAlloc(_numOrbits);
@@ -2484,6 +2528,7 @@ int main(int argc, char *argv[]) {
       Fatal("must specify either desired precision using -[Pp] (preferred) or "
             "number of samples (less preferred)");
   }
+  #endif
   // Derik: start here
   FILE *fpGraph;
   int piped = 0;
@@ -2500,9 +2545,10 @@ int main(int argc, char *argv[]) {
       Fatal("cannot open graph input file '%s'\n", argv[optind]);
     optind++;
   }
+  #if !DYNAMIC_CANON_MAP
   assert(optind == argc || _GRAPH_GEN ||
          _windowSampleMethod == WINDOW_SAMPLE_DEG_MAX);
-
+  #endif
   // inputG[0] will contain the pointer to the standard undirected version of G
   // (always) inputG[1] will contain the pointer to the directed version, but
   // only when _directed == true.
@@ -2596,7 +2642,7 @@ int main(int argc, char *argv[]) {
     else
       Fatal("unknown _communityMode %c", _communityMode);
   }
-
+  #if !DYNAMIC_CANON_MAP
   if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX) {
     FILE *fp;
     _graphNodeImportance = Ocalloc(G->n, sizeof(float));
@@ -2619,6 +2665,7 @@ int main(int argc, char *argv[]) {
       }
     }
   }
+  #endif
 
 #if GEN_SYN_GRAPH
   FILE *fpSynGraph = NULL;
@@ -2645,4 +2692,5 @@ int main(int argc, char *argv[]) {
   if (&inputG[0] != G)
     GraphFree(G);
   return exitStatus;
+  
 }
