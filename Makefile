@@ -292,11 +292,11 @@ $(BLANT_CANON_DIR)/alpha_list_EBE%.txt: compute-alphas-EBE $(BLANT_CANON_DIR)/ca
 $(BLANT_CANON_DIR)/alpha_list_MCMC%.txt: compute-alphas-MCMC $(BLANT_CANON_DIR)/canon_list%.txt
 	./compute-alphas-MCMC $* > $(BLANT_CANON_DIR)/alpha_list_MCMC$*.txt;
 
-$(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps
+$(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(BLANT_CANON_DIR)/canon_map%.txt $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.bin
 	./make-orbit-maps $* > $(BLANT_CANON_DIR)/orbit_map$*.txt
 
 # directed orbit maps
-$(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps
+$(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon_map%.bin
 	./make-orbit-maps $* directed > $(DIR_CANON_DIR)/orbit_map$*.txt
 
 # future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files

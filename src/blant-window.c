@@ -8,7 +8,7 @@
 #include "graph.h"
 #include "multisets.h"
 #include "blant-utils.h"
-
+#if !DYNAMIC_CANON_MAP
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
 HEAP * _windowRep_limit_heap;
@@ -424,3 +424,4 @@ void ProcessWindowRep(GRAPH *G, unsigned *VArray, int windowRepInt) {
     }
     if(!_outputMode) Abort("ProcessWindowRep: unknown or un-implemented outputMode");
 }
+#endif
