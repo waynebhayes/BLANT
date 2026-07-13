@@ -156,7 +156,6 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
 }
 
 Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
-    //fprintf(stderr,"no error yet\n");
     static TINY_GRAPH g;
     /* Clear any stale state on the static temporary graph, then set basic fields */
     memset(&g, 0, sizeof(g));
@@ -189,7 +188,6 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
             groupStart[++numGroups] = i;
         #endif
     }
-    //fprintf(stderr,"2no error yet\n");
     groupStart[++numGroups] = _k;
     _sortBest = ~(Gint_type)0;
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
