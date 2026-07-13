@@ -49,19 +49,81 @@ void VarraySort(unsigned *Varray, int k)
 }
 
 
+static char *PrintGint(char buf[], Gint_type Gint)
+{
+#if TINY_SET_SIZE == 16 && defined(__SIZEOF_INT128__)
+    char tmp[40];
+    int i = 0;
+    if (Gint == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return buf;
+    }
+    while (Gint > 0) {
+        tmp[i++] = '0' + (Gint % 10);
+        Gint /= 10;
+    }
+    int j;
+    for (j = 0; j < i; j++) {
+        buf[j] = tmp[i - 1 - j];
+    }
+    buf[i] = '\0';
+    return buf;
+#else
+    sprintf(buf, GINT_FMT, Gint);
+    return buf;
+#endif
+}
+
+#if !DYNAMIC_CANON_MAP
+static char *PrintGordinal(char buf[], Gordinal_type GintOrdinal)
+{
+#if TINY_SET_SIZE == 16 && defined(__SIZEOF_INT128__)
+    char tmp[40];
+    int i = 0;
+    if (GintOrdinal == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return buf;
+    }
+    while (GintOrdinal > 0) {
+        tmp[i++] = '0' + (GintOrdinal % 10);
+        GintOrdinal /= 10;
+    }
+    int j;
+    for (j = 0; j < i; j++) {
+        buf[j] = tmp[i - 1 - j];
+    }
+    buf[i] = '\0';
+    return buf;
+#else
+    sprintf(buf, GORDINAL_FMT, GintOrdinal);
+    return buf;
+#endif
+}
+#endif
+
 char *PrintGraphletID(char buf[], Gint_type Gint)
 {
     #if DYNAMIC_CANON_MAP
     assert(!_directed);
     assert(_outputMode == indexGraphlets);
-    sprintf(buf, GINT_FMT, L_K_Func_Sort(Gint, NULL));
+    PrintGint(buf, L_K_Func_Sort(Gint, NULL));
     #else
-    if(_displayMode == noncanonical) sprintf(buf, GINT_FMT, Gint);
+    if(_displayMode == noncanonical) PrintGint(buf, Gint);
     else PrintOrdinal(buf, L_K(Gint));
     #endif
     return buf;
 }
 
+
+void PrintGintStderr(Gint_type Gint)
+{
+    char buf[BUFSIZ];
+    PrintGint(buf, Gint);
+    fputs(buf, stderr);
+}
+#if !DYNAMIC_CANON_MAP
 char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
 {
     int j, GintNumBits = _k*(_k-1)/2;
@@ -69,10 +131,10 @@ char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
     switch (_displayMode) {
     case undefined:
     case ordinal:
-	sprintf(buf, GORDINAL_FMT, GintOrdinal);
+	PrintGordinal(buf, GintOrdinal);
 	break;
     case decimal: // Prints the decimal integer form of the canonical
-	sprintf(buf, GINT_FMT, _canonList[GintOrdinal]);
+	PrintGint(buf, _canonList[GintOrdinal]);
 	break;
     case binary: // Prints the bit representation of the canonical
 	for (j=0;j<GintNumBits;j++)
@@ -83,7 +145,7 @@ char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
     case orca: // Prints the ORCA ID of the canonical. Jesse uses same number.
     case jesse:
 	if(SELF_LOOPS) Apology("sorry, orca and jesse output formats do not support self-loops");
-	sprintf(buf, GORDINAL_FMT, _outputMapping[GintOrdinal]);
+	PrintGordinal(buf, _outputMapping[GintOrdinal]);
 	break;
     case noncanonical: break; // handled above
     default: Fatal("Internal error: PrintGraphletID called with unknown _displayMode %d", _displayMode);
@@ -91,7 +153,7 @@ char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
     }
     return buf;
 }
-
+#endif
 // Below is code to help reduce (mostly eliminite if we're lucky) MCMC's duplicate output, which is copious
 // Empirically I've found that neither of these need to be very big since most repetition happens with high locality
 //#define MCMC_CIRC_BUF 999983 // prime, not sure it needs to be but why not... 1M * 4b = 4MB RAM.
@@ -213,7 +275,7 @@ char *PrintIndexEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdinal, un
     strcpy(obuf, buf[which]);
     return obuf;
 }
-
+#if !DYNAMIC_CANON_MAP
 char *PrintIndexOrbitsEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w, unsigned char* perm) {
     int j;
     SET *printed = SetAlloc(k);
@@ -328,7 +390,7 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
         }
     }
 }
-
+#endif
 Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums)
 {
     if(_G) assert(_G == G); // only allowed to set it once
@@ -349,7 +411,7 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     char buf[BUFSIZ];
     L_K_Func_Sort(Gint, perm);
     if(NodeSetSeenRecently(G, Varray,k)) processed=false;
-    else puts(PrintIndexEntry(buf, Gint, -1, Varray, k, weight, perm)); //GintOrdinal technically not used at all
+    else puts(PrintIndexEntry(buf, Gint, -1, Varray, k, weight, perm));
     #else
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
 #if PARANOID_ASSERTS

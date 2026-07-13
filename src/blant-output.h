@@ -13,6 +13,8 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 // None of the "Print" routines here actually print anything; they put the string into a buffer you provide; you do the output
 char *PrintGraphletID(char buf[], Gint_type Gint);
 char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal);
+// Convenience helper: print a Gint directly to stderr (no newline).
+void PrintGintStderr(Gint_type Gint);
 
 // For _outputMode = communityDetection, process the graphlet/orbit counts and neighbors
 void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators* accums);

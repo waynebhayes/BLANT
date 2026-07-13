@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include "atomic_utils.h"
+
 atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
 // Worker thread stack size: 1 MiB
@@ -17,7 +18,6 @@ atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 static const size_t kWorkerThreadStackBytes = 1 * 1024 * 1024;
 
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
-
     // Ensure size is a multiple of alignment
     size_t size = sizeof(Accumulators);
     size_t aligned_size = ((size + CACHE_LINE_SIZE - 1) / CACHE_LINE_SIZE) * CACHE_LINE_SIZE;
@@ -30,7 +30,7 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     }
 
     memset(accums, 0, aligned_size); // zero out everything including padding
-    
+    #if !DYNAMIC_CANON_MAP
     // Initialize batch counters
     accums->batchRawTotalSamples = 0;
     for (int i = 0; i < MAX_CANONICALS; i++) {
@@ -72,25 +72,28 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
             memset(accums->orbitDegreeVector[i], 0, bytes);
         }
     }
-
+    #endif
+    #if !DYNAMIC_CANON_MAP
     // initialize communityNeighbors if needed
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
         
     for (int i = 0; i < _numCanon; i++) accums->canonNumStarMotifs[i] = -1; // initialize to -1, meaning "not yet initialized"
-
+    #endif
     return accums;
 }
 
 void FreeAccumulatorStruct(Accumulators *accums) {
+    #if !DYNAMIC_CANON_MAP
     assert(_numCanon <= MAX_CANONICALS);
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
         for (int i=0; i<_numCanon; i++) free(accums->graphletDegreeVector[i]);
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
         for(int i=0; i<_numOrbits; i++) if (accums->orbitDegreeVector[i] != NULL) free(accums->orbitDegreeVector[i]);
     if(_outputMode & communityDetection) free(accums->communityNeighbors);
+    #endif
     free(accums);
 }
-
+#if !DYNAMIC_CANON_MAP
 void SampleNGraphletsInThreads(long base_seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads) {
     // Reset the global “next” counter before launching workers
     ATOMIC_STORE_U64(&nextIndex, 0);
@@ -214,3 +217,4 @@ void SampleNGraphletsInThreads(long base_seed, int k, GRAPH *G, int varraySize, 
         FreeAccumulatorStruct(threadData[t].accums);
     }
 }
+#endif

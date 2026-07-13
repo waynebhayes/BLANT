@@ -24,7 +24,7 @@ struct orbitpair_bits {
     unsigned int ordinal: 24; // ceil(log2(12005168)), maxCanon for k=10
 #elif MAX_K == 11
     unsigned int ordinal: 30; // ceil(log2(1018997864)), maxCanon for k=11
-#else
+#elif !DYNAMIC_CANON_MAP
 #error sorry cannot handle MAX_K > 11 at the moment
 #endif
 #endif

@@ -3,6 +3,7 @@
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <math.h>
+#include <string.h>
 #include "blant.h"
 #include "blant-utils.h"
 #include "blant-predict.h"
@@ -22,9 +23,9 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 // these days. It needs to be aligned to a page boundary since we're going to mmap the binary file into this array.
 //static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 static kperm *Permutations = NULL, *dPerm = NULL;
-
+#if !DYNAMIC_CANON_MAP
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
-
+#endif
 #if DYNAMIC_CANON_MAP
 #if !CANON_ASCENDING_NEIGHBORS
 static int CmpInt(foint a, foint b) {
@@ -88,9 +89,14 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
     static unsigned tries, fails;
     ++tries;
 
+    /* Ensure graphs are zeroed and have the correct flags set before decoding */
     TinyGraphEdgesAllDelete(&_g);
     TinyGraphEdgesAllDelete(&_h);
+    memset(&_g, 0, sizeof(_g));
+    memset(&_h, 0, sizeof(_h));
     _g.n = _h.n = _k;
+    _g.directed = 0; _g.selfLoops = 0;
+    _h.directed = 0; _h.selfLoops = 0;
     Int2TinyGraph(&_g, Gint);
     SIM_ANNEAL *sa = SimAnnealAlloc(-1, (foint)(void*)(&_g), SA_GenMove, SA_Score, SA_Accept, SQR(_k));
     SimAnnealSetSchedule(sa, _tInitials[_k], _tDecays[_k]);
@@ -151,7 +157,11 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
 
 Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     static TINY_GRAPH g;
+    /* Clear any stale state on the static temporary graph, then set basic fields */
+    memset(&g, 0, sizeof(g));
     g.n = _k;
+    g.directed = 0;
+    g.selfLoops = 0;
     TinyGraphEdgesAllDelete(&g);
     Int2TinyGraph(&g, Gint);
     for(int p = 0; p < _k; p++) _curLabel[p] = p; // identity: position p holds sampled node p
@@ -165,17 +175,20 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     for(i = 1; i <= _k; i++){
         #if SORT_CUBED_SUM
         int sum = 0, sumPrev = 0;
-        for(int k = 0; k < _k; k++) {
-            if(TinyGraphAreConnected(&g, i, k)) sum += g.degree[k] * g.degree[k] * g.degree[k];
-            if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
+        if(i!=_k){
+            for(int k = 0; k < _k; k++) {
+                if(TinyGraphAreConnected(&g, i, k)) sum += g.degree[k] * g.degree[k] * g.degree[k];
+                if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
+            }
         }
-        if(i == _k || sum < sumPrev)
+        if(i == _k || sum != sumPrev)
             groupStart[++numGroups] = i;
         #else
         if(i == _k || g.degree[i] != g.degree[i-1])
             groupStart[++numGroups] = i;
         #endif
-        }
+    }
+    groupStart[++numGroups] = _k;
     _sortBest = ~(Gint_type)0;
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
     if(permOut) for(i = 0; i < _k; i++) permOut[i] = (unsigned char)_bestPerm[i];
@@ -197,7 +210,7 @@ Gordinal_type L_K_Func(Gint_type Gint) {
 #else
 Gordinal_type L_K_Func(Gint_type Gint) { Apology("no L_K_Func"); return -1; }
 #endif
-
+#if !DYNAMIC_CANON_MAP
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
 // arrays related to canonical mappings and permutations.
 void SetGlobalCanonMaps(void)
@@ -280,7 +293,7 @@ void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
     for(j=0; j<_k; j++)
 	inv[(int)perm[j]]=j;
 }
-
+#endif
 Boolean arrayIn(unsigned *arr, int size, int item) {
     int i;
     for(i=0; i<size; i++) {
@@ -377,9 +390,10 @@ int orbitpair_cmp(long int a, long int b) {
 long int orbitpair_copy(long int src) {
     return src;
 }
-
+#if !DYNAMIC_CANON_MAP
 int NumOrbits(Gordinal_type ord) {
     assert(0<=ord && ord<_numCanon);
     if(ord==0 || ord==_numCanon-1) return 1; // the clique and indep set each have only 1 orbit
     else return _orbitList[ord+1][0] - _orbitList[ord][0];
 }
+#endif

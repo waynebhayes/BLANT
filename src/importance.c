@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "importance.h"
 #include <assert.h>
-
+#if !DYNAMIC_CANON_MAP
 void getDoubleDegreeArr(double *double_degree_arr, GRAPH *G) {
     int i;
 
@@ -28,7 +28,6 @@ int *enumerateImportanceNodeOrder(GRAPH *G) {
     }
 
     int (*comp_func)(const void*, const void*);
-
     if (_alphabeticTieBreaking) {
         comp_func = nwhn_asc_alph_comp_func;
     } else {
@@ -233,3 +232,4 @@ void removeFromAdjacencyList(ADJ_LIST *adjList, int base, int neigh) {
     adjList->lists[base][neighPos] = adjList->lists[base][adjList->sizes[base] - 1]; // one way swap
     adjList->sizes[base]--; // decrement size
 }
+#endif
