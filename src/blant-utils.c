@@ -163,9 +163,9 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     g.directed = _directed;
     g.selfLoops = 0;
     TinyGraphEdgesAllDelete(&g);
-    if((!_directed && Gint==(((Gint_type)(1))<<((_k*(_k-1)/2)))) || (_directed && Gint==(((Gint_type)(1))<<(_k*(_k-1))))) {
+    if((!_directed && Gint==(((Gint_type)(1))<<((_k*(_k-1)/2)))-1) || (_directed && Gint==(((Gint_type)(1))<<(_k*(_k-1)))-1)) {
         if(permOut) for(int i = 0; i < _k; i++) permOut[i] = (unsigned char)i;
-        return 0;
+        return Gint;
     }
     Int2TinyGraph(&g, Gint);
     for(int p = 0; p < _k; p++) _curLabel[p] = p; // identity: position p holds sampled node p
