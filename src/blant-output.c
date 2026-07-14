@@ -106,7 +106,6 @@ static char *PrintGordinal(char buf[], Gordinal_type GintOrdinal)
 char *PrintGraphletID(char buf[], Gint_type Gint)
 {
     #if DYNAMIC_CANON_MAP
-    assert(!_directed);
     assert(_outputMode == indexGraphlets);
     PrintGint(buf, L_K_Func_Sort(Gint, NULL));
     #else
@@ -407,7 +406,6 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     unsigned char perm[MAX_K];
     #if DYNAMIC_CANON_MAP
     assert(_outputMode == indexGraphlets);
-    assert(!_directed);
     char buf[BUFSIZ];
     L_K_Func_Sort(Gint, perm);
     if(NodeSetSeenRecently(G, Varray,k)) processed=false;

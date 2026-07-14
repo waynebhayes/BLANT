@@ -160,9 +160,13 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     /* Clear any stale state on the static temporary graph, then set basic fields */
     memset(&g, 0, sizeof(g));
     g.n = _k;
-    g.directed = 0;
+    g.directed = _directed;
     g.selfLoops = 0;
     TinyGraphEdgesAllDelete(&g);
+    if((!_directed && Gint==(((Gint_type)(1))<<((_k*(_k-1)/2)))) || (_directed && Gint==(((Gint_type)(1))<<(_k*(_k-1))))) {
+        if(permOut) for(int i = 0; i < _k; i++) permOut[i] = (unsigned char)i;
+        return 0;
+    }
     Int2TinyGraph(&g, Gint);
     for(int p = 0; p < _k; p++) _curLabel[p] = p; // identity: position p holds sampled node p
     #if SORT_CUBED_SUM
@@ -172,7 +176,7 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     #endif
     int groupStart[_k + 1], numGroups = 0, i;
     groupStart[0] = 0;
-    for(i = 1; i <= _k; i++){
+    for(i = 1; i < _k; i++){
         #if SORT_CUBED_SUM
         int sum = 0, sumPrev = 0;
         if(i!=_k){
@@ -181,10 +185,10 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
                 if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
             }
         }
-        if(i == _k || sum != sumPrev)
+        if(sum != sumPrev)
             groupStart[++numGroups] = i;
         #else
-        if(i == _k || g.degree[i] != g.degree[i-1])
+        if(g.degree[i] != g.degree[i-1])
             groupStart[++numGroups] = i;
         #endif
     }
