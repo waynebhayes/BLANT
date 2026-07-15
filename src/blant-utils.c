@@ -128,8 +128,33 @@ static int _bestPerm[MAX_K];   // snapshot of _curLabel that produced _sortBest
 static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos) {
     int start = groupStart[gi];
     int groupSize = groupStart[gi+1] - start;
-    if(pos == groupSize) {
-        if(gi + 1 == numGroups) {
+    if(pos==0){ //This check skips some, but not all, cases where all nodes in a same group are of the same orbit, as no permutations need to occur in that case.
+        for(int i=0; i < groupSize; i++){
+	    int count=0;
+            for(int j=0;j<groupSize;j++){
+		if(i==j) continue;
+		Gint_type Gint = TinyGraph2Int(g,_k);
+		TinyGraphSwapNodes(g,start+i,start+j);
+		if(Gint==TinyGraph2Int(g,_k)) count++;
+		TinyGraphSwapNodes(g,start+i,start+j);
+	    }
+	    if(count==groupSize-1){ //means all nodes in this group are of the same orbit - we can continue into the next group.
+		if(gi + 1 == numGroups) { //If this is the last group, then we are done and do not need to go deeper.
+		Gint_type val = TinyGraph2Int(g, _k);
+		if(val < _sortBest) {
+			int j;
+			_sortBest = val;
+			for(j = 0; j < _k; j++) _bestPerm[j] = _curLabel[j];
+		}
+		} else {
+		_tryGroupPerms(g, groupStart, numGroups, gi+1, 0); //Otherwise, we recurse into the next group.
+		}
+		return;
+	    }
+        }
+    }
+    if(pos == groupSize) { //Meaning we are at the end of a group now
+        if(gi + 1 == numGroups) { //If this is the last group, then we are done and do not need to go deeper.
             Gint_type val = TinyGraph2Int(g, _k);
             if(val < _sortBest) {
                 int j;
@@ -137,34 +162,52 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
                 for(j = 0; j < _k; j++) _bestPerm[j] = _curLabel[j];
             }
         } else {
-            _tryGroupPerms(g, groupStart, numGroups, gi+1, 0);
+            _tryGroupPerms(g, groupStart, numGroups, gi+1, 0); //Otherwise, we recurse into the next group.
         }
         return;
     }
     int i;
     for(i = pos; i < groupSize; i++) {
+        //Try all possible ways of swapping node pos with swapping further nodes in the group (including not swapping i with anything, which is when pos=i)
         if(i != pos) {
             TinyGraphSwapNodes(g, start+pos, start+i);
             int t = _curLabel[start+pos]; _curLabel[start+pos] = _curLabel[start+i]; _curLabel[start+i] = t;
         }
-        _tryGroupPerms(g, groupStart, numGroups, gi, pos+1);
+        _tryGroupPerms(g, groupStart, numGroups, gi, pos+1); //Recurse further after the swap, then afterwards undo the swap so that the next node can be swapped with pos
         if(i != pos) {
             TinyGraphSwapNodes(g, start+pos, start+i);
             int t = _curLabel[start+pos]; _curLabel[start+pos] = _curLabel[start+i]; _curLabel[start+i] = t;
         }
     }
 }
-
+//The below helper function is redundant right now because the check in _tryGroupPerms already catches cliques
+//In L_K_Func_Sort, handle special cases that can be easily identified but take a long time to go through all possible permutations
+/*
+Gint_type HandleSpecialCases(Gint_type Gint, unsigned char permOut[]){
+    //Check if the Gint is the k-node clique. If so, the canonical decimal is just Gint.
+    if((!_directed && Gint==(((Gint_type)(1))<<((_k*(_k-1)/2)))-1) || (_directed && Gint==(((Gint_type)(1))<<(_k*(_k-1)))-1)) {
+        if(permOut) for(int i = 0; i < _k; i++) permOut[i] = (unsigned char)i;
+        return Gint;
+    }
+    return 0;
+}*/
+//With L_K_Func_Sort, the graphlet is defined as follows:
+//First, sort all nodes in the graphlet according to the value of a certain function (which we denote f(n)) on a node.
+//Then, the canonical graphlet is the one with minimal decimal index among all graphlets with nodes sorted according by value of f(n)
+//With SORT_CUBED_SUM, the function f(n) we're sorting by is the sum over all neighbors of a node of the cubed degree of said neighbor.
+//With SORT_CUBED_SUM=0, the funciton f(n) we're sorting by is the degree of the node.
 Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     static TINY_GRAPH g;
     /* Clear any stale state on the static temporary graph, then set basic fields */
     memset(&g, 0, sizeof(g));
     g.n = _k;
-    g.directed = 0;
+    g.directed = _directed;
     g.selfLoops = 0;
-    TinyGraphEdgesAllDelete(&g);
+    //Gint_type returnVal=HandleSpecialCases(Gint,permOut); //note that if this is 0, then we keep going.
+    //if(returnVal>0) return returnVal;
     Int2TinyGraph(&g, Gint);
     for(int p = 0; p < _k; p++) _curLabel[p] = p; // identity: position p holds sampled node p
+    //Sort the graphlet while maintaining node labels.
     #if SORT_CUBED_SUM
     TinyGraphSortPerm(&g, true, _curLabel);
     #else
@@ -172,7 +215,9 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     #endif
     int groupStart[_k + 1], numGroups = 0, i;
     groupStart[0] = 0;
-    for(i = 1; i <= _k; i++){
+    //Identify nodes with the same value of the function we're sorting by.
+    //We go from 1 to _k-1 (inclusive) because we check every pair of adjacent nodes to see if their value (of the function we're sorting by) is different.
+    for(i = 1; i < _k; i++){
         #if SORT_CUBED_SUM
         int sum = 0, sumPrev = 0;
         if(i!=_k){
@@ -181,15 +226,16 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
                 if(TinyGraphAreConnected(&g, i-1, k)) sumPrev += g.degree[k] * g.degree[k] * g.degree[k];
             }
         }
-        if(i == _k || sum != sumPrev)
+        if(sum != sumPrev)
             groupStart[++numGroups] = i;
         #else
-        if(i == _k || g.degree[i] != g.degree[i-1])
+        if(g.degree[i] != g.degree[i-1])
             groupStart[++numGroups] = i;
         #endif
     }
     groupStart[++numGroups] = _k;
     _sortBest = ~(Gint_type)0;
+    //We've now identified groups of nodes with equal values of f(n). Now, among all groups, we try all possible permutations, as the graphlets generated by these permutations must also by sorted by f(n).
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
     if(permOut) for(i = 0; i < _k; i++) permOut[i] = (unsigned char)_bestPerm[i];
     return _sortBest;
