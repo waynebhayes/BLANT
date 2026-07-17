@@ -63,16 +63,15 @@ extern "C" {
 	SET *SetAlloc(unsigned int n);
 	#if DYNAMIC_CANON_MAP
 	#define maxK 16
-	#define maxBk 1 << (maxK*(maxK-1)/2) // maximum number of entries in the canon_map - need to change for k=6 directed graphs
 	#else
     SET *canonListPopulate(char *BUF, int *canon_list, int k, char *canon_num_edges, bool directed);
 	#define maxK 8
-	#define maxBk 1 << (maxK*(maxK-1)/2) // maximum number of entries in the canon_map - need to change for k=6 directed graphs
 	#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 	#define MAX_ORBITS	79264	// This is the number of orbits for k=8
 	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k, bool directed);
 	void mapCanonMap(char* BUF, short int *K, int k, bool directed);
 	#endif
+	#define maxBk 1 << (maxK*(maxK-1)/2) // maximum number of entries in the canon_map - need to change for k=6 directed graphs
 }
 #if !DYNAMIC_CANON_MAP
 // Canon Maps Loading
