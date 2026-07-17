@@ -61,15 +61,19 @@ void printGraphConversionInstruction(const Graphette2DotParams& params);
 extern "C" {
 	#include <sets.h>
 	SET *SetAlloc(unsigned int n);
+	#if DYNAMIC_CANON_MAP
+	#define maxK 16
+	#else
     SET *canonListPopulate(char *BUF, int *canon_list, int k, char *canon_num_edges, bool directed);
 	#define maxK 8
-	#define maxBk 1 << (maxK*(maxK-1)/2) // maximum number of entries in the canon_map - need to change for k=6 directed graphs
 	#define MAX_CANONICALS	12346	// This is the number of canonical graphettes for k=8
 	#define MAX_ORBITS	79264	// This is the number of orbits for k=8
 	int orbitListPopulate(char *BUF, int orbit_list[MAX_CANONICALS][maxK],  int orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], int numCanon, int k, bool directed);
 	void mapCanonMap(char* BUF, short int *K, int k, bool directed);
+	#endif
+	#define maxBk 1 << (maxK*(maxK-1)/2) // maximum number of entries in the canon_map - need to change for k=6 directed graphs
 }
-
+#if !DYNAMIC_CANON_MAP
 // Canon Maps Loading
 static unsigned _Bk;
 static int _numCanon;
@@ -90,7 +94,7 @@ void loadCanonMaps(int k, bool directed) {
 	_numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, k, directed);
 	mapCanonMap(BUF, _K, k, directed);
 }
-
+#endif
 int main(int argc, char* argv[]) {
 	//Parse input passing variables by reference.
 	Graphette2DotParams params; 
@@ -100,6 +104,15 @@ int main(int argc, char* argv[]) {
 	return EXIT_SUCCESS;
 }
 
+unsigned __int128 stou128(const string& s) {
+	unsigned __int128 result = 0;
+	for (char c : s) {
+		if (c < '0' || c > '9') break;
+		result = result * 10 + (c - '0');
+	}
+	return result;
+}
+
 /**
  * Parses command line input.
  * Doesn't allow for repeated inputs.
@@ -107,10 +120,10 @@ int main(int argc, char* argv[]) {
  * */
 void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 	bool input = false, matrixType = false;
-	uint64_t inputDecimalNum = 0;
+	unsigned __int128 inputDecimalNum = 0;
 	int opt;
-	vector<uint64_t> lowerOrdinals;
-	vector<uint64_t> inputDecimals;
+	vector<unsigned __int128> lowerOrdinals;
+	vector<unsigned __int128> inputDecimals;
 	vector<string> inputBitStrings;
 
 	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:Dapnhul")) != -1)
@@ -144,7 +157,7 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 				cerr << "No following argument to " << opt << '\n';
 				printUsage();
 			}
-			inputDecimalNum = std::stoull(optarg);
+			inputDecimalNum = stou128(optarg);
 			inputDecimals.push_back(inputDecimalNum);
 			break;
 
@@ -196,11 +209,11 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 		case 'D':
 			params.directed = true;
 			break;
-		
+		#if !DYNAMIC_CANON_MAP
 		case 'a':
 			params.showOrbits = true;
 			break;
-			
+		#endif
 		case 'p':
 			params.outputMode = OutputMode::planar;
 			break;
@@ -253,6 +266,11 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 		printUsage();
 	}
 
+	if (params.k < 3 || params.outputFile.size() < 0) {
+		cerr << "You must specify a graphette size k > 2\n";
+		printUsage();
+	}
+	#if !DYNAMIC_CANON_MAP
 	if (numGraphettes > 1 && params.showOrbits) {
 		cerr << "Displaying orbits is currently disabled for multiple inputs.\n";
 		printUsage();
@@ -262,18 +280,18 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 		cerr << "Ordinal input is only allowed for lower triangular inputs\n";
 	}
 
-	if (params.k < 3 || params.outputFile.size() < 0) {
-		cerr << "You must specify a graphette size k > 2\n";
-		printUsage();
-	}
-
 	if (params.k > 11 && inputDecimals.size() > 0)
 		cerr << DECIMAL_INPUT_WARNING;
 	loadCanonMaps(params.k, params.directed);
-
+	#endif
 	for (const auto& bitString : inputBitStrings) {
+		#if !DYNAMIC_CANON_MAP
 		params.graphettes.emplace_back(bitString, params.triangularRepresentation, params.k, _K, params.directed);
+		#else
+		params.graphettes.emplace_back(bitString, params.triangularRepresentation, params.k, params.directed);
+		#endif
 	}
+	#if !DYNAMIC_CANON_MAP
 	for (const auto& ordinal : lowerOrdinals) {
 		if (ordinal < 0 || ordinal >= _numCanon) {
 			cerr << "Ordinal for k: " << params.k << " must be between 0 and " << _numCanon << '\n';
@@ -281,6 +299,7 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 		}
 		params.graphettes.emplace_back(ordinal, params.triangularRepresentation, params.k, _canonList, params.directed);
 	}
+
 	for (const auto& decimal : inputDecimals) {
 		params.graphettes.emplace_back(appendLeadingZeros(toBitString(decimal, params.k), params.k, params.directed), params.triangularRepresentation, params.k, _K, params.directed);
 	}
@@ -291,6 +310,11 @@ void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 			exit(EXIT_FAILURE);
 		}
 	}
+	#else
+	for (const auto& decimal : inputDecimals) {
+		params.graphettes.emplace_back(appendLeadingZeros(toBitString(decimal, params.k), params.k, params.directed), params.triangularRepresentation, params.k, params.directed);
+	}
+	#endif
 }
 
 void printUsage() {
@@ -302,8 +326,8 @@ void printUsage() {
 void printHelp() {
 	std::cout << USAGE 
 			  << "You must specify the number of nodes with -k\n"
-			  << "Currently number of nodes is limited to 11 if decimal input is used\n"
-			  << "This is because k=12 requires 66 bits to store the decimal input\n"
+			  << "Currently number of nodes is limited to 16 if decimal input is used\n"
+			  << "This is because k=17 requires 136 bits to store the decimal input\n"
 			  << "You must specify at least one bitstring, decimal, or ordinal input with -b -d or -i respectively\n"
 			  << "-u and -l specify if all input is upper or lower triangular row major. Lower is assumed for ordinal input.\n"
 			  << "Lower triangular row major is assumed\n"
@@ -358,8 +382,10 @@ void createDotfileFromBit(const Graphette2DotParams& params) {
 			string nodeName;
 			while (std::getline(infile, nodeName) && i < params.k) {
 				outfile << 'n' << i << " [label=<" << nodeName;
+				#if !DYNAMIC_CANON_MAP
 				if (params.showOrbits)
 					outfile << "<BR />" << "<I>" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0] << "</I>";
+				#endif
 				outfile << ">, ";
 				if (params.outputMode == OutputMode::circular)
 					outfile << ", pos=\"" << getPos(i, params.k) << "!\"";
@@ -385,8 +411,10 @@ void createDotfileFromBit(const Graphette2DotParams& params) {
 	}
 	while (i < params.k) {
 		outfile << 'n' << i << "[label=<" << i;
+		#if !DYNAMIC_CANON_MAP
 		if (params.showOrbits)
 			outfile << "<BR />" << "<I>" << _orbitList[params.graphettes[0].lowerOrdinal][i] - _orbitList[params.graphettes[0].lowerOrdinal][0] << "</I>";
+		#endif
 		outfile << ">, ";
 		if (params.outputMode == OutputMode::circular)
 			outfile << "pos=\"" << getPos(i, params.k) << "!\"";
