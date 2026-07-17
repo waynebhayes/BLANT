@@ -29,7 +29,7 @@ struct orbitpair_bits {
 #endif
 #endif
 };
-
+#define DEBUG_ATTEMPTS 1
 int orbitpair_cmp(long int a, long int b);
 long int orbitpair_copy(long int src);
 

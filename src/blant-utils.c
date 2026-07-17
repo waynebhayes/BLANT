@@ -7,8 +7,8 @@
 #include "blant.h"
 #include "blant-utils.h"
 #include "blant-predict.h"
-#include "tree.h"
 #include "sim_anneal.h"
+#include "tree.h"
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -120,39 +120,41 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
 	    Gint, canonInt, _canonList[_K[Gint]]);
     return _K[Gint];
 }
+#else
+#if DEBUG_ATTEMPTS
+unsigned long attempts=0;
 #endif
+static int CmpInt(foint a, foint b){
+    return a.ul-b.ul;
+}
+AVLTREE *seenPerms;
 static Gint_type _sortBest;
 static int _curLabel[MAX_K];   // _curLabel[pos] = original sampled index now at position pos
 static int _bestPerm[MAX_K];   // snapshot of _curLabel that produced _sortBest
-
+static short _swapGroup[MAX_K]; //We identify nodes that don't change the decimal when swapped with each other as being of the same swap group. Note that this is different from the groups we use in permutations.
+foint copyInt128Ptr(foint v) {
+    __int128* src = (__int128*)v.v;
+    __int128* dst = Malloc(sizeof(__int128));
+    *dst = *src;
+    return (foint){.v = dst};
+}
+unsigned long swapGroup2Int(short swapGroup[],int k){ //Encode the swap groups as an integer, including the ordering of the groups.
+    unsigned long res=0;
+    for(int i=0;i<k;i++){
+	res+=((unsigned long)swapGroup[i])<<(i*4);
+    }
+    res+=((unsigned long)k)<<k;
+    return res;
+}
+void freeInt128Ptr(foint v) { free(v.v); }
 static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos) {
+    #if DEBUG_ATTEMPTS
+    attempts++;
+    #endif
+    int i;
     int start = groupStart[gi];
     int groupSize = groupStart[gi+1] - start;
-    if(pos==0){ //This check skips some, but not all, cases where all nodes in a same group are of the same orbit, as no permutations need to occur in that case.
-        for(int i=0; i < groupSize; i++){
-	    int count=0;
-            for(int j=0;j<groupSize;j++){
-		if(i==j) continue;
-		Gint_type Gint = TinyGraph2Int(g,_k);
-		TinyGraphSwapNodes(g,start+i,start+j);
-		if(Gint==TinyGraph2Int(g,_k)) count++;
-		TinyGraphSwapNodes(g,start+i,start+j);
-	    }
-	    if(count==groupSize-1){ //means all nodes in this group are of the same orbit - we can continue into the next group.
-		if(gi + 1 == numGroups) { //If this is the last group, then we are done and do not need to go deeper.
-		Gint_type val = TinyGraph2Int(g, _k);
-		if(val < _sortBest) {
-			int j;
-			_sortBest = val;
-			for(j = 0; j < _k; j++) _bestPerm[j] = _curLabel[j];
-		}
-		} else {
-		_tryGroupPerms(g, groupStart, numGroups, gi+1, 0); //Otherwise, we recurse into the next group.
-		}
-		return;
-	    }
-        }
-    }
+    short curSwapGroup[start+pos];
     if(pos == groupSize) { //Meaning we are at the end of a group now
         if(gi + 1 == numGroups) { //If this is the last group, then we are done and do not need to go deeper.
             Gint_type val = TinyGraph2Int(g, _k);
@@ -166,11 +168,27 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
         }
         return;
     }
-    int i;
+    for(i=0;i<start+pos;i++){
+	curSwapGroup[i]=_swapGroup[_curLabel[i]];
+    }
+    Gint_type Gint = TinyGraph2Int(g,_k);
+    foint key = {.ul=swapGroup2Int(curSwapGroup,start+pos)};
+    foint found;
+    if(AvlTreeLookup(seenPerms,key,&found)){ //if this swap group distribution was seen before
+	if(*(__int128*)found.v<=Gint) return;
+	else AvlTreeDelete(seenPerms,key);
+    }
+    foint val = {.v = Malloc(sizeof(__int128))};
+    *(__int128*)val.v = Gint;
+    AvlTreeInsert(seenPerms,key,val);
     for(i = pos; i < groupSize; i++) {
         //Try all possible ways of swapping node pos with swapping further nodes in the group (including not swapping i with anything, which is when pos=i)
         if(i != pos) {
             TinyGraphSwapNodes(g, start+pos, start+i);
+            if(Gint==TinyGraph2Int(g,_k)) { //If the swap doesn't change the decimal, then we can skip this branch of the recursion.
+                TinyGraphSwapNodes(g, start+pos, start+i);
+                continue;
+            }
             int t = _curLabel[start+pos]; _curLabel[start+pos] = _curLabel[start+i]; _curLabel[start+i] = t;
         }
         _tryGroupPerms(g, groupStart, numGroups, gi, pos+1); //Recurse further after the swap, then afterwards undo the swap so that the next node can be swapped with pos
@@ -197,6 +215,7 @@ Gint_type HandleSpecialCases(Gint_type Gint, unsigned char permOut[]){
 //With SORT_CUBED_SUM, the function f(n) we're sorting by is the sum over all neighbors of a node of the cubed degree of said neighbor.
 //With SORT_CUBED_SUM=0, the funciton f(n) we're sorting by is the degree of the node.
 Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
+    seenPerms = AvlTreeAlloc(CmpInt,NULL,NULL,copyInt128Ptr,freeInt128Ptr);
     static TINY_GRAPH g;
     /* Clear any stale state on the static temporary graph, then set basic fields */
     memset(&g, 0, sizeof(g));
@@ -206,14 +225,23 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     //Gint_type returnVal=HandleSpecialCases(Gint,permOut); //note that if this is 0, then we keep going.
     //if(returnVal>0) return returnVal;
     Int2TinyGraph(&g, Gint);
-    for(int p = 0; p < _k; p++) _curLabel[p] = p; // identity: position p holds sampled node p
+    for(int p = 0; p < _k; p++) _curLabel[p] = p, _swapGroup[p]=p; // identity: position p holds sampled node p
+    int i;
+    //Create the swap groups. Merge two nodes into the same swap group if, upon swapping them, the decimal doesn't change.
+    for(i=0;i<_k;i++){
+	for(int j=i+1;j<_k;j++){
+	    TinyGraphSwapNodes(&g,i,j);
+	    if(TinyGraph2Int(&g,_k)==Gint) _swapGroup[j]=_swapGroup[i];
+	    TinyGraphSwapNodes(&g,i,j);
+	}
+    }
     //Sort the graphlet while maintaining node labels.
     #if SORT_CUBED_SUM
     TinyGraphSortPerm(&g, true, _curLabel);
     #else
     TinyGraphSortPerm(&g, false, _curLabel);
     #endif
-    int groupStart[_k + 1], numGroups = 0, i;
+    int groupStart[_k + 1], numGroups = 0;
     groupStart[0] = 0;
     //Identify nodes with the same value of the function we're sorting by.
     //We go from 1 to _k-1 (inclusive) because we check every pair of adjacent nodes to see if their value (of the function we're sorting by) is different.
@@ -238,9 +266,14 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     //We've now identified groups of nodes with equal values of f(n). Now, among all groups, we try all possible permutations, as the graphlets generated by these permutations must also by sorted by f(n).
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
     if(permOut) for(i = 0; i < _k; i++) permOut[i] = (unsigned char)_bestPerm[i];
+    AvlTreeFree(seenPerms);
+    #if DEBUG_ATTEMPTS
+    if(attempts>=10000) fprintf(stderr," %d attempts for gint: \n", attempts),PrintGintStderr(Gint);
+    attempts=0;
+    #endif
     return _sortBest;
 }
-
+#endif
 Gordinal_type L_K_Func(Gint_type Gint) {
     #if CANON_ASCENDING_NEIGHBORS
     Gint_type s = L_K_Func_Sort(Gint, NULL);
