@@ -25,7 +25,7 @@
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
 #ifndef MAX_K
 #if DYNAMIC_CANON_MAP
-#define MAX_K 16
+#define MAX_K 15
 #else
 #define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
 #endif
