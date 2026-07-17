@@ -178,10 +178,9 @@ show-gcc-ver:
 	sleep $(PAUSE)
 	@touch .notpristine
 
-ifeq ($(DYNAMIC_MAP),1)
-most: base
-else
-most: base Draw sub$(BLANT_CANON_DIR)
+most: base Draw
+ifneq ($(DYNAMIC_MAP),1)
+most: sub$(BLANT_CANON_DIR)
 endif
 
 ifeq ($(DYNAMIC_MAP),1)

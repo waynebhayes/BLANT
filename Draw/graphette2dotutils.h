@@ -6,6 +6,6 @@
 std::string appendLeadingZeros(const std::string& inputBitstring, int k, bool directed);
 
 //Converts 64 bit decimal input into a bit string
-std::string toBitString(uint64_t inputDecimalNum, int k);
+std::string toBitString(unsigned __int128 inputDecimalNum, int k);
 
-uint64_t toDecimal(const std::string& inputBitstring, int k, bool directed);
+unsigned __int128 toDecimal(const std::string& inputBitstring, int k, bool directed);
