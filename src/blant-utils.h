@@ -39,7 +39,7 @@ Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint, Boolean direct
 #if DYNAMIC_CANON_MAP
 // Dynamically computes the canonical decimal of Gint (no ordinal). If permOut != NULL, fills it
 // with the canonical->sampled permutation: Varray[permOut[j]] is the node for canonical column j.
-Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]);
+Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[], unsigned short orbits[], Boolean computeOrbits);
 #endif
 void InvertPerm(unsigned char inverse[_k], unsigned const char perm[_k]);
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, unsigned *Varray);
