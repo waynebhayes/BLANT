@@ -11,6 +11,7 @@
 
 
 typedef struct {
+    #if !DYNAMIC_CANON_MAP
     // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
     double graphletCount[MAX_CANONICALS];
     double graphletConcentration[MAX_CANONICALS];
@@ -21,6 +22,7 @@ typedef struct {
     // Batch counters for confidence intervals (thread-local to avoid race conditions)
     unsigned long batchRawCount[MAX_CANONICALS];
     unsigned long batchRawTotalSamples;
+    #endif
 } Accumulators;
 
 // ThreadData structure (now after all required types are defined)

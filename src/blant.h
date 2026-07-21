@@ -46,16 +46,16 @@ extern unsigned long _known_orbit_count[2][13];
 
 // This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
 #if TINY_SET_SIZE == 16
-  #if __GLIBCXX_TYPE_INT_N_0 == 128
-    typedef __uint128 Gint_type; // need 120 bits for undirected adjacency matrix for k=16...
-    #define GINT_FMT "%ull"
-    typedef __uint128 Gordinal_type; // ... and max numCanonicals = 64001015704527557894928 < 2^76... what type is that???
-    #define GORDINAL_FMT "%ull"
+  #ifdef __SIZEOF_INT128__  
+    typedef unsigned __int128 Gint_type; // need 120 bits for undirected adjacency matrix for k=16...
+    #define GINT_FMT "%llu"
+    typedef unsigned __int128 Gordinal_type; // ... and max numCanonicals = 64001015704527557894928 < 2^76... what type is that???
+    #define GORDINAL_FMT "%llu"
     #define MAX_BINTREE_K 16
   #elif long_width >= 120
     typedef unsigned long Gint_type, Gordinal_type; //... numCanonicals = 64001015704527557894928 < 2^76
     #define GINT_FMT "%lu"
-    #define GORDINAL_FMT "%ul"
+    #define GORDINAL_FMT "%lu"
     #define MAX_BINTREE_K 16
   #elif long_width >= 55
     typedef unsigned long Gint_type; // for k=11, need 55 bits in undirected adjacency matrix, so 64 bits sufficient...
@@ -65,7 +65,7 @@ extern unsigned long _known_orbit_count[2][13];
       #define GORDINAL_FMT "%u"
     #else
       typedef unsigned long Gordinal_type;
-      #define GORDINAL_FMT "%ul"
+      #define GORDINAL_FMT "%lu"
     #endif
     #define MAX_BINTREE_K 11
   #else
@@ -83,29 +83,30 @@ extern unsigned long _known_orbit_count[2][13];
     #error "cannot do TINY_SET_SIZE 8 due to no integers long enough"
   #endif
 #else
-    #error "unknwon TINY_SET_SIZE"
+    #error "unknown TINY_SET_SIZE"
 #endif
-
+#if !DYNAMIC_CANON_MAP
 extern Gordinal_type _numCanon, _numConnectedCanon;
 extern char _canonNumEdges[MAX_CANONICALS];
 extern double _totalStarMotifs;
 extern Gint_type _canonList[MAX_CANONICALS];
-
+#endif
 void SetBlantDirs(void);
 double GetCPUseconds(void);
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
+#if !DYNAMIC_CANON_MAP
 Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed);
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges, Boolean directed); // returns a SET containing list of connected ordinals
 Gint_type orbitListPopulate(char *BUF, Gint_type orbit_list[MAX_CANONICALS][MAX_K],
     Gordinal_type orbit_canon_mapping[MAX_ORBITS], char orbit_canon_node_mapping[MAX_ORBITS], Gordinal_type numCanon, int k, Boolean directed);
 void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k);
 char** convertToEL(char* file); // from convert.cpp
-
+#endif
 #define DEFAULT_BLANT_DIR "."
 #define DEFAULT_CANON_DIR "canon_maps"
 extern const char* _BLANT_DIR, *_CANON_DIR;
-
+#if !DYNAMIC_CANON_MAP
 extern double *_graphletDegreeVector[MAX_CANONICALS];
 extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 
@@ -116,13 +117,13 @@ extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 // INACCURATE RESULTS WILL BE RETURNED
 #define ODV(node,orbit)          _orbitDegreeVector[orbit][node]
 #define GDV(node,graphlet) _graphletDegreeVector[graphlet][node]
-
+#endif
 // Enable the code that uses C++ to parse input files?
 #define SHAWN_AND_ZICAN 0
 extern unsigned int _Bk,_Bkd;
-
+#if !DYNAMIC_CANON_MAP
 extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
-
+#endif
 extern char **_nodeNames;
 extern Boolean _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
@@ -146,27 +147,30 @@ enum OutputMode {undef=0, indexGraphlets=1, indexGraphletsRNO=2, indexOrbits=4, 
     graphletDistribution=2048 // used in Windowing
 };
 extern enum OutputMode _outputMode; // note they can be LOGINAL OR'd together; modes can overlap!
+#if !DYNAMIC_CANON_MAP
 extern int _outputMapping[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
 
 extern double _graphletCount[MAX_CANONICALS];
 extern int **_graphletDistributionTable;
 extern double _graphletConcentration[MAX_CANONICALS];
 extern unsigned long _batchRawCount[MAX_CANONICALS], _batchRawTotalSamples; // batches for confidence intervals
+#endif
 enum PrecisionMode {PrecUndef, mean, worst};
 enum PrecisionWeights {PrecWtNone, PrecWtRaw, PrecWtLog};
 
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse, noncanonical};
 extern enum CanonicalDisplayMode _displayMode;
+#if !DYNAMIC_CANON_MAP
 extern Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
 extern char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
-
+#endif
 enum FrequencyDisplayMode {freq_display_mode_undef, freq_display_mode_count, freq_display_mode_concentration, freq_display_mode_estimate_absolute};
 extern enum FrequencyDisplayMode _freqDisplayMode;
-
+#if !DYNAMIC_CANON_MAP
 extern int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_ordering to our orbits
 extern int _connectedOrbits[MAX_ORBITS];
 extern int _numConnectedOrbits;
-
+#endif
 extern int _numConnectedComponents;
 extern int *_componentSize; // number of nodes in each CC
 extern int *_whichComponent; // will be an array of size G->n specifying which CC each node is in.

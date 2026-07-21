@@ -17,7 +17,7 @@ static int k;
 static long numBitValues;
 static bool directed;
 
-
+#if !DYNAMIC_CANON_MAP
 #if LOWER_TRIANGLE
 
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
@@ -273,3 +273,4 @@ int main(int argc, char* argv[]){
 
     return 0;
 }
+#endif
