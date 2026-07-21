@@ -263,7 +263,7 @@ static int InitializeConnectedComponents(GRAPH *G) {
     _combinations[i] = CombinChooseDouble(_componentSize[i], _k);
     _totalCombinations += _combinations[i];
   }
-
+  if(_totalCombinations == 0) Fatal("Cannot sample - all components are smaller than k=%d", _k);
   double cumulativeProb = 0.0;
   for (i = 0; i < _numConnectedComponents; i++) {
     _probOfComponent[i] = _combinations[i] / _totalCombinations;
