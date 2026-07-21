@@ -125,13 +125,16 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
 unsigned long attempts=0;
 #endif
 static int CmpInt(foint a, foint b){
-    return a.ul-b.ul;
+    if(a.ul < b.ul) return -1;
+    else if(a.ul > b.ul) return 1;
+    return 0;
 }
 AVLTREE *seenPerms;
 static Gint_type _sortBest;
 static int _curLabel[MAX_K];   // _curLabel[pos] = original sampled index now at position pos
 static int _bestPerm[MAX_K];   // snapshot of _curLabel that produced _sortBest
 static short _swapGroup[MAX_K]; //We identify nodes that don't change the decimal when swapped with each other as being of the same swap group. Note that this is different from the groups we use in permutations.
+static unsigned short _orbits[MAX_K];
 foint copyInt128Ptr(foint v) {
     __int128* src = (__int128*)v.v;
     __int128* dst = Malloc(sizeof(__int128));
@@ -143,11 +146,40 @@ unsigned long swapGroup2Int(short swapGroup[],int k){ //Encode the swap groups a
     for(int i=0;i<k;i++){
 	res+=((unsigned long)swapGroup[i])<<(i*4);
     }
-    res+=((unsigned long)k)<<k;
+    res+=((unsigned long)k)<<(4*k);
     return res;
 }
+
+//The following two functions are taken from make-orbit-maps.c
+void makeOrbit(int permutation[], unsigned short orbit[], int k){
+    int i, j;
+    Boolean visited[k];
+    for(i=0;i<k;i++)
+        visited[i]=0;
+    for(i = 0; i < k; i++){
+        if(!visited[i]){
+            //finding out each cycle at a time
+            int cycle[k+1];
+            cycle[0]=0;
+	    long minOrbit=i;
+            getCycle(permutation, cycle, i, i, visited);
+
+            for(j=1; j<=cycle[0]; j++)
+                minOrbit = MIN(orbit[cycle[j]], minOrbit);
+            for(j=1; j<=cycle[0]; j++)
+                orbit[cycle[j]] = minOrbit;
+        }
+    }
+}
+
+void getCycle(int permutation[], int cycle[], int seed, int current, Boolean visited[]){
+    cycle[++cycle[0]]=current;
+    visited[current] = true;
+    if(permutation[current] != seed)
+        getCycle(permutation, cycle, seed, permutation[current], visited);
+}
 void freeInt128Ptr(foint v) { free(v.v); }
-static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos) {
+static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi, int pos, Boolean computeOrbits) {
     #if DEBUG_ATTEMPTS
     attempts++;
     #endif
@@ -162,9 +194,15 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
                 int j;
                 _sortBest = val;
                 for(j = 0; j < _k; j++) _bestPerm[j] = _curLabel[j];
+		if(computeOrbits) for(int j=0;j<_k;j++) _orbits[j]=_swapGroup[j];
             }
+	    else if(val == _sortBest && computeOrbits){ //Per the definition of orbits - if swapping some nodes results in the same decimal, then the nodes that were swapped are in the same orbit. Which is why orbits are checked like this.
+		int orbitperm[_k];
+		for(int j=0;j<_k;j++) orbitperm[_bestPerm[j]]=_curLabel[j];
+		makeOrbit(orbitperm, _orbits, _k);
+	    }
         } else {
-            _tryGroupPerms(g, groupStart, numGroups, gi+1, 0); //Otherwise, we recurse into the next group.
+            _tryGroupPerms(g, groupStart, numGroups, gi+1, 0, computeOrbits); //Otherwise, we recurse into the next group.
         }
         return;
     }
@@ -191,7 +229,7 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
             }
             int t = _curLabel[start+pos]; _curLabel[start+pos] = _curLabel[start+i]; _curLabel[start+i] = t;
         }
-        _tryGroupPerms(g, groupStart, numGroups, gi, pos+1); //Recurse further after the swap, then afterwards undo the swap so that the next node can be swapped with pos
+        _tryGroupPerms(g, groupStart, numGroups, gi, pos+1, computeOrbits); //Recurse further after the swap, then afterwards undo the swap so that the next node can be swapped with pos
         if(i != pos) {
             TinyGraphSwapNodes(g, start+pos, start+i);
             int t = _curLabel[start+pos]; _curLabel[start+pos] = _curLabel[start+i]; _curLabel[start+i] = t;
@@ -199,8 +237,9 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
     }
 }
 //The below helper function is redundant right now because the check in _tryGroupPerms already catches cliques
-//In L_K_Func_Sort, handle special cases that can be easily identified but take a long time to go through all possible permutations
+
 /*
+//In L_K_Func_Sort, handle special cases that can be easily identified but take a long time to go through all possible permutations
 Gint_type HandleSpecialCases(Gint_type Gint, unsigned char permOut[]){
     //Check if the Gint is the k-node clique. If so, the canonical decimal is just Gint.
     if((!_directed && Gint==(((Gint_type)(1))<<((_k*(_k-1)/2)))-1) || (_directed && Gint==(((Gint_type)(1))<<(_k*(_k-1)))-1)) {
@@ -209,12 +248,13 @@ Gint_type HandleSpecialCases(Gint_type Gint, unsigned char permOut[]){
     }
     return 0;
 }*/
+
 //With L_K_Func_Sort, the graphlet is defined as follows:
 //First, sort all nodes in the graphlet according to the value of a certain function (which we denote f(n)) on a node.
 //Then, the canonical graphlet is the one with minimal decimal index among all graphlets with nodes sorted according by value of f(n)
 //With SORT_CUBED_SUM, the function f(n) we're sorting by is the sum over all neighbors of a node of the cubed degree of said neighbor.
 //With SORT_CUBED_SUM=0, the funciton f(n) we're sorting by is the degree of the node.
-Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
+Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[], unsigned short olist[], Boolean computeOrbits) {
     seenPerms = AvlTreeAlloc(CmpInt,NULL,NULL,copyInt128Ptr,freeInt128Ptr);
     static TINY_GRAPH g;
     /* Clear any stale state on the static temporary graph, then set basic fields */
@@ -263,9 +303,11 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
     }
     groupStart[++numGroups] = _k;
     _sortBest = ~(Gint_type)0;
+    if(computeOrbits) for(int i=0;i<_k;i++) _orbits[i]=_swapGroup[i];
     //We've now identified groups of nodes with equal values of f(n). Now, among all groups, we try all possible permutations, as the graphlets generated by these permutations must also by sorted by f(n).
-    _tryGroupPerms(&g, groupStart, numGroups, 0, 0);
+    _tryGroupPerms(&g, groupStart, numGroups, 0, 0, computeOrbits);
     if(permOut) for(i = 0; i < _k; i++) permOut[i] = (unsigned char)_bestPerm[i];
+    if(computeOrbits) for(int i=0;i<_k;i++) olist[i]=_orbits[_bestPerm[i]];
     AvlTreeFree(seenPerms);
     #if DEBUG_ATTEMPTS
     if(attempts>=10000) fprintf(stderr," %d attempts for gint: \n", attempts),PrintGintStderr(Gint);
@@ -276,7 +318,7 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[]) {
 #endif
 Gordinal_type L_K_Func(Gint_type Gint) {
     #if CANON_ASCENDING_NEIGHBORS
-    Gint_type s = L_K_Func_Sort(Gint, NULL);
+    Gint_type s = L_K_Func_Sort(Gint, NULL, NULL, 0);
     return s;
     #else
     Gint_type m = L_K_Func_Memory(Gint);

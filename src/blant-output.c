@@ -106,8 +106,7 @@ static char *PrintGordinal(char buf[], Gordinal_type GintOrdinal)
 char *PrintGraphletID(char buf[], Gint_type Gint)
 {
     #if DYNAMIC_CANON_MAP
-    assert(_outputMode == indexGraphlets);
-    PrintGint(buf, L_K_Func_Sort(Gint, NULL));
+    PrintGint(buf, Gint);
     #else
     if(_displayMode == noncanonical) PrintGint(buf, Gint);
     else PrintOrdinal(buf, L_K(Gint));
@@ -274,7 +273,41 @@ char *PrintIndexEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdinal, un
     strcpy(obuf, buf[which]);
     return obuf;
 }
-#if !DYNAMIC_CANON_MAP
+#if DYNAMIC_CANON_MAP
+char *PrintIndexOrbitsEntry(char obuf[], Gint_type Gint, unsigned Varray[], int k, double w, unsigned char* perm, unsigned short olist[]) {
+    int j;
+    SET *printed = SetAlloc(k);
+#if SORT_INDEX_MODE
+    VarraySort(Varray, k);
+    for(j=0;j<k;j++) perm[j]=j;
+#else
+    assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
+#endif
+    char buf[2][BUFSIZ];
+    int which=0;
+    PrintGraphletID(buf[which], Gint);
+    for(j=0;j<k;j++) if(!SetIn(printed,j))
+    {
+	char jbuf[BUFSIZ];
+	which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(jbuf, ' ', Varray[(int)perm[j]]));
+	SetAdd(printed, j);
+	int j1;
+	for(j1=j+1;j1<k;j1++) if(olist[j1] == olist[j])
+	{
+	    assert(!SetIn(printed, j1));
+	    which=1-which; sprintf(buf[which], "%s%s", buf[1-which], PrintNode(jbuf, ':', Varray[(int)perm[j1]]));
+	    SetAdd(printed, j1);
+	}
+    }
+    if(_G->weight) {
+	sprintf(buf[1-which], "%s %g", buf[which], w);
+	which=1-which;
+    }
+    SetFree(printed);
+    strcpy(obuf, buf[which]);
+    return obuf;
+}
+#else
 char *PrintIndexOrbitsEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], int k, double w, unsigned char* perm) {
     int j;
     SET *printed = SetAlloc(k);
@@ -308,7 +341,6 @@ char *PrintIndexOrbitsEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdin
     strcpy(obuf, buf[which]);
     return obuf;
 }
-
 void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators *accums)
 {
     if(!accums->communityNeighbors) accums->communityNeighbors=(SET***) Calloc(G->n, sizeof(SET**)); // if communityNeighbors is a null pointer allocate it
@@ -404,13 +436,21 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     Gint_type Gint = TinyGraph2Int(g,k);
     assert(g->directed == _directed);
     unsigned char perm[MAX_K];
-    #if DYNAMIC_CANON_MAP
-    assert(_outputMode == indexGraphlets);
-    char buf[BUFSIZ];
-    L_K_Func_Sort(Gint, perm);
-    if(NodeSetSeenRecently(G, Varray,k)) processed=false;
-    else puts(PrintIndexEntry(buf, Gint, -1, Varray, k, weight, perm));
-    #else
+#if DYNAMIC_CANON_MAP
+    unsigned short orbits[MAX_K];
+    L_K_Func_Sort(Gint, perm, orbits, (_outputMode & indexOrbits));
+    if(_outputMode & indexGraphlets){
+	char buf[BUFSIZ];
+	if(NodeSetSeenRecently(G, Varray,k)) processed=false;
+	else puts(PrintIndexEntry(buf, Gint, -1, Varray, k, weight, perm));
+    }
+    if(_outputMode & indexOrbits) {
+	if(!g->directed) assert(TinyGraphDFSConnected(g,0));
+	char buf[BUFSIZ];
+	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
+	else puts(PrintIndexOrbitsEntry(buf, Gint, Varray, k, weight, perm, orbits));
+    }
+#else
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
