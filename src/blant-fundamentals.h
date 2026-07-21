@@ -19,7 +19,7 @@
 #define SYNTHETIC 0 // off by default
 #endif
 
-#define DYNAMIC_CANON_MAP 1 // it kinda does work now but let's keep it off to be safe
+#define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
@@ -29,7 +29,7 @@
 #else
 #define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
 #endif
-#define MAX_KD (6-SELF_LOOPS-(SYNTHETIC*2)) //placeholder value - will change later accordingly
+#define MAX_KD (5-SELF_LOOPS-(SYNTHETIC*2)) //placeholder value - will change later accordingly
 #endif
 
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
@@ -84,8 +84,8 @@
 //Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
 // If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
 // among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
-#define CANON_ASCENDING_NEIGHBORS 1
-#define SORT_CUBED_SUM 1
+#define CANON_ASCENDING_NEIGHBORS 0
+#define SORT_CUBED_SUM 0
 //When canon_ascending_neighbors is on - instead of sorting by degree, we sort by the sum of the cubes of the degrees of the neighbors of nodes
 
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
