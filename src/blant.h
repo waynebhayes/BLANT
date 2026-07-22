@@ -45,7 +45,7 @@ extern unsigned long _known_canonical_count[2][13];
 extern unsigned long _known_orbit_count[2][13];
 
 // This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
-#if TINY_SET_SIZE == 16
+#if (TINY_SET_SIZE == 16 && DYNAMIC_CANON_MAP)
   #ifdef __SIZEOF_INT128__  
     typedef unsigned __int128 Gint_type; // need 120 bits for undirected adjacency matrix for k=16...
     #define GINT_FMT "%llu"
@@ -71,7 +71,7 @@ extern unsigned long _known_orbit_count[2][13];
   #else
     #error "cannot do TINY_SET_SIZE 16 due to no integers being wide enough"
   #endif
-#elif TINY_SET_SIZE == 8
+#elif TINY_SET_SIZE >= 8
   #if int_width >= 28 && short_width >= 16
     typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
     #define GINT_FMT "%u"
