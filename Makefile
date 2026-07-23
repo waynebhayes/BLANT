@@ -92,7 +92,7 @@ DIR_CANON_DIR := $(BLANT_CANON_DIR)/directed
 # directed canonical values; start with the full range 3..6
 # and then remove entries when NO8 or NO7 are set.  This keeps the
 # format identical to the `K` list used for undirected data.
-K_DIR := 3 4 5 #6
+K_DIR := 3 4 5 6
 ifdef NO8
 	# don't build k=6 if undirected 8 is disabled
 	K_DIR := $(filter-out 6,$(K_DIR))
