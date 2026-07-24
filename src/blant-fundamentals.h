@@ -19,11 +19,21 @@
 #define SYNTHETIC 0 // off by default
 #endif
 
+#define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
+
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
 #ifndef MAX_K
+#if DYNAMIC_CANON_MAP
+#define MAX_K 15
+#else
+
+//Allow k=6 for directed graphs. Note that this will result in a much larger maximum number of canonicals, resulting in much larger arrays.
+#define DIRECTED_K6 1
+
 #define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
-#define MAX_KD (6-SELF_LOOPS-(SYNTHETIC*2)) //placeholder value - will change later accordingly
+#endif
+#define MAX_KD (5+DIRECTED_K6-SELF_LOOPS-(SYNTHETIC*2))
 #endif
 
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
@@ -59,18 +69,21 @@
   #else
     #define MAX_ORBITS	1956363435360UL
   #endif
-#else
+#elif !DYNAMIC_CANON_MAP
   #error "MAX_K too big"
 #endif
-
-#define MAX_DIR_CANONICALS 1540944 // for k=6, directed
-#define MAX_DIR_ORBITS 9174824
-
+#if MAX_K<10&&DIRECTED_K6
+#define MAX_CANONICALS 1540944 // for k=6, directed
+#define MAX_ORBITS 9174824
+#endif
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
 // (the graphlet / orbit generation code of Ine Melckenbeeck and friends Ghent university), and they published first.
 // NOTE THAT IF YOU CHOOSE UPPER TRIANGLE THEN THE TESTS IN THE MAKEFILE WILL FAIL.
 #define LOWER_TRIANGLE	1
+
+#define USE_PAIRS_ORBITS 1
+// If 1, then we find orbits through checking if swapping nodes in pairs results in an autoisomorphism. If 0, then we find orbits through permuting all the nodes.
 
 //Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
 // If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
@@ -78,6 +91,7 @@
 #define CANON_ASCENDING_NEIGHBORS 0
 #define SORT_CUBED_SUM 0
 //When canon_ascending_neighbors is on - instead of sorting by degree, we sort by the sum of the cubes of the degrees of the neighbors of nodes
+
 
 // Once we find which canonical graphlet corresponds to a sampled graphlet, we want to know the permutation between the
 // two.  We default to the permutation from the canonical to the sampled non-canonical; thus, when we list the nodes
@@ -88,7 +102,6 @@
 // This compile-time constant defines whether or not we perform dynamic on-the-fly construction of the canon_map lookup
 // table (stored in _K) rather than reading in canon_map/* files. The default (for now) is 0, meaning read in the files.
 // It would be nice to get this working with the value 1 rather than 0.
-#define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
 
 #define DEFAULT_DIGITS 2 // 2 digits of precision by default
 

@@ -2,9 +2,13 @@
 #ifndef CORES
 CORES := 2 # temporarily set to 1 since I broke threading. :-(
 #endif
-ifndef PAUSE   
+ifndef PAUSE
 	PAUSE := 1
 endif
+# When DYNAMIC_MAP=1, skip generating canon maps and all related files (canon_map/canon_list/
+# orbit_map/alpha_list/subcanon_map/magic tables), and skip all tests that depend on them.
+# Only libwayne and the blant binary itself get built.
+DYNAMIC_MAP ?= 0
 # Uncomment either of these to remove them (removing 7 implies removing 8)
 MAX_K := 8
 EIGHT := 8
@@ -51,11 +55,11 @@ endif
 GCC=gcc$(GCC_VER) $(SPEED) $(NDEBUG)
 CXX=g++$(GCC_VER) $(SPEED) $(NDEBUG)
 
-# Some systems, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
+# Some systems, eg CYGWIN 32-bit and MacOS("Darwin") need a very large stack.
 export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
 UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm64/)V="arm64";else V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
-
-STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
+#Old values for Cygwin 32-bit: 83886080, 0x5000000
+STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,0x8000000000"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x8000000000"}')
 CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED) $(STATIC_LINK)
@@ -88,7 +92,7 @@ DIR_CANON_DIR := $(BLANT_CANON_DIR)/directed
 # directed canonical values; start with the full range 3..6
 # and then remove entries when NO8 or NO7 are set.  This keeps the
 # format identical to the `K` list used for undirected data.
-K_DIR := 3 4 5 #6
+K_DIR := 3 4 5 6
 ifdef NO8
 	# don't build k=6 if undirected 8 is disabled
 	K_DIR := $(filter-out 6,$(K_DIR))
@@ -131,7 +135,11 @@ magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).tx
 # ehd takes up too much space and isn't used anywhere yet
 #ehd_txts := $(foreach k,$(K), $(BLANT_CANON_DIR)/EdgeHammingDistance$(k).txt)
 
+ifeq ($(DYNAMIC_MAP),1)
+base: ./.notpristine show-gcc-ver libwayne blant
+else
 base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
+endif
 
 ##################################################################################################################
 ####### this is an attempt to create rules to make data files for just ONE value of k... but not working yet...
@@ -170,9 +178,16 @@ show-gcc-ver:
 	sleep $(PAUSE)
 	@touch .notpristine
 
-most: base Draw sub$(BLANT_CANON_DIR)
+most: base Draw
+ifneq ($(DYNAMIC_MAP),1)
+most: sub$(BLANT_CANON_DIR)
+endif
 
+ifeq ($(DYNAMIC_MAP),1)
+test_all:
+else
 test_all: $(BLANT_CANON_DIR)/test_index_mode $(BLANT_CANON_DIR)/check_maps test_fast
+endif
 
 all: most test_all
 
@@ -292,11 +307,11 @@ $(BLANT_CANON_DIR)/alpha_list_EBE%.txt: compute-alphas-EBE $(BLANT_CANON_DIR)/ca
 $(BLANT_CANON_DIR)/alpha_list_MCMC%.txt: compute-alphas-MCMC $(BLANT_CANON_DIR)/canon_list%.txt
 	./compute-alphas-MCMC $* > $(BLANT_CANON_DIR)/alpha_list_MCMC$*.txt;
 
-$(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps
+$(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(BLANT_CANON_DIR)/canon_map%.txt $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.bin
 	./make-orbit-maps $* > $(BLANT_CANON_DIR)/orbit_map$*.txt
 
 # directed orbit maps
-$(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps
+$(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon_map%.bin
 	./make-orbit-maps $* directed > $(DIR_CANON_DIR)/orbit_map$*.txt
 
 # future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
