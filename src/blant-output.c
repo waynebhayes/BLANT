@@ -438,17 +438,17 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     unsigned char perm[MAX_K];
 #if DYNAMIC_CANON_MAP
     unsigned short orbits[MAX_K];
-    L_K_Func_Sort(Gint, perm, orbits, (_outputMode & indexOrbits));
+    Gint_type res = L_K_Func_Sort(Gint, perm, orbits, (_outputMode & indexOrbits));
     if(_outputMode & indexGraphlets){
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G, Varray,k)) processed=false;
-	else puts(PrintIndexEntry(buf, Gint, -1, Varray, k, weight, perm));
+	else puts(PrintIndexEntry(buf, res, -1, Varray, k, weight, perm));
     }
     if(_outputMode & indexOrbits) {
 	if(!g->directed) assert(TinyGraphDFSConnected(g,0));
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
-	else puts(PrintIndexOrbitsEntry(buf, Gint, Varray, k, weight, perm, orbits));
+	else puts(PrintIndexOrbitsEntry(buf, res, Varray, k, weight, perm, orbits));
     }
 #else
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
