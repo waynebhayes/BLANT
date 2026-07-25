@@ -55,13 +55,14 @@ Gint_type getDecimal(int adj[k][k+1]) {
     int i, j, bitPos=0;
     Gint_type D=0;
 #if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
+    for(i=k-1;i>=0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
     for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
 #endif
 	{
+        if(i==j && !SELF_LOOPS) continue;
 	    if(adj[i][j]==1) D+= (((Gint_type)1) << bitPos);
 	    bitPos++;
 	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
@@ -72,13 +73,14 @@ Gint_type getDecimal(int adj[k][k+1]) {
 void getGraph(Gint_type base10, int adj[k][k+1]){
     int i,j;
 #if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
+    for(i=k-1;i>=0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
     for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
 #endif
 	{
+        if(i==j && !SELF_LOOPS) continue;
 	    adj[i][j]=base10%2;
             if(!directed) adj[j][i]=adj[i][j];
             base10/=2;
