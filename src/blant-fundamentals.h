@@ -6,76 +6,81 @@
 // This file defines the fundamental compile-time constants that all blant-related programs must know.
 
 #ifndef PARANOID_ASSERTS
-#define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
+  #define PARANOID_ASSERTS 1	// turn on copious assert checking --- slows down execution by a factor of 2-3
 #endif
 
 #include <stdint.h>
 
 #ifndef SELF_LOOPS
-#define SELF_LOOPS 0	// do we allow self-loops? MUST be 0 or 1, no other values allowed.
+  #define SELF_LOOPS 0	// do we allow self-loops? MUST be 0 or 1, no other values allowed.
 #endif
 
 #ifndef SYNTHETIC
-#define SYNTHETIC 0 // off by default
+  #define SYNTHETIC 0 // off by default
 #endif
 
 #define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
+//
+//Allow k=6 for directed graphs? This results in much higher maximum canonicals, resulting in much larger arrays.
+#define DIRECTED_K6 1
 
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
 #ifndef MAX_K
-#if DYNAMIC_CANON_MAP
-#define MAX_K 15
-#else
-
-//Allow k=6 for directed graphs. Note that this will result in a much larger maximum number of canonicals, resulting in much larger arrays.
-#define DIRECTED_K6 1
-
-#define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
-#endif
+  #if DYNAMIC_CANON_MAP
+    #define MAX_K 15 // and there shall be no lookup tables...
+  #elif DIRECTED_K6
+    #define MAX_K 8
+    #define MAX_CANONICALS 1540944 // for k=6, directed
+    #define MAX_ORBITS 9174824
+  #else
+    #define MAX_K (8-SELF_LOOPS-(SYNTHETIC*2)) // NOTE that this is for BLANT; canon_map creation can use different MAXK
+  #endif //DYNAMIC_CANON_MAP
+  // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
+  #define maxBk (1U << (MAX_K*(MAX_K-1)/2 + MAX_K*SELF_LOOPS))
+#endif // MAX_K
 #define MAX_KD (5+DIRECTED_K6-SELF_LOOPS-(SYNTHETIC*2))
+
+#ifndef DIRECTED_K6
+  #if MAX_K <= 6
+    #define MAX_CANONICALS 156
+    #define MAX_ORBITS	 544
+  #elif MAX_K <= 8
+    #define MAX_CANONICALS 12346
+    #define MAX_ORBITS	 79264
+  #elif MAX_K == 9
+    #define MAX_CANONICALS 274668
+    #define MAX_ORBITS	2208612
+  #elif MAX_K == 10
+    #define MAX_CANONICALS 12005168
+    #define MAX_ORBITS	113743760
+  #elif MAX_K == 11
+    #define MAX_CANONICALS 1018997864
+    #if long_width < 34
+      #error "cannot do MAX_K==11 since unsigned long doesn't have enough bits to store MAX_ORBITS"
+    #else
+      #define MAX_ORBITS	10926227136UL
+    #endif
+  #elif MAX_K == 12
+    #if long_width < 38
+      #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_CANONICALS"
+    #else
+      #define MAX_CANONICALS 165091172592UL
+    #endif
+    #if long_width < 41
+      #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_ORBITS"
+    #else
+      #define MAX_ORBITS	1956363435360UL
+    #endif
+  #elif !DYNAMIC_CANON_MAP
+    #error "MAX_K too big"
+  #endif
+#endif // DIRECTED_K6
+
+#if MAX_K>10 && DIRECTED_K6
+#error "Sorry, current logic can't handle both MAX_K>10 and DIRECTED_K6"
 #endif
 
-// maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
-#define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
-
-#if MAX_K <= 6
-  #define MAX_CANONICALS 156
-  #define MAX_ORBITS	 544
-#elif MAX_K <= 8
-  #define MAX_CANONICALS 12346
-  #define MAX_ORBITS	 79264
-#elif MAX_K == 9
-  #define MAX_CANONICALS 274668
-  #define MAX_ORBITS	2208612
-#elif MAX_K == 10
-  #define MAX_CANONICALS 12005168
-  #define MAX_ORBITS	113743760
-#elif MAX_K == 11
-  #define MAX_CANONICALS 1018997864
-  #if long_width < 34
-    #error "cannot do MAX_K==11 since unsigned long doesn't have enough bits to store MAX_ORBITS"
-  #else
-    #define MAX_ORBITS	10926227136UL
-  #endif
-#elif MAX_K == 12
-  #if long_width < 38
-    #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_CANONICALS"
-  #else
-    #define MAX_CANONICALS 165091172592UL
-  #endif
-  #if long_width < 41
-    #error "cannot do MAX_K==12 since unsigned long doesn't have enough bits to store MAX_ORBITS"
-  #else
-    #define MAX_ORBITS	1956363435360UL
-  #endif
-#elif !DYNAMIC_CANON_MAP
-  #error "MAX_K too big"
-#endif
-#if MAX_K<10&&DIRECTED_K6
-#define MAX_CANONICALS 1540944 // for k=6, directed
-#define MAX_ORBITS 9174824
-#endif
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
 // We have a choice of using the upper or lower triangle. We prefer the lower triangle because that's what Jesse uses
 // (the graphlet / orbit generation code of Ine Melckenbeeck and friends Ghent university), and they published first.
