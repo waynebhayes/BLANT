@@ -71,7 +71,7 @@ static long _seed = -1; // -1 means "not initialized"
 static unsigned *_pairs;
 static float *_weights;
 char **_nodeNames;
-Boolean _supportNodeNames = true;
+Boolean _supportNodeNames = true, _twoPassRead = false;
 static FILE *interestFile;
 Boolean _child; // are we a child process?
 int _quiet=1;     // suppress notes and/or warnings, higher value = more quiet; 0=verbose
@@ -1895,6 +1895,7 @@ const char *const USAGE_LONG =
     "	i = integer ordinal = sorting the above integers and numbering them 0, "
     "1, 2, 3, etc.\n"
     "Less Common OPTIONS:\n"
+    "    -2pass: read edgelist in 2 pasess; avoids re-alloc and is best for huge networks\n"
     "    -q quiet mode: suppress progress reports; -qq=supress all notes; "
     "    -v less quiet mode (verbose): increase progress reports; "
     "-qqq=supress warnings (not recommended)\n"
@@ -1971,7 +1972,7 @@ int main(int argc, char *argv[]) {
   // no colon appended.
   while ((opt = getopt(
               argc, argv,
-              "a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1) {
+              "2:a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1) {
     switch (opt) {
       unsigned long nSampArg;
     // -q decreases verboseness; -v increases it
@@ -1998,7 +1999,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'F':
       if (_freqDisplayMode != freq_display_mode_undef)
-        Fatal("-C option cannot appear more than once");
+        Fatal("-F option cannot appear more than once");
       switch (*optarg) {
       case 'n':
         _freqDisplayMode = freq_display_mode_count;
@@ -2011,7 +2012,7 @@ int main(int argc, char *argv[]) {
         _freqDisplayMode = freq_display_mode_estimate_absolute;
         break;
       default:
-        Fatal("-C%c: unknown frequency display mode", *optarg);
+        Fatal("-F%c: unknown frequency display mode", *optarg);
         break;
       }
       break;
@@ -2220,6 +2221,9 @@ int main(int argc, char *argv[]) {
         Fatal("confidence must be in (0,1), not %g", _confidence);
       if (_confidence >= 1)
         _confidence /= 100; // user specified percent
+      break;
+    case '2': assert(strcmp(optarg,"pass")==0); // argument is "-2pass", not just "-2"
+      _twoPassRead = true;
       break;
     case 'k':
       _k = atoi(optarg);
@@ -2561,16 +2565,16 @@ int main(int argc, char *argv[]) {
 
   // Read network using native Graph routine. Derik: this is where you can add
   // other graph reading functions
-  GraphReadEdgeList(&inputG[0], fpGraph, false, _supportNodeNames,
-                    _weighted); // directed=false for inputG[0]
+  if(_twoPassRead) GraphAddEdgeList(&inputG[0], fpGraph, false, _supportNodeNames, _weighted); // directed=false for inputG[0]
+  else            GraphReadEdgeList(&inputG[0], fpGraph, false, _supportNodeNames, _weighted); // directed=false for inputG[0]
   if (_directed) {
     if (fpGraph == stdin)
       Fatal("Sorry, can't read a directed graph from stdin");
     rewind(fpGraph); // rewind the input FILE pointer to the beginning of the
                      // input graph
     Note("Reading G a second time as directed");
-    GraphReadEdgeList(&inputG[1], fpGraph, _directed, _supportNodeNames,
-                      _weighted);
+    if(_twoPassRead) GraphAddEdgeList(&inputG[1], fpGraph, _directed, _supportNodeNames, _weighted);
+    else            GraphReadEdgeList(&inputG[1], fpGraph, _directed, _supportNodeNames, _weighted);
     Note("undirected G has %d edges; directed has %d", G->numEdges,
          (G + 1)->numEdges);
   }
