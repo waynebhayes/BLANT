@@ -41,7 +41,7 @@
 #endif // MAX_K
 #define MAX_KD (5+DIRECTED_K6-SELF_LOOPS-(SYNTHETIC*2))
 
-#ifndef DIRECTED_K6
+#if DIRECTED_K6==0
   #if MAX_K <= 6
     #define MAX_CANONICALS 156
     #define MAX_ORBITS	 544
