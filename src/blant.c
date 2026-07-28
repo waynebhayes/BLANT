@@ -2222,7 +2222,7 @@ int main(int argc, char *argv[]) {
       if (_confidence >= 1)
         _confidence /= 100; // user specified percent
       break;
-    case '2': assert(strcmp(optarg,"pass")==0); // argument is "-2pass", not just "-2"
+    case '2': if(strcmp(optarg,"pass")) Fatal("2-pass argument must be exactly '-2pass', not '2%s'", optarg);
       _twoPassRead = true;
       break;
     case 'k':
