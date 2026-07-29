@@ -91,9 +91,9 @@ extern unsigned long _known_orbit_count[2][13];
 #endif
 #if !DYNAMIC_CANON_MAP
 extern Gordinal_type _numCanon, _numConnectedCanon;
-extern char _canonNumEdges[MAX_CANONICALS];
+extern char *_canonNumEdges;
 extern double _totalStarMotifs;
-extern Gint_type _canonList[MAX_CANONICALS];
+extern Gint_type *_canonList;
 #endif
 void SetBlantDirs(void);
 double GetCPUseconds(void);
@@ -111,8 +111,8 @@ char** convertToEL(char* file); // from convert.cpp
 #define DEFAULT_CANON_DIR "canon_maps"
 extern const char* _BLANT_DIR, *_CANON_DIR;
 #if !DYNAMIC_CANON_MAP
-extern double *_graphletDegreeVector[MAX_CANONICALS];
-extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
+extern double **_graphletDegreeVector;
+extern double **_orbitDegreeVector, _absoluteCountMultiplier;
 
 // If you're squeemish then use this one to access the degrees:
 // THESE NEED TO BE WHOLLY DEPRECATED TO WORK SAFELY WITH MULTITHREADING.
@@ -126,7 +126,7 @@ extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 #define SHAWN_AND_ZICAN 0
 extern unsigned int _Bk,_Bkd;
 #if !DYNAMIC_CANON_MAP
-extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
+extern Gint_type _numOrbits, (*_orbitList)[MAX_K], *_alphaList;
 #endif
 extern char **_nodeNames;
 extern Boolean _supportNodeNames;
@@ -152,12 +152,12 @@ enum OutputMode {undef=0, indexGraphlets=1, indexGraphletsRNO=2, indexOrbits=4, 
 };
 extern enum OutputMode _outputMode; // note they can be LOGINAL OR'd together; modes can overlap!
 #if !DYNAMIC_CANON_MAP
-extern int _outputMapping[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
+extern int *_outputMapping, *_canonNumStarMotifs;
 
-extern double _graphletCount[MAX_CANONICALS];
+extern double *_graphletCount;
 extern int **_graphletDistributionTable;
-extern double _graphletConcentration[MAX_CANONICALS];
-extern unsigned long _batchRawCount[MAX_CANONICALS], _batchRawTotalSamples; // batches for confidence intervals
+extern double *_graphletConcentration;
+extern unsigned long *_batchRawCount, _batchRawTotalSamples; // batches for confidence intervals
 #endif
 enum PrecisionMode {PrecUndef, mean, worst};
 enum PrecisionWeights {PrecWtNone, PrecWtRaw, PrecWtLog};
@@ -165,14 +165,14 @@ enum PrecisionWeights {PrecWtNone, PrecWtRaw, PrecWtLog};
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse, noncanonical};
 extern enum CanonicalDisplayMode _displayMode;
 #if !DYNAMIC_CANON_MAP
-extern Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
-extern char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
+extern Gordinal_type *_orbitCanonMapping; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
+extern char *_orbitCanonNodeMapping; // Maps orbits to canonical nodes
 #endif
 enum FrequencyDisplayMode {freq_display_mode_undef, freq_display_mode_count, freq_display_mode_concentration, freq_display_mode_estimate_absolute};
 extern enum FrequencyDisplayMode _freqDisplayMode;
 #if !DYNAMIC_CANON_MAP
 extern int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_ordering to our orbits
-extern int _connectedOrbits[MAX_ORBITS];
+extern int *_connectedOrbits;
 extern int _numConnectedOrbits;
 #endif
 extern int _numConnectedComponents;

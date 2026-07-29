@@ -24,7 +24,7 @@ typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
 //static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 static kperm *Permutations = NULL, *dPerm = NULL;
 #if !DYNAMIC_CANON_MAP
-static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
+static int (*_magicTable)[12] = NULL;
 #endif
 #if DYNAMIC_CANON_MAP
 #if !CANON_ASCENDING_NEIGHBORS
@@ -380,6 +380,8 @@ void LoadMagicTable(void)
     sprintf(BUF, "%s/orca_jesse_blant_table/UpperToLower%d.txt", _BLANT_DIR, _k);
     FILE *fp_ord=fopen(BUF, "r");
     if(fp_ord) {
+	_magicTable = malloc(_numCanon * sizeof(int[12]));
+	if (!_magicTable) Fatal("LoadMagicTable: malloc failed");
 	for(i=0; i<_numCanon; i++) {
 	    for(j=0; j<12 ;j++) {
 		if(1!=fscanf(fp_ord, "%d", &_magicTable[i][j]))
