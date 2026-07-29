@@ -1972,12 +1972,12 @@ int main(int argc, char *argv[]) {
   // no colon appended.
   while ((opt = getopt(
               argc, argv,
-              "2:a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:qr:Rs:t:T:wW:x:X")) != -1) {
+              "2:a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:Qqr:Rs:t:T:wW:x:X")) != -1) {
     switch (opt) {
       unsigned long nSampArg;
     // -q decreases verboseness; -v increases it
     case 'q': do ++_quiet; while (optarg && *optarg++); break;
-    case 'v': do --_quiet; while (optarg && *optarg++); if(_quiet<0)_quiet=0; break;
+    case 'Q': do --_quiet; while (optarg && *optarg++); if(_quiet<0)_quiet=0; break;
 
     case 'h':
       printf("%s\n", USAGE_LONG);
