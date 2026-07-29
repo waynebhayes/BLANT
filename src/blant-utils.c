@@ -129,7 +129,7 @@ static int CmpInt(foint a, foint b){
     else if(a.ul > b.ul) return 1;
     return 0;
 }
-AVLTREE *seenPerms;
+TREETYPE *seenPerms;
 static Gint_type _sortBest;
 static int _curLabel[MAX_K];   // _curLabel[pos] = original sampled index now at position pos
 static int _bestPerm[MAX_K];   // snapshot of _curLabel that produced _sortBest
@@ -212,13 +212,13 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
     Gint_type Gint = TinyGraph2Int(g,_k);
     foint key = {.ul=swapGroup2Int(curSwapGroup,start+pos)};
     foint found;
-    if(AvlTreeLookup(seenPerms,key,&found)){ //if this swap group distribution was seen before
+    if(TreeLookup(seenPerms,key,&found)){ //if this swap group distribution was seen before
 	if(*(__int128*)found.v<=Gint) return;
-	else AvlTreeDelete(seenPerms,key);
+	else TreeDelete(seenPerms,key);
     }
     foint val = {.v = Malloc(sizeof(__int128))};
     *(__int128*)val.v = Gint;
-    AvlTreeInsert(seenPerms,key,val);
+    TreeInsert(seenPerms,key,val);
     for(i = pos; i < groupSize; i++) {
         //Try all possible ways of swapping node pos with swapping further nodes in the group (including not swapping i with anything, which is when pos=i)
         if(i != pos) {
@@ -255,7 +255,7 @@ Gint_type HandleSpecialCases(Gint_type Gint, unsigned char permOut[]){
 //With SORT_CUBED_SUM, the function f(n) we're sorting by is the sum over all neighbors of a node of the cubed degree of said neighbor.
 //With SORT_CUBED_SUM=0, the funciton f(n) we're sorting by is the degree of the node.
 Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[], unsigned short olist[], Boolean computeOrbits) {
-    seenPerms = AvlTreeAlloc(CmpInt,NULL,NULL,copyInt128Ptr,freeInt128Ptr);
+    seenPerms = TreeAlloc(CmpInt,NULL,NULL,copyInt128Ptr,freeInt128Ptr);
     static TINY_GRAPH g;
     /* Clear any stale state on the static temporary graph, then set basic fields */
     memset(&g, 0, sizeof(g));
@@ -308,7 +308,7 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[], unsigned short 
     _tryGroupPerms(&g, groupStart, numGroups, 0, 0, computeOrbits);
     if(permOut) for(i = 0; i < _k; i++) permOut[i] = (unsigned char)_bestPerm[i];
     if(computeOrbits) for(int i=0;i<_k;i++) olist[i]=_orbits[_bestPerm[i]];
-    AvlTreeFree(seenPerms);
+    TreeFree(seenPerms);
     #if DEBUG_ATTEMPTS
     if(attempts>=10000) fprintf(stderr," %d attempts for gint: \n", attempts),PrintGintStderr(Gint);
     attempts=0;

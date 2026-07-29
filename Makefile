@@ -92,7 +92,7 @@ DIR_CANON_DIR := $(BLANT_CANON_DIR)/directed
 # directed canonical values; start with the full range 3..6
 # and then remove entries when NO8 or NO7 are set.  This keeps the
 # format identical to the `K` list used for undirected data.
-K_DIR := 3 4 5 #6
+K_DIR := 3 4 5 6
 ifdef NO8
 	# don't build k=6 if undirected 8 is disabled
 	K_DIR := $(filter-out 6,$(K_DIR))
@@ -118,6 +118,9 @@ endif
 
 # these variables serve only to help in the creation of the generated file lists variables
 K := 3 4 5 6 $(SEVEN) $(EIGHT)
+ifdef ONLY_DIRECTED
+    K :=
+endif
 alpha_sampling_methods := NBE EBE MCMC
 alpha_txts_ud := $(foreach method,$(alpha_sampling_methods),$(UND_CANON_DIR)/alpha_list_$(method))
 canon_txt_ud := $(UND_CANON_DIR)/canon_map $(UND_CANON_DIR)/canon_list $(UND_CANON_DIR)/canon-ordinal-to-signature $(UND_CANON_DIR)/orbit_map $(alpha_txts_ud)
@@ -137,6 +140,8 @@ magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).tx
 
 ifeq ($(DYNAMIC_MAP),1)
 base: ./.notpristine show-gcc-ver libwayne blant
+else ifdef ONLY_DIRECTED
+base: ./.notpristine show-gcc-ver libwayne $(canon_all) blant
 else
 base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
 endif
@@ -324,9 +329,8 @@ $(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: $(SRCDIR)/cr
 $(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
 	$(SRCDIR)/create-bin-data.c \
 	$(DIR_CANON_DIR)/canon_list%.txt \
-	$(DIR_CANON_DIR)/canon_map%.txt \
-	$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin
-	# reuse same create-bin-data executable, but tell it we are working with directed data
+	$(DIR_CANON_DIR)/canon_map%.txt
+	[ -f create-bin-data$* ] || $(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 	[ -f $(DIR_CANON_DIR)/canon_map$*.bin -a -f $(DIR_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$* directed
 
 # Currently unused target
