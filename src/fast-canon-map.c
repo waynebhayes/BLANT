@@ -80,7 +80,7 @@ typedef unsigned char xChar[XCHAR_SIZE];
 
 static xChar* data;
 static bool* done;
-static unsigned long canonicalDecimal[MAX_CANONICALS];
+static unsigned long *canonicalDecimal;
 
 void encodeChar(xChar ch, long indexD, long long indexP){
     unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? dGraphSize : udGraphSize));
@@ -265,7 +265,8 @@ int main(int argc, char* argv[]){
     assert(numBitValues>0);
     data = calloc(numBitValues, sizeof(xChar));
     done = calloc(numBitValues, sizeof(bool));
-    if (!data || !done) {
+    canonicalDecimal = Malloc(MAX_CANONICALS * sizeof(unsigned long));
+    if (!data || !done || !canonicalDecimal) {
 	fprintf(stderr, "Memory allocation failed\n");
 	exit(1);
     }

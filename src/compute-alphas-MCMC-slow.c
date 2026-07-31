@@ -6,8 +6,8 @@
 #include "misc.h"
 #include <stdio.h>
 
-Gint_type _canonList[MAX_CANONICALS], _alphaList[MAX_CANONICALS];
-char _canonNumEdges[MAX_CANONICALS];
+Gint_type *_canonList, *_alphaList;
+char *_canonNumEdges;
 
 static Gint_type _L, _alpha, *_Darray;
 static COMBIN *_Lcombin;
@@ -119,6 +119,9 @@ int main(int argc, char* argv[]) {
     }
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
+    _canonList = Malloc(MAX_CANONICALS * sizeof(Gint_type));
+    _alphaList = Malloc(MAX_CANONICALS * sizeof(Gint_type));
+    _canonNumEdges = Malloc(MAX_CANONICALS * sizeof(char));
     TINY_GRAPH *gk = TinyGraphAlloc(k, SELF_LOOPS, false);
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d, SELF_LOOPS, false);
     _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges,false);
@@ -168,5 +171,8 @@ int main(int argc, char* argv[]) {
 
     TinyGraphFree(gk);
     TinyGraphFree(gd);
+    Free(_canonList);
+    Free(_alphaList);
+    Free(_canonNumEdges);
     return 0;
 }

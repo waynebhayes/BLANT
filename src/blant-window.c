@@ -69,8 +69,7 @@ void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_
 {
     int num_difference;
     Gint_type Gint_prev_ordinal, Gint_curr_ordinal;
-    static Accumulators trash; // these values aren't used anywhere; but an accumulator must be passed in to SampleGraphlet
-    SampleGraphlet(G, V, Varray, k, G->n, &trash);
+    SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
     SetIntersect(intersect_node, prev_node_set, V);
     num_difference = k - SetCardinality(intersect_node);
     SetEmpty(intersect_node);
@@ -84,7 +83,7 @@ void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_
         Gint_prev_ordinal = L_K(TinyGraph2Int(prev_graph,k));
         TinyGraphInducedFromGraph(prev_graph, G, Varray);
         Gint_curr_ordinal = L_K(TinyGraph2Int(prev_graph,k));
-        _graphletDistributionTable[Gint_prev_ordinal][Gint_curr_ordinal] += 1; // segfault
+        _graphletDistributionTable[Gint_prev_ordinal][Gint_curr_ordinal] += 1;
     }
 }
 

@@ -97,17 +97,16 @@ unsigned long _known_orbit_count[2][13] = {
     { 0, 1, 0,40,815,46881,9174824} // unknown for k>6 directed
     // directed
 };
-
 #if !DYNAMIC_CANON_MAP
-Gint_type _alphaList[MAX_CANONICALS];
+Gint_type *_alphaList = NULL;
 Gordinal_type _numCanon;
-char _canonNumEdges[MAX_CANONICALS];
+char *_canonNumEdges = NULL;
 double _totalStarMotifs; // This is a double because the value can *way*
                          // overflow even a 128-bit integer on large graphs.
-int _canonNumStarMotifs[MAX_CANONICALS]; // However, the per-canonical values
-                                         // are integers
-Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation
-                                      // of the canonical
+int *_canonNumStarMotifs = NULL; // However, the per-canonical values
+                                          // are integers
+Gint_type *_canonList = NULL; // map ordinals to integer representation
+                                       // of the canonical
 #endif
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
@@ -124,12 +123,11 @@ int *_startNodes, _numStartNodes;
 SET *_startNodeSet;
 #if !DYNAMIC_CANON_MAP
 Gint_type _numOrbits,
-    _orbitList[MAX_CANONICALS]
-              [MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
-Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical
-                                              // (including disconnected)
-char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including
-                                         // disconnected)
+    (*_orbitList)[MAX_K] = NULL; // map from [ordinal][canonicalNode] to orbit ID.
+Gordinal_type *_orbitCanonMapping = NULL; // Maps orbits to canonical
+                                               // (including disconnected)
+char *_orbitCanonNodeMapping = NULL; // Maps orbits to canonical (including
+                                          // disconnected)
 #endif
 int *_whichComponent;
 
@@ -137,19 +135,19 @@ enum OutputMode _outputMode = undef;
 unsigned long _numSamples;
 #if !DYNAMIC_CANON_MAP
 int **_graphletDistributionTable;
-double _graphletCount[MAX_CANONICALS], _graphletConcentration[MAX_CANONICALS],
+double *_graphletCount = NULL, *_graphletConcentration = NULL,
     _absoluteCountMultiplier = 1;
 
-unsigned long _batchRawCount[MAX_CANONICALS],
+unsigned long *_batchRawCount = NULL,
     _batchRawTotalSamples; // batches for confidence intervals
 #endif
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
 #if !DYNAMIC_CANON_MAP
-int _outputMapping[MAX_CANONICALS];
+int *_outputMapping = NULL;
 
 int _orca_orbit_mapping[58];
-int _connectedOrbits[MAX_ORBITS];
+int *_connectedOrbits = NULL;
 int _numConnectedOrbits;
 #endif
 
@@ -160,8 +158,8 @@ int _numConnectedOrbits;
 // we'd need to get more funky with the pointer allocation. Only one of these
 // actually get allocated, depending upon outputMode.
 #if !DYNAMIC_CANON_MAP
-double *_graphletDegreeVector[MAX_CANONICALS];
-double *_orbitDegreeVector[MAX_ORBITS];
+double **_graphletDegreeVector = NULL;
+double **_orbitDegreeVector = NULL;
 #endif
 double *_cumulativeProb, _worstPrecision, _meanPrec;
 enum PrecisionMode _precisionMode = mean;
@@ -609,6 +607,7 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
   if (_outputMode & graphletDistribution) {
     SampleGraphlet(G, V, Varray, k, G->n,
                    &_trashAccumulator); // Use trash accumulator for consistency
+
     SetCopy(prev_node_set, V);
     TinyGraphInducedFromGraph(empty_g, G, Varray);
   }
@@ -896,7 +895,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     int maxNumBatches = 1000 * minNumBatches;   // huge
     ReportVal(maxNumBatches, "%d");
     #if !DYNAMIC_CANON_MAP
-    STAT *sTotal[MAX_CANONICALS];
+    STAT **sTotal = Malloc(_known_canonical_count[_directed][_k] * sizeof(STAT *));
     if(_desiredPrec) {
 	assert(numSamples==0 && _numSamples==0);
 	if(!_quiet)
@@ -1147,7 +1146,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	if(_desiredPrec && _quiet<2)
 	    Note("using batches of size %d to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 		batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
-	STAT *sTotal[MAX_CANONICALS];
+  STAT **sTotal = Malloc(_known_canonical_count[_directed][_k] * sizeof(STAT *));
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 	Boolean confMet = false;
 	static int batch;
@@ -1948,7 +1947,6 @@ int main(int argc, char *argv[]) {
   unsigned long numSamples = 0;
   double windowRep_edge_density = 0.0;
   int exitStatus = 0;
-
   assert(MAX_K <= TINY_SET_SIZE);
 
   if (argc == 1) {
@@ -2446,7 +2444,35 @@ int main(int argc, char *argv[]) {
   SetBlantDirs();       // Needs to be done before reading any files in BLANT
                         // directory
   #if !DYNAMIC_CANON_MAP
+  // Allocate canon and orbit arrays based on the selected k
+  {
+      Gint_type canonCount = _known_canonical_count[_directed][_k];
+      Gint_type orbitCount = _known_orbit_count[_directed][_k];
+      _alphaList = Malloc(canonCount * sizeof(Gint_type));
+      _canonNumEdges = Malloc(canonCount * sizeof(char));
+      _canonNumStarMotifs = Calloc(canonCount, sizeof(int));
+      _canonList = Malloc(canonCount * sizeof(Gint_type));
+      _graphletCount = Calloc(canonCount, sizeof(double));
+      _graphletConcentration = Calloc(canonCount, sizeof(double));
+      _batchRawCount = Calloc(canonCount, sizeof(unsigned long));
+      _outputMapping = Malloc(canonCount * sizeof(int));
+      _graphletDegreeVector = Calloc(canonCount, sizeof(double *));
+      _orbitList = Malloc(canonCount * sizeof(Gint_type[MAX_K]));
+      _orbitCanonMapping = Malloc(orbitCount * sizeof(Gordinal_type));
+      _orbitCanonNodeMapping = Malloc(orbitCount * sizeof(char));
+      _connectedOrbits = Malloc(orbitCount * sizeof(int));
+      _orbitDegreeVector = Calloc(orbitCount, sizeof(double *));
+  }
   SetGlobalCanonMaps(); // needs _k to be set
+  // Initialize trash accumulator with valid allocations
+  _trashAccumulator.graphletCount = Calloc(_numCanon, sizeof(double));
+  _trashAccumulator.graphletConcentration = Calloc(_numCanon, sizeof(double));
+  _trashAccumulator.batchRawCount = Calloc(_numCanon, sizeof(unsigned long));
+  _trashAccumulator.orbitDegreeVector = Calloc(_numOrbits, sizeof(double *));
+  _trashAccumulator.graphletDegreeVector = NULL;
+  _trashAccumulator.canonNumStarMotifs = Malloc(_numCanon * sizeof(double));
+  for (int _ti = 0; _ti < _numCanon; _ti++) _trashAccumulator.canonNumStarMotifs[_ti] = -1;
+  _trashAccumulator.communityNeighbors = NULL;
   if(!_directed) LoadMagicTable();     // needs _k to be set
   if (_window && _windowSize >= 3) {
     if (_windowSampleMethod == -1)
@@ -2695,6 +2721,13 @@ int main(int argc, char *argv[]) {
   exitStatus = RunBlantFromGraph(_k, numSamples, G);
   if (&inputG[0] != G)
     GraphFree(G);
+  #if !DYNAMIC_CANON_MAP
+  Free(_trashAccumulator.graphletCount);
+  Free(_trashAccumulator.graphletConcentration);
+  Free(_trashAccumulator.batchRawCount);
+  Free(_trashAccumulator.orbitDegreeVector);
+  Free(_trashAccumulator.canonNumStarMotifs);
+  #endif
   return exitStatus;
   
 }
