@@ -123,6 +123,7 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
 #else
 #if DEBUG_ATTEMPTS
 unsigned long attempts=0;
+Boolean logAttemptsToFile = true; // debug harnesses turn this off to suppress attlog.txt
 #endif
 static int CmpInt(foint a, foint b){
     if(a.ul < b.ul) return -1;
@@ -151,6 +152,7 @@ unsigned long swapGroup2Int(short swapGroup[],int k){ //Encode the swap groups a
 }
 
 //The following two functions are taken from make-orbit-maps.c
+void getCycle(int permutation[], int cycle[], int seed, int current, Boolean visited[]);
 void makeOrbit(int permutation[], unsigned short orbit[], int k){
     int i, j;
     Boolean visited[k];
@@ -255,6 +257,9 @@ Gint_type HandleSpecialCases(Gint_type Gint, unsigned char permOut[]){
 //With SORT_CUBED_SUM, the function f(n) we're sorting by is the sum over all neighbors of a node of the cubed degree of said neighbor.
 //With SORT_CUBED_SUM=0, the funciton f(n) we're sorting by is the degree of the node.
 Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[], unsigned short olist[], Boolean computeOrbits) {
+    #if DEBUG_ATTEMPTS
+    attempts=0; // reset the counter so the caller can read it after this call returns
+    #endif
     seenPerms = TreeAlloc(CmpInt,NULL,NULL,copyInt128Ptr,freeInt128Ptr);
     static TINY_GRAPH g;
     /* Clear any stale state on the static temporary graph, then set basic fields */
@@ -310,8 +315,13 @@ Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[], unsigned short 
     if(computeOrbits) for(int i=0;i<_k;i++) olist[i]=_orbits[_bestPerm[i]];
     TreeFree(seenPerms);
     #if DEBUG_ATTEMPTS
-    if(attempts>=10000) fprintf(stderr," %d attempts for gint: \n", attempts),PrintGintStderr(Gint);
-    attempts=0;
+    if (logAttemptsToFile) {
+        FILE *attlog = fopen("attlog.txt", "a");
+        if (attlog) {
+            fprintf(attlog, " %lu attempts for gint: %llu\n", attempts, (unsigned long long)_sortBest);
+            fclose(attlog);
+        }
+    }
     #endif
     return _sortBest;
 }
