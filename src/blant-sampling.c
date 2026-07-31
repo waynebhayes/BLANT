@@ -1283,8 +1283,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         // low enough multiplicity (<= multiplicity); it will also check that the k nodes you passed it haven't already been
         // printed (although, this system does not work 100% perfectly); it will also print the nodes as output if
 	    // the graphlet passes all checks
-        static Accumulators trash;
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &trash);
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &_trashAccumulator);
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 

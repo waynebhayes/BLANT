@@ -5,7 +5,7 @@
 # In -mj output, first field is the ORIGINAL (non-canonical) Gint.
 
 EXEDIR=$(dirname "$0")
-cd "$EXEDIR/.." || exit 1
+cd "$EXEDIR/../.." || exit 1
 PROJECT_DIR=$(pwd)
 
 BLANT="$PROJECT_DIR/blant"

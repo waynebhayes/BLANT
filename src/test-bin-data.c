@@ -24,8 +24,8 @@ typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 
 #define Bk (1U <<(k*(k-1)/2))
 kperm Permutations[Bk] __attribute__ ((aligned (32768)));
 Gordinal_type K[Bk] __attribute__ ((aligned (32768)));
-static Gint_type canon_list[MAX_CANONICALS];
-static char canon_num_edges[MAX_CANONICALS];
+static Gint_type *canon_list;
+static char *canon_num_edges;
 
 void ExtractPerm(char perm[k], int i) // you provide a permutation array, we fill it with permutation i
 {
@@ -40,6 +40,15 @@ int main(int argc, char *argv[])
 {
     char BUF[BUFSIZ];
     SetBlantDirs();
+    sprintf(BUF, "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    FILE *fp_count = fopen(BUF, "r");
+    if (!fp_count) Fatal("cannot open %s", BUF);
+    Gordinal_type numCanonFile;
+    if (1 != fscanf(fp_count, GORDINAL_FMT, &numCanonFile) || numCanonFile == 0)
+        Fatal("failed to read canon count from %s", BUF);
+    fclose(fp_count);
+    canon_list = Malloc(numCanonFile * sizeof(Gint_type));
+    canon_num_edges = Malloc(numCanonFile * sizeof(char));
     _connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges, false);
     int numCanon = _connectedCanonicals->maxElem;
     SetFree(_connectedCanonicals);
