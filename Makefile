@@ -60,6 +60,8 @@ export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/
 UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm64/)V="arm64";else V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
 #Old values for Cygwin 32-bit: 83886080, 0x5000000
 STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x20000000"}')
+# 32-bit machine
+BITS=$(shell (uname -a) | awk '/i686/{print 32}/x86_64/||[Ll]inux{print 64}')
 CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED) $(STATIC_LINK)
@@ -97,6 +99,10 @@ ifdef NO8
 	# don't build k=6 if undirected 8 is disabled
 	K_DIR := $(filter-out 6,$(K_DIR))
 endif
+ifdef NO_D6
+	K_DIR := $(filter-out 6,$(K_DIR))
+endif
+
 ifdef NO7
 	# NO7 implies NO8; drop both 5 and 6
 	K_DIR := $(filter-out 5 6,$(K_DIR))
@@ -139,11 +145,11 @@ magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).tx
 #ehd_txts := $(foreach k,$(K), $(BLANT_CANON_DIR)/EdgeHammingDistance$(k).txt)
 
 ifeq ($(DYNAMIC_MAP),1)
-base: ./.notpristine show-gcc-ver libwayne blant
+    base: ./.notpristine show-gcc-ver libwayne blant
 else ifdef ONLY_DIRECTED
-base: ./.notpristine show-gcc-ver libwayne $(canon_all) blant
+    base: ./.notpristine show-gcc-ver libwayne blant $(canon_all)
 else
-base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
+    base: ./.notpristine show-gcc-ver libwayne blant $(canon_all) magic_table test_all
 endif
 
 ##################################################################################################################
@@ -189,9 +195,9 @@ most: sub$(BLANT_CANON_DIR)
 endif
 
 ifeq ($(DYNAMIC_MAP),1)
-test_all:
+    test_all:
 else
-test_all: $(BLANT_CANON_DIR)/test_index_mode $(BLANT_CANON_DIR)/check_maps test_fast
+    test_all: $(BLANT_CANON_DIR)/test_index_mode $(BLANT_CANON_DIR)/check_maps test_fast
 endif
 
 all: most test_all
