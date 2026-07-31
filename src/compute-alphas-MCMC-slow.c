@@ -119,9 +119,9 @@ int main(int argc, char* argv[]) {
     }
     int k = atoi(argv[1]);
     char BUF[BUFSIZ];
-    _canonList = malloc(MAX_CANONICALS * sizeof(Gint_type));
-    _alphaList = malloc(MAX_CANONICALS * sizeof(Gint_type));
-    _canonNumEdges = malloc(MAX_CANONICALS * sizeof(char));
+    _canonList = Malloc(MAX_CANONICALS * sizeof(Gint_type));
+    _alphaList = Malloc(MAX_CANONICALS * sizeof(Gint_type));
+    _canonNumEdges = Malloc(MAX_CANONICALS * sizeof(char));
     TINY_GRAPH *gk = TinyGraphAlloc(k, SELF_LOOPS, false);
     TINY_GRAPH *gd = TinyGraphAlloc(mcmc_d, SELF_LOOPS, false);
     _connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges,false);
@@ -171,8 +171,8 @@ int main(int argc, char* argv[]) {
 
     TinyGraphFree(gk);
     TinyGraphFree(gd);
-    free(_canonList);
-    free(_alphaList);
-    free(_canonNumEdges);
+    Free(_canonList);
+    Free(_alphaList);
+    Free(_canonNumEdges);
     return 0;
 }

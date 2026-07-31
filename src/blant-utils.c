@@ -380,7 +380,7 @@ void LoadMagicTable(void)
     sprintf(BUF, "%s/orca_jesse_blant_table/UpperToLower%d.txt", _BLANT_DIR, _k);
     FILE *fp_ord=fopen(BUF, "r");
     if(fp_ord) {
-	_magicTable = malloc(_numCanon * sizeof(int[12]));
+	_magicTable = Malloc(_numCanon * sizeof(int[12]));
 	if (!_magicTable) Fatal("LoadMagicTable: malloc failed");
 	for(i=0; i<_numCanon; i++) {
 	    for(j=0; j<12 ;j++) {

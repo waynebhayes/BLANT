@@ -66,8 +66,8 @@ int main(int argc, char *argv[])
     assert(k > 2 && k <= 8);
     int numParallel=atoi(argv[2]), coreID=atoi(argv[3]);
     G = TinyGraphAlloc(k,SELF_LOOPS,false);
-    _canonicalSig = malloc(MAX_CANONICALS * sizeof(int));
-    _canonicalGraph = malloc(MAX_CANONICALS * sizeof(TINY_GRAPH *));
+    _canonicalSig = Malloc(MAX_CANONICALS * sizeof(int));
+    _canonicalGraph = Malloc(MAX_CANONICALS * sizeof(TINY_GRAPH *));
     for(i=0; i<MAX_CANONICALS; i++)
 	_canonicalGraph[i] = TinyGraphAlloc(k,SELF_LOOPS,false);
 

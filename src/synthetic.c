@@ -100,14 +100,14 @@ void SetGlobalCanonMaps(void){
         char BUF[BUFSIZ];
         // Allocate canon/edge arrays on first call
         if (!_canonList2D) {
-            _canonList2D = calloc(MAX_K, sizeof(Gint_type *));
-            _canonEdges2D = calloc(MAX_K, sizeof(char *));
+            _canonList2D = Calloc(MAX_K, sizeof(Gint_type *));
+            _canonEdges2D = Calloc(MAX_K, sizeof(char *));
         }
         int k_idx = _k_array[i];
         if (!_canonList2D[k_idx - 1])
-            _canonList2D[k_idx - 1] = malloc(_known_canonical_count[0][k_idx] * sizeof(Gint_type));
+            _canonList2D[k_idx - 1] = Malloc(_known_canonical_count[0][k_idx] * sizeof(Gint_type));
         if (!_canonEdges2D[i])
-            _canonEdges2D[i] = malloc(_known_canonical_count[0][k_idx] * sizeof(char));
+            _canonEdges2D[i] = Malloc(_known_canonical_count[0][k_idx] * sizeof(char));
         _synthConnectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList2D[_k_array[i]-1], _k_array[i], _canonEdges2D[i], false);
 	_numCanonSynth[_k_array[i]-1] = _synthConnectedCanonicals[_k_array[i]-1]->maxElem;
         _maxNumCanon = MAX(_maxNumCanon, _numCanonSynth[_k_array[i]-1]);  // set max number of canonicals for a k

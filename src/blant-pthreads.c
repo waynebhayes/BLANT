@@ -31,17 +31,17 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
     memset(accums, 0, aligned_size); // zero out everything including padding
     #if !DYNAMIC_CANON_MAP
-    accums->graphletCount = calloc(_numCanon, sizeof(double));
-    accums->graphletConcentration = calloc(_numCanon, sizeof(double));
-    accums->batchRawCount = calloc(_numCanon, sizeof(unsigned long));
+    accums->graphletCount = Calloc(_numCanon, sizeof(double));
+    accums->graphletConcentration = Calloc(_numCanon, sizeof(double));
+    accums->batchRawCount = Calloc(_numCanon, sizeof(unsigned long));
     accums->batchRawTotalSamples = 0;
-    accums->orbitDegreeVector = calloc(_numOrbits, sizeof(double *));
-    accums->canonNumStarMotifs = malloc(_numCanon * sizeof(double));
+    accums->orbitDegreeVector = Calloc(_numOrbits, sizeof(double *));
+    accums->canonNumStarMotifs = Malloc(_numCanon * sizeof(double));
     for (int i = 0; i < _numCanon; i++) accums->canonNumStarMotifs[i] = -1;
     
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-        accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
+        accums->graphletDegreeVector = Malloc(_numCanon * sizeof(double*));
         if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
         for(int i = 0; i < _numCanon; i++) {
             size_t bytes = G->n * sizeof(double);
@@ -83,17 +83,17 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
 void FreeAccumulatorStruct(Accumulators *accums) {
     #if !DYNAMIC_CANON_MAP
-    free(accums->graphletCount);
-    free(accums->graphletConcentration);
-    free(accums->canonNumStarMotifs);
-    free(accums->batchRawCount);
+    Free(accums->graphletCount);
+    Free(accums->graphletConcentration);
+    Free(accums->canonNumStarMotifs);
+    Free(accums->batchRawCount);
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
         for (int i=0; i<_numCanon; i++) free(accums->graphletDegreeVector[i]);
-        free(accums->graphletDegreeVector);
+        Free(accums->graphletDegreeVector);
     }
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
         for(int i=0; i<_numOrbits; i++) free(accums->orbitDegreeVector[i]);
-        free(accums->orbitDegreeVector);
+        Free(accums->orbitDegreeVector);
     }
     if(_outputMode & communityDetection) free(accums->communityNeighbors);
     #endif

@@ -108,8 +108,8 @@ int main(int argc, char *argv[])
     if (1 != fscanf(fp_count, GORDINAL_FMT, &numCanon) || numCanon == 0)
         Fatal("failed to read canon count from %s", buf);
     fclose(fp_count);
-    canon_list = malloc(numCanon * sizeof(Gint_type));
-    canon_num_edges = malloc(numCanon * sizeof(char));
+    canon_list = Malloc(numCanon * sizeof(Gint_type));
+    canon_num_edges = Malloc(numCanon * sizeof(char));
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges, directed);
     numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);

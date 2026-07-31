@@ -29,15 +29,15 @@ void SetGlobalCanonMaps(int k){
     if (1 != fscanf(fp_count, GORDINAL_FMT, &numCanon) || numCanon == 0)
         Fatal("failed to read canon count from %s", BUF);
     fclose(fp_count);
-    Gint_type *_canonList = malloc(numCanon * sizeof(Gint_type));
-    char *_canonNumEdges = malloc(numCanon * sizeof(char));
+    Gint_type *_canonList = Malloc(numCanon * sizeof(Gint_type));
+    char *_canonNumEdges = Malloc(numCanon * sizeof(char));
     SET *_connectedCanonicals = canonListPopulate(BUF, _canonList, k, _canonNumEdges, false);
     _numCanon = _connectedCanonicals->maxElem;
     _K = (Gordinal_type*) mapCanonMap(BUF, _K, k, false);
 
     sprintf(BUF, "%s/perm_map%d.bin", _CANON_DIR, k);
-    free(_canonList);
-    free(_canonNumEdges);
+    Free(_canonList);
+    Free(_canonNumEdges);
 }
 
 int getHammingDistance(int a, int b){
