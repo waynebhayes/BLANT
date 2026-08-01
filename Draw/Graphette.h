@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include "graphette2dotutils.h"
 #define DYNAMIC_CANON_MAP 1
-
 enum class TriangularRepresentation { none, lower, upper };
 
 class Graphette {
@@ -13,11 +12,11 @@ class Graphette {
 	Graphette(const std::string& bitstring, TriangularRepresentation triangularRepresentation, int k, bool directed);
 	#else
 	Graphette(const std::string& bitstring, TriangularRepresentation triangularRepresentation, int k, short int* _K, bool directed);
-	Graphette(unsigned __int128 lowerOrdinal, TriangularRepresentation triangularRepresentation, int k, int* _canonList, bool directed);
-	unsigned __int128 lowerOrdinal;
+	Graphette(Gint_type lowerOrdinal, TriangularRepresentation triangularRepresentation, int k, int* _canonList, bool directed);
+	Gint_type lowerOrdinal;
 	#endif
 	std::string bitstring;
-	unsigned __int128 decimal;
+	Gint_type decimal;
 	TriangularRepresentation triangularRepresentation;
 	int k;
 };

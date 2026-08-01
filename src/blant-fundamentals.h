@@ -19,7 +19,7 @@
   #define SYNTHETIC 0 // off by default
 #endif
 
-#define DYNAMIC_CANON_MAP 0 // it kinda does work now but let's keep it off to be safe
+#define DYNAMIC_CANON_MAP 1 // it kinda does work now but let's keep it off to be safe
 //
 //Allow k=6 for directed graphs?
 #define DIRECTED_K6 1
@@ -77,7 +77,7 @@
   #endif
 #endif // DIRECTED_K6
 
-#if MAX_K>10 && DIRECTED_K6
+#if MAX_K>10 && DIRECTED_K6 && !DYNAMIC_CANON_MAP
 #error "Sorry, current logic can't handle both MAX_K>10 and DIRECTED_K6"
 #endif
 
@@ -93,8 +93,8 @@
 //Affects canonical definitions. If 0, then the graphlet with the lowest decimal value among all permutations is the canonical.
 // If 1, then the graphlet with the lowest decimal value among all permutations that also has the property that 
 // among the neighbors of a node (say x), each neighbor has degree greater than or equal to the previous node, when considering the induced subgraph of nodes x+1...n.
-#define CANON_ASCENDING_NEIGHBORS 0
-#define SORT_CUBED_SUM 0
+#define CANON_ASCENDING_NEIGHBORS 1
+#define SORT_CUBED_SUM 1
 //When canon_ascending_neighbors is on - instead of sorting by degree, we sort by the sum of the cubes of the degrees of the neighbors of nodes
 
 

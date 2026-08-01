@@ -217,6 +217,21 @@ slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJD
 make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
 
+# Debug harness: runs L_K_Func_Sort over the canonicals read from a canon list
+# file (default canon_maps/canon_list{<k>}.txt) and does nothing else. NOT part
+# of the normal build (base/most/all); build it only on explicit request, e.g.
+# make l-k-func-sort-test
+l-k-func-sort-test: libwayne $(SRCDIR)/l-k-func-sort-test.c $(SRCDIR)/blant-utils.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) '-std=gnu11' -DDEBUG_ATTEMPTS -o $@ $(SRCDIR)/l-k-func-sort-test.c $(SRCDIR)/blant-utils.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+
+# Debug harness: for each canonical given on the command line, run L_K_Func_Sort
+# on every decimal in its isomorphism class (all k! relabelings) and report
+# whether the per-call attempt count varies across the class. Also NOT part of
+# the normal build; explicit request only:
+# make l-k-perm-test
+l-k-perm-test: libwayne $(SRCDIR)/l-k-perm-test.c $(SRCDIR)/blant-utils.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) '-std=gnu11' -DDEBUG_ATTEMPTS -o $@ $(SRCDIR)/l-k-perm-test.c $(SRCDIR)/blant-utils.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+
 blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	./canon-upper.sh
@@ -271,7 +286,7 @@ $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 $(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	cd $(LIBWAYNE_HOME)/C++ && $(MAKE)
 
-$(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
+$(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c $(BLANT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
 
@@ -387,7 +402,7 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 ### Cleaning ###
 
 clean:
-	/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
+	/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp l-k-func-sort-test l-k-perm-test $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
 	/bin/rm -rf $(OBJDIR)/*
 	/bin/rm -rf $(DIR_CANON_DIR)/* || true
 
