@@ -104,8 +104,8 @@ int main(int argc, char* argv[]) {
 	return EXIT_SUCCESS;
 }
 
-unsigned __int128 stou128(const string& s) {
-	unsigned __int128 result = 0;
+Gint_type stou128(const string& s) {
+	Gint_type result = 0;
 	for (char c : s) {
 		if (c < '0' || c > '9') break;
 		result = result * 10 + (c - '0');
@@ -120,10 +120,10 @@ unsigned __int128 stou128(const string& s) {
  * */
 void parseInput(int argc, char* argv[], Graphette2DotParams& params) {
 	bool input = false, matrixType = false;
-	unsigned __int128 inputDecimalNum = 0;
+	Gint_type inputDecimalNum = 0;
 	int opt;
-	vector<unsigned __int128> lowerOrdinals;
-	vector<unsigned __int128> inputDecimals;
+	vector<Gint_type> lowerOrdinals;
+	vector<Gint_type> inputDecimals;
 	vector<string> inputBitStrings;
 
 	while((opt = getopt(argc, argv, "k:b:d:i:o:t:e:Dapnhul")) != -1)

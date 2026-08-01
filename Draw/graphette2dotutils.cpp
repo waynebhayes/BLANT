@@ -24,7 +24,7 @@ string appendLeadingZeros(const string& inputBitstring, int k, bool directed) {
 }
 
 //Converts 64 bit decimal input into a bit string
-string toBitString(unsigned __int128 inputDecimalNum, int k) {
+string toBitString(Gint_type inputDecimalNum, int k) {
     stringstream ss;
 
 	//Convert input decimal to reversed bitstring
@@ -39,13 +39,13 @@ string toBitString(unsigned __int128 inputDecimalNum, int k) {
 	return result;
 }
 
-unsigned __int128 toDecimal(const std::string& inputBitstring, int k, bool directed) {
+Gint_type toDecimal(const std::string& inputBitstring, int k, bool directed) {
     int _Bk = k * (k - 1) / (directed ? 1 : 2);
     if (_Bk < inputBitstring.size()) {
         std::cerr << "Input Bitstring too long for k=" << k << ". Max Size: " << _Bk << " Found: " << inputBitstring.size() << "\n";
         exit(EXIT_FAILURE);
     }
-    unsigned __int128 ret = 0;
+    Gint_type ret = 0;
     for (auto i = inputBitstring.cbegin(); i != inputBitstring.cend(); i++) {
         if (*i != '0' && *i != '1') {
             std::cerr << "Invalid Bitstring: " << inputBitstring << "\n";

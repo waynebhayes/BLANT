@@ -2,10 +2,14 @@
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <string>
 #include <stdint.h>
-
+#ifdef __SIZEOF_INT128__
+#define Gint_type unsigned __int128
+#else
+#define Gint_type unsigned long long
+#endif
 std::string appendLeadingZeros(const std::string& inputBitstring, int k, bool directed);
 
 //Converts 64 bit decimal input into a bit string
-std::string toBitString(unsigned __int128 inputDecimalNum, int k);
+std::string toBitString(Gint_type inputDecimalNum, int k);
 
-unsigned __int128 toDecimal(const std::string& inputBitstring, int k, bool directed);
+Gint_type toDecimal(const std::string& inputBitstring, int k, bool directed);
