@@ -734,18 +734,17 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     SetCopy(prev_node_set, V);
     TinyGraphInducedFromGraph(empty_g, G, Varray);
   }
-
+  #endif
   // if sample method is SAMPLE_INDEX or MCMC, and NOT index output
   if ((_sampleMethod == SAMPLE_INDEX || _sampleSubmethod == SAMPLE_MCMC_EC) &&
       !(_outputMode & indexGraphlets) && !(_outputMode & indexGraphletsRNO) &&
       !(_outputMode & indexOrbits))
     Fatal("currently only -mi and -mj output modes are supported for INDEX and "
           "EDGE_COVER sampling methods");
-  #endif
+
   // ethan note: nothing written about SAMPLE_INDEX sampling, but it must be
   // single threaded?
   if (_sampleMethod == SAMPLE_INDEX) {
-    #if !DYNAMIC_CANON_MAP
     if (_numThreads > 1) {
       Note("Index sampling must be single threaded; switching to one thread");
       _numThreads = 1; // this is unecessary since the below code doesn't use
@@ -790,7 +789,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         ++percentToPrint;
       }
     }
-    #endif
   } else if (_sampleMethod == SAMPLE_MCMC_EC) {
     Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
 #if 0

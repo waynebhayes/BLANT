@@ -8,6 +8,10 @@
 #include "graph.h"
 #include "multisets.h"
 #include "blant-utils.h"
+bool _alphabeticTieBreaking = true;
+int _numWindowRepLimit = 0;
+int _topThousandth = 0;
+int _orbitNumber = -1; // -1 means not initialized
 #if !DYNAMIC_CANON_MAP
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
@@ -16,13 +20,9 @@ HEAP * _windowRep_limit_heap;
 unsigned **_windowReps;
 int _MAXnumWindowRep = 0;
 int _numWindowRep = 0;
-int _numWindowRepLimit = 0;
 int _numWindowRepArrSize = 100;
 
-int _topThousandth = 0;
-int _orbitNumber = -1; // -1 means not initialized
 char* _odvFile = NULL;
-bool _alphabeticTieBreaking = true;
 
 int _windowSize = 0;
 Boolean _window = false;

@@ -214,13 +214,12 @@ static void _tryGroupPerms(TINY_GRAPH *g, int *groupStart, int numGroups, int gi
     Gint_type Gint = TinyGraph2Int(g,_k);
     foint key = {.ul=swapGroup2Int(curSwapGroup,start+pos)};
     foint found;
-    if(TreeLookup(seenPerms,key,&found)){ //if this swap group distribution was seen before
-	if(*(__int128*)found.v<=Gint) return;
-	else TreeDelete(seenPerms,key);
-    }
+    if(TreeLookup(seenPerms,key,&found)) //if this swap group distribution was seen before
+	TreeDelete(seenPerms,key);
     foint val = {.v = Malloc(sizeof(__int128))};
     *(__int128*)val.v = Gint;
     TreeInsert(seenPerms,key,val);
+    Free(val.v); // TreeInsert copies the info via copyInt128Ptr, so the local copy is no longer needed
     for(i = pos; i < groupSize; i++) {
         //Try all possible ways of swapping node pos with swapping further nodes in the group (including not swapping i with anything, which is when pos=i)
         if(i != pos) {

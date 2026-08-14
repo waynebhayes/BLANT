@@ -20,7 +20,7 @@ struct orbitpair_bits {
     unsigned int k3:4, o:4, p:4; // 4 bits is enough up to k=16
 #if MAX_K == 9
     unsigned int ordinal: 19; // ceil(log2(274668)), where 274668=maxCanon for k=9, giving 31 bits total
-#elif MAX_K == 10
+#elif MAX_K == 10 
     unsigned int ordinal: 24; // ceil(log2(12005168)), maxCanon for k=10
 #elif MAX_K == 11
     unsigned int ordinal: 30; // ceil(log2(1018997864)), maxCanon for k=11
@@ -29,7 +29,7 @@ struct orbitpair_bits {
 #endif
 #endif
 };
-#define DEBUG_ATTEMPTS 1
+#define DEBUG_ATTEMPTS 0
 int orbitpair_cmp(long int a, long int b);
 long int orbitpair_copy(long int src);
 

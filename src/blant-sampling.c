@@ -1268,7 +1268,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
  * @param prev_nodes  the temporary set of nodes in the graphlet to build
  * @param heur_arr  the array containing the heuristic values for all nodes which is used to determine which nodes in next_step to expand to
  */
-#if !DYNAMIC_CANON_MAP
+
 void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_nodes_count, double *heur_arr) {
     if(G->useComplement) Fatal("Sorry, complemented graphs not supported in INDEX mode");
     if(_numStartNodes != G->n) Fatal("Sorry, nodes-of-interest not implemented for Index+Print");
@@ -1283,7 +1283,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         // low enough multiplicity (<= multiplicity); it will also check that the k nodes you passed it haven't already been
         // printed (although, this system does not work 100% perfectly); it will also print the nodes as output if
 	    // the graphlet passes all checks
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &_trashAccumulator);
+        static Accumulators trash;
+        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &trash);
+        TinyGraphFree(g);
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 
@@ -1320,13 +1322,11 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     }
 
     int (*comp_func)(const void*, const void*);
-    #if !DYNAMIC_CANON_MAP
     if (_alphabeticTieBreaking) {
         comp_func = nwhn_des_alph_comp_func;
     } else {
         comp_func = nwhn_des_rev_comp_func;
     }
-    #endif
     qsort((void*)next_step_nwhn_arr, next_step_count, sizeof(node_whn), comp_func); // sort by heuristic first and name second
 
     // Loop through neighbor nodes with Top N (-lDEGN) distinct heur values
@@ -1372,8 +1372,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         // prev_nodes_array[prev_nodes_count] = 0;
         ++i;
     }
+    TinyGraphFree(g);
 }
-#endif
+
 
 // if cc == G->n, then we choose it randomly. Otherwise use cc given.
 double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumulators *accums) {

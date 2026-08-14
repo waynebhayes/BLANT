@@ -439,12 +439,20 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #if DYNAMIC_CANON_MAP
     unsigned short orbits[MAX_K];
     Gint_type res = L_K_Func_Sort(Gint, perm, orbits, (_outputMode & indexOrbits));
-    if(_outputMode & indexGraphlets){
+    if(((_outputMode & indexGraphlets)||(_outputMode & indexOrbits))&&_sampleMethod == SAMPLE_INDEX){
+	int a, b;
+	Boolean ambig = false;
+	for (a = 0; a < _k && !ambig; a++)
+	    for (b = a+1; b < _k; b++)
+		if (orbits[a] == orbits[b]) { ambig = true; break; }
+	if (ambig) { processed = false; }
+    }
+    if(processed && (_outputMode & indexGraphlets)){
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G, Varray,k)) processed=false;
 	else puts(PrintIndexEntry(buf, res, -1, Varray, k, weight, perm));
     }
-    if(_outputMode & indexOrbits) {
+    if(processed && (_outputMode & indexOrbits)) {
 	if(!g->directed) assert(TinyGraphDFSConnected(g,0));
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;

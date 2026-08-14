@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "importance.h"
 #include <assert.h>
-#if !DYNAMIC_CANON_MAP
+
 void getDoubleDegreeArr(double *double_degree_arr, GRAPH *G) {
     int i;
 
@@ -11,7 +11,7 @@ void getDoubleDegreeArr(double *double_degree_arr, GRAPH *G) {
         double_degree_arr[i] = (double)G->degree[i];
     }
 }
-
+#if !DYNAMIC_CANON_MAP
 // node order is a concept used for the antidup algorithm
 // the algorithm is titled antidupFillNextStepSet and can be found in blant-utils.c
 // for info on the antidup algorithm, see Patrick Wang's Fall 2020 Writeup, titled "Multiplicity-and-Antiduplication-Algorithm" and linked here: https://docs.google.com/document/d/18wtIBu8VQ0rVzHTPTfLbYoBmxjw56H77XYoHzqK63Q8/edit?usp=sharing  
