@@ -19,10 +19,11 @@
   #define SYNTHETIC 0 // off by default
 #endif
 
-#define DYNAMIC_CANON_MAP 1 // it kinda does work now but let's keep it off to be safe
-//
-//Allow k=6 for directed graphs?
-#define DIRECTED_K6 1
+#ifndef DYNAMIC_CANON_MAP
+#define DYNAMIC_CANON_MAP 0 // off by default, but can be changed in Makefile
+#endif
+
+#define DIRECTED_K6 (long_width>32) //disallow k=6 for directed graphs on 32-bit machines
 
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
