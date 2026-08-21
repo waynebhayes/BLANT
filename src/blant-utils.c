@@ -34,7 +34,7 @@ static int CmpInt(foint a, foint b) {
 
 // Surprisingly, Tree works MUCH faster than a HASH map.
 static unsigned int L_K_Func_Memory(Gint_type Gint) {
-    static BINTREE *B;
+    static TREE *B;
     if(!B) B = TreeAlloc(CmpInt, NULL, NULL, NULL, NULL);
     foint f;
     if(TreeLookup(B,(foint)(unsigned int)Gint,&f)) {
