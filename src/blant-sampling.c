@@ -1283,9 +1283,8 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         // low enough multiplicity (<= multiplicity); it will also check that the k nodes you passed it haven't already been
         // printed (although, this system does not work 100% perfectly); it will also print the nodes as output if
 	    // the graphlet passes all checks
-        static Accumulators trash;
-        ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &trash);
-        TinyGraphFree(g);
+		ProcessGraphlet(G, NULL, prev_nodes_array, _k, g, 0.0, &_trashAccumulator);
+		TinyGraphFree(g);
         return; // return here since regardless of whether ProcessGraphlet has passed or not, prev_nodes_array is already of size k so we should terminate the recursion
     }
 
@@ -1343,11 +1342,12 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
         }
         ++i;
     }
-    int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000; // algo=base
-    // int num_distinct_values_to_skip = _k - prev_nodes_count - 1; // algo=stairs
+    //int num_distinct_values_to_skip = (int)(num_total_distinct_values * _topThousandth) / 1000; // algo=base
+    int num_distinct_values_to_skip = _k - prev_nodes_count - 1; // algo=stairs
     int num_distinct_values = 0;
     old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics not being -1
     i = 0;
+	if(_limitAlternate != 0) _limitAlternate = 3 - _limitAlternate; // if limitAlternate = 1, then that means we use D-1. If limitAlternate = 2, then we use D.
     while (i < next_step_count) {
         node_whn next_step_nwhn = next_step_nwhn_arr[i];
         double curr_heur = next_step_nwhn.heur;
@@ -1362,7 +1362,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
             continue;
         }
         // break once we've gotten enough distinct heur values
-        if (_numWindowRepLimit != 0 && num_distinct_values - num_distinct_values_to_skip > _numWindowRepLimit) {
+        if (_numWindowRepLimit - (_limitAlternate)%2 != 0 && num_distinct_values - num_distinct_values_to_skip > _numWindowRepLimit - (_limitAlternate)%2) {
             break;
         }
         // perform the standard DFS step of set next, recurse with size + 1, and then unset next
