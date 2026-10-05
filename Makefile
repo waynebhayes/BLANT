@@ -5,10 +5,10 @@ CORES := 2 # temporarily set to 1 since I broke threading. :-(
 ifndef PAUSE
 	PAUSE := 1
 endif
-# When DYNAMIC_MAP=1, skip generating canon maps and all related files (canon_map/canon_list/
+# When DYNAMIC_CANON_MAP=1, skip generating canon maps and all related files (canon_map/canon_list/
 # orbit_map/alpha_list/subcanon_map/magic tables), and skip all tests that depend on them.
 # Only libwayne and the blant binary itself get built.
-DYNAMIC_MAP ?= 0
+DYNAMIC_CANON_MAP ?= 0
 # Uncomment either of these to remove them (removing 7 implies removing 8)
 MAX_K := 8
 EIGHT := 8
@@ -144,7 +144,7 @@ magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).tx
 # ehd takes up too much space and isn't used anywhere yet
 #ehd_txts := $(foreach k,$(K), $(BLANT_CANON_DIR)/EdgeHammingDistance$(k).txt)
 
-ifeq ($(DYNAMIC_MAP),1)
+ifeq ($(DYNAMIC_CANON_MAP),1)
     base: ./.notpristine show-gcc-ver libwayne blant
 else ifdef ONLY_DIRECTED
     base: ./.notpristine show-gcc-ver libwayne blant $(canon_all)
@@ -190,11 +190,11 @@ show-gcc-ver:
 	@touch .notpristine
 
 most: base Draw
-ifneq ($(DYNAMIC_MAP),1)
+ifneq ($(DYNAMIC_CANON_MAP),1)
 most: sub$(BLANT_CANON_DIR)
 endif
 
-ifeq ($(DYNAMIC_MAP),1)
+ifeq ($(DYNAMIC_CANON_MAP),1)
     test_all:
 else
     test_all: $(BLANT_CANON_DIR)/test_index_mode $(BLANT_CANON_DIR)/check_maps test_fast
@@ -238,7 +238,7 @@ blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # 
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
 	mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(LIBWAYNE_COMP)
+	$(CC) -c -o $@ $< $(LIBWAYNE_COMP) -D"DYNAMIC_CANON_MAP=$(DYNAMIC_CANON_MAP)"
 
 synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
 	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_COMP)
