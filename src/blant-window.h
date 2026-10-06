@@ -22,6 +22,7 @@ extern int _windowSampleMethod;
 #define WINDOW_LIMIT_DEGREE 1
 #define WINDOW_LIMIT_EDGES 2
 extern int _windowRep_limit_method;
+extern Boolean _limitAlternate;
 extern HEAP * _windowRep_limit_heap;
 
 #define WINDOW_ITER_COMB 1 // using Combination method to sample k-graphlets in Window

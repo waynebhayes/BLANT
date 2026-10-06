@@ -761,7 +761,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                          G); // since heuristic values are doubles, we need to
                              // convert degree values to doubles
     }
-    int percentToPrint = 1;
     node_whn
         nwhn_arr[G->n]; // nodes sorted first by the heuristic function and then
                         // either alphabetically or reverse alphabetically
@@ -784,10 +783,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     for (i = 0; i < G->n; i++) {
       prev_nodes_array[0] = nwhn_arr[i].node;
       SampleGraphletIndexAndPrint(G, prev_nodes_array, 1, heuristicValues);
-      if (i * 100 / G->n >= percentToPrint) {
-        fprintf(stderr, "%d%% done\n", percentToPrint);
-        ++percentToPrint;
-      }
+      fprintf(stderr, "node %d of %d done\n", i + 1, G->n);
     }
   } else if (_sampleMethod == SAMPLE_MCMC_EC) {
     Fatal("should not get here--EDGE_COVER is a submethod of MCMC");
@@ -1968,7 +1964,7 @@ int main(int argc, char *argv[]) {
   // no colon appended.
   while ((opt = getopt(
               argc, argv,
-              "2:a:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:Qqr:Rs:t:T:wW:x:X")) != -1) {
+              "2:a:Dd:c:e:f:F:g:hi:k:K:l:LM:m:n:o:P:p:Qqr:Rs:t:T:wW:x:X")) != -1) {
     switch (opt) {
       unsigned long nSampArg;
     // -q decreases verboseness; -v increases it
@@ -2282,7 +2278,6 @@ int main(int argc, char *argv[]) {
       #endif
       break;
     case 'l':
-      #if !DYNAMIC_CANON_MAP
       if (_windowRep_limit_method != WINDOW_LIMIT_UNDEF)
         Fatal("Tried to define window limiting method twice");
       if (strncmp(optarg, "n", 1) == 0 || strncmp(optarg, "N", 1) == 0) {
@@ -2304,7 +2299,10 @@ int main(int argc, char *argv[]) {
         _numWindowRepArrSize = _numWindowRepLimit;
       }
       _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
-      #endif
+      break;
+    case 'L':
+      if(_windowRep_limit_method != WINDOW_LIMIT_DEGREE) Fatal("Alternating window limit only supports Degree.");
+      _limitAlternate=1;
       break;
     case 'n':
       sscanf(optarg, "%lu", &nSampArg);
@@ -2367,14 +2365,10 @@ int main(int argc, char *argv[]) {
               USAGE_SHORT, multiplicity);
       break;
     case 'T':
-      #if !DYNAMIC_CANON_MAP
       _topThousandth = atoi(optarg);
-      #endif
       break;
     case 'o':
-      #if !DYNAMIC_CANON_MAP
       _orbitNumber = atoi(optarg);
-      #endif
       break;
     case 'f':
       #if !DYNAMIC_CANON_MAP
