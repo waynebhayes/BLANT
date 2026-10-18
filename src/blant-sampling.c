@@ -1347,7 +1347,9 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
     int num_distinct_values = 0;
     old_heur = -1; // TODO, fix this so that it's not contingent upon heuristics not being -1
     i = 0;
-	if(_limitAlternate != 0) _limitAlternate = 3 - _limitAlternate; // if limitAlternate = 1, then that means we use D-1. If limitAlternate = 2, then we use D.
+	_limitFractionTracker += _limitFraction;
+	int useLowerD = (_limitFractionTracker < 0);
+	if(_limitFractionTracker >= 0) _limitFractionTracker -= 1;
     while (i < next_step_count) {
         node_whn next_step_nwhn = next_step_nwhn_arr[i];
         double curr_heur = next_step_nwhn.heur;
@@ -1362,7 +1364,7 @@ void SampleGraphletIndexAndPrint(GRAPH* G, unsigned *prev_nodes_array, int prev_
             continue;
         }
         // break once we've gotten enough distinct heur values
-        if (_numWindowRepLimit - (_limitAlternate)%2 != 0 && num_distinct_values - num_distinct_values_to_skip > _numWindowRepLimit - (_limitAlternate)%2) {
+        if (_numWindowRepLimit - useLowerD != 0 && num_distinct_values - num_distinct_values_to_skip > _numWindowRepLimit - useLowerD) {
             break;
         }
         // perform the standard DFS step of set next, recurse with size + 1, and then unset next
