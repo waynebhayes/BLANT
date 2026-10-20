@@ -1964,7 +1964,7 @@ int main(int argc, char *argv[]) {
   // no colon appended.
   while ((opt = getopt(
               argc, argv,
-              "2:a:Dd:c:e:f:F:g:hi:k:K:l:LM:m:n:o:P:p:Qqr:Rs:t:T:wW:x:X")) != -1) {
+              "2:a:b:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:Qqr:Rs:t:T:wW:x:X")) != -1) {
     switch (opt) {
       unsigned long nSampArg;
     // -q decreases verboseness; -v increases it
@@ -2300,9 +2300,9 @@ int main(int argc, char *argv[]) {
       }
       _windowRep_limit_heap = HeapAlloc(_numWindowRepLimit, asccompFunc, NULL);
       break;
-    case 'L':
-      if(_windowRep_limit_method != WINDOW_LIMIT_DEGREE) Fatal("Alternating window limit only supports Degree.");
-      _limitAlternate=1;
+    case 'b':
+      if(_windowRep_limit_method != WINDOW_LIMIT_DEGREE) Fatal("Fractional window limit only supports Degree.");
+      _limitFraction = atof(optarg);
       break;
     case 'n':
       sscanf(optarg, "%lu", &nSampArg);
