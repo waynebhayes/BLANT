@@ -23,10 +23,10 @@ make clean && make
 
 ### 3. Run
 
-The program takes **exactly 6 arguments**, in this order:
+The program takes **6 required arguments and 1 optional argument**, in this order:
 
 ```bash
-./build/cdijkstra <delta> <ECthresh> <simFile> <seedFile> <g1.el> <g2.el>
+./build/cdijkstra <delta> <ECthresh> <simFile> <seedFile> <g1.el> <g2.el> [rngSeed]
 ```
 
 | # | Argument   | Type   | Description |
@@ -37,6 +37,8 @@ The program takes **exactly 6 arguments**, in this order:
 | 4 | `seedFile` | path   | Seed alignment: node pairs known to match. Accepts any number of seeds (at least one). |
 | 5 | `g1.el`    | path   | Edge list for graph 1. |
 | 6 | `g2.el`    | path   | Edge list for graph 2. |
+| 7 | `rngSeed`  | integer (optional) | Seed for the random number generator. If omitted, a new seed is generated. Every run prints its seed to stderr; passing that value here with the same build and arguments reproduces the run. |
+
 
 Example:
 
@@ -97,6 +99,7 @@ node1Name	node2Name
 
 **stderr**: progress, seed, and timing messages, for example:
 ```
+RNG seed: ...
 Seed of graph1: ...
 Seed of graph2: ...
 [TIME] Reading similarity file: 0.42 seconds
