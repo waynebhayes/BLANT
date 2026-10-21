@@ -396,6 +396,9 @@ float SkipList::topValue(){
 std::tuple<float, int, int> SkipList::pop(float delta)
 {
 float threshold = topValue() - delta;
+if (threshold < 0){
+    threshold = 0;
+}
 float randomKey = threshold + ((topValue() - threshold) * drand48());
 std::cerr<<randomKey;
 Node* chosen = searchElement(randomKey);
