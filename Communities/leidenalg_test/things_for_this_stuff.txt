@@ -1,0 +1,3 @@
+igraph
+leidenalg
+infomap

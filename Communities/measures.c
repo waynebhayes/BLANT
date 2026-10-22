@@ -55,9 +55,10 @@ double Conductance(PARTITION * P, COMMUNITY * C, int fakeN){
     int denom = 2 * C->edgesIn + C->edgesOut; // Just the sum of degree of all nodes 
     if(denom == 0){
 	// return infinity if denom is 0
+	// Should never happen???
 	return 99999;
     }
-    double ans = (double)(C->edgesOut/denom);
+    double ans = (double)C->edgesOut/(double)denom;
     //printf("Conductance denom =  %d, edgesOut = %d, ans = %g\n", denom, C->edgesOut, ans);
     return ans;
 }
