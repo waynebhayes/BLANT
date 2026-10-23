@@ -49,7 +49,10 @@ private:
     std::vector<char> inS;
     std::vector<char> visitedQ;
     std::vector<int> Sorder;   // the order nodes entered S
+    std::vector<int> Slist;    // same members as S, in entry order
     std::deque<int> queue;
+    // adjacency with weights, for O(1) "is there an edge" and weight lookups
+    std::vector<std::unordered_map<int, double>> wgt;
     std::mt19937 rng;
 };
 
@@ -60,7 +63,13 @@ void sortSubfinal(std::vector<Cluster>& clusters);
 // File order for subfinal*.out: size desc, then first node id ascending.
 void sortFileOrder(std::vector<Cluster>& clusters);
 
-// Drops a cluster when an already-kept one is a subset of it.
+// How many of the first nodes entering S become "started". The script marks
+// i = 1 .. while(i < size*(1-overlap)), i.e. ceil(size*(1-overlap)) - 1.
+long startMarkCount(long clusterSize, double overlap);
+
+// Sorts by sortSubfinal, then drops a cluster when an already-kept one is a
+// subset of it. The sort is what guarantees a bigger set is never the one
+// dropped.
 void dedupExact(std::vector<Cluster>& clusters);
 
 // Drops a cluster when it overlaps more than `overlap` of its own size with any

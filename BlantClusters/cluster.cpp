@@ -10,7 +10,10 @@ Clusterer::Clusterer(const Network& n, const Options& o, int kk, double ed)
     : net(n), opt(o), k(kk), edgeDensity(ed),
       count((size_t)n.n, 0.0), hasCount((size_t)n.n, 0), lineOf((size_t)n.n, -1),
       gnbr((size_t)n.n), inS((size_t)n.n, 0), visitedQ((size_t)n.n, 0),
-      rng(o.seed ? (unsigned)o.seed : std::random_device{}()) {}
+      wgt((size_t)n.n), rng(o.seed ? (unsigned)o.seed : std::random_device{}()) {
+    for (int u = 0; u < n.n; ++u)
+        for (auto& e : n.adj[(size_t)u]) wgt[(size_t)u][e.first] = e.second;
+}
 
 void Clusterer::addRecord(const std::string& record, long recordIndex) {
     std::istringstream is(record);
@@ -31,10 +34,8 @@ void Clusterer::addRecord(const std::string& record, long recordIndex) {
     const double thresh = opt.minEdgeMean / 2;
     for (int v; is >> v; ) {
         if (v < 0 || v >= net.n) continue;
-        const bool linked = std::any_of(net.adj[(size_t)u].begin(), net.adj[(size_t)u].end(),
-                                        [&](const std::pair<int, double>& e) {
-                                            return e.first == v && e.second > thresh;
-                                        });
+        auto it = wgt[(size_t)u].find(v);
+        const bool linked = it != wgt[(size_t)u].end() && it->second > thresh;
         if (linked) {
             gnbr[(size_t)u][v] = 1;
             gnbr[(size_t)v][u] = 1;
@@ -50,31 +51,27 @@ bool Clusterer::highRelClusCount(int u, int v) const {
 
 int Clusterer::edgesIntoS(int v) const {
     int hits = 0;
-    for (int u = 0; u < net.n; ++u) {
-        if (!inS[(size_t)u] || u == v) continue;
-        for (auto& e : net.adj[(size_t)u])
-            if (e.first == v) { ++hits; break; }
-    }
+    for (int u : Slist)
+        if (u != v && wgt[(size_t)u].count(v)) ++hits;
     return hits;
 }
 
 double Clusterer::wgtEdgesIntoS(int v) const {
     double sum = 0;
-    for (int u = 0; u < net.n; ++u) {
-        if (!inS[(size_t)u] || u == v) continue;
-        for (auto& e : net.adj[(size_t)u])
-            if (e.first == v) { sum += e.second; break; }
+    for (int u : Slist) {
+        if (u == v) continue;
+        auto it = wgt[(size_t)u].find(v);
+        if (it != wgt[(size_t)u].end()) sum += it->second;
     }
     return sum;
 }
 
 void Clusterer::inDegrees(std::vector<std::pair<int, int>>& out) const {
     out.clear();
-    for (int u = 0; u < net.n; ++u) {
-        if (!inS[(size_t)u]) continue;
+    for (int u : Slist) {
         int d = 0;
-        for (auto& e : net.adj[(size_t)u])
-            if (inS[(size_t)e.first]) ++d;
+        for (auto& kv : wgt[(size_t)u])
+            if (inS[(size_t)kv.first]) ++d;
         out.emplace_back(u, d);
     }
 }
@@ -114,7 +111,6 @@ std::vector<Cluster> Clusterer::run() {
 
     std::vector<Cluster> accepted;
     std::vector<char> started((size_t)net.n, 0);
-    std::vector<int> Slist;
     std::vector<std::pair<int, int>> deg;
     const long startCount = (long)((double)recordCount * edgeDensity);
 
@@ -219,7 +215,7 @@ std::vector<Cluster> Clusterer::run() {
             c.edgeSum = wgtEdgeCount;
             c.k = k;
             accepted.push_back(std::move(c));
-            const long mark = (long)((double)Slen * (1.0 - opt.overlap));
+            const long mark = startMarkCount(Slen, opt.overlap);
             for (long i = 0; i < mark && (size_t)i < Sorder.size(); ++i)
                 started[(size_t)Sorder[(size_t)i]] = 1;
         }
@@ -247,7 +243,14 @@ void sortFileOrder(std::vector<Cluster>& clusters) {
     });
 }
 
+long startMarkCount(long clusterSize, double overlap) {
+    const double x = (double)clusterSize * (1.0 - overlap);
+    if (x <= 1.0) return 0;
+    return (long)std::ceil(x) - 1;
+}
+
 void dedupExact(std::vector<Cluster>& clusters) {
+    sortSubfinal(clusters);   // bigger sets first, so a bigger set is never dropped
     std::vector<Cluster> kept;
     for (auto& c : clusters) {
         bool drop = false;

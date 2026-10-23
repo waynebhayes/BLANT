@@ -27,5 +27,6 @@ struct Network {
 // edge keeps the last weight and is counted once.
 Network loadNetwork(const std::string& path, bool weighted);
 
-// Writes every unordered non-edge of `net` to `path`, weight 1.
-void writeComplement(const Network& net, const std::string& path);
+// Streams every unordered non-edge of `net` to `path`. Two columns, or three
+// with weight 1 when `weighted`, so the result loads back with the same flag.
+void writeComplement(const Network& net, const std::string& path, bool weighted);

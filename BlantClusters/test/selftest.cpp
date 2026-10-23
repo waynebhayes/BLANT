@@ -4,6 +4,7 @@
 #include "../extsort.h"
 #include "../samples.h"
 #include "../cluster.h"
+#include <cstdio>
 #include <sstream>
 #include <cstring>
 #include <stdexcept>
@@ -81,13 +82,47 @@ static void testNetwork() {
       CHECK(threw); }
 
     // duplicate edge: last weight wins, edge counted once
-    { Network n = loadNetwork("test/fixture/dup.el", true);
+    { Network n = loadNetwork("test/fixture/dup.elw", true);
       CHECK_EQ(n.m, 1L);
       CHECK_EQ(n.adj[0].size(), size_t(1));
       CHECK_EQ(n.adj[0][0].second, 2.0); }
 
     CHECK_EQ(choose2(8), 28.0);
     CHECK_EQ(choose2(1), 0.0);
+
+    // a one-token line must not silently truncate the rest of the file
+    { bool threw = false;
+      try { loadNetwork("test/fixture/onetoken.el", false); }
+      catch (const std::runtime_error& e) {
+          threw = std::strstr(e.what(), "line 2") != nullptr; }
+      CHECK(threw); }
+
+    // .el with -w, and .elw without -w, are both refused like the script does
+    { bool threw = false;
+      try { loadNetwork("test/fixture/fixture.el", true); }
+      catch (const std::runtime_error&) { threw = true; }
+      CHECK(threw); }
+    { bool threw = false;
+      try { loadNetwork("test/fixture/dup.elw", false); }
+      catch (const std::runtime_error&) { threw = true; }
+      CHECK(threw); }
+
+    // the complement round-trips through loadNetwork and is the real complement
+    { Network g = loadNetwork("test/fixture/fixture.el", false);
+      writeComplement(g, "/tmp/comp-test.el", false);
+      Network c = loadNetwork("/tmp/comp-test.el", false);
+      CHECK_EQ(c.n, 8L);
+      CHECK_EQ(c.m, 15L);
+      CHECK_EQ(c.m + g.m, 28L);              // C(8,2)
+      std::remove("/tmp/comp-test.el"); }
+
+    // ...and its column count follows the weight flag, so it reloads cleanly
+    { Network g = loadNetwork("test/fixture/weighted.elw", true);
+      writeComplement(g, "/tmp/comp-test.elw", true);
+      Network c = loadNetwork("/tmp/comp-test.elw", true);
+      CHECK_EQ(c.n, 4L);
+      CHECK_EQ(c.m, 3L);                     // C(4,2) - 3
+      std::remove("/tmp/comp-test.elw"); }
 
     // n < 2 is a clear error, not a divide by zero
     { bool threw = false;
@@ -135,6 +170,9 @@ static void testCanonMaps() {
     CHECK_EQ(minEdgesFor(1.0, 5), 9);   // int(10.0)-1 = 9
     CHECK_EQ(minEdgesFor(0.1, 5), 4);   // int(1.0)-1 = 0, floored to k-1 = 4
     CHECK_EQ(minEdgesFor(0.6, 5), 5);   // int(6.0)-1 = 5
+    // ceil(ED*C(k,2)) - 1, floored at k-1: k=6 has C=15
+    CHECK_EQ(minEdgesFor(0.5, 6), 7);   // 7.5 -> ceil 8 -> 7
+    CHECK_EQ(minEdgesFor(0.3, 6), 5);   // 4.5 -> ceil 5 -> 4, floored to k-1 = 5
 }
 
 static void testBlantCommand() {
@@ -173,6 +211,18 @@ static void testEmitRecords() {
                           false, true, [&](const std::string& r){ best.push_back(r); });
     CHECK_EQ(no, 16L);
     CHECK_EQ(nb, 8L);
+
+    // BLANT prints %lg counts: fractional under -w, scientific when large
+    std::vector<std::string> wrec;
+    long nw = emitRecords(net, "test/fixture/blant5.weighted.out", m, 'g', 0.5, 5,
+                          false, false, [&](const std::string& r){ wrec.push_back(r); });
+    CHECK_EQ(nw, 8L);
+    CHECK_EQ(wrec[0], std::string("100.5 0 4 1 2 3"));
+    std::vector<std::string> sci;
+    long ns = emitRecords(net, "test/fixture/blant5.sci.out", m, 'g', 0.5, 5,
+                          false, false, [&](const std::string& r){ sci.push_back(r); });
+    CHECK_EQ(ns, 1L);
+    CHECK_EQ(leadingNumber(sci[0]), 1000000.0);
 
     // non-ascending node ids are a corrupt file, not a silent reordering
     bool threw = false;
@@ -240,11 +290,17 @@ static void testDedup() {
       dedupExact(v);
       CHECK_EQ(v.size(), size_t(2)); }
 
-    // a superset arriving later is also dropped (kept one is a subset of it)
+    // a superset arriving later must WIN. Stage 3 sorts by size first, so it
+    // removes only exact duplicates and leaves the 3-subset; stage 4 then drops
+    // the subset by overlap. The bug this pins: an unsorted stage 3 dropped the
+    // 4-clique and kept the 3-clique.
     { std::vector<Cluster> v = { mk({0,1,2},5), mk({0,1,2,3},5) };
       dedupExact(v);
+      CHECK_EQ(v.size(), size_t(2));
+      CHECK_EQ(v[0].nodes.size(), size_t(4));   // the bigger one leads
+      dedupOverlap(v, 0.5);
       CHECK_EQ(v.size(), size_t(1));
-      CHECK_EQ(v[0].nodes.size(), size_t(3)); }
+      CHECK_EQ(v[0].nodes.size(), size_t(4)); }
 
     // overlap: 3 of 4 shared is 0.75 > 0.5, dropped
     { std::vector<Cluster> v = { mk({0,1,2,3},5), mk({0,1,2,4},5) };
@@ -259,6 +315,16 @@ static void testDedup() {
     // the kept one and a max-size rule would have kept it.
     { std::vector<Cluster> v = { mk({0,1,2,3,4,5},5), mk({0,1,2,6},5) };
       dedupOverlap(v, 0.5); CHECK_EQ(v.size(), size_t(1)); }
+}
+
+static void testStartMark() {
+    // the script marks i = 1 .. while(i < Slen*(1-overlap)), i.e. ceil(X)-1
+    CHECK_EQ(startMarkCount(4, 0.5), 1L);
+    CHECK_EQ(startMarkCount(5, 0.5), 2L);
+    CHECK_EQ(startMarkCount(3, 0.5), 1L);
+    CHECK_EQ(startMarkCount(6, 0.5), 2L);
+    CHECK_EQ(startMarkCount(4, 0.0), 3L);
+    CHECK_EQ(startMarkCount(4, 1.0), 0L);
 }
 
 static void testFormat() {
@@ -284,6 +350,7 @@ int main() {
     testEmitRecords();
     testClusterer();
     testDedup();
+    testStartMark();
     testFormat();
     return summary();
 }

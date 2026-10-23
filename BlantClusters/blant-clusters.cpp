@@ -55,7 +55,7 @@ int main(int argc, const char** argv) {
 
     int status = 0;
     try {
-        Network net = loadNetwork(opt.netPath, opt.weighted);
+        Network orig = loadNetwork(opt.netPath, opt.weighted);
 
         g_tmpdir = makeTmpdir(opt.tmpDir);
         std::atexit(removeTmpdir);
@@ -63,10 +63,14 @@ int main(int argc, const char** argv) {
         std::signal(SIGTERM, onSignal);
         std::fprintf(stderr, "TMPDIR is %s\n", g_tmpdir.c_str());
 
-        std::string netForBlant = opt.netPath;
+        // BLANT is always handed the original network: -C makes it complement
+        // internally. The clustering stages run on the complement.
+        const std::string netForBlant = opt.netPath;
+        Network net = orig;
         if (opt.complement) {
-            netForBlant = g_tmpdir + "/net.el";
-            writeComplement(net, netForBlant);
+            const std::string cpath = g_tmpdir + (opt.weighted ? "/net.elw" : "/net.el");
+            writeComplement(orig, cpath, opt.weighted);
+            net = loadNetwork(cpath, opt.weighted);
         }
 
         // Run BLANT once per k, unless the caller supplied the output.

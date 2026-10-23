@@ -1,0 +1,8 @@
+a	4	100.5	b c d
+b	4	90.25	a c d
+c	4	80.75	a b d
+d	4	70.5	a b c
+e	4	95.25	f g h
+f	4	85.5	e g h
+g	4	75.25	e f h
+h	4	65.75	e f g

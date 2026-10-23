@@ -1,5 +1,6 @@
 #include "samples.h"
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -56,9 +57,9 @@ bool CanonMaps::load(int k, const std::string& dir) {
 }
 
 int minEdgesFor(double edgeDensity, int k) {
-    // The (int) cast reproduces the script's rounded_edC adjustment; the -1 is
-    // unconditional there, and k-1 is the floor because a k-graphlet is connected.
-    int rounded = (int)(edgeDensity * choose2(k));
+    // The script does rounded=int(edC); if(rounded==edC) --rounded; i.e.
+    // ceil(edC)-1. k-1 is the floor because a k-graphlet is connected.
+    int rounded = (int)std::ceil(edgeDensity * choose2(k));
     return std::max(rounded - 1, k - 1);
 }
 
@@ -70,9 +71,10 @@ long emitRecords(const Network& net, const std::string& blantOut,
     if (!in) throw std::runtime_error("cannot open BLANT output '" + blantOut + "'");
 
     const int minEdges = minEdgesFor(edgeDensity, k);
-    std::map<int, long> kc;            // item -> count, ordered so output is stable
+    std::map<int, double> kc;          // item -> count, ordered so output is stable
     std::map<int, std::vector<int>> nbrs;
-    long total = 0, records = 0, lineNo = 0;
+    double total = 0;
+    long records = 0, lineNo = 0;
     int cur = -1;
     bool first = true;
     std::string line;
@@ -90,8 +92,7 @@ long emitRecords(const Network& net, const std::string& blantOut,
         }
         for (int item : items) {
             char head[128];
-            double w = sqrNorm ? (double)kc[item] * (double)kc[item] / (double)total
-                               : (double)kc[item];
+            double w = sqrNorm ? kc[item] * kc[item] / total : kc[item];
             std::snprintf(head, sizeof head, "%.17g %d %d", w, cur, item);
             std::string rec = head;
             for (int v : nbrs[item]) rec += " " + std::to_string(v);
@@ -108,7 +109,7 @@ long emitRecords(const Network& net, const std::string& blantOut,
         std::istringstream is(line);
         std::string name;
         int itemRaw = 0;
-        long count = 0;
+        double count = 0;
         if (!(is >> name >> itemRaw >> count)) continue;
         if (count <= 0) continue;
 
