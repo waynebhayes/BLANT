@@ -928,7 +928,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	break;
       #if !DYNAMIC_CANON_MAP
       case stopOnPrecision:
-        if (_desiredPrec && _quiet < 2) {
+        if (_desiredPrec) {
           if (_numThreads == 1) {
             RunBlantLoopInMainThread(k, (unsigned long)batchSize, G, varraySize,
                                      singleThreadAccums);
