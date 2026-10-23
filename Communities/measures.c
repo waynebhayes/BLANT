@@ -7,12 +7,16 @@
 // its not the actual true number of nodes in the community
 
 double IntraEdgeDensity(PARTITION * P, COMMUNITY *C, int fakeN){
+    // Always does trivial solution
+
     if(fakeN < 2)
 	return 0;
     return C->edgesIn / (fakeN *(fakeN - 1) / 2.0);
 }
 
 double InterEdgeDensity(PARTITION * P, COMMUNITY *C, int fakeN){
+    // Always does trivial solution
+
     int tot = C->G->n - fakeN;
     //printf("tot = %d, edgesOut = %d\n", tot, edgesOut);
     
@@ -48,6 +52,7 @@ double NormalizedCut(PARTITION * P, COMMUNITY * C, int fakeN){
 }
 
 double CPM(PARTITION * P, COMMUNITY * C, int fakeN){
+    // Constant Potts Model (Traag, Van Dooren & Nesterov, 2011)
     return C->edgesIn - 0.5 * (fakeN * (fakeN - 1)) / 2.0;
 }
 
@@ -76,7 +81,7 @@ double HayesScore(PARTITION * P, COMMUNITY *C, int fakeN){
 
 double Modularity(PARTITION * P, COMMUNITY * C, int fakeN){
     // TODO: Actually implement modularity
-    return IntraEdgeDensity(P, C, fakeN);
+    return 0; //IntraEdgeDensity(P, C, fakeN);
 }
 
 

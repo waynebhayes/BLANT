@@ -20,10 +20,12 @@
 
 
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-#define DEBUG 1
+#define DEBUG 0
 #define MOVE_ONLY 1 // Limit perturb to only move 
-#define PRINT_ALL_COMMUNITIES 0 // Prints out all the community info at the end of the program execution
-#define PRINT_ITERS 0 // Prints out iters per second on terminal (Note: Is quite expensive)
+#define PRINT_ALL_COMMUNITIES 1 // Prints out all the community info at the end of the program execution
+#define PRINT_ITERS 1 // Prints out iters per second on terminal (Note: Is quite expensive)
+#define PRINT_ALL_SCORES 0 // Prints out the scores of the partition based on all the functions I've implemented 
+
 /************************** Community routines *******************/
 
 double (*pCommunityScore)(PARTITION * P, COMMUNITY * C, int fakeN) = NULL;  
@@ -972,6 +974,7 @@ int main(int argc, char *argv[])
 	pCommunityScore = HayesScore;
 	dir = 1;
     }
+    
 
     // If the user does not provide a Partition, create a new one
     if(!parRead && !eval){
@@ -1058,10 +1061,10 @@ int main(int argc, char *argv[])
 	foint f;
 	f.v = P;
 	
-	SIM_ANNEAL *sa = SimAnnealAlloc(dir, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 2000*G->numEdges /*100*/, 0,0,SAR);
+	SIM_ANNEAL *sa = SimAnnealAlloc(dir, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 200*G->numEdges /*100*/, 0,0,SAR);
 	if(parRead == 0){
 	    // If user didn't provide partition run actual sim anneal
-	    if(0 && G->n==2390 && G->numEdges==16127) {
+	    if(G->n==2390 && G->numEdges==16127) {
 		printf("Hmm, this looks like yeast.el/communities.in, using canned schedule\n");
 		SimAnnealSetSchedule(sa, 1.1, 3);
 	    }
@@ -1112,7 +1115,9 @@ int main(int argc, char *argv[])
     }
 #endif
     printf("Total time elapsed = %.2f seconds\n", (double)(clock() - P->clk)/ CLOCKS_PER_SEC); 
+#if PRINT_ALL_SCORES
     PrintAllScores(P);
+#endif
     PartitionFree(P);
     GraphFree(G);
     return 0;
