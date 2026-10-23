@@ -227,6 +227,54 @@ static void testClusterer() {
     for (const Cluster& cl : c2.run()) CHECK(cl.nodes.size() >= 5);
 }
 
+static Cluster mk(std::vector<int> nodes, int k) {
+    Cluster c; c.nodes = nodes; c.k = k;
+    size_t s = nodes.size();
+    c.edges = (long)(s*(s-1)/2); c.edgeSum = (double)c.edges;
+    return c;
+}
+
+static void testDedup() {
+    // exact duplicates: the second, identical set is dropped
+    { std::vector<Cluster> v = { mk({0,1,2},5), mk({0,1,2},5), mk({3,4,5},5) };
+      dedupExact(v);
+      CHECK_EQ(v.size(), size_t(2)); }
+
+    // a superset arriving later is also dropped (kept one is a subset of it)
+    { std::vector<Cluster> v = { mk({0,1,2},5), mk({0,1,2,3},5) };
+      dedupExact(v);
+      CHECK_EQ(v.size(), size_t(1));
+      CHECK_EQ(v[0].nodes.size(), size_t(3)); }
+
+    // overlap: 3 of 4 shared is 0.75 > 0.5, dropped
+    { std::vector<Cluster> v = { mk({0,1,2,3},5), mk({0,1,2,4},5) };
+      dedupOverlap(v, 0.5); CHECK_EQ(v.size(), size_t(1)); }
+
+    // exactly 0.5 overlap is kept: the test is strict >
+    { std::vector<Cluster> v = { mk({0,1,2,3},5), mk({0,1,4,5},5) };
+      dedupOverlap(v, 0.5); CHECK_EQ(v.size(), size_t(2)); }
+
+    // overlap is measured against the NEW cluster's size only: 3 of 4 shared
+    // is 0.75 of the new cluster, so it goes, even though it is only 0.5 of
+    // the kept one and a max-size rule would have kept it.
+    { std::vector<Cluster> v = { mk({0,1,2,3,4,5},5), mk({0,1,2,6},5) };
+      dedupOverlap(v, 0.5); CHECK_EQ(v.size(), size_t(1)); }
+}
+
+static void testFormat() {
+    Network net = loadNetwork("test/fixture/fixture.el", false);
+    Options opt;
+    Cluster c = mk({0,1,2,3}, 5);
+    CHECK_EQ(formatCluster(c, opt, net),
+             std::string("4 nodes, 6/6 edges, 100% density from k5, nodeSet { a b c d }"));
+    opt.printMembers = false;
+    CHECK_EQ(formatCluster(c, opt, net),
+             std::string("4 nodes, 6/6 edges, 100% density from k5"));
+    opt.printMembers = true; opt.verbose = true;
+    CHECK_EQ(formatCluster(c, opt, net),
+             std::string("4 nodes, 6/6 edges, 100% density from k5 from k 5, 1.5 clusterWeight, 6 edgeSum, 1 edgeMean, nodeSet { a b c d }"));
+}
+
 int main() {
     testOptions();
     testNetwork();
@@ -235,5 +283,7 @@ int main() {
     testBlantCommand();
     testEmitRecords();
     testClusterer();
+    testDedup();
+    testFormat();
     return summary();
 }

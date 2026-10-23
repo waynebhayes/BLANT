@@ -226,3 +226,74 @@ std::vector<Cluster> Clusterer::run() {
     }
     return accepted;
 }
+
+namespace {
+bool subfinalLess(const Cluster& a, const Cluster& b) {
+    if (a.nodes.size() != b.nodes.size()) return a.nodes.size() > b.nodes.size();
+    if (a.edges != b.edges) return a.edges > b.edges;
+    if (a.edgeSum != b.edgeSum) return a.edgeSum > b.edgeSum;
+    return a.nodes < b.nodes;
+}
+}  // namespace
+
+void sortSubfinal(std::vector<Cluster>& clusters) {
+    std::stable_sort(clusters.begin(), clusters.end(), subfinalLess);
+}
+
+void sortFileOrder(std::vector<Cluster>& clusters) {
+    std::stable_sort(clusters.begin(), clusters.end(), [](const Cluster& a, const Cluster& b) {
+        if (a.nodes.size() != b.nodes.size()) return a.nodes.size() > b.nodes.size();
+        return a.nodes.front() < b.nodes.front();
+    });
+}
+
+void dedupExact(std::vector<Cluster>& clusters) {
+    std::vector<Cluster> kept;
+    for (auto& c : clusters) {
+        bool drop = false;
+        for (auto& k : kept) {
+            if (std::includes(c.nodes.begin(), c.nodes.end(), k.nodes.begin(), k.nodes.end())) {
+                drop = true;
+                break;
+            }
+        }
+        if (!drop) kept.push_back(std::move(c));
+    }
+    clusters = std::move(kept);
+}
+
+void dedupOverlap(std::vector<Cluster>& clusters, double overlap) {
+    std::vector<Cluster> kept;
+    for (auto& c : clusters) {
+        bool drop = false;
+        for (auto& k : kept) {
+            size_t shared = 0;
+            for (int u : c.nodes)
+                if (std::binary_search(k.nodes.begin(), k.nodes.end(), u)) ++shared;
+            if ((double)shared > (double)c.nodes.size() * overlap) { drop = true; break; }
+        }
+        if (!drop) kept.push_back(std::move(c));
+    }
+    clusters = std::move(kept);
+}
+
+std::string formatCluster(const Cluster& c, const Options& opt, const Network& net) {
+    const long maxEdges = (long)choose2((long)c.nodes.size());
+    char buf[256];
+    std::snprintf(buf, sizeof buf, "%ld nodes, %ld/%ld edges, %g%% density from k%d",
+                  (long)c.nodes.size(), c.edges, maxEdges,
+                  maxEdges ? 100.0 * (double)c.edges / (double)maxEdges : 0.0, c.k);
+    std::string out = buf;
+    if (opt.verbose) {
+        std::snprintf(buf, sizeof buf, " from k %d, %g clusterWeight, %g edgeSum, %g edgeMean",
+                      c.k, c.edgeSum / (double)c.nodes.size(), c.edgeSum,
+                      c.edges ? c.edgeSum / (double)c.edges : 0.0);
+        out += buf;
+    }
+    if (opt.printMembers) {
+        out += ", nodeSet {";
+        for (int u : c.nodes) out += " " + net.names[(size_t)u];
+        out += " }";
+    }
+    return out;
+}

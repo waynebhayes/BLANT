@@ -52,3 +52,20 @@ private:
     std::deque<int> queue;
     std::mt19937 rng;
 };
+
+// In-memory order used before dedupExact: size desc, edges desc, edgeSum desc,
+// then ascending node ids.
+void sortSubfinal(std::vector<Cluster>& clusters);
+
+// File order for subfinal*.out: size desc, then first node id ascending.
+void sortFileOrder(std::vector<Cluster>& clusters);
+
+// Drops a cluster when an already-kept one is a subset of it.
+void dedupExact(std::vector<Cluster>& clusters);
+
+// Drops a cluster when it overlaps more than `overlap` of its own size with any
+// already-kept one.
+void dedupOverlap(std::vector<Cluster>& clusters, double overlap);
+
+// One output line, no trailing newline.
+std::string formatCluster(const Cluster& c, const Options& opt, const Network& net);
