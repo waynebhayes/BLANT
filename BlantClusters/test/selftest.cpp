@@ -1,6 +1,7 @@
 #include "tap.h"
 #include "../options.h"
 #include "../network.h"
+#include "../extsort.h"
 #include <cstring>
 #include <stdexcept>
 
@@ -93,8 +94,29 @@ static void testNetwork() {
       CHECK(threw); }
 }
 
+static void testExternalSort() {
+    const size_t kBuf = 256;             // forces many runs
+    ExternalSorter s("/tmp/extsort-test", kBuf);
+    // 5000 records, shuffled, weight descending should come back ordered.
+    for (int i = 0; i < 5000; ++i)
+        s.add(std::to_string((i * 7919) % 5000) + " " + std::to_string(i));
+    CHECK_EQ(s.size(), 5000L);
+    s.finish();
+    std::string rec; long count = 0; double prev = 1e300; bool ordered = true;
+    while (s.next(rec)) {
+        double w = leadingNumber(rec);
+        if (w > prev) ordered = false;
+        prev = w; ++count;
+    }
+    CHECK(ordered);
+    CHECK_EQ(count, 5000L);
+    CHECK_EQ(leadingNumber("0.500000 3 2 1 4"), 0.5);
+    CHECK_EQ(leadingNumber("-1 2"), -1.0);
+}
+
 int main() {
     testOptions();
     testNetwork();
+    testExternalSort();
     return summary();
 }
