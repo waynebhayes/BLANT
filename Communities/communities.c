@@ -20,7 +20,7 @@
 
 
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-#define DEBUG 0
+#define DEBUG 1
 #define MOVE_ONLY 1 // Limit perturb to only move 
 #define PRINT_ALL_COMMUNITIES 0 // Prints out all the community info at the end of the program execution
 #define PRINT_ITERS 0 // Prints out iters per second on terminal (Note: Is quite expensive)
