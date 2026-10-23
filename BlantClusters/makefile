@@ -11,8 +11,12 @@ blant-clusters: blant-clusters.o $(OBJS)
 test/selftest: test/selftest.o $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-test: test/selftest
+test/check: test/check.o network.o
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+test: blant-clusters test/selftest test/check
 	./test/selftest
+	./test/e2e.sh
 
 clean:
 	rm -f *.o test/*.o blant-clusters test/selftest test/check

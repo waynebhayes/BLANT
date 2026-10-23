@@ -163,7 +163,7 @@ static void testEmitRecords() {
                          false, false, [&](const std::string& r){ got.push_back(r); });
     CHECK_EQ(n, 8L);
     CHECK_EQ(got.size(), size_t(8));
-    CHECK_EQ(got[0], std::string("40 0 4 1 2 3"));
+    CHECK_EQ(got[0], std::string("100 0 4 1 2 3"));
 
     // orbit mode keeps every orbit of a passing canon; -h collapses to the best
     std::vector<std::string> orbits, best;

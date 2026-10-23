@@ -1,0 +1,2 @@
+4 nodes, 6/6 edges, 100% density from k5, nodeSet { a b c d }
+4 nodes, 6/6 edges, 100% density from k5, nodeSet { e f g h }

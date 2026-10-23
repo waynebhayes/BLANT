@@ -1,16 +1,16 @@
-a	9	30	b c d
-a	10	10	b
-b	9	28	a c d
-b	10	9	a
-c	9	26	a b d
-c	10	8	a
-d	9	20	a b c
-d	10	7	a
-e	9	25	f g h
-e	10	6	f
-f	9	23	e g h
-f	10	5	e
-g	9	21	e f h
-g	10	4	e
-h	9	19	e f g
-h	10	3	e
+a	9	100	b c d
+a	10	20	b
+b	9	90	a c d
+b	10	19	a
+c	9	80	a b d
+c	10	18	a
+d	9	70	a b c
+d	10	17	a
+e	9	95	f g h
+e	10	16	f
+f	9	85	e g h
+f	10	15	e
+g	9	75	e f h
+g	10	14	e
+h	9	65	e f g
+h	10	13	e
