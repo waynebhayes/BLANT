@@ -1,6 +1,6 @@
 CXX      ?= g++
 CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -Werror
-SRCS      = options.cpp network.cpp extsort.cpp
+SRCS      = options.cpp network.cpp extsort.cpp samples.cpp
 OBJS      = $(SRCS:.cpp=.o)
 
 all: blant-clusters

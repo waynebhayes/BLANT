@@ -1,0 +1,18 @@
+a	4	40	b c d
+a	3	30	b c
+b	4	38	a c d
+b	3	28	a c
+c	4	36	a b d
+c	3	26	a b
+d	4	22	a b c
+d	3	24	a b
+d	1	10	e
+e	4	35	f g h
+e	1	9	d
+f	4	33	e g h
+f	3	25	e g
+g	4	31	e f h
+g	3	23	e f
+h	4	20	e f g
+h	3	21	e f
+h	1	8	e
