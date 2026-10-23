@@ -14,7 +14,8 @@ int _topThousandth = 0;
 int _orbitNumber = -1; // -1 means not initialized
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
-Boolean _limitAlternate = 0;
+double _limitFraction = 1.00001; //turn it off by default
+double _limitFractionTracker = 0;
 HEAP * _windowRep_limit_heap;
 
 unsigned **_windowReps;
@@ -92,9 +93,9 @@ void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_
 void updateWindowRepLimitHeap(unsigned *WArray, unsigned *VArray, unsigned char perm[], int foundNum)
 {
     int i;
-    if (HeapSize(_windowRep_limit_heap) < _numWindowRepLimit - (_limitAlternate)%2) // case to fill up limit heap
+    if (HeapSize(_windowRep_limit_heap) < _numWindowRepLimit) // case to fill up limit heap
         HeapInsert(_windowRep_limit_heap, (foint) foundNum);
-    else if (HeapSize(_windowRep_limit_heap) >= (_numWindowRepLimit - (_limitAlternate)%2) && foundNum > HeapPeek(_windowRep_limit_heap).i)
+    else if (HeapSize(_windowRep_limit_heap) >= _numWindowRepLimit && foundNum > HeapPeek(_windowRep_limit_heap).i)
     {
         // case to swap the smallest item in the heap when is filled
         HeapNext(_windowRep_limit_heap);
@@ -103,7 +104,7 @@ void updateWindowRepLimitHeap(unsigned *WArray, unsigned *VArray, unsigned char 
     for(i=0; i<_k; i++) _windowReps[_numWindowRep][i] = WArray[VArray[perm[i]]];
     _windowReps[_numWindowRep][_k] = foundNum;
     _numWindowRep++;
-    assert(HeapSize(_windowRep_limit_heap) <= (_numWindowRepLimit - (_limitAlternate)%2));
+    assert(HeapSize(_windowRep_limit_heap) <= _numWindowRepLimit);
 }
 
 void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numEdges, Gordinal_type GintOrdinal, unsigned char perm[])
