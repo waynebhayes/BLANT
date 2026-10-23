@@ -37,8 +37,8 @@
 typedef unsigned char kperm[3]; // 3 bits per permutation, max 8 permutations = 24 bits
 Gordinal_type *K;
 kperm *Permutations;
-static Gint_type canon_list[MAX_CANONICALS];
-static char canon_num_edges[MAX_CANONICALS];
+static Gint_type *canon_list;
+static char *canon_num_edges;
 
 void ExtractPerm(char perm[kk], int i) // you provide a permutation array, we fill it with permutation i
 {
@@ -99,8 +99,19 @@ int main(int argc, char *argv[])
     SetBlantDirs();
     fprintf(stderr, "Note: Gint_type is size %u bytes (%u bits); Gordinal_type is %u (%u bits)\n",
 	sizeof(Gint_type), 8*sizeof(Gint_type), sizeof(Gordinal_type), 8*sizeof(Gordinal_type));
+    // Read file count to allocate arrays
+    sprintf(buf, directed ? "%s/%s/directed/canon_list%d.txt" : "%s/%s/canon_list%d.txt",
+        _BLANT_DIR, _CANON_DIR, kk);
+    FILE *fp_count = fopen(buf, "r");
+    if (!fp_count) Fatal("cannot open %s", buf);
+    Gordinal_type numCanon;
+    if (1 != fscanf(fp_count, GORDINAL_FMT, &numCanon) || numCanon == 0)
+        Fatal("failed to read canon count from %s", buf);
+    fclose(fp_count);
+    canon_list = Malloc(numCanon * sizeof(Gint_type));
+    canon_num_edges = Malloc(numCanon * sizeof(char));
     SET *connectedCanonicals = canonListPopulate(buf, canon_list, kk, canon_num_edges, directed);
-    int numCanon = connectedCanonicals->maxElem;
+    numCanon = connectedCanonicals->maxElem;
     SetFree(connectedCanonicals);
     if(directed) sprintf(buf, "%s/%s/directed/canon_map%s.txt", _BLANT_DIR, _CANON_DIR, kString);
     else sprintf(buf, "%s/%s/canon_map%s.txt", _BLANT_DIR, _CANON_DIR, kString);

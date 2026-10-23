@@ -24,7 +24,7 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
 {
     int i, j, bitPos=0;
     Gint_type Gint = 0, bit;
-
+	Gint=0;
     for(i=k-1;i>=0;i--)
     {
 	#if LOWER_TRIANGLE
@@ -64,7 +64,7 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 	{
 	    if(i==j && !G->selfLoops) continue;
 	    if(!Gint2) break;
-	    Gint_type bit = ((Gint_type)1 << bitPos);
+	    Gint_type bit = (((Gint_type)1) << bitPos);
 	    if(Gint & bit) TinyGraphConnect(G,i,j);
 
 	    Gint2 &= ~bit;
@@ -79,6 +79,7 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 ** Given a pre-allocated filename buffer, a 256MB aligned array K, num nodes k
 ** Mmap the canon_map binary file to the aligned array.
 */
+#if !DYNAMIC_CANON_MAP
 Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed) {
 #if SELF_LOOPS
     if (k > 7) Fatal("cannot have k>7 when SELF_LOOPS");
@@ -96,7 +97,6 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed)
     assert(Kf != MAP_FAILED);
     return Kf;
 }
-
 
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges, Boolean directed) {
     if(directed) sprintf(BUF, "%s/%s/directed/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
@@ -159,3 +159,4 @@ void orcaOrbitMappingPopulate(char *BUF, int orca_orbit_mapping[58], int k) {
 	    Fatal("orcaOrbitMappingPopulate: failed to read mapping %d", i);
     }
 }
+#endif

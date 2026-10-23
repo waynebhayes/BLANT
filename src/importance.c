@@ -11,7 +11,7 @@ void getDoubleDegreeArr(double *double_degree_arr, GRAPH *G) {
         double_degree_arr[i] = (double)G->degree[i];
     }
 }
-
+#if !DYNAMIC_CANON_MAP
 // node order is a concept used for the antidup algorithm
 // the algorithm is titled antidupFillNextStepSet and can be found in blant-utils.c
 // for info on the antidup algorithm, see Patrick Wang's Fall 2020 Writeup, titled "Multiplicity-and-Antiduplication-Algorithm" and linked here: https://docs.google.com/document/d/18wtIBu8VQ0rVzHTPTfLbYoBmxjw56H77XYoHzqK63Q8/edit?usp=sharing  
@@ -28,7 +28,6 @@ int *enumerateImportanceNodeOrder(GRAPH *G) {
     }
 
     int (*comp_func)(const void*, const void*);
-
     if (_alphabeticTieBreaking) {
         comp_func = nwhn_asc_alph_comp_func;
     } else {
@@ -233,3 +232,4 @@ void removeFromAdjacencyList(ADJ_LIST *adjList, int base, int neigh) {
     adjList->lists[base][neighPos] = adjList->lists[base][adjList->sizes[base] - 1]; // one way swap
     adjList->sizes[base]--; // decrement size
 }
+#endif

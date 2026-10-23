@@ -9,6 +9,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include "atomic_utils.h"
+
 atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
 // Worker thread stack size: 1 MiB
@@ -17,7 +18,6 @@ atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 static const size_t kWorkerThreadStackBytes = 1 * 1024 * 1024;
 
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
-
     // Ensure size is a multiple of alignment
     size_t size = sizeof(Accumulators);
     size_t aligned_size = ((size + CACHE_LINE_SIZE - 1) / CACHE_LINE_SIZE) * CACHE_LINE_SIZE;
@@ -30,16 +30,18 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     }
 
     memset(accums, 0, aligned_size); // zero out everything including padding
-    
-    // Initialize batch counters
+    #if !DYNAMIC_CANON_MAP
+    accums->graphletCount = Calloc(_numCanon, sizeof(double));
+    accums->graphletConcentration = Calloc(_numCanon, sizeof(double));
+    accums->batchRawCount = Calloc(_numCanon, sizeof(unsigned long));
     accums->batchRawTotalSamples = 0;
-    for (int i = 0; i < MAX_CANONICALS; i++) {
-        accums->batchRawCount[i] = 0;
-    }
+    accums->orbitDegreeVector = Calloc(_numOrbits, sizeof(double *));
+    accums->canonNumStarMotifs = Malloc(_numCanon * sizeof(double));
+    for (int i = 0; i < _numCanon; i++) accums->canonNumStarMotifs[i] = -1;
     
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-        accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
+        accums->graphletDegreeVector = Malloc(_numCanon * sizeof(double*));
         if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
         for(int i = 0; i < _numCanon; i++) {
             size_t bytes = G->n * sizeof(double);
@@ -72,25 +74,32 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
             memset(accums->orbitDegreeVector[i], 0, bytes);
         }
     }
-
-    // initialize communityNeighbors if needed
+    #endif
+    #if !DYNAMIC_CANON_MAP
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
-        
-    for (int i = 0; i < _numCanon; i++) accums->canonNumStarMotifs[i] = -1; // initialize to -1, meaning "not yet initialized"
-
+    #endif
     return accums;
 }
 
 void FreeAccumulatorStruct(Accumulators *accums) {
-    assert(_numCanon <= MAX_CANONICALS);
-    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
+    #if !DYNAMIC_CANON_MAP
+    Free(accums->graphletCount);
+    Free(accums->graphletConcentration);
+    Free(accums->canonNumStarMotifs);
+    Free(accums->batchRawCount);
+    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
         for (int i=0; i<_numCanon; i++) free(accums->graphletDegreeVector[i]);
-    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
-        for(int i=0; i<_numOrbits; i++) if (accums->orbitDegreeVector[i] != NULL) free(accums->orbitDegreeVector[i]);
+        Free(accums->graphletDegreeVector);
+    }
+    if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
+        for(int i=0; i<_numOrbits; i++) free(accums->orbitDegreeVector[i]);
+        Free(accums->orbitDegreeVector);
+    }
     if(_outputMode & communityDetection) free(accums->communityNeighbors);
+    #endif
     free(accums);
 }
-
+#if !DYNAMIC_CANON_MAP
 void SampleNGraphletsInThreads(long base_seed, int k, GRAPH *G, int varraySize, unsigned numSamples, int numThreads) {
     // Reset the global “next” counter before launching workers
     ATOMIC_STORE_U64(&nextIndex, 0);
@@ -214,3 +223,4 @@ void SampleNGraphletsInThreads(long base_seed, int k, GRAPH *G, int varraySize, 
         FreeAccumulatorStruct(threadData[t].accums);
     }
 }
+#endif

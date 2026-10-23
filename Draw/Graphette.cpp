@@ -1,7 +1,7 @@
 // This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "Graphette.h"
-
+#if !DYNAMIC_CANON_MAP
 Graphette::Graphette(const std::string& bitstring, TriangularRepresentation triangularRepresentation, int k, short int* _K, bool directed) : 
     bitstring(bitstring), 
     triangularRepresentation(triangularRepresentation), 
@@ -20,3 +20,11 @@ Graphette::Graphette(uint64_t lowerOrdinal, TriangularRepresentation triangularR
     this->decimal = _canonList[lowerOrdinal];
     this->bitstring = appendLeadingZeros(toBitString(this->decimal, k), k, directed);
 }
+#else
+Graphette::Graphette(const std::string& bitstring, TriangularRepresentation triangularRepresentation, int k, bool directed) : 
+    bitstring(bitstring), 
+    triangularRepresentation(triangularRepresentation), 
+    k(k) {
+        this->decimal = toDecimal(bitstring, k, directed);
+}
+#endif

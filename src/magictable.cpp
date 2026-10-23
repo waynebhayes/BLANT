@@ -61,6 +61,13 @@ static short int _K[maxBk] __attribute__ ((aligned (8192))); //Holds canon_map.b
 static TINY_GRAPH* G;
 const char* DIR = "orca_jesse_blant_table/";
 
+//Manually generated mapping from upper(FAYE) binary representation of connected canonical graphlets to GRAAL/Przulj numbering
+const auto umap3 = unordered_map<uint64_t,uint64_t>{{3, 1}, {7, 2}};
+const auto umap4 = unordered_map<uint64_t, uint64_t>{{11, 4}, {13, 3}, {15, 6}, {30, 5}, {31, 7}, {63, 8}};
+const auto umap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14}, {86, 9}, {87, 12},
+ {94, 16}, {95, 17}, {117, 13}, {119, 19}, {127, 23}, {222, 20}, {223, 22}, {235, 18}, {236, 15}, {237, 21},
+  {239, 24}, {254, 25}, {255, 26}, {507, 27}, {511, 28}, {1023, 29}};
+
 #if LOWER_TRIANGLE
 #if 0 // Nahian: here's where to add stuff. All (or most) the numbers in lmap[3-5] need to change!
 //Manually generated mapping from LOWER binary representation of connected canonical graphlets to GRAAL/Przulj numbering
@@ -74,13 +81,11 @@ const auto lmap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14
 #define MAP5 lmap5
 #warning "sorry, we don't have lmaps yet!"
 #else
-#endif 
-//Manually generated mapping from upper(FAYE) binary representation of connected canonical graphlets to GRAAL/Przulj numbering
-const auto umap3 = unordered_map<uint64_t,uint64_t>{{3, 1}, {7, 2}};
-const auto umap4 = unordered_map<uint64_t, uint64_t>{{11, 4}, {13, 3}, {15, 6}, {30, 5}, {31, 7}, {63, 8}};
-const auto umap5 = unordered_map<uint64_t, uint64_t>{{75, 11}, {77, 10}, {79, 14}, {86, 9}, {87, 12},
- {94, 16}, {95, 17}, {117, 13}, {119, 19}, {127, 23}, {222, 20}, {223, 22}, {235, 18}, {236, 15}, {237, 21},
-  {239, 24}, {254, 25}, {255, 26}, {507, 27}, {511, 28}, {1023, 29}};
+#define MAP3 umap3
+#define MAP4 umap4
+#define MAP5 umap5
+#endif
+#else
 #define MAP3 umap3
 #define MAP4 umap4
 #define MAP5 umap5

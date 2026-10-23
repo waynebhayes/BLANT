@@ -20,22 +20,27 @@ struct orbitpair_bits {
     unsigned int k3:4, o:4, p:4; // 4 bits is enough up to k=16
 #if MAX_K == 9
     unsigned int ordinal: 19; // ceil(log2(274668)), where 274668=maxCanon for k=9, giving 31 bits total
-#elif MAX_K == 10
+#elif MAX_K == 10 
     unsigned int ordinal: 24; // ceil(log2(12005168)), maxCanon for k=10
 #elif MAX_K == 11
     unsigned int ordinal: 30; // ceil(log2(1018997864)), maxCanon for k=11
-#else
+#elif !DYNAMIC_CANON_MAP
 #error sorry cannot handle MAX_K > 11 at the moment
 #endif
 #endif
 };
-
+#define DEBUG_ATTEMPTS 0
 int orbitpair_cmp(long int a, long int b);
 long int orbitpair_copy(long int src);
 
 Boolean arrayIn(unsigned *arr, int size, int item);
 void printIntArray(int* arr, int n, char* name);
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint, Boolean directed);
+#if DYNAMIC_CANON_MAP
+// Dynamically computes the canonical decimal of Gint (no ordinal). If permOut != NULL, fills it
+// with the canonical->sampled permutation: Varray[permOut[j]] is the node for canonical column j.
+Gint_type L_K_Func_Sort(Gint_type Gint, unsigned char permOut[], unsigned short orbits[], Boolean computeOrbits);
+#endif
 void InvertPerm(unsigned char inverse[_k], unsigned const char perm[_k]);
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *Gv, GRAPH *G, unsigned *Varray);
 int asccompFunc(const foint i, const foint j);

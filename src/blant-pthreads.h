@@ -11,16 +11,16 @@
 
 
 typedef struct {
-    // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
-    double graphletCount[MAX_CANONICALS];
-    double graphletConcentration[MAX_CANONICALS];
-    double **graphletDegreeVector;  // Changed from array to pointer
-    double *orbitDegreeVector[MAX_ORBITS];
+    #if !DYNAMIC_CANON_MAP
+    double *graphletCount;
+    double *graphletConcentration;
+    double **graphletDegreeVector;
+    double **orbitDegreeVector;
     SET*** communityNeighbors;
-    double canonNumStarMotifs[MAX_CANONICALS];
-    // Batch counters for confidence intervals (thread-local to avoid race conditions)
-    unsigned long batchRawCount[MAX_CANONICALS];
+    double *canonNumStarMotifs;
+    unsigned long *batchRawCount;
     unsigned long batchRawTotalSamples;
+    #endif
 } Accumulators;
 
 // ThreadData structure (now after all required types are defined)

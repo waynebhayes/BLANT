@@ -6,8 +6,8 @@
 #include "blant.h"
 
 // We use TinySets since they can be stored in a char (8 bits), and thus the adjacency matrix for k<=8 fits into 8 chars.
-static TINY_GRAPH *G, *_canonicalGraph[MAX_CANONICALS];	// G is reused for each value of numEdges
-static int k, _numCanonicals, _canonicalSig[MAX_CANONICALS];
+static TINY_GRAPH *G, **_canonicalGraph;	// G is reused for each value of numEdges
+static int k, _numCanonicals, *_canonicalSig;
 
 
 /* The array perm[] will hold the permutation from the canonical to the non-canonical.
@@ -66,6 +66,8 @@ int main(int argc, char *argv[])
     assert(k > 2 && k <= 8);
     int numParallel=atoi(argv[2]), coreID=atoi(argv[3]);
     G = TinyGraphAlloc(k,SELF_LOOPS,false);
+    _canonicalSig = Malloc(MAX_CANONICALS * sizeof(int));
+    _canonicalGraph = Malloc(MAX_CANONICALS * sizeof(TINY_GRAPH *));
     for(i=0; i<MAX_CANONICALS; i++)
 	_canonicalGraph[i] = TinyGraphAlloc(k,SELF_LOOPS,false);
 
