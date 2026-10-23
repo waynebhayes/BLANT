@@ -3,6 +3,8 @@
 #include "../network.h"
 #include "../extsort.h"
 #include "../samples.h"
+#include "../cluster.h"
+#include <sstream>
 #include <cstring>
 #include <stdexcept>
 
@@ -181,6 +183,50 @@ static void testEmitRecords() {
     CHECK(threw);
 }
 
+// Builds a record line "weight node item nbr nbr ..."
+static std::string rec(double w, int node, int item, std::vector<int> nbrs) {
+    std::ostringstream os; os << w << ' ' << node << ' ' << item;
+    for (int v : nbrs) os << ' ' << v;
+    return os.str();
+}
+
+static void testClusterer() {
+    Network net = loadNetwork("test/fixture/fixture.el", false);
+    Options opt; opt.overlap = 0.5; opt.minClusArg = 3; opt.maxClus = 1000;
+    opt.seed = 1;
+    Clusterer c(net, opt, 5, 1.0);
+    // Clique {a,b,c,d} = ids 0..3 gets high counts, {e,f,g,h} = 4..7 lower.
+    double w[8] = {100, 98, 96, 94, 50, 48, 46, 44};
+    std::vector<std::vector<int>> nb = {
+        {1,2,3},{0,2,3},{0,1,3},{0,1,2},
+        {5,6,7},{4,6,7},{4,5,7},{4,5,6}};
+    long idx = 0;
+    for (int u = 0; u < 8; ++u)
+        c.addRecord(rec(w[u], u, 3, nb[u]), ++idx);
+    std::vector<Cluster> got = c.run();
+    CHECK(!got.empty());
+    const Cluster& best = got[0];
+    CHECK(best.nodes.size() >= 3);
+    for (size_t i = 1; i < best.nodes.size(); ++i)
+        CHECK(best.nodes[i] > best.nodes[i-1]);        // ascending
+    CHECK_EQ(best.edges, (long)(best.nodes.size() * (best.nodes.size()-1) / 2));
+    CHECK(best.edges > 0);
+    CHECK(best.edgeSum > 0);
+
+    // every returned cluster meets the density target
+    for (const Cluster& cl : got) {
+        CHECK_EQ(cl.edges, (long)(cl.nodes.size()*(cl.nodes.size()-1)/2));
+        CHECK_EQ(cl.k, 5);
+    }
+
+    // minClus is enforced
+    Options small = opt; small.minClusArg = 5;
+    Clusterer c2(net, small, 5, 1.0);
+    idx = 0;
+    for (int u = 0; u < 8; ++u) c2.addRecord(rec(w[u], u, 3, nb[u]), ++idx);
+    for (const Cluster& cl : c2.run()) CHECK(cl.nodes.size() >= 5);
+}
+
 int main() {
     testOptions();
     testNetwork();
@@ -188,5 +234,6 @@ int main() {
     testCanonMaps();
     testBlantCommand();
     testEmitRecords();
+    testClusterer();
     return summary();
 }
