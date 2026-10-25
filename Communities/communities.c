@@ -103,14 +103,11 @@ static void MoveOneNode(PARTITION * P, int node, int dest){
     COMMUNITY * newCom = P->C[dest];
     GRAPH * G = P->G;
 
-
     int actualOldIn = CommunityEdgeCount(oldCom);
     int actualOldOut = CommunityEdgeOutwards(P, oldCom);
 
     int actualNewIn = CommunityEdgeCount(newCom);
     int actualNewOut = CommunityEdgeOutwards(P, newCom);
-
-
 
     int fail = 0; 
     if(oldCom->edgesIn != actualOldIn){
@@ -519,9 +516,12 @@ double PerturbPartition(foint f) {
     P->numMoved = 0;    
 
 #if PRINT_ITERS
+    {
+    static iter;
     double elapsed = (double)(clock() - P->clk) / CLOCKS_PER_SEC;
     double iters_per_sec = P->iters++ / elapsed; 
-    printf("\r%-10.2f\t",iters_per_sec);
+    if(iter++ % 1000==0) printf("\r%-0f\t",iters_per_sec);
+    }
 #endif
     
 #if DEBUG
@@ -563,8 +563,6 @@ double PerturbPartition(foint f) {
     }
     assert(comNums);
 #endif
-
-    
 
     #if MOVE_ONLY
 	int choice = 0;
@@ -1066,7 +1064,7 @@ int main(int argc, char *argv[])
 	    // If user didn't provide partition run actual sim anneal
 	    if(G->n==2390 && G->numEdges==16127) {
 		printf("Hmm, this looks like yeast.el/communities.in, using canned schedule\n");
-		SimAnnealSetSchedule(sa, 1.1, 3);
+		SimAnnealSetSchedule(sa, 3, 8);
 	    }
 	    else
 		SimAnnealAutoSchedule(sa); // to automatically create schedule
