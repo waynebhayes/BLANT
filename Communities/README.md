@@ -9,13 +9,17 @@ export LIBWAYNE_HOME=~/BLANT/libwayne
 
 Then in the communities directory
 
-../libwayne/bin/wgcc ./communities.c
-
-OR
-
 make
 
+in your command line to compile
 
 To run 
 
-./a.out {Graph to run on} {Optional partition to start from}
+./a.out {Graph to run on} 
+
+Ex:
+./a.out ./communities.in
+
+OPTIONS
+-s Choose a scoring function
+-p Provide a partition to start from 
