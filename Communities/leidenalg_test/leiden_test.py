@@ -44,29 +44,29 @@ def report(G, labels, name):
 
 
 
-if 0:
+if 1:
     leiden = la.find_partition(G, la.ModularityVertexPartition, n_iterations=-1)
     leiden_labels = leiden.membership
 
 
-    report(G, leiden_labels, "Leiden (modularity)")
+    #report(G, leiden_labels, "Leiden (modularity)")
 
     for line in leiden:
         for node in line:
             print(node, end = " ")
         print()
 
-if 1:
+if 0:
 
     im = Infomap(seed=123, num_trials=20, silent=True)
     for u, v in G.get_edgelist():
         im.add_link(u, v)
     im.run()
     mods = im.get_modules()
-# vertices with no edges never reach Infomap, so give each its own label
+    # vertices with no edges never reach Infomap, so give each its own label
     infomap_labels = [mods.get(n, -1 - n) for n in range(G.vcount())]
 
-    report(G, infomap_labels, "Infomap")
+    #report(G, infomap_labels, "Infomap")
 
     communities = defaultdict(list)
     for node_id, module_id in im.get_modules().items():

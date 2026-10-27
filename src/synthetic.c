@@ -32,8 +32,8 @@ static int _maxNumCanon = -1;  // max number of canonicals
 static long _synthNumSamples = -1;  // same number of samples in each blant index file
 static int _numNodes = -1;  // number of nodes in the target/synthetic network
 static int maxdegree = -1;  // equals _numNodes (a node can be connected to every other node)
-static Gint_type _canonList2D[MAX_K][MAX_CANONICALS];
-static char _canonEdges2D[MAX_K][MAX_CANONICALS];
+static Gint_type **_canonList2D = NULL;
+static char **_canonEdges2D = NULL;
 static int _stagnated = 1000, _numDisconnectedGraphlets;
 
 #define PRINT_INTERVAL 100000
@@ -98,6 +98,16 @@ void SetGlobalCanonMaps(void){
         assert(3 <= _k_array[i] && _k_array[i] <= 8);
         _localBk = (1U <<(_k_array[i]*(_k_array[i]-1)/2));
         char BUF[BUFSIZ];
+        // Allocate canon/edge arrays on first call
+        if (!_canonList2D) {
+            _canonList2D = Calloc(MAX_K, sizeof(Gint_type *));
+            _canonEdges2D = Calloc(MAX_K, sizeof(char *));
+        }
+        int k_idx = _k_array[i];
+        if (!_canonList2D[k_idx - 1])
+            _canonList2D[k_idx - 1] = Malloc(_known_canonical_count[0][k_idx] * sizeof(Gint_type));
+        if (!_canonEdges2D[i])
+            _canonEdges2D[i] = Malloc(_known_canonical_count[0][k_idx] * sizeof(char));
         _synthConnectedCanonicals[_k_array[i]-1] = canonListPopulate(BUF, _canonList2D[_k_array[i]-1], _k_array[i], _canonEdges2D[i], false);
 	_numCanonSynth[_k_array[i]-1] = _synthConnectedCanonicals[_k_array[i]-1]->maxElem;
         _maxNumCanon = MAX(_maxNumCanon, _numCanonSynth[_k_array[i]-1]);  // set max number of canonicals for a k

@@ -17,7 +17,7 @@ static int k;
 static long numBitValues;
 static bool directed;
 
-
+#if !DYNAMIC_CANON_MAP
 #if LOWER_TRIANGLE
 
 unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int numBits){
@@ -49,19 +49,20 @@ unsigned long bitArrayToDecimal(int bitMatrix[k][k], char Permutations[], int nu
     unsigned long num=0;
     int lf=0;
     for(int i = 0; i < k; i++)
-    for(int j = (i+1)*(1-directed); j < k; j++){
-	if(i==j) continue;
-	num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
-	lf++;
+	for(int j = (directed ? 0 : i+1); j < k; j++){
+   	    if(i==j) continue;
+	    num+=(((unsigned long)bitMatrix[(int)Permutations[i]][(int)Permutations[j]]) << (numBits-1-lf)); 
+	    lf++;
     }
     return num;
 }
 
 void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
     for(int i=k-1; i>=0; i--)
-	for(int j=k-1; j>=(i+1)*(1-directed); j--){
+	for(int j=k-1; j>=(directed ? 0 : i+1); j--){
 	    if(i==j) continue;
 	    bitMatrix[i][j] = D%2;
+	    if(!directed) bitMatrix[j][i]=bitMatrix[i][j];
 	    D = D/2;
 	}
 }
@@ -79,7 +80,7 @@ typedef unsigned char xChar[XCHAR_SIZE];
 
 static xChar* data;
 static bool* done;
-static unsigned long canonicalDecimal[MAX_CANONICALS];
+static unsigned long *canonicalDecimal;
 
 void encodeChar(xChar ch, long indexD, long long indexP){
     unsigned long long x=(unsigned long)indexD+(unsigned long)indexP*(1<<(directed ? dGraphSize : udGraphSize));
@@ -161,13 +162,14 @@ void canon_map(void){
     //finding canonical forms of all graphettes
     for(int t=1; t<numBitValues; t++){
 	assert(t>=0);
+	decimalToBitArray(bitMatrix, t);
 	if(done[t]) continue;
 	done[t]=1; // this is a new canonical, and it the lowest by construction
 	encodeChar(data[t],++num_canon,0);
 	canonicalDecimal[num_canon]=t;
 
 	int num = 0;
-	decimalToBitArray(bitMatrix, t);
+
 	for(long long nP=1; nP<f; nP++) // now go through all the permutations to compute the non-canonicals of t.
 	{
 	    assert(nP>0);
@@ -245,7 +247,8 @@ int main(int argc, char* argv[]){
     assert(numBitValues>0);
     data = calloc(numBitValues, sizeof(xChar));
     done = calloc(numBitValues, sizeof(bool));
-    if (!data || !done) {
+    canonicalDecimal = Malloc(MAX_CANONICALS * sizeof(unsigned long));
+    if (!data || !done || !canonicalDecimal) {
 	fprintf(stderr, "Memory allocation failed\n");
 	exit(1);
     }
@@ -253,4 +256,4 @@ int main(int argc, char* argv[]){
 
     return 0;
 }
-
+#endif

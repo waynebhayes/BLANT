@@ -8,21 +8,22 @@
 #include "graph.h"
 #include "multisets.h"
 #include "blant-utils.h"
-
+bool _alphabeticTieBreaking = true;
+int _numWindowRepLimit = 0;
+int _topThousandth = 0;
+int _orbitNumber = -1; // -1 means not initialized
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
+double _limitFraction = 1.00001; //turn it off by default
+double _limitFractionTracker = 0;
 HEAP * _windowRep_limit_heap;
 
 unsigned **_windowReps;
 int _MAXnumWindowRep = 0;
 int _numWindowRep = 0;
-int _numWindowRepLimit = 0;
 int _numWindowRepArrSize = 100;
 
-int _topThousandth = 0;
-int _orbitNumber = -1; // -1 means not initialized
 char* _odvFile = NULL;
-bool _alphabeticTieBreaking = true;
 
 int _windowSize = 0;
 Boolean _window = false;
@@ -34,6 +35,8 @@ Boolean _supportNodeImportance = false;
 Boolean _windowRep_limit_neglect_trivial = false;
 
 int _windowIterationMethod = WINDOW_ITER_DFS;
+#if !DYNAMIC_CANON_MAP
+
 
 int getD(int num_of_edges)
 {
@@ -69,8 +72,7 @@ void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_
 {
     int num_difference;
     Gint_type Gint_prev_ordinal, Gint_curr_ordinal;
-    static Accumulators trash; // these values aren't used anywhere; but an accumulator must be passed in to SampleGraphlet
-    SampleGraphlet(G, V, Varray, k, G->n, &trash);
+    SampleGraphlet(G, V, Varray, k, G->n, &_trashAccumulator);
     SetIntersect(intersect_node, prev_node_set, V);
     num_difference = k - SetCardinality(intersect_node);
     SetEmpty(intersect_node);
@@ -84,7 +86,7 @@ void ProcessWindowDistribution(GRAPH *G, SET *V, unsigned Varray[], int k, TINY_
         Gint_prev_ordinal = L_K(TinyGraph2Int(prev_graph,k));
         TinyGraphInducedFromGraph(prev_graph, G, Varray);
         Gint_curr_ordinal = L_K(TinyGraph2Int(prev_graph,k));
-        _graphletDistributionTable[Gint_prev_ordinal][Gint_curr_ordinal] += 1; // segfault
+        _graphletDistributionTable[Gint_prev_ordinal][Gint_curr_ordinal] += 1;
     }
 }
 
@@ -424,3 +426,4 @@ void ProcessWindowRep(GRAPH *G, unsigned *VArray, int windowRepInt) {
     }
     if(!_outputMode) Abort("ProcessWindowRep: unknown or un-implemented outputMode");
 }
+#endif

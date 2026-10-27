@@ -19,8 +19,8 @@
 #include "unistd.h"
 
 
-#define VERBOSE 3 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
-#define DEBUG 1
+#define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
+#define DEBUG 0
 // Which perturbations PerturbPartition uses (merge and split are planned to be removed):
 #define PERTURB_ALL       0 // move, merge and split (the old MOVE_ONLY 0)
 #define PERTURB_MOVE_ONLY 1 // only move (the old MOVE_ONLY 1)

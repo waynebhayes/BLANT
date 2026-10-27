@@ -3,7 +3,7 @@
 #include "tinygraph.h"
 
 #define MAX_NODES 28000 // may need to increase this for large networks
-
+#if !DYNAMIC_CANON_MAP
 static int _predictOrd = -1;
 int _predictOrbit1 = -1, _predictOrbit2 = -1;
 static int _PredictMotifCount[MAX_K][MAX_K];
@@ -132,3 +132,4 @@ void Predict_Shutdown(GRAPH *G) {
         printf("\t%d\t%d\n", i, j);
     }
 }
+#endif

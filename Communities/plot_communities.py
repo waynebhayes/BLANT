@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """
-Score community-detection outputs and plot them.
+Plot every community from a single run: x = community size, y = edge density.
 
 Usage:
-  python plot_communities.py --graph edges.txt \
-      --run Leiden=leiden.txt --run Infomap=infomap.txt --run SA=sa.txt \
-      [--out plot.png] [--include-singletons]
+  python plot_communities.py --graph edges.txt --run Leiden=leiden.txt \
+      [--out plot.png] [--logx] [--include-singletons]
 
-Graph file: one edge per line, "u v" (extra columns such as weights are ignored,
-lines starting with # are skipped). Treated as undirected and unweighted;
-self-loops and duplicate edges are dropped.
+--run accepts "label=path" or just "path".
+
+Graph file: one edge per line, "u v" (extra columns ignored, lines starting
+with # or % skipped). Treated as undirected and unweighted; self-loops and
+duplicate edges are dropped.
 
 Community file: one community per line, whitespace-separated node IDs.
 """
 import argparse
+import os
 from collections import defaultdict
 
 import matplotlib
@@ -46,7 +48,8 @@ def read_communities(path):
     return comms
 
 
-def score(edges, comms, include_singletons=False):
+def per_community(edges, comms, include_singletons=False):
+    """Return (sizes, densities, Q). Singletons are skipped unless requested."""
     m = len(edges)
     deg = defaultdict(int)
     for u, v in edges:
@@ -67,52 +70,56 @@ def score(edges, comms, include_singletons=False):
         if cu is not None and cu == cv:
             edges_in[cu] += 1
 
-    densities = []
+    sizes, densities = [], []
     q = 0.0
     for i, nodes in enumerate(comms):
         n = len(nodes)
-        # modularity term: L_c/m - (d_c/2m)^2
         d_c = sum(deg[x] for x in nodes)
         q += edges_in[i] / m - (d_c / (2.0 * m)) ** 2
-        # density: internal edges / possible internal edges
         if n < 2:
             if include_singletons:
+                sizes.append(n)
                 densities.append(0.0)
             continue
+        sizes.append(n)
         densities.append(edges_in[i] / (n * (n - 1) / 2.0))
-
-    avg_density = sum(densities) / len(densities) if densities else 0.0
-    return len(comms), avg_density, q
+    return sizes, densities, q
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--graph", required=True)
-    ap.add_argument("--run", action="append", required=True,
-                    help="label=path, repeat for each algorithm")
+    ap.add_argument("--run", required=True, help="label=path or path (single run)")
     ap.add_argument("--out", default="communities_plot.png")
+    ap.add_argument("--logx", action="store_true", help="log-scale x axis")
     ap.add_argument("--include-singletons", action="store_true",
-                    help="count singleton communities as density 0 (default: skip them)")
+                    help="plot singleton communities with density 0 (default: skip)")
     args = ap.parse_args()
 
+    if os.path.exists(args.run) or "=" not in args.run:
+        label, path = os.path.splitext(os.path.basename(args.run))[0], args.run
+    else:
+        label, path = args.run.split("=", 1)
+
     edges = read_graph(args.graph)
+    comms = read_communities(path)
+    sizes, densities, q = per_community(edges, comms, args.include_singletons)
+
+    mean_d = sum(densities) / len(densities) if densities else 0.0
     print(f"Graph: {len(edges)} undirected edges")
+    print(f"{label}: communities={len(comms)}  plotted={len(sizes)}  "
+          f"mean density={mean_d:.4f}  Q={q:.4f}")
 
-    results = []
-    for spec in args.run:
-        label, path = spec.split("=", 1)
-        comms = read_communities(path)
-        k, dens, q = score(edges, comms, args.include_singletons)
-        results.append((label, k, dens, q))
-        print(f"{label:>12}: communities={k:5d}  avg edge density={dens:.4f}  Q={q:.4f}")
-
-    fig, ax = plt.subplots(figsize=(7, 5))
-    for label, k, dens, _ in results:
-        ax.scatter(k, dens, s=80, label=label)
-        ax.annotate(label, (k, dens), textcoords="offset points", xytext=(6, 6))
-    ax.set_xlabel("Number of communities")
-    ax.set_ylabel("Average intra-community edge density")
-    ax.set_title("Community detection comparison")
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.scatter(sizes, densities, s=18, alpha=0.6, edgecolors="none")
+    ax.axhline(mean_d, color="gray", linestyle="--", linewidth=1,
+               label=f"mean density = {mean_d:.3f}")
+    if args.logx:
+        ax.set_xscale("log")
+    ax.set_xlabel("Community size (nodes)")
+    ax.set_ylabel("Edge density")
+    ax.set_ylim(-0.02, 1.02)
+    ax.set_title(f"{label}: {len(sizes)} communities")
     ax.grid(alpha=0.3)
     ax.legend()
     fig.tight_layout()

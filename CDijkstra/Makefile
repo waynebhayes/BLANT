@@ -5,7 +5,7 @@ SOURCES = $(wildcard src/*.cpp)
 LIBWAYNE_HOME = ../libwayne
 
 CXX = g++
-CXXFLAGS = -g -std=c++11 -Iinclude -I$(LIBWAYNE_HOME)/include
+CXXFLAGS = -g -std=gnu++11 -Iinclude -I$(LIBWAYNE_HOME)/include
 LDFLAGS = -L$(LIBWAYNE_HOME) -lwayne -lm
 
 .PHONY: all clean

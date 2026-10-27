@@ -55,13 +55,14 @@ Gint_type getDecimal(int adj[k][k+1]) {
     int i, j, bitPos=0;
     Gint_type D=0;
 #if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
+    for(i=k-1;i>=0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
     for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
 #endif
 	{
+        if(i==j && !SELF_LOOPS) continue;
 	    if(adj[i][j]==1) D+= (((Gint_type)1) << bitPos);
 	    bitPos++;
 	    assert(bitPos < 8*sizeof(Gint_type)); // technically they could be equal... change when that happens
@@ -72,13 +73,14 @@ Gint_type getDecimal(int adj[k][k+1]) {
 void getGraph(Gint_type base10, int adj[k][k+1]){
     int i,j;
 #if LOWER_TRIANGLE
-    for(i=k-1;i>0;i--)
+    for(i=k-1;i>=0;i--)
        for(j=(directed ? k-1 : i-1);j>=0;j--)
 #else	// UPPER_TRIANGLE
     for(i=k-1;i>=0;i--)
 	for(j=k-1;j> ( directed ? -1 : i);j--)
 #endif
 	{
+        if(i==j && !SELF_LOOPS) continue;
 	    adj[i][j]=base10%2;
             if(!directed) adj[j][i]=adj[i][j];
             base10/=2;
@@ -167,8 +169,8 @@ void getCycle(int permutation[], int cycle[], int seed, int current, Boolean vis
         getCycle(permutation, cycle, seed, permutation[current], visited);
 }
 
-static Gint_type canon_list[MAX_CANONICALS];
-static char canon_num_edges[MAX_CANONICALS];
+static Gint_type *canon_list;
+static char *canon_num_edges;
 
 int main(int argc, char* argv[]){
     if(argc == 3) {
@@ -186,6 +188,16 @@ int main(int argc, char* argv[]){
     assert(k > 2 && k <= 10);
     //reading data from canon_list file
     char BUF[BUFSIZ];
+    // Read file count to allocate arrays
+    sprintf(BUF, directed ? "%s/%s/directed/canon_list%d.txt" : "%s/%s/canon_list%d.txt", _BLANT_DIR, _CANON_DIR, k);
+    FILE *fp_count = fopen(BUF, "r");
+    if (!fp_count) Fatal("cannot open %s", BUF);
+    Gordinal_type numCanonFile;
+    if (1 != fscanf(fp_count, GORDINAL_FMT, &numCanonFile) || numCanonFile == 0)
+        Fatal("failed to read canon count from %s", BUF);
+    fclose(fp_count);
+    canon_list = Malloc(numCanonFile * sizeof(Gint_type));
+    canon_num_edges = Malloc(numCanonFile * sizeof(char));
     SET *connectedCanonicals = canonListPopulate(BUF, canon_list, k, canon_num_edges, directed);
     Gordinal_type i, numCanon = connectedCanonicals->maxElem;
     assert(numCanon <= MAX_CANONICALS);

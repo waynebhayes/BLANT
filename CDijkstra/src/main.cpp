@@ -30,19 +30,22 @@ int main(int argc, char* argv[])
     std::string Graph1 = "";
     std::string Graph2 = "";
 
-    if(argc!= 7){
-        std::cerr<<"try again: delta ECthresh simFile seedFile g1.el g2.el\n";
+    if (argc != 7 && argc != 8) {
+        std::cerr << "try again: delta ECthresh simFile seedFile g1.el g2.el [rngSeed]\n";
         return 1;
     }
-    else{
-        delta = std::stod(argv[1]);
-        ECthresh = std::stod(argv[2]);
-        Sim = argv[3];
-        Seed = argv[4];
-        Graph1 = argv[5];
-        Graph2 = argv[6];
-    }
-    srand48(GetFancySeed(false));
+    delta = std::stod(argv[1]);
+    ECthresh = std::stod(argv[2]);
+    Sim = argv[3];
+    Seed = argv[4];
+    Graph1 = argv[5];
+    Graph2 = argv[6];
+
+    // RNG seed: use the 7th argument if given (to replay a run), otherwise a fresh one
+    long rngSeed = (argc == 8) ? std::stol(argv[7]) : (long) GetFancySeed(false);
+    std::cerr << "RNG seed: " << rngSeed << "\n";
+    srand48(rngSeed);
+    
     auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
     //./build/cdijkstra 0.1 0.5 ../../SANA/sequence/graphlet+seq.1/RNorvegicus-SPombe.sim test/RNorvegicus-SPombe-Seed.txt ../../SANA/networks/RNorvegicus.el ../../SANA/networks/SPombe.el
@@ -126,13 +129,13 @@ int main(int argc, char* argv[])
     double GlobalEC2 = computeEC(globalEA, globalE2);
     double GlobalS3 = computeS3(globalEA, globalE1, globalE2);
     
-    std::cerr << "EA: " << globalEA << "\n";
-    std::cerr << "E1: " << globalE1 << "\n";
-    std::cerr << "E2: " << globalE2 << "\n";
-    std::cerr <<"The initial globalEC1: "<<GlobalEC1<< "\n";
-    std::cerr <<"The initial globalEC2: "<<GlobalEC2<< "\n";
-    std::cerr <<"The initial globalS3: "<<GlobalS3<< "\n";
-    std::cerr << "Seed size: " << SeedNodeGraph1.size() << "\n";
+    //std::cerr << "EA: " << globalEA << "\n";
+    //std::cerr << "E1: " << globalE1 << "\n";
+    //std::cerr << "E2: " << globalE2 << "\n";
+    //std::cerr <<"The initial globalEC1: "<<GlobalEC1<< "\n";
+    //std::cerr <<"The initial globalEC2: "<<GlobalEC2<< "\n";
+    //std::cerr <<"The initial globalS3: "<<GlobalS3<< "\n";
+    //std::cerr << "Seed size: " << SeedNodeGraph1.size() << "\n";
 
     // 5. Initialize alignment process
     auto start_alignment = std::chrono::high_resolution_clock::now();
@@ -204,19 +207,19 @@ int main(int argc, char* argv[])
             int localE1 = incrementalE(first, SeedNodeGraph1, adjMatrix1);
             int localE2 = incrementalE(second, SeedNodeGraph2, adjMatrix2);
             //output local integer
-            std::cerr<<"The number of node1 add back to the graph1 is"<<localE1<<"\n";
-            std::cerr<<"The number of node2 add back to the graph2 is"<<localE2<<"\n";
-            std::cerr<<"The number of aligned edges is"<<localEA<<"\n";
-            std::cerr<<"localEC1:"<<double(localEA)/localE1<<"; localEC2:"<<double(localEA)/localE2<<"\n";
+            //std::cerr<<"The number of node1 add back to the graph1 is"<<localE1<<"\n";
+            //std::cerr<<"The number of node2 add back to the graph2 is"<<localE2<<"\n";
+            //std::cerr<<"The number of aligned edges is"<<localEA<<"\n";
+            //std::cerr<<"localEC1:"<<double(localEA)/localE1<<"; localEC2:"<<double(localEA)/localE2<<"\n";
             int current_globalEA = localEA+globalEA;
             int current_globalE1 = localE1+globalE1;
             int current_globalE2 = localE2+globalE2;
             double current_GlobalEC1 = computeEC(current_globalEA,current_globalE1);
             double current_GlobalEC2 = computeEC(current_globalEA, current_globalE2);
             double current_GlobalS3 = computeS3(current_globalEA, current_globalE1, current_globalE2);
-            std::cerr<<"current_EC1: "<<current_GlobalEC1<< "\n";
-            std::cerr<<"current_EC2: "<<current_GlobalEC2<< "\n";
-            std::cerr<<"current_S3: "<<current_GlobalS3<< "\n";
+            //std::cerr<<"current_EC1: "<<current_GlobalEC1<< "\n";
+            //std::cerr<<"current_EC2: "<<current_GlobalEC2<< "\n";
+            //std::cerr<<"current_S3: "<<current_GlobalS3<< "\n";
 
         //std::cout << "Popped node => key: " << key
               //<< ", VertexA: " << first
@@ -239,7 +242,7 @@ int main(int argc, char* argv[])
             discardCount = 0;
             }
             else{
-                std::cerr << "This pair does not have good EC.\n";
+                //std::cerr << "This pair does not have good EC.\n";
                 discardedNodes1.push_back(first);
                 discardedNodes2.push_back(second);
                 discardCount++;
@@ -260,9 +263,9 @@ int main(int argc, char* argv[])
     }
     }
     iterationCount++;
-    std::cerr<<"EC1: "<<GlobalEC1<< "\n";
-    std::cerr<<"EC2: "<<GlobalEC2<< "\n";
-    std::cerr<<"S3: "<<GlobalS3<< "\n";
+    //std::cerr<<"EC1: "<<GlobalEC1<< "\n";
+    //std::cerr<<"EC2: "<<GlobalEC2<< "\n";
+    //std::cerr<<"S3: "<<GlobalS3<< "\n";
 }
 
 auto end_alignment = std::chrono::high_resolution_clock::now();
