@@ -1,9 +1,0 @@
-a b
-a c
-a d
-b c
-b d
-c d
-z b
-z c
-z d

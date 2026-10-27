@@ -21,16 +21,6 @@ std::string join(const std::vector<std::string>& v) {
     }
     return out;
 }
-// How awk's print shows a number: integral values as integers, others with
-// OFMT (%.6g). The script's stage 2 sums these printed values.
-std::string awkNumber(double w) {
-    char buf[64];
-    if (w == std::floor(w) && std::fabs(w) < 1e15)
-        std::snprintf(buf, sizeof buf, "%.0f", w);
-    else
-        std::snprintf(buf, sizeof buf, "%.6g", w);
-    return buf;
-}
 }  // namespace
 
 std::string shellQuote(const std::string& s) {
@@ -111,10 +101,11 @@ long emitRecords(const Network& net, const std::string& blantOut,
             std::vector<int>& nv = nbrs[item];
             std::sort(nv.begin(), nv.end());
             nv.erase(std::unique(nv.begin(), nv.end()), nv.end());
+            char head[128];
             double w = sqrNorm ? kc[item] * kc[item] / total : kc[item];
-            std::string rec = awkNumber(w) + " " + net.names[(size_t)cur] + " " +
-                              std::to_string(item);
-            for (int v : nv) rec += " " + net.names[(size_t)v];
+            std::snprintf(head, sizeof head, "%.17g %d %d", w, cur, item);
+            std::string rec = head;
+            for (int v : nv) rec += " " + std::to_string(v);
             emit(rec);
             ++records;
         }

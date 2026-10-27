@@ -23,14 +23,12 @@ Clusterer::Clusterer(const Network& n, const WeightIndex& w, const Options& o, i
 void Clusterer::addRecord(const std::string& record, long recordIndex) {
     std::istringstream is(record);
     double w;
-    std::string name;
-    int item;
-    if (!(is >> w >> name >> item))
+    int u, item;
+    if (!(is >> w >> u >> item))
         throw std::runtime_error("malformed stage-1 record '" + record + "'");
-    const int u = net.idOf(name);
-    if (u < 0)
-        throw std::runtime_error("stage-1 record names node '" + name +
-                                 "' which is not in the network");
+    if (u < 0 || u >= net.n)
+        throw std::runtime_error("stage-1 record names node " + std::to_string(u) +
+                                 " outside a network of " + std::to_string(net.n));
     count[(size_t)u] += w;
     hasCount[(size_t)u] = 1;
     lineOf[(size_t)u] = recordIndex;
@@ -39,9 +37,8 @@ void Clusterer::addRecord(const std::string& record, long recordIndex) {
     recordCount = recordIndex;
 
     const double thresh = opt.minEdgeMean / 2;
-    for (std::string vn; is >> vn; ) {
-        const int v = net.idOf(vn);
-        if (v < 0) continue;
+    for (int v; is >> v; ) {
+        if (v < 0 || v >= net.n) continue;
         auto it = wgt[(size_t)u].find(v);
         const bool linked = it != wgt[(size_t)u].end() && it->second > thresh;
         if (linked) {
@@ -91,12 +88,7 @@ void Clusterer::appendNeighbors(int u, int origin) {
     const long originLine = lineOf[(size_t)origin];
     for (int v : nbrs) {
         if (visitedQ[(size_t)v]) continue;
-        if (lineOf[(size_t)v] < 0) continue;
-        // The script calls AppendNeighbors(u, orign) for every u after the
-        // origin; orign is unset, line[""] is 0, so only the origin's own
-        // neighbours must come later in the sorted records. Kept as is because
-        // it finds more clusters at the same density than the strict rule.
-        if (u == origin && lineOf[(size_t)v] <= originLine) continue;
+        if (lineOf[(size_t)v] < 0 || lineOf[(size_t)v] <= originLine) continue;
         if (!highRelClusCount(u, v)) continue;
         visitedQ[(size_t)v] = 1;
         queue.push_back(v);
@@ -207,15 +199,13 @@ std::vector<Cluster> Clusterer::run() {
             }
         }
 
-        // Peel until the density target is met, in the order of ONE in-degree
-        // snapshot: gawk iterates a fixed list even though the script refills
-        // degreeInS inside the loop.
-        inDegrees(deg);
-        sortPeelOrder(deg, net);
-        for (auto& p : deg) {
-            if (Slist.size() < 2) break;
-            if ((double)edgeCount / choose2((long)Slist.size()) >= edgeDensity) break;
-            const int worst = p.first;
+        while (Slist.size() >= 2 &&
+               (double)edgeCount / choose2((long)Slist.size()) < edgeDensity) {
+            inDegrees(deg);
+            int worst = -1, worstDeg = 0;
+            for (auto& p : deg)
+                if (worst < 0 || p.second < worstDeg) { worst = p.first; worstDeg = p.second; }
+            if (worst < 0) break;
             inS[(size_t)worst] = 0;
             edgeCount -= edgesIntoS(worst);
             wgtEdgeCount -= wgtEdgesIntoS(worst);
@@ -239,14 +229,6 @@ std::vector<Cluster> Clusterer::run() {
         }
     }
     return accepted;
-}
-
-void sortPeelOrder(std::vector<std::pair<int, int>>& deg, const Network& net) {
-    std::sort(deg.begin(), deg.end(),
-              [&](const std::pair<int, int>& a, const std::pair<int, int>& b) {
-                  if (a.second != b.second) return a.second < b.second;
-                  return net.names[(size_t)a.first] < net.names[(size_t)b.first];
-              });
 }
 
 namespace {

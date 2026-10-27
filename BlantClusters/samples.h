@@ -18,9 +18,7 @@ struct CanonMaps {
 int minEdgesFor(double edgeDensity, int k);
 
 // Streams `blantOut` and hands one record per (node, item) to `emit`, as
-// "<weight> <nodeName> <item> <neighbourName>...", the script's stage-1 line,
-// so the sort breaks ties the same way. The weight is printed the way awk
-// prints a number. BLANT writes nodes in ascending
+// "<weight> <nodeId> <item> <neighbour>...". BLANT writes nodes in ascending
 // order with the canons for a node contiguous, so this is a one-node-at-a-time
 // accumulator. Throws std::runtime_error if the node ids are not ascending or
 // a printed node is not in the network.

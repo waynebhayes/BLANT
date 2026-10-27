@@ -148,15 +148,6 @@ static void testExternalSort() {
     }
     CHECK(ordered);
     CHECK_EQ(count, 5000L);
-
-    // equal weights come back in descending record order, like sort -gr,
-    // across run boundaries too
-    { ExternalSorter t("/tmp/extsort-tie", 64);
-      for (const char* r : {"5 b 1", "5 a 1", "7 x", "5 c 1", "5 b 2"}) t.add(r);
-      t.finish();
-      std::vector<std::string> out; std::string r;
-      while (t.next(r)) out.push_back(r);
-      CHECK(out == std::vector<std::string>({"7 x", "5 c 1", "5 b 2", "5 b 1", "5 a 1"})); }
     CHECK_EQ(leadingNumber("0.500000 3 2 1 4"), 0.5);
     CHECK_EQ(leadingNumber("-1 2"), -1.0);
 }
@@ -212,7 +203,7 @@ static void testEmitRecords() {
                          false, false, [&](const std::string& r){ got.push_back(r); });
     CHECK_EQ(n, 8L);
     CHECK_EQ(got.size(), size_t(8));
-    CHECK_EQ(got[0], std::string("100 a 4 b c d"));
+    CHECK_EQ(got[0], std::string("100 0 4 1 2 3"));
 
     // orbit mode keeps every orbit of a passing canon; -h collapses to the best
     std::vector<std::string> orbits, best;
@@ -228,7 +219,7 @@ static void testEmitRecords() {
     long nw = emitRecords(net, "test/fixture/blant5.weighted.out", m, 'g', 0.5, 5,
                           false, false, [&](const std::string& r){ wrec.push_back(r); });
     CHECK_EQ(nw, 8L);
-    CHECK_EQ(wrec[0], std::string("100.5 a 4 b c d"));
+    CHECK_EQ(wrec[0], std::string("100.5 0 4 1 2 3"));
     std::vector<std::string> sci;
     long ns = emitRecords(net, "test/fixture/blant5.sci.out", m, 'g', 0.5, 5,
                           false, false, [&](const std::string& r){ sci.push_back(r); });
@@ -240,7 +231,7 @@ static void testEmitRecords() {
     emitRecords(net, "test/fixture/blant5.dupnbr.out", m, 'g', 0.5, 5,
                 false, false, [&](const std::string& r){ dn.push_back(r); });
     CHECK_EQ(dn.size(), size_t(1));
-    if (!dn.empty()) CHECK_EQ(dn[0], std::string("100 a 4 b c d"));
+    if (!dn.empty()) CHECK_EQ(dn[0], std::string("100 0 4 1 2 3"));
 
     // non-ascending node ids are a corrupt file, not a silent reordering
     bool threw = false;
@@ -251,11 +242,10 @@ static void testEmitRecords() {
     CHECK(threw);
 }
 
-// Builds a record line "weight node item nbr nbr ..." from node ids
-static std::string rec(const Network& net, double w, int node, int item,
-                       std::vector<int> nbrs) {
-    std::ostringstream os; os << w << ' ' << net.names[node] << ' ' << item;
-    for (int v : nbrs) os << ' ' << net.names[v];
+// Builds a record line "weight node item nbr nbr ..."
+static std::string rec(double w, int node, int item, std::vector<int> nbrs) {
+    std::ostringstream os; os << w << ' ' << node << ' ' << item;
+    for (int v : nbrs) os << ' ' << v;
     return os.str();
 }
 
@@ -272,7 +262,7 @@ static void testClusterer() {
         {5,6,7},{4,6,7},{4,5,7},{4,5,6}};
     long idx = 0;
     for (int u = 0; u < 8; ++u)
-        c.addRecord(rec(net, w[u], u, 3, nb[u]), ++idx);
+        c.addRecord(rec(w[u], u, 3, nb[u]), ++idx);
     std::vector<Cluster> got = c.run();
     CHECK(!got.empty());
     const Cluster& best = got[0];
@@ -293,7 +283,7 @@ static void testClusterer() {
     Options small = opt; small.minClusArg = 5;
     Clusterer c2(net, wi, small, 5, 1.0);
     idx = 0;
-    for (int u = 0; u < 8; ++u) c2.addRecord(rec(net, w[u], u, 3, nb[u]), ++idx);
+    for (int u = 0; u < 8; ++u) c2.addRecord(rec(w[u], u, 3, nb[u]), ++idx);
     for (const Cluster& cl : c2.run()) CHECK(cl.nodes.size() >= 5);
 
     // ED = 1 keeps no density leeway during the BFS, like the script. K6 on
@@ -307,36 +297,10 @@ static void testClusterer() {
           {1,2,3,4,5},{0,2,3,4,5,6},{0,1,3,4,5,6},{0,1,2,4,5,6},
           {0,1,2,3,5,6},{0,1,2,3,4,6},{1,2,3,4,5}};
       long i6 = 0;
-      for (int u = 0; u < 7; ++u) c3.addRecord(rec(k6, 100 - u, u, 3, nb6[u]), ++i6);
+      for (int u = 0; u < 7; ++u) c3.addRecord(rec(100 - u, u, 3, nb6[u]), ++i6);
       std::vector<Cluster> g6 = c3.run();
       CHECK(!g6.empty());
       if (!g6.empty()) CHECK(g6[0].nodes == std::vector<int>({0,1,2,3,4,5})); }
-
-    // The script's line restriction binds only the origin's own neighbours.
-    // K4 on a..d plus z linked to b,c,d. z sorts first (line 1) but its own
-    // BFS admits nothing (its count dwarfs everyone's). From origin a (line 2),
-    // b may still pull in z although z's line is earlier: {a,b,c,d,z}, 9/10.
-    { Network zn = loadNetwork("test/fixture/zplus.el", false);
-      const WeightIndex wiz = buildWeightIndex(zn);
-      Clusterer cz(zn, wiz, opt, 5, 0.9);
-      const int z = zn.idOf("z");
-      cz.addRecord(rec(zn, 1000, z, 3, {1,2,3}), 1);
-      cz.addRecord(rec(zn, 10, 0, 3, {1,2,3}), 2);
-      cz.addRecord(rec(zn, 9.9, 1, 3, {0,2,3,z}), 3);
-      cz.addRecord(rec(zn, 9.8, 2, 3, {0,1,3,z}), 4);
-      cz.addRecord(rec(zn, 9.7, 3, 3, {0,1,2,z}), 5);
-      std::vector<Cluster> gz = cz.run();
-      CHECK(!gz.empty());
-      if (!gz.empty()) CHECK(gz[0].nodes == std::vector<int>({0,1,2,3,z})); }
-
-    // peel order: in-degree ascending, ties by name as a string ("10" < "9")
-    { Network num = loadNetwork("test/fixture/numeric.el", false);   // 10, 9, 8
-      std::vector<std::pair<int, int>> deg = {{num.idOf("8"), 2}, {num.idOf("9"), 1},
-                                              {num.idOf("10"), 1}};
-      sortPeelOrder(deg, num);
-      CHECK_EQ(num.names[deg[0].first], std::string("10"));
-      CHECK_EQ(num.names[deg[1].first], std::string("9"));
-      CHECK_EQ(num.names[deg[2].first], std::string("8")); }
 }
 
 static Cluster mk(std::vector<int> nodes, int k) {
