@@ -4,6 +4,7 @@
 #include "options.h"
 #include "samples.h"
 
+#include <algorithm>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>

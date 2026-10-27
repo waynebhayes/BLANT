@@ -4,9 +4,11 @@
 //
 // usage: check <network.el> <clusters.txt> <edgeDensity> <minEdgeMean> <overlap>
 #include "../network.h"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <set>
 #include <string>
 #include <unordered_set>

@@ -304,8 +304,10 @@ $(LIBWAYNE_HOME)/Makefile:
 
 libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a
 
-libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
+libwayne/libwayne.a:
 	(cd libwayne && make all)
+
+libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a: libwayne/libwayne.a
 
 
 ### Generated File Recipes
