@@ -107,7 +107,7 @@ while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     -m) minClusArg="$2"; shift 2;;
     -M) maxClus="$2"; shift 2;;
     -m[0-9]*) minClusArg="`echo $1|sed 's/^-m//'`"; shift 1;;
-    -M[0-9]*) maxClus="`echo $1|sed 's/^-m//'`"; shift 1;;
+    -M[0-9]*) maxClus="`echo $1|sed 's/^-M//'`"; shift 1;;
     -o) OVERLAP="$2"; shift 2;;
     -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
     -P[0-9]*) EDGE_PREDICT="`echo $1|sed 's/^-P//'`"; shift 1;;
@@ -345,7 +345,7 @@ for edgeDensity in "${EDs[@]}"; do
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else {
 				misses=0;
-				AppendNeighbors(u, orign);
+				AppendNeighbors(u, origin);
 			    }
 			}
 		    }
