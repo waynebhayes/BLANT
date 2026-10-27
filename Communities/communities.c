@@ -21,7 +21,11 @@
 
 #define VERBOSE 0 // 0 = no noisy outpt, 3 = lots, 1..2 is intermediate
 #define DEBUG 0
-#define MOVE_ONLY 1 // Limit perturb to only move 
+// Which perturbations PerturbPartition uses (merge and split are planned to be removed):
+#define PERTURB_ALL       0 // move, merge and split (the old MOVE_ONLY 0)
+#define PERTURB_MOVE_ONLY 1 // only move (the old MOVE_ONLY 1)
+#define PERTURB_MOVE_SWAP 2 // move or swap, 50/50
+#define PERTURB_MODE PERTURB_MOVE_ONLY
 #define PRINT_ALL_COMMUNITIES 1 // Prints out all the community info at the end of the program execution
 #define PRINT_ITERS 1 // Prints out iters per second on terminal (Note: Is quite expensive)
 #define PRINT_ALL_SCORES 0 // Prints out the scores of the partition based on all the functions I've implemented 
@@ -340,6 +344,11 @@ void PartitionFree(PARTITION *P) {
 // oldComIn, oldComOut, newComIn, newComOut are the respective values before a move is considered
 // oldScore and newScore serve the same purpose
 // oldDiff and newDiff record the change in scores of the communities if the hypothetical move is done
+// For a swap, oldCom is the community of the first node picked and newCom is the community of the second;
+// each node goes to the other's community, so neither community changes size (and none is ever deleted)
+// _moveOption is 0 = move, 1 = merge, 2 = split, MOVE_OPTION_SWAP = swap (PerturbPartition's "choice" uses the same numbers)
+#define MOVE_OPTION_SWAP 3
+#define MAX_SWAP_TRIES 1000 // attempts at finding two nodes in different communities before giving up on a swap
 int _moveOption = -1, _oldCom = -1, _newCom = -1, _moveDel = 0, _oldComN, _newComN, _oldComIn, _oldComOut, _newComIn, _newComOut;
 double _oldScore, _newScore, _oldDiff = 0, _newDiff = 0;
 
@@ -388,6 +397,71 @@ static void MoveRandomNode(PARTITION *P){
     printf("o %d, n %d, P->n %d\n", _oldCom, _newCom, P->n);
 #endif
     assert(P->numMoved == 1);
+}
+
+// Swap counterpart of MoveOneNode: update edgesIn/edgesOut of u's community A and v's community B
+// as if u and v traded places (u goes to B, v goes to A). Like MoveOneNode, this only touches the
+// edge counts; nodeSet/whichCommunity/whichMember are only changed in MaybeAcceptPerturb on accept.
+// MoveOneNode can't just be called twice: the check at its top compares the stored counts with counts
+// recomputed from nodeSet, and the first call has already changed the stored ones. Its "marked"
+// shortcut also assumes all marked nodes go to the same community, but u and v go opposite ways.
+//
+// Let a_x and b_x be the number of neighbors x has in A and in B, not counting u, v or self loops. Then
+//   edgesIn:  A += a_v - a_u,  B += b_u - b_v
+// and since edgesOut = (sum of degrees) - 2*edgesIn, with degrees not counting self loops,
+//   edgesOut: A += deg(v) - deg(u) + 2*(a_u - a_v),  B += deg(u) - deg(v) + 2*(b_v - b_u)
+// An edge between u and v crosses between A and B both before and after, so it changes nothing.
+static void SwapTwoNodes(PARTITION *P, int u, int v){
+    GRAPH *G = P->G;
+    COMMUNITY *A = P->C[P->whichCommunity[u]], *B = P->C[P->whichCommunity[v]];
+    int a_u = 0, b_u = 0, a_v = 0, b_v = 0, degU = 0, degV = 0;
+    for(int i = 0; i < G->degree[u]; ++i){
+	int w = G->neighbor[u][i];
+	if(w == u) continue; // self loop
+	++degU;
+	if(w == v) continue; // the u--v edge, see above
+	if(P->whichCommunity[w] == A->id) ++a_u;
+	else if(P->whichCommunity[w] == B->id) ++b_u;
+    }
+    for(int i = 0; i < G->degree[v]; ++i){
+	int w = G->neighbor[v][i];
+	if(w == v) continue; // self loop
+	++degV;
+	if(w == u) continue; // the u--v edge, see above
+	if(P->whichCommunity[w] == A->id) ++a_v;
+	else if(P->whichCommunity[w] == B->id) ++b_v;
+    }
+    A->edgesIn += a_v - a_u;
+    B->edgesIn += b_u - b_v;
+    A->edgesOut += degV - degU + 2*(a_u - a_v);
+    B->edgesOut += degU - degV + 2*(b_v - b_u);
+}
+
+// Choose two random nodes that are in different communities and swap their communities
+// Returns 0, having changed nothing, if it can't find such a pair, so the caller can do something else
+// Note: Like MoveRandomNode, this assumes there is more than 1 community
+static int SwapRandomNodes(PARTITION *P){
+    int u, v, tries = 0;
+    do{
+	if(tries++ >= MAX_SWAP_TRIES)
+	    return 0;
+	u = P->G->n * drand48();
+	v = P->G->n * drand48();
+    }
+    while(P->whichCommunity[u] == P->whichCommunity[v]);
+    COMMUNITY * oc = P->C[P->whichCommunity[u]];
+    COMMUNITY * nc = P->C[P->whichCommunity[v]];
+    _oldCom = oc->id;
+    _newCom = nc->id;
+    P->toMove[P->numMoved++] = u;
+    P->toMove[P->numMoved++] = v;
+    SaveCommunityInfo(oc, nc);
+    SwapTwoNodes(P, u, v);
+#if VERBOSE > 1
+    printf("Sw(%d,%d: %d<->%d) ", u, v, _oldCom, _newCom);
+#endif
+    assert(P->numMoved == 2);
+    return 1;
 }
 
 // Merges C1 and C2 into just C1
@@ -472,6 +546,8 @@ double ScorePartition(Boolean global, foint f){
 #endif
 	}
 	else{
+	    // A swap sends one node each way, so neither community changes size
+	    int sizeChange = (_moveOption == MOVE_OPTION_SWAP) ? 0 : P->numMoved;
 	    // In case of a split/merge reject P->C[n] will no longer exist
 	    if(_newCom == P->n){
 		int swap = _newCom;
@@ -483,7 +559,7 @@ double ScorePartition(Boolean global, foint f){
 		// If it doesn't exist, the only changes of the score will be reflected in newCom
 		COMMUNITY * old = P->C[_oldCom];
 		double oldBefore = old->score;
-		int testN = _oldComN - P->numMoved;
+		int testN = _oldComN - sizeChange;
 		double oldScore = pCommunityScore(P, old, testN);
 		_oldDiff = oldScore - oldBefore;
 		P->total += _oldDiff;
@@ -494,7 +570,7 @@ double ScorePartition(Boolean global, foint f){
 	    }
 	    COMMUNITY * new = P->C[_newCom];
 	    double newBefore = new->score;
-	    int testN = _newComN + P->numMoved; 
+	    int testN = _newComN + sizeChange;
 	    double newScore = pCommunityScore(P, new, testN);
 	    _newDiff = newScore - newBefore;
 	    P->total += _newDiff;
@@ -564,8 +640,10 @@ double PerturbPartition(foint f) {
     assert(comNums);
 #endif
 
-    #if MOVE_ONLY
+    #if PERTURB_MODE == PERTURB_MOVE_ONLY
 	int choice = 0;
+    #elif PERTURB_MODE == PERTURB_MOVE_SWAP
+	int choice = (drand48() < 0.5) ? 0 : MOVE_OPTION_SWAP; // move or swap, 50/50
     #else
 	int choice = drand48() * 3;
     #endif
@@ -589,6 +667,16 @@ double PerturbPartition(foint f) {
 	else
 	    MergeCommunities(P, c2, c1);
 	_moveOption = 1;
+    }
+    else if(choice == MOVE_OPTION_SWAP && P->n > 1){
+	// Swap two nodes that are in different communities
+	if(SwapRandomNodes(P))
+	    _moveOption = MOVE_OPTION_SWAP;
+	else{
+	    // Couldn't find two such nodes, just move
+	    MoveRandomNode(P);
+	    _moveOption = 0;
+	}
     }
     else{ 
 	// Split a community into 2
@@ -663,9 +751,22 @@ Boolean MaybeAcceptPerturb(Boolean accept, foint f) {
     	oldCom->score += _oldDiff;
 	newCom->score += _newDiff;
 		
-	for(int i = 0; i < P->numMoved; ++i){
-	    CommunityDelNode(oldCom, P, P->toMove[i]);
-	    CommunityAddNode(newCom, P, P->toMove[i]);
+	if(_moveOption == MOVE_OPTION_SWAP){
+	    // Neither community changes size, so just exchange the two nodes' places
+	    int u = P->toMove[0], v = P->toMove[1];
+	    int iu = P->whichMember[u], iv = P->whichMember[v];
+	    oldCom->nodeSet[iu] = v;
+	    newCom->nodeSet[iv] = u;
+	    P->whichMember[u] = iv;
+	    P->whichMember[v] = iu;
+	    P->whichCommunity[u] = newCom->id;
+	    P->whichCommunity[v] = oldCom->id;
+	}
+	else{
+	    for(int i = 0; i < P->numMoved; ++i){
+		CommunityDelNode(oldCom, P, P->toMove[i]);
+		CommunityAddNode(newCom, P, P->toMove[i]);
+	    }
 	}
 
 	// If we merged or moved from a community of size 1, delete it
