@@ -1,0 +1,6 @@
+#!/bin/bash
+# Stands in for ./blant in test/e2e.sh: the network must arrive as one argument
+# naming a real file; then it prints the canned k=5 output.
+net="${@: -1}"
+[ -f "$net" ] || { echo "fake-blant: no network '$net'" >&2; exit 4; }
+cat "$(dirname "$0")/blant5.out"

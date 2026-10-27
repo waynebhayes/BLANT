@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stands in for a BLANT run that fails, for test/e2e.sh.
+exit 3

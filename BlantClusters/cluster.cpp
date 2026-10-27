@@ -6,14 +6,19 @@
 #include <sstream>
 #include <stdexcept>
 
-Clusterer::Clusterer(const Network& n, const Options& o, int kk, double ed)
-    : net(n), opt(o), k(kk), edgeDensity(ed),
+WeightIndex buildWeightIndex(const Network& net) {
+    WeightIndex wgt((size_t)net.n);
+    for (int u = 0; u < net.n; ++u)
+        for (auto& e : net.adj[(size_t)u]) wgt[(size_t)u][e.first] = e.second;
+    return wgt;
+}
+
+Clusterer::Clusterer(const Network& n, const WeightIndex& w, const Options& o, int kk,
+                     double ed)
+    : net(n), wgt(w), opt(o), k(kk), edgeDensity(ed),
       count((size_t)n.n, 0.0), hasCount((size_t)n.n, 0), lineOf((size_t)n.n, -1),
       gnbr((size_t)n.n), inS((size_t)n.n, 0), visitedQ((size_t)n.n, 0),
-      wgt((size_t)n.n), rng(o.seed ? (unsigned)o.seed : std::random_device{}()) {
-    for (int u = 0; u < n.n; ++u)
-        for (auto& e : n.adj[(size_t)u]) wgt[(size_t)u][e.first] = e.second;
-}
+      rng(o.seed ? (unsigned)o.seed : std::random_device{}()) {}
 
 void Clusterer::addRecord(const std::string& record, long recordIndex) {
     std::istringstream is(record);
@@ -113,6 +118,9 @@ std::vector<Cluster> Clusterer::run() {
     std::vector<char> started((size_t)net.n, 0);
     std::vector<std::pair<int, int>> deg;
     const long startCount = (long)((double)recordCount * edgeDensity);
+    // The script's DENSITY_LEEWAY lets a node in below the target while the BFS
+    // runs, except at ED = 1, where only clique members are kept.
+    const double leeway = edgeDensity == 1.0 ? 1.0 : 0.95;
 
     for (long start = 1; start <= startCount; ++start) {
         if ((size_t)start >= nodeAt.size()) break;
@@ -147,7 +155,7 @@ std::vector<Cluster> Clusterer::run() {
 
             if (Slen == 1) {
                 appendNeighbors(u, origin);
-            } else if ((double)edgeCount / choose2(Slen) < edgeDensity * 0.95) {
+            } else if ((double)edgeCount / choose2(Slen) < edgeDensity * leeway) {
                 inS[(size_t)u] = 0;              // u drops the density too low
                 Slist.pop_back();
                 Sorder.pop_back();
@@ -294,8 +302,18 @@ std::string formatCluster(const Cluster& c, const Options& opt, const Network& n
         out += buf;
     }
     if (opt.printMembers) {
+        // The script prints with gawk's @ind_num_asc: by numeric value, ties
+        // (including every non-numeric name, which counts as 0) by string.
+        std::vector<std::pair<double, const std::string*>> byName;
+        for (int u : c.nodes) {
+            const std::string& s = net.names[(size_t)u];
+            byName.emplace_back(std::strtod(s.c_str(), nullptr), &s);
+        }
+        std::sort(byName.begin(), byName.end(), [](const auto& a, const auto& b) {
+            return a.first != b.first ? a.first < b.first : *a.second < *b.second;
+        });
         out += ", nodeSet {";
-        for (int u : c.nodes) out += " " + net.names[(size_t)u];
+        for (auto& p : byName) out += " " + *p.second;
         out += " }";
     }
     return out;

@@ -126,14 +126,14 @@ static void testNetwork() {
 
     // n < 2 is a clear error, not a divide by zero
     { bool threw = false;
-      try { checkpointNetworkStats(1, 0); }
+      try { checkpointNetworkStats(1); }
       catch (const std::runtime_error& e) {
           threw = std::strstr(e.what(), "at least 2 nodes") != nullptr; }
       CHECK(threw); }
 }
 
 static void testExternalSort() {
-    const size_t kBuf = 256;             // forces many runs
+    const size_t kBuf = 1024;            // forces ~200 runs, under any fd limit
     ExternalSorter s("/tmp/extsort-test", kBuf);
     // 5000 records, shuffled, weight descending should come back ordered.
     for (int i = 0; i < 5000; ++i)
@@ -179,18 +179,20 @@ static void testBlantCommand() {
     Options o;
     o.blantCmd = "./blant"; o.blantExe = "./blant";
     CHECK_EQ(blantCommand(o, 5, "net.el"),
-             std::string("./blant -p0.9L -q -k5 -sEBE -mcg net.el"));
+             std::string("./blant -p0.9L -q -k5 -sEBE -mcg 'net.el'"));
     Options w; w.blantCmd = "./blant"; w.blantExe = "./blant";
     w.weighted = true; w.seedArg = "-r 42";
     CHECK_EQ(blantCommand(w, 4, "net.elw"),
-             std::string("./blant -p0.9L -q -w -r 42 -k4 -sEBE -mcg net.elw"));
+             std::string("./blant -p0.9L -q -w -r 42 -k4 -sEBE -mcg 'net.elw'"));
     Options v; v.blantCmd = "./blant"; v.blantExe = "./blant";
     v.verbose = true; v.quiet = false; v.complement = true; v.turan = true;
     v.seedArg = "-r 7";
     CHECK_EQ(blantCommand(v, 6, "c.el", "12"),
-             std::string("./blant -p0.9L -A 12 -C -r 7 -k6 -sEBE -mcg c.el"));
+             std::string("./blant -p0.9L -A 12 -C -r 7 -k6 -sEBE -mcg 'c.el'"));
     CHECK_EQ(blantCommand(v, 6, "c.el", ""),
-             std::string("./blant -p0.9L -C -r 7 -k6 -sEBE -mcg c.el"));
+             std::string("./blant -p0.9L -C -r 7 -k6 -sEBE -mcg 'c.el'"));
+    // a path with a space, a quote and a ';' stays one word
+    CHECK_EQ(shellQuote("My Data/it's;x.el"), std::string("'My Data/it'\\''s;x.el'"));
 }
 
 static void testEmitRecords() {
@@ -224,6 +226,13 @@ static void testEmitRecords() {
     CHECK_EQ(ns, 1L);
     CHECK_EQ(leadingNumber(sci[0]), 1000000.0);
 
+    // two lines for the same (node, item) merge, and each neighbour is kept once
+    std::vector<std::string> dn;
+    emitRecords(net, "test/fixture/blant5.dupnbr.out", m, 'g', 0.5, 5,
+                false, false, [&](const std::string& r){ dn.push_back(r); });
+    CHECK_EQ(dn.size(), size_t(1));
+    if (!dn.empty()) CHECK_EQ(dn[0], std::string("100 0 4 1 2 3"));
+
     // non-ascending node ids are a corrupt file, not a silent reordering
     bool threw = false;
     try { emitRecords(net, "test/fixture/blant5.bad.out", m, 'g', 0.5, 5, false, false,
@@ -242,9 +251,10 @@ static std::string rec(double w, int node, int item, std::vector<int> nbrs) {
 
 static void testClusterer() {
     Network net = loadNetwork("test/fixture/fixture.el", false);
+    const WeightIndex wi = buildWeightIndex(net);
     Options opt; opt.overlap = 0.5; opt.minClusArg = 3; opt.maxClus = 1000;
     opt.seed = 1;
-    Clusterer c(net, opt, 5, 1.0);
+    Clusterer c(net, wi, opt, 5, 1.0);
     // Clique {a,b,c,d} = ids 0..3 gets high counts, {e,f,g,h} = 4..7 lower.
     double w[8] = {100, 98, 96, 94, 50, 48, 46, 44};
     std::vector<std::vector<int>> nb = {
@@ -271,10 +281,26 @@ static void testClusterer() {
 
     // minClus is enforced
     Options small = opt; small.minClusArg = 5;
-    Clusterer c2(net, small, 5, 1.0);
+    Clusterer c2(net, wi, small, 5, 1.0);
     idx = 0;
     for (int u = 0; u < 8; ++u) c2.addRecord(rec(w[u], u, 3, nb[u]), ++idx);
     for (const Cluster& cl : c2.run()) CHECK(cl.nodes.size() >= 5);
+
+    // ED = 1 keeps no density leeway during the BFS, like the script. K6 on
+    // a..f plus g adjacent to b..f: with the 0.95 leeway g joins (20/21 edges)
+    // and the peel then drops a (first of the tied in-degree-5 nodes), giving
+    // {b..g}; with no leeway g is refused and the result is {a..f}.
+    { Network k6 = loadNetwork("test/fixture/k6plus.el", false);
+      const WeightIndex wi6 = buildWeightIndex(k6);
+      Clusterer c3(k6, wi6, opt, 5, 1.0);
+      std::vector<std::vector<int>> nb6 = {
+          {1,2,3,4,5},{0,2,3,4,5,6},{0,1,3,4,5,6},{0,1,2,4,5,6},
+          {0,1,2,3,5,6},{0,1,2,3,4,6},{1,2,3,4,5}};
+      long i6 = 0;
+      for (int u = 0; u < 7; ++u) c3.addRecord(rec(100 - u, u, 3, nb6[u]), ++i6);
+      std::vector<Cluster> g6 = c3.run();
+      CHECK(!g6.empty());
+      if (!g6.empty()) CHECK(g6[0].nodes == std::vector<int>({0,1,2,3,4,5})); }
 }
 
 static Cluster mk(std::vector<int> nodes, int k) {
@@ -336,6 +362,11 @@ static void testFormat() {
     opt.printMembers = false;
     CHECK_EQ(formatCluster(c, opt, net),
              std::string("4 nodes, 6/6 edges, 100% density from k5"));
+    // names print in numeric order, like the script, not network order
+    { Network num = loadNetwork("test/fixture/numeric.el", false);
+      Options o2; Cluster nc = mk({0,1}, 5);
+      CHECK_EQ(formatCluster(nc, o2, num),
+               std::string("2 nodes, 1/1 edges, 100% density from k5, nodeSet { 9 10 }")); }
     opt.printMembers = true; opt.verbose = true;
     CHECK_EQ(formatCluster(c, opt, net),
              std::string("4 nodes, 6/6 edges, 100% density from k5 from k 5, 1.5 clusterWeight, 6 edgeSum, 1 edgeMean, nodeSet { a b c d }"));

@@ -27,6 +27,9 @@ long emitRecords(const Network& net, const std::string& blantOut,
                  bool sqrNorm, bool bestItem,
                  const std::function<void(const std::string&)>& emit);
 
+// `s` as one single-quoted shell word, safe for spaces, quotes and ';'.
+std::string shellQuote(const std::string& s);
+
 // The BLANT command line, without the stdout redirection. `turanCount` is the
 // absolute clique count to pass with -A; ignored unless opt.turan is set.
 std::string blantCommand(const Options& opt, int k, const std::string& netForBlant,

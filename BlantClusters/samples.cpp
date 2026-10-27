@@ -23,6 +23,12 @@ std::string join(const std::vector<std::string>& v) {
 }
 }  // namespace
 
+std::string shellQuote(const std::string& s) {
+    std::string out = "'";
+    for (char c : s) out += c == '\'' ? std::string("'\\''") : std::string(1, c);
+    return out + "'";
+}
+
 bool CanonMaps::load(int k, const std::string& dir) {
     canonEdges.clear();
     orbit2canon.clear();
@@ -91,11 +97,15 @@ long emitRecords(const Network& net, const std::string& blantOut,
             for (auto& kv : kc) items.push_back(kv.first);
         }
         for (int item : items) {
+            // The script kept neighbours in an awk map, so each appears once.
+            std::vector<int>& nv = nbrs[item];
+            std::sort(nv.begin(), nv.end());
+            nv.erase(std::unique(nv.begin(), nv.end()), nv.end());
             char head[128];
             double w = sqrNorm ? kc[item] * kc[item] / total : kc[item];
             std::snprintf(head, sizeof head, "%.17g %d %d", w, cur, item);
             std::string rec = head;
-            for (int v : nbrs[item]) rec += " " + std::to_string(v);
+            for (int v : nv) rec += " " + std::to_string(v);
             emit(rec);
             ++records;
         }
@@ -165,7 +175,7 @@ std::string blantCommand(const Options& opt, int k, const std::string& netForBla
     tok.push_back("-k" + std::to_string(k));
     tok.push_back(opt.sampleMethod);
     tok.push_back(std::string("-mc") + opt.communityMode);
-    tok.push_back(netForBlant);
+    tok.push_back(shellQuote(netForBlant));
     return join(tok);
 }
 
@@ -177,7 +187,7 @@ int runBlant(const Options& opt, int k, const std::string& outPath,
     std::string turanCount;
     if (opt.turan) {
         std::string probe = "./scripts/absolute-clique-count.sh " + std::to_string(k) +
-                            " '" + netForBlant + "' 2>/dev/null";
+                            " " + shellQuote(netForBlant) + " 2>/dev/null";
         FILE* pipe = popen(probe.c_str(), "r");
         if (!pipe)
             throw std::runtime_error("cannot run scripts/absolute-clique-count.sh for -A");
@@ -190,7 +200,7 @@ int runBlant(const Options& opt, int k, const std::string& outPath,
             throw std::runtime_error("-A needs ./scripts/absolute-clique-count.sh, which did not"
                                      " produce a count for k=" + std::to_string(k));
     }
-    std::string cmd = blantCommand(opt, k, netForBlant, turanCount) + " > '" + outPath + "'";
+    std::string cmd = blantCommand(opt, k, netForBlant, turanCount) + " > " + shellQuote(outPath);
     int rc = std::system(cmd.c_str());
     if (rc == -1) throw std::runtime_error("failed to run '" + cmd + "'");
     return WEXITSTATUS(rc);

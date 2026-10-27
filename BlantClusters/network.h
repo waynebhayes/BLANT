@@ -7,7 +7,7 @@
 double choose2(long n);
 
 // Throws std::runtime_error when the network cannot be clustered.
-void checkpointNetworkStats(long n, long m);
+void checkpointNetworkStats(long n);
 
 struct Network {
     std::vector<std::string> names;                        // id -> name
@@ -15,7 +15,6 @@ struct Network {
     bool weighted = false;
     long n = 0;
     long m = 0;
-    double meanED = 0;
     std::unordered_map<std::string, int> index;
 
     // -1 when the name is not in the network.

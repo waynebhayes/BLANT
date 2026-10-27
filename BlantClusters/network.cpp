@@ -6,8 +6,7 @@
 
 double choose2(long n) { return n * (n - 1) / 2.0; }
 
-void checkpointNetworkStats(long n, long m) {
-    (void)m;
+void checkpointNetworkStats(long n) {
     if (n < 2)
         throw std::runtime_error("network has " + std::to_string(n) +
                                  " node(s); need at least 2 nodes to cluster");
@@ -88,8 +87,7 @@ Network loadNetwork(const std::string& path, bool weighted) {
     }
 
     net.n = (long)net.names.size();
-    checkpointNetworkStats(net.n, net.m);
-    net.meanED = net.m / choose2(net.n);
+    checkpointNetworkStats(net.n);
     return net;
 }
 

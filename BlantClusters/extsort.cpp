@@ -12,8 +12,9 @@ double leadingNumber(const std::string& record) {
 }
 
 namespace {
-// Descending on the weight, then ascending on the whole record, so the sort is
-// deterministic where the script's `sort -gr` left ties to chance.
+// Descending on the weight, then ascending on the whole record. The script's
+// `sort -gr` breaks ties on the whole line descending, but its lines hold node
+// names where these hold ids, so tie order cannot match it either way.
 bool recordLess(const std::string& a, const std::string& b) {
     double wa = leadingNumber(a), wb = leadingNumber(b);
     if (wa != wb) return wa > wb;
@@ -70,13 +71,17 @@ ExternalSorter::~ExternalSorter() { discard(); }
 
 void ExternalSorter::add(std::string record) {
     ++p->total;
-    if (!p->buf.empty() && p->bufUsed + record.size() + 1 > p->bufBytes) p->spill();
-    p->bufUsed += record.size() + 1;
+    const size_t cost = sizeof(std::string) + record.size() + 1;
+    if (!p->buf.empty() && p->bufUsed + cost > p->bufBytes) p->spill();
+    p->bufUsed += cost;
     p->buf.push_back(std::move(record));
 }
 
 long ExternalSorter::size() const { return p->total; }
 
+// shortcut: all runs are opened at once, so -B must leave the run count
+// (total bytes / -B) under the open-file limit; add multi-pass merging if -B
+// ever needs to be tiny.
 void ExternalSorter::finish() {
     p->spill();
     p->files.clear();

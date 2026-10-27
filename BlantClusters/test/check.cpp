@@ -2,13 +2,14 @@
 // about how the clusters were found; it only re-derives the facts the output
 // claims, from the network.
 //
-// usage: check <network.el> <clusters.txt> <edgeDensity> <minEdgeMean> <overlap>
+// usage: check <network.el|.elw> <clusters.txt> <edgeDensity> <minEdgeMean> <overlap>
 #include "../network.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <set>
 #include <string>
 #include <unordered_set>
@@ -29,26 +30,31 @@ int main(int argc, char** argv) {
     const double wantEdgeMean = std::strtod(argv[4], nullptr);
     const double overlap = std::strtod(argv[5], nullptr);
 
-    Network net = loadNetwork(argv[1], false);
+    // weighted iff .elw, the same rule loadNetwork enforces
+    const std::string netPath = argv[1];
+    const bool weighted = netPath.size() > 4 &&
+                          netPath.compare(netPath.size() - 4, 4, ".elw") == 0;
+    Network net = loadNetwork(netPath, weighted);
     std::unordered_set<unsigned long long> edges;
     for (int u = 0; u < net.n; ++u)
         for (auto& e : net.adj[(size_t)u]) edges.insert(key(u, e.first));
 
-    FILE* in = std::fopen(argv[2], "r");
+    std::ifstream in(argv[2]);
     if (!in) { std::perror(argv[2]); return 2; }
 
     std::vector<std::vector<int>> clusters;
     std::vector<long> claimedEdges;
     int bad = 0, lineNo = 0;
-    char line[65536];
-    while (std::fgets(line, sizeof line, in)) {
+    std::string text;   // one cluster line; a 10k-node nodeSet is well over 64 KB
+    while (std::getline(in, text)) {
         ++lineNo;
+        const char* line = text.c_str();
         long nnodes = 0, ne = 0, maxE = 0;
         double dens = 0;
         int k = 0;
         if (std::sscanf(line, "%ld nodes, %ld/%ld edges, %lf%% density from k%d",
                         &nnodes, &ne, &maxE, &dens, &k) != 5) {
-            std::fprintf(stderr, "line %d: cannot parse: %s", lineNo, line);
+            std::fprintf(stderr, "line %d: cannot parse: %s\n", lineNo, line);
             ++bad;
             continue;
         }
@@ -117,7 +123,6 @@ int main(int argc, char** argv) {
         clusters.push_back(std::move(nodes));
         claimedEdges.push_back(ne);
     }
-    std::fclose(in);
 
     if (clusters.empty()) {
         std::fprintf(stderr, "no clusters on stdout\n");

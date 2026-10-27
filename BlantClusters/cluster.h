@@ -7,6 +7,12 @@
 #include <unordered_map>
 #include <vector>
 
+// Adjacency with weights, for O(1) "is there an edge" and weight lookups.
+// Depends only on the network, so it is built once and shared by every
+// Clusterer (one per k and ED).
+using WeightIndex = std::vector<std::unordered_map<int, double>>;
+WeightIndex buildWeightIndex(const Network& net);
+
 struct Cluster {
     std::vector<int> nodes;   // ascending ids
     long edges = 0;
@@ -19,7 +25,8 @@ struct Cluster {
 // prune, then a peel until the edge density reaches the target.
 class Clusterer {
 public:
-    Clusterer(const Network& net, const Options& opt, int k, double edgeDensity);
+    Clusterer(const Network& net, const WeightIndex& wgt, const Options& opt, int k,
+              double edgeDensity);
 
     // Stage-2 ingestion, called once per sorted record, in order.
     void addRecord(const std::string& record, long recordIndex);
@@ -36,6 +43,7 @@ private:
     void inDegrees(std::vector<std::pair<int, int>>& out) const;
 
     const Network& net;
+    const WeightIndex& wgt;
     const Options& opt;
     int k;
     double edgeDensity;
@@ -51,8 +59,6 @@ private:
     std::vector<int> Sorder;   // the order nodes entered S
     std::vector<int> Slist;    // same members as S, in entry order
     std::deque<int> queue;
-    // adjacency with weights, for O(1) "is there an edge" and weight lookups
-    std::vector<std::unordered_map<int, double>> wgt;
     std::mt19937 rng;
 };
 
