@@ -12,13 +12,13 @@ double leadingNumber(const std::string& record) {
 }
 
 namespace {
-// Descending on the weight, then ascending on the whole record. The script's
-// `sort -gr` breaks ties on the whole line descending, but its lines hold node
-// names where these hold ids, so tie order cannot match it either way.
+// Descending on the weight, then descending on the whole record, like the
+// script's `sort -gr`. Tie order decides line numbers, and so which nodes start
+// a BFS and which neighbours it may take, so it has to match.
 bool recordLess(const std::string& a, const std::string& b) {
     double wa = leadingNumber(a), wb = leadingNumber(b);
     if (wa != wb) return wa > wb;
-    return a < b;
+    return a > b;
 }
 }  // namespace
 
@@ -36,7 +36,7 @@ struct ExternalSorter::Impl {
         size_t run;
         bool operator<(const Item& o) const {
             if (weight != o.weight) return weight < o.weight;  // max-heap
-            return record > o.record;                          // ties: smaller first
+            return record < o.record;                          // ties: larger first
         }
     };
     std::vector<std::unique_ptr<std::ifstream>> files;

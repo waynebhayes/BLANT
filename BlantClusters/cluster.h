@@ -62,6 +62,10 @@ private:
     std::mt19937 rng;
 };
 
+// The script's peel order: one in-degree snapshot, smallest first, ties by node
+// name (gawk @val_num_asc breaks ties on the index string). Sorts `deg` in place.
+void sortPeelOrder(std::vector<std::pair<int, int>>& deg, const Network& net);
+
 // In-memory order used before dedupExact: size desc, edges desc, edgeSum desc,
 // then ascending node ids.
 void sortSubfinal(std::vector<Cluster>& clusters);
