@@ -1,8 +1,10 @@
 # blant-clusters (C++)
 
-A C++17 port of `scripts/blant-clusters.sh`: same command line, same stdout
-format. It still runs `./blant` for the graphlet sampling; only the awk/sort
-pipeline around it is reimplemented.
+A C++17 port of `scripts/blant-clusters.sh`. It is an interface-compatible
+replacement: same command line and output format. Results differ from the
+script because of three intentional bug fixes and a different RNG (see below).
+It still runs `./blant` for the graphlet sampling; only the awk/sort pipeline
+around it is reimplemented.
 
 **Status:** `scripts/blant-clusters.sh` stays the authoritative version, and
 `scripts/do-blant-runs.sh`, `make-clusters.sh` and `blant-clusters-predict.sh`
