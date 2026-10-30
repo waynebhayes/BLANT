@@ -30,7 +30,37 @@
 #define PERTURB_MODE MOVE_SWAP
 #define PRINT_ALL_COMMUNITIES 0 // Prints out all the community info at the end of the program execution
 #define PRINT_ITERS 1 // Prints out iters per second on terminal (Note: Is quite expensive)
-#define PRINT_ALL_SCORES 1 // Prints out the scores of the partition based on all the functions I've implemented 
+#define PRINT_ALL_SCORES 1 // Prints out the scores of the partition based on all the functions I've implemented
+#define FAST_RAND48 1 // Use the inlined drand48 below instead of libc's (same numbers either way)
+
+#if FAST_RAND48
+// Exact replacements for libc's drand48/lrand48/mrand48/srand48/seed48: the same 48-bit LCG, giving the same numbers
+// bit for bit, so a given seed still gives the same run. Because they're defined here, they replace libc's for the
+// whole program, libwayne's annealer included, so everything still draws from one stream; but calls from this file
+// are inlined (via the #define below) instead of going through libc's generic __drand48_iterate. There are ~5 calls
+// per iteration, so this is a noticeable share of the run time.
+// (lcong48 isn't replaced: nothing here uses non-default LCG parameters.)
+#define RAND48_A 0x5DEECE66DULL
+#define RAND48_C 0xBULL
+#define RAND48_MASK ((1ULL << 48) - 1)
+unsigned long long _rand48State; // not static: libc declares these functions "leaf", so the compiler may assume they
+				 // never touch this file's static data. Starts at 0, like libc's unseeded state.
+static inline unsigned long long Rand48Next(void) { return _rand48State = (RAND48_A * _rand48State + RAND48_C) & RAND48_MASK; }
+static inline double FastDrand48(void) { return Rand48Next() * (1.0 / (1ULL << 48)); } // exact: 48 bits fit in a double
+static inline void FastSrand48(long seedval) { _rand48State = (((unsigned long long)seedval & 0xffffffffULL) << 16) | 0x330E; }
+double drand48(void) { return FastDrand48(); }
+long lrand48(void) { return (long)(Rand48Next() >> 17); }
+long mrand48(void) { return (long)(int)(Rand48Next() >> 16); }
+void srand48(long seedval) { FastSrand48(seedval); }
+unsigned short *seed48(unsigned short seed16v[3]) {
+    static unsigned short old[3];
+    old[0] = _rand48State & 0xffff; old[1] = (_rand48State >> 16) & 0xffff; old[2] = _rand48State >> 32;
+    _rand48State = seed16v[0] | ((unsigned long long)seed16v[1] << 16) | ((unsigned long long)seed16v[2] << 32);
+    return old;
+}
+#define drand48 FastDrand48
+#define srand48 FastSrand48
+#endif
 
 /************************** Community routines *******************/
 
@@ -147,7 +177,31 @@ static void MoveOneNode(PARTITION * P, int node, int dest){
     printf("BEFORE\noc in %d, oc out %d, nc in %d, nc out %d\n", oldCom->edgesIn, oldCom->edgesOut, newCom->edgesIn, newCom->edgesOut); 
 #endif
     int old = 0, new = 0;
-    
+#if !DEBUG
+    // Branch-free version of the DEBUG loop below (which is the readable reference). Neighbors' communities are
+    // effectively random, so the if/else-if chain mispredicted on most neighbors; here each neighbor just adds 0 or 1
+    // to every counter. Counting into locals also lets the compiler keep them in registers, which it can't do with
+    // oldCom->edgesIn etc. since they might alias whichCommunity.
+    const int oc = oldCom->id, nc = newCom->id, *wc = P->whichCommunity;
+    const unsigned char *visited = P->visited, *marked = P->marked;
+    const unsigned *nbr = G->neighbor[node];
+    int dOldIn = 0, dNewIn = 0, dOut = 0; // dOut: newCom->edgesOut gains it, oldCom->edgesOut loses it
+    for(int i = 0, deg = G->degree[node]; i < deg; ++i){
+	int neighbor = nbr[i];
+	int live = (neighbor != node) & !visited[neighbor]; // self loops and already-moved nodes count for nothing
+	int w = live & marked[neighbor];                      // will be moved with us: internal to newCom afterwards
+	int rest = live & !marked[neighbor];
+	int c = wc[neighbor];
+	int isOld = rest & (c == oc), isNew = rest & (c == nc);
+	dOldIn -= w + isOld; old += isOld;
+	dNewIn += w + isNew; new += isNew;
+	dOut += rest & !isOld & !isNew;
+    }
+    oldCom->edgesIn += dOldIn;
+    newCom->edgesIn += dNewIn;
+    oldCom->edgesOut -= dOut;
+    newCom->edgesOut += dOut;
+#else
     for(int i = 0; i < G->degree[node]; ++i){
 	int neighbor = G->neighbor[node][i];
 #if DEBUG
@@ -193,6 +247,7 @@ static void MoveOneNode(PARTITION * P, int node, int dest){
 	printf("visited");
 #endif
     }
+#endif // DEBUG
     int diff = old - new;
     oldCom->edgesOut += diff;
     newCom->edgesOut += diff;
@@ -426,21 +481,27 @@ static void SwapTwoNodes(PARTITION *P, int u, int v){
     GRAPH *G = P->G;
     COMMUNITY *A = P->C[P->whichCommunity[u]], *B = P->C[P->whichCommunity[v]];
     int a_u = 0, b_u = 0, a_v = 0, b_v = 0, degU = 0, degV = 0;
-    for(int i = 0; i < G->degree[u]; ++i){
-	int w = G->neighbor[u][i];
-	if(w == u) continue; // self loop
-	++degU;
-	if(w == v) continue; // the u--v edge, see above
-	if(P->whichCommunity[w] == A->id) ++a_u;
-	else if(P->whichCommunity[w] == B->id) ++b_u;
+    // Branch-free counting, as in MoveOneNode: each neighbor adds 0 or 1 to each count rather than taking
+    // hard-to-predict branches on its (effectively random) community.
+    const int idA = A->id, idB = B->id, *wc = P->whichCommunity;
+    const unsigned *nbrU = G->neighbor[u], *nbrV = G->neighbor[v];
+    for(int i = 0, deg = G->degree[u]; i < deg; ++i){
+	int w = nbrU[i];
+	int notSelf = (w != u);        // self loop counts for nothing
+	int counted = notSelf & (w != v); // the u--v edge, see above
+	int c = wc[w];
+	degU += notSelf;
+	a_u += counted & (c == idA);
+	b_u += counted & (c == idB);
     }
-    for(int i = 0; i < G->degree[v]; ++i){
-	int w = G->neighbor[v][i];
-	if(w == v) continue; // self loop
-	++degV;
-	if(w == u) continue; // the u--v edge, see above
-	if(P->whichCommunity[w] == A->id) ++a_v;
-	else if(P->whichCommunity[w] == B->id) ++b_v;
+    for(int i = 0, deg = G->degree[v]; i < deg; ++i){
+	int w = nbrV[i];
+	int notSelf = (w != v);        // self loop counts for nothing
+	int counted = notSelf & (w != u); // the u--v edge, see above
+	int c = wc[w];
+	degV += notSelf;
+	a_v += counted & (c == idA);
+	b_v += counted & (c == idB);
     }
     A->edgesIn += a_v - a_u;
     B->edgesIn += b_u - b_v;
