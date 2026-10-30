@@ -465,9 +465,11 @@ sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    for(i=5;i<=NF;i++) ++S[$i]
 	    WARN(length(S)==numNodes,"mismatch(2) in numNodes and length(S)");
 	    add=1;
-	    for(i=1;i<=numClus;i++) {
+	    delete cand;
+	    for(u in S) for(c in nodeClus[u]) cand[c]=1;
+	    for(c in cand) {
 		same=0;
-		for(u in S) if(u in cluster[i])++same;
+		for(u in S) if(u in cluster[c])++same;
 		if(same > length(S)*'$OVERLAP'){ add=0; break;} # we check ONLY if $OVERLAP fraction of the NEW cluster
 		# overlaps any one old cluster... it is TOTALLY ALLOWED to completely overlap the old cluster if it is
 		# lower density, for example, so the below check is incorrect.
@@ -484,7 +486,7 @@ sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 
 	    if(add) {
 		++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts; kk[numClus]=k;
-		for(u in S) ++cluster[numClus][u];
+		for(u in S) { ++cluster[numClus][u]; nodeClus[u][numClus]=1; }
 	    }
 	}
 	END {
