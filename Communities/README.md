@@ -23,3 +23,10 @@ Ex:
 OPTIONS
 -s Choose a scoring function
 -p Provide a partition to start from 
+-r Random seed to use (default: a fancy seed, printed as "Random seed N"), so a run can be reproduced exactly
+-t Run this many independent anneals in parallel (one process each, seeds N, N+1, ...) and keep the best;
+   0 means one per CPU. Prints the best run's output followed by a "Best of" line listing every run's score.
+   Wall time is about that of a single run, as long as there are enough cores.
+
+Ex:
+./a.out ./communities.in -t 8 -r 100

@@ -9,7 +9,7 @@ void CommunityFree(COMMUNITY *C);
 void PrintCommunity(COMMUNITY *C);
 COMMUNITY *CommunityAddNode(COMMUNITY *C, PARTITION *P, int node);
 COMMUNITY *CommunityDelNode(COMMUNITY *C, PARTITION *P, int node);
-int CommunityEdgeCount(COMMUNITY *C);
+int CommunityEdgeCount(PARTITION *P, COMMUNITY *C);
 int CommunityEdgeOutwards(PARTITION *P, COMMUNITY *C);
 PARTITION *PartitionAlloc(GRAPH *G);
 PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C);
