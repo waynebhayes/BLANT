@@ -81,7 +81,7 @@ PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
-SUBFINAL_SORT="-k 1nr -k 5n"
+SUBFINAL_SORT="-k 2nr -k 5n"
 BLANT_FILES=''
 
 while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
@@ -405,8 +405,13 @@ for edgeDensity in "${EDs[@]}"; do
 			StatReset("");
 			tmpEdge=InducedEdges(edge,S, degreeInS);
 			ASSERT(tmpEdge == edgeCount, "edgeCount "edgeCount" disagrees(2) with InducedEdges of "tmpEdge);
-			for(u in S) {cluster[numClus][u]=1; printf " %s", u; StatAddSample("", degreeInS[u]);}
+			# Print nodes in deterministic order so that duplicate clusters can easily be removed later
+			oldOrder=PROCINFO["sorted_in"]; PROCINFO["sorted_in"]="@ind_str_asc";
+			for(u in S) {
+			    cluster[numClus][u]=1; printf " %s", u; #StatAddSample("", degreeInS[u]);
+			}
 			#printf "final |S|=%d mean %g stdDev %g min %d max %d:\n", _statN[""], StatMean(""), StatStdDev(""), StatMin(""), StatMax("") > "/dev/stderr"
+			PROCINFO["sorted_in"]=oldOrder;
 			print "";
 			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
 			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be less stringent as it
@@ -419,37 +424,17 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 	    }' "$TMPDIR/net4awk.el$W" - | # dash is the output of the above pipe (sorted cluster counts)
 	sort -T $TMPDIR -nr |
-	hawk ' # attempt to remove duplicate clusters... not sure how intensive it is in RAM and CPU (yet)
+	hawk ' # remove duplicate clusters
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
 	    FNR>1 && '$ONLY_ONE'{exit}
 	    {
-		delete S;
-		numNodes=$1
-		edgeHits=$2;
-		edgeWgts=$3;
-		for(i=4;i<=NF;i++) ++S[$i]
-		WARN(length(S)==numNodes,"mismatch(1) in numNodes and length(S)");
-		# hash the sorted members to find the duplicate instead of scanning every earlier cluster.
-		m=asorti(S,sorted); key=sorted[1];
-		for(i=2;i<=m;i++) key = key SUBSEP sorted[i];
-		if(key in seenKey) next;
-		seenKey[key]=1;
-		++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
-		for(u in S) ++cluster[numClus][u]
-	    }
-	    END{
-		for(i=1;i<=numClus;i++) {
-		    maxEdges=choose(length(cluster[i]),2);
-		    printf "%d %d %g '$k'",length(cluster[i]),edges[i],edgeSum[i]
-		    for(u in cluster[i]) printf " %s", u
-		    print ""
-		}
-	    }
-	    ' | # sort by number of nodes, then by first node in the list:
-	sort -T $TMPDIR $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # sort by number of nodes, then by first node in the list
+		# only record a cluster the first time we see it
+		if(++seen[$0]==1) printf "'$k' %s\n", $0
+	    }' | # sort by number of nodes, then by first node in the list:
+	sort -T $TMPDIR $SUBFINAL_SORT > $TMPDIR/subfinal$k$edgeDensity.out & # perform sort in the background
     done
     for k in "${Ks[@]}"; do
-	    wait; (( BLANT_EXIT_CODE += $? ))
+	wait; (( BLANT_EXIT_CODE += $? ))
     done
 done
 
@@ -457,11 +442,12 @@ done
 sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
     hawk 'BEGIN{ numClus=0 } # post-process to remove/merge duplicates
 	{
+	    ASSERT(NF>4, "expecting at least 4 node after n m es k");
 	    delete S;
-	    numNodes=$1
-	    edgeHits=$2;
-	    edgeWgts=$3;
-	    k=$4;
+	    k=$1;
+	    numNodes=$2
+	    edgeHits=$3;
+	    edgeWgts=$4;
 	    for(i=5;i<=NF;i++) ++S[$i]
 	    WARN(length(S)==numNodes,"mismatch(2) in numNodes and length(S)");
 	    add=1;
@@ -497,7 +483,7 @@ sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 		edgeMean = edgeSum[i]/edges[i];
 		ASSERT(edgeMean>='$minEdgeMean', "oops, should not get this far with an edgeMean of "edgeMean);
 		printf "%d nodes, %d/%d edges, %g%% density from k%d", length(cluster[i]), edges[i], maxEdges,
-		    100*edges[i]/maxEdges, k
+		    100*edges[i]/maxEdges, kk[i]
 		if('$VERBOSE') printf " from k %d, %g clusterWeight, %g edgeSum, %g edgeMean", kk[i],
 		    edgeSum[i]/length(cluster[i]), edgeSum[i], edgeMean
 		if('$PRINT_MEMBERS') {
