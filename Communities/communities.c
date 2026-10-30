@@ -109,7 +109,7 @@ static void MoveOneNode(PARTITION * P, int node, int dest){
     COMMUNITY * newCom = P->C[dest];
     GRAPH * G = P->G;
 
-#if PARANOID_ASSERTS
+#if DEBUG
     // Recomputing both communities' edge counts from scratch on every move costs far more than the move itself,
     // so only do it when checking everything. SAR still checks every community's counts every 1%.
     int actualOldIn = CommunityEdgeCount(P, oldCom);
@@ -259,82 +259,82 @@ int CommunityEdgeOutwards(PARTITION * P, COMMUNITY *C){
 
 // Returns an empty partition containing no communities (they're not even allocated)
 PARTITION *PartitionAlloc(GRAPH *G) {
-PARTITION *P = Calloc(sizeof(PARTITION), 1);
-P->G=G;
-P->C = Calloc(sizeof(COMMUNITY**), G->n);
-P->whichCommunity = Calloc(sizeof(int), G->n);
-P->whichMember = Calloc(sizeof(int), G->n);
-//  P->common = SetAlloc(G->n);
-P->visited = Calloc(sizeof(unsigned char), G->n); // A set for community update to avoid double counting
-P->marked = Calloc(sizeof(unsigned char), G->n); // Marking which ones will be moved (Essentially SET * toMove but in int * format)
-P->toMove = Calloc(sizeof(int), G->n);    
-P->numMoved = 0; 
-P->iters = 0;
-P->clk = clock();
-return P;  
+    PARTITION *P = Calloc(sizeof(PARTITION), 1);
+    P->G=G;
+    P->C = Calloc(sizeof(COMMUNITY**), G->n);
+    P->whichCommunity = Calloc(sizeof(int), G->n);
+    P->whichMember = Calloc(sizeof(int), G->n);
+    //  P->common = SetAlloc(G->n);
+    P->visited = Calloc(sizeof(unsigned char), G->n); // A set for community update to avoid double counting
+    P->marked = Calloc(sizeof(unsigned char), G->n); // Marking which ones will be moved (Essentially SET * toMove but in int * format)
+    P->toMove = Calloc(sizeof(int), G->n);    
+    P->numMoved = 0; 
+    P->iters = 0;
+    P->clk = clock();
+    return P;  
 }
 
 PARTITION *PartitionAddCommunity(PARTITION *P, COMMUNITY *C) {
 #if VERBOSE > 2 
-printf("Add com %d, Before update, P->n = %d\n", C->id, P->n);
+    printf("Add com %d, Before update, P->n = %d\n", C->id, P->n);
 #endif
-assert(P->n < P->G->n);
-int i = P->n;
-if(!P->C[i]) {
-    P->C[i] = C;
-    P->n++;
-    int index = 0;
-    for(int j = 0; j < C->n; ++j){
-	int u = C->nodeSet[j];
-	P->whichCommunity[u] = i;
-	P->whichMember[u] = index;
-	++index;
+    assert(P->n < P->G->n);
+    int i = P->n;
+    if(!P->C[i]) {
+        P->C[i] = C;
+        P->n++;
+        int index = 0;
+        for(int j = 0; j < C->n; ++j){
+            int u = C->nodeSet[j];
+            P->whichCommunity[u] = i;
+            P->whichMember[u] = index;
+            ++index;
+        }
+        return P;// find empty community slot
     }
-    return P;// find empty community slot
-}
-else{
-    printf("MEM ERROR: Attempting to write to an existing community???\n");
-    exit(1);
-} 
-return NULL;
+    else{
+        printf("MEM ERROR: Attempting to write to an existing community???\n");
+        exit(1);
+    } 
+    return NULL;
 }
 
 
 PARTITION *PartitionDelCommunity(PARTITION *P, int c){
-COMMUNITY * C = P->C[c];
+    COMMUNITY * C = P->C[c];
 #if VERBOSE > 2 
-printf("Deleting com %d size %d, P->n = %d\n", c, P->C[c]->n, P->n);
-printf("C = %p\n", C);
+    printf("Deleting com %d size %d, P->n = %d\n", c, P->C[c]->n, P->n);
+    printf("C = %p\n", C);
 #endif
-if(C){
-    P->total -= C->score;
-    P->n--;
-    // if C is not the last community, write over the deleted community's info
-    
-    if(c != P->n){
-	int index = 0;
-	COMMUNITY * lastCom = P->C[P->n];
-	for(int i = 0; i < lastCom->n; i++){
-	    P->whichCommunity[lastCom->nodeSet[i]] = c;
-	    P->whichMember[lastCom->nodeSet[i]] = index;
-	    ++index;
-	}
-	CommunityFree(C);
-	P->C[c] = P->C[P->n];
-	P->C[c]->edgesIn = lastCom->edgesIn;
-	P->C[c]->edgesOut = lastCom->edgesOut;
-	P->C[c]->id = c;
-    }
-    else
-	CommunityFree(C);
+    if(C){
+        P->total -= C->score;
+        P->n--;
+        // if C is not the last community, write over the deleted community's info
+        
+        if(c != P->n){
+            int index = 0;
+            COMMUNITY * lastCom = P->C[P->n];
+            for(int i = 0; i < lastCom->n; i++){
+                P->whichCommunity[lastCom->nodeSet[i]] = c;
+                P->whichMember[lastCom->nodeSet[i]] = index;
+                ++index;
+            }
+            CommunityFree(C);
+            P->C[c] = P->C[P->n];
+            P->C[c]->edgesIn = lastCom->edgesIn;
+            P->C[c]->edgesOut = lastCom->edgesOut;
+            P->C[c]->id = c;
+        }
+        else
+            CommunityFree(C);
 #if DEBUG
-    printf("Freed Community %d\n", c);
+        printf("Freed Community %d\n", c);
 #endif
-    P->C[P->n] = NULL;
-}
+        P->C[P->n] = NULL;
+    }
 
 
-return P;
+    return P;
 }
 
 void PartitionFree(PARTITION *P) {
@@ -366,16 +366,16 @@ double _oldScore, _newScore, _oldDiff = 0, _newDiff = 0;
 // THESE MOVE OPTIONS ASSUME NO OVERLAPPING COMMUNITIES
 
 static void SaveCommunityInfo(COMMUNITY * oldCom, COMMUNITY * newCom){
-_oldComN = oldCom->n; 
-_newComN = newCom->n;
-_newComIn = newCom->edgesIn;
-_newComOut = newCom->edgesOut;
-_oldComIn = oldCom->edgesIn; 
-_oldComOut = oldCom->edgesOut;
-_oldScore = oldCom->score;
-_newScore = newCom->score;
+    _oldComN = oldCom->n; 
+    _newComN = newCom->n;
+    _newComIn = newCom->edgesIn;
+    _newComOut = newCom->edgesOut;
+    _oldComIn = oldCom->edgesIn; 
+    _oldComOut = oldCom->edgesOut;
+    _oldScore = oldCom->score;
+    _newScore = newCom->score;
 #if DEBUG
-printf("SAVE. Set_oldComN %d, _newComN %d\n", _oldComN, _newComN);
+    printf("SAVE. Set_oldComN %d, _newComN %d\n", _oldComN, _newComN);
 #endif
 }
 
