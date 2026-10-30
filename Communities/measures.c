@@ -35,7 +35,7 @@ double Expansion(PARTITION * P, COMMUNITY * C, int fakeN){
     // Always does trivial solution of making one big community
     // Horrible objective function
     int eOut = CommunityEdgeOutwards(P, C); 
-    int eIn = CommunityEdgeCount(C); 
+    int eIn = CommunityEdgeCount(P, C);
     return eOut + eIn == 0 ? 9999999 : (double)(eOut / (eOut + eIn));  
 }
 
@@ -75,7 +75,8 @@ double HayesScore(PARTITION * P, COMMUNITY *C, int fakeN){
     if(fakeN < 2){
 	return 0;
     }
-    return C->edgesIn * C->edgesIn / ((fakeN * (fakeN-1))/2.0);
+    // (double) first: edgesIn*edgesIn overflows int once a community has more than ~46k internal edges
+    return (double)C->edgesIn * C->edgesIn / ((fakeN * (fakeN-1))/2.0);
     
 }
 

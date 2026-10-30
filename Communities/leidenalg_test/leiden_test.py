@@ -3,7 +3,7 @@ import leidenalg as la
 from collections import defaultdict
 from infomap import Infomap
 
-G = ig.Graph.Read_Edgelist("../communities.in", directed=False)
+G = ig.Graph.Read_Edgelist("../../networks/AThaliana.el", directed=False)
 
 # ---------- scoring ----------
 def report(G, labels, name):
