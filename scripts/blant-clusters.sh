@@ -429,16 +429,13 @@ for edgeDensity in "${EDs[@]}"; do
 		edgeWgts=$3;
 		for(i=4;i<=NF;i++) ++S[$i]
 		WARN(length(S)==numNodes,"mismatch(1) in numNodes and length(S)");
-		add=1;
-		for(i=1;i<=numClus;i++) {
-		    same=0;
-		    for(u in S) if(u in cluster[i])++same;
-		    if(same == length(cluster[i])){add=0; break;} # only eliminate EXACT duplicates at this stage
-		}
-		if(add) {
-		    ++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
-		    for(u in S) ++cluster[numClus][u]
-		}
+		# hash the sorted members to find the duplicate instead of scanning every earlier cluster.
+		m=asorti(S,sorted); key=sorted[1];
+		for(i=2;i<=m;i++) key = key SUBSEP sorted[i];
+		if(key in seenKey) next;
+		seenKey[key]=1;
+		++numClus; edges[numClus]=edgeHits; edgeSum[numClus]=edgeWgts;
+		for(u in S) ++cluster[numClus][u]
 	    }
 	    END{
 		for(i=1;i<=numClus;i++) {
