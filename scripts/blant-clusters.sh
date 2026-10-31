@@ -193,6 +193,8 @@ done
 
 for edgeDensity in "${EDs[@]}"; do
     for k in "${Ks[@]}"; do
+	UNION_FILE=$TMPDIR/union$k.$edgeDensity.txt # per-u neighbor union; keyed by ED as well because the minEdges filter depends on ED
+	: > $UNION_FILE # ensure it exists even if awk1 has no neighbors to write
 	hawk ' # This first awk just sorts the BLANT output; it uses minimal RAM and CPU
 	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
@@ -213,17 +215,17 @@ for edgeDensity in "${EDs[@]}"; do
 		if(onlyBestOrbit) item=0;
 		Kc[$1][item]+=$3; # increment the cluster count for appropriate item (canon/orbit)
 		T[$1]+=$3; # keep total count of *all* items
-		# save the neighbors of those clusters that have high edge density for BFS
-		for(j=4;j<=NF;j++) ++graphletNeighbors[$1][item][$j];
+		# save the per-u union of neighbors of those clusters for BFS (the per-item counts were never used)
+		for(j=4;j<=NF;j++) graphletNeighbors[$1][$j]=1;
 	    }
 	    END {
 		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
 		    ORS=" " # Output Record Separator = space, so all the following goes on one line
 		    if('$SQR_NORM') print Kc[u][item]^2/T[u], u, item
 		    else            print Kc[u][item], u, item # print the cluster membership count, and the node
-		    for(v in graphletNeighbors[u][item]) print v
 		    ORS="\n"; print ""; # finally print the newline
 		}
+		for(u in graphletNeighbors) for(v in graphletNeighbors[u]) print u, v > "'$UNION_FILE'"
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
@@ -240,23 +242,23 @@ for edgeDensity in "${EDs[@]}"; do
 	    }
 	    ARGIND==1{ # get the edge list [and weights if present]
 		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns");
+		if(NF==3)weighted=1; # unweighted networks skip all wgtEdgesIntoS maintenance
 		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
 	    }
 	    ARGIND==2 { # && !($2 in count) # uncomment to take only first occurence--faster but worse result
-		item=$3; count[$2]+=$1; node[FNR]=$2; line[$2]=FNR;
-		for(i=4; i<=NF; i++) if(($2 in edge) && ($i in edge[$2]) && edge[$2][$i] > '$minEdgeMean'/2) # heuristic: avoid too-weak edges
-		    graphletNeighbors[$2][$i]=graphletNeighbors[$i][$2]=1;
+		count[$2]+=$1; node[FNR]=$2; line[$2]=FNR; nLines=FNR;
+	    }
+	    ARGIND==3 { # per-u union of graphlet neighbors, written by the first awk
+		if(($1 in edge) && ($2 in edge[$1]) && edge[$1][$2] > '$minEdgeMean'/2) # heuristic: avoid too-weak edges
+		    graphletNeighbors[$1][$2]=graphletNeighbors[$2][$1]=1;
 	    }
 
-	    function highRelClusCount(u, v) { # Heuristic
-		if(!(u in count) || count[u]==0) return 1;
-		if(!(v in count) || count[v]==0) return 0;
-		if (v in count) return count[v]/count[u]>=sqrt('$edgeDensity')*0.9; # 0.7 seems about optimal, but 0.5 to 0.9 also work well
-		else return 1/count[u]>=0.5;
-	    }
-	    function AppendNeighbors(u,origin,    v,oldOrder) {
+	    function AppendNeighbors(u,origin,    v,oldOrder,uCnt,thr) {
 		oldOrder=PROCINFO["sorted_in"];
 		if(u in graphletNeighbors) {
+		    # inlined highRelClusCount(u,v): uCnt==0 means u is uncounted (accept all v), else require count[v]/uCnt>=thr
+		    uCnt = ((u in count) && count[u]>0) ? count[u] : 0;
+		    thr = sqrt('$edgeDensity')*0.9; # 0.7 seems about optimal, but 0.5 to 0.9 also work well
 		    # The following three lines will append the neighbors in order of most edges back into S
 		    # It seems reasonable, but is more expensive seems to have no significant difference. :-(
 		    #for (v in graphletNeighbors[u]) edgesIntoS[v] = EdgesIntoS(v);
@@ -265,7 +267,8 @@ for edgeDensity in "${EDs[@]}"; do
 		    # The default is to append them in random order... no significant difference on small networks
 		    PROCINFO["sorted_in"]="randsort";
 		    for (v in graphletNeighbors[u]) {
-			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelClusCount(u, v)) {
+			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) &&
+			    (uCnt==0 || ((v in count) && count[v]>0 && count[v]/uCnt>=thr))) {
 			    QueueAdd("Q", v);
 			    visitedQ[v]=1;
 			}
@@ -281,7 +284,7 @@ for edgeDensity in "${EDs[@]}"; do
 		delete started; started[0]=1; delete started[0];
 		numClus=0;
 		QueueAlloc("Q");
-		for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start".
+		for(start=1; start<=int(nLines*'$edgeDensity'); start++) { # look for a cluster starting on line "start".
 		    origin=node[start];
 		    if(started[origin]) continue;
 		    #printf "line %d origin %s;", start, origin > "/dev/stderr"
@@ -298,11 +301,11 @@ for edgeDensity in "${EDs[@]}"; do
 			u = QueueNext("Q");
 			ASSERT(!(u in S),"u in S error");
 			newEdgeHits = edgesIntoS[u]+0;
-			wgtEdgeHits = wgtEdgesIntoS[u]+0;
+			wgtEdgeHits = (weighted ? wgtEdgesIntoS[u]+0 : newEdgeHits); # unweighted: all weights are 1
 			edgeCount += newEdgeHits;
 			wgtEdgeCount += wgtEdgeHits;
 			S[u]=1;
-			if(u in edge) for(w in edge[u]) { edgesIntoS[w]++; wgtEdgesIntoS[w]+=edge[u][w] }
+			if(u in edge) for(w in edge[u]) { edgesIntoS[w]++; if(weighted) wgtEdgesIntoS[w]+=edge[u][w] }
 			Slen = length(S);
 			ASSERT(Slen > 0, "Slen must be > 0 but is "Slen);
 			if(Slen >= '$maxClus') break;
@@ -326,8 +329,8 @@ for edgeDensity in "${EDs[@]}"; do
 				    }
 				}
 				edgeCount -= edgesIntoS[u]+0;
-				wgtEdgeCount -= wgtEdgesIntoS[u]+0;
-				if(u in edge) for(w in edge[u]) { edgesIntoS[w]--; wgtEdgesIntoS[w]-=edge[u][w] }
+				wgtEdgeCount -= (weighted ? wgtEdgesIntoS[u]+0 : edgesIntoS[u]+0);
+				if(u in edge) for(w in edge[u]) { edgesIntoS[w]--; if(weighted) wgtEdgesIntoS[w]-=edge[u][w] }
 				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else {
@@ -361,8 +364,8 @@ for edgeDensity in "${EDs[@]}"; do
 				#printf " %s(%d)", v, degreeInS[v] > "/dev/stderr";
 				delete S[v];
 				edgeCount -= edgesIntoS[v]+0;
-				wgtEdgeCount -= wgtEdgesIntoS[v]+0;
-				if(v in edge) for(w in edge[v]) { edgesIntoS[w]--; wgtEdgesIntoS[w]-=edge[v][w] }
+				wgtEdgeCount -= (weighted ? wgtEdgesIntoS[v]+0 : edgesIntoS[v]+0);
+				if(v in edge) for(w in edge[v]) { edgesIntoS[w]--; if(weighted) wgtEdgesIntoS[w]-=edge[v][w] }
 			    }
 			}
 			#printf " |S|=%d", _statN[""] > "/dev/stderr"
@@ -375,8 +378,8 @@ for edgeDensity in "${EDs[@]}"; do
 			if(edgeCount / choose(length(S),2) >= '$edgeDensity') break; # break once ED is above threshsold
 			delete S[v];
 			edgeCount -= edgesIntoS[v]+0;
-			wgtEdgeCount -= wgtEdgesIntoS[v]+0;
-			if(v in edge) for(w in edge[v]) { edgesIntoS[w]--; wgtEdgesIntoS[w]-=edge[v][w] }
+			wgtEdgeCount -= (weighted ? wgtEdgesIntoS[v]+0 : edgesIntoS[v]+0);
+			if(v in edge) for(w in edge[v]) { edgesIntoS[w]--; if(weighted) wgtEdgesIntoS[w]-=edge[v][w] }
 		    }
 		    if(length(S)>1) {
 			ed = edgeCount / choose(length(S),2);
@@ -406,7 +409,7 @@ for edgeDensity in "${EDs[@]}"; do
 		    }
 		    #else print " REJECTED" > "/dev/stderr";
 		}
-	    }' "$TMPDIR/net4awk.el$W" - | # dash is the output of the above pipe (sorted cluster counts)
+	    }' "$TMPDIR/net4awk.el$W" - $UNION_FILE | # dash = the sorted cluster counts from this awk; $UNION_FILE is read only after stdin EOF
 	sort -T $TMPDIR -nr |
 	hawk ' # remove duplicate clusters
 	    BEGIN{ numClus=0 } # post-process to only EXACT duplicates (more general removal later)
