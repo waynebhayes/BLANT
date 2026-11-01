@@ -452,7 +452,7 @@ sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    WARN(length(S)==numNodes,"mismatch(2) in numNodes and length(S)");
 	    add=1;
 	    delete cand;
-	    for(u in S) for(c in nodeClus[u]) cand[c]=1;
+	    for(u in S) if(u in nodeClus) for(c in nodeClus[u]) cand[c]=1;
 	    for(c in cand) {
 		same=0;
 		for(u in S) if(u in cluster[c])++same;
