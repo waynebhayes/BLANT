@@ -193,7 +193,6 @@ done
 
 for edgeDensity in "${EDs[@]}"; do
     for k in "${Ks[@]}"; do
-	UNION_SIZES=$TMPDIR/unionSize$k.$edgeDensity.txt # per-u number of distinct neighbors printed by the first awk
 	hawk ' # This first awk just sorts the BLANT output; it uses minimal RAM and CPU
 	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
@@ -215,24 +214,21 @@ for edgeDensity in "${EDs[@]}"; do
 		Kc[$1][item]+=$3; # increment the cluster count for appropriate item (canon/orbit)
 		T[$1]+=$3; # keep total count of *all* items
 		# per-item lists: the BFS awk iterates neighbors in "randsort" order, so build order matters
-		for(j=4;j<=NF;j++) graphletNeighbors[$1][item][$j]=1;
+		for(j=4;j<=NF;j++) graphletNeighbors[$1]["_"$j]=1;
 	    }
 	    END {
 		for(u in Kc) {
-		    delete un; nUn=0;
+		    first=1;
 		    for(item in Kc[u]) if(item) { # do not use item==0
 			ORS=" " # Output Record Separator = space, so all the following goes on one line
 			if('$SQR_NORM') print Kc[u][item]^2/T[u], u, item
 			else            print Kc[u][item], u, item # print the cluster membership count, and the node
-			for(v in graphletNeighbors[u][item]) { print v; if(!(v in un)) { un[v]=1; ++nUn; } }
-			ORS="\n"; print ""; # finally print the newline
+			if(first) for(v in graphletNeighbors[u]) print substr(v,2)
+			first=0; ORS="\n"; print ""; # finally print the newline
 		    }
-		    print u, nUn > "'$UNION_SIZES'"
 		}
-		# must close before stdout EOF unblocks the sort, since the BFS awk reads this file at its FNR==1
-		close("'$UNION_SIZES'");
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
-	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
+	sort -T $TMPDIR -k1,1gr -k2,2r -k3,3r |
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
 		ED='$edgeDensity'; maxClus='$maxClus'; halfEdgeMean='$minEdgeMean'/2;
@@ -250,17 +246,12 @@ for edgeDensity in "${EDs[@]}"; do
 	    ARGIND==1{ # get the edge list [and weights if present]
 		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns");
 		if(NF==3)weighted=1; # unweighted networks use edgesIntoS as the weight
-		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
+		a="_"$1; b="_"$2; degree[a]+=weight;degree[b]+=weight;edge[a][b]=edge[b][a]=weight
 	    }
 	    ARGIND==2 { # && !($2 in count) # uncomment to take only first occurence--faster but worse result
-		count[$2]+=$1; node[FNR]=$2; line[$2]=FNR; nLines=FNR;
-		if(FNR==1) while((getline unLine < "'$UNION_SIZES'") > 0) { split(unLine, unF, " "); unionSize[unF[1]]=unF[2]; }
-		# only the first sighting of (u,v) matters, so skip u once all its neighbors have been seen
-		u=$2; ASSERT(NF<4 || (u in unionSize), "no union size for node "u);
-		if(seenN[u] < unionSize[u]) for(i=4; i<=NF; i++) if(!((u SUBSEP $i) in seenUV)) { # flat: per-u subarrays cost GBs
-		    seenUV[u, $i]=1; ++seenN[u];
-		    if((u in edge) && ($i in edge[u]) && edge[u][$i] > halfEdgeMean) # heuristic: avoid too-weak edges
-			graphletNeighbors[u][$i]=graphletNeighbors[$i][u]=1;
+		u="_"$2; count[u]+=$1; node[FNR]=u; line[u]=FNR; nLines=FNR;
+		if(u in edge) for(i=4; i<=NF; i++) { v="_"$i; if((v in edge[u]) && edge[u][v] > halfEdgeMean) # heuristic: avoid too-weak edges
+		    graphletNeighbors[u][v]=graphletNeighbors[v][u]=1;
 		}
 	    }
 
@@ -407,7 +398,7 @@ for edgeDensity in "${EDs[@]}"; do
 			++numClus; printf "%d %d %g", Slen, edgeCount, wgtEdgeCount
 			# Print nodes in deterministic order so that duplicate clusters can easily be removed later
 			PROCINFO["sorted_in"]="@ind_str_asc";
-			for(u in S) { cluster[numClus][u]=1; printf " %s", u; }
+			for(u in S) printf " %s", substr(u,2); # strip the "_" prefix
 			PROCINFO["sorted_in"]="";
 			print "";
 			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
