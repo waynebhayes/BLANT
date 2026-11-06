@@ -193,7 +193,6 @@ done
 
 for edgeDensity in "${EDs[@]}"; do
     for k in "${Ks[@]}"; do
-	UNION_SIZES=$TMPDIR/unionSize$k.$edgeDensity.txt # per-u number of distinct neighbors printed by the first awk
 	hawk ' # This first awk just sorts the BLANT output; it uses minimal RAM and CPU
 	    BEGIN{ edC='$edgeDensity'*choose('$k',2); onlyBestOrbit='$ONLY_BEST_ORBIT';
 		cMode="'$COMMUNITY_MODE'"; if(cMode=="") cMode=="g"; # graphlet uses FAR less RAM
@@ -214,54 +213,38 @@ for edgeDensity in "${EDs[@]}"; do
 		if(onlyBestOrbit) item=0;
 		Kc[$1][item]+=$3; # increment the cluster count for appropriate item (canon/orbit)
 		T[$1]+=$3; # keep total count of *all* items
-		# per-item lists: the BFS awk iterates neighbors in "randsort" order, so build order matters
-		for(j=4;j<=NF;j++) graphletNeighbors[$1][item][$j]=1;
+		for(j=4;j<=NF;j++) ++graphletNeighbors[$1][item][$j];
 	    }
 	    END {
-		for(u in Kc) {
-		    delete un; nUn=0;
-		    for(item in Kc[u]) if(item) { # do not use item==0
-			ORS=" " # Output Record Separator = space, so all the following goes on one line
-			if('$SQR_NORM') print Kc[u][item]^2/T[u], u, item
-			else            print Kc[u][item], u, item # print the cluster membership count, and the node
-			for(v in graphletNeighbors[u][item]) { print v; if(!(v in un)) { un[v]=1; ++nUn; } }
-			ORS="\n"; print ""; # finally print the newline
-		    }
-		    print u, nUn > "'$UNION_SIZES'"
+		for(u in Kc) for(item in Kc[u]) if(item) { # do not use item==0
+		    ORS=" " # Output Record Separator = space, so all the following goes on one line
+		    if('$SQR_NORM') print Kc[u][item]^2/T[u], u, item
+		    else            print Kc[u][item], u, item # print the cluster membership count, and the node
+		    for(v in graphletNeighbors[u][item]) print v
+		    ORS="\n"; print ""; # finally print the newline
 		}
-		# must close before stdout EOF unblocks the sort, since the BFS awk reads this file at its FNR==1
-		close("'$UNION_SIZES'");
 	    }' canon_maps/canon_list$k.txt canon_maps/orbit_map$k.txt $BLANT_FILES/blant$k.out |
 	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
-		ED='$edgeDensity'; maxClus='$maxClus'; halfEdgeMean='$minEdgeMean'/2;
-		thr=sqrt(ED)*0.9; # count ratio for neighbors to be appended: 0.7 seems about optimal, but 0.5 to 0.9 also work well
 		M=1*'$minClusArg'; if(M>=1) minClus=M;
 		else {
 		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
 		    if(M>0)pVal=M;else pVal=1/choose(n,2)^2; # heuristic to make pVal small enough to get significant clusters
 		    for(e=1;e<m;e++)if(eps^e<pVal) break;
-		    for(minClus=2;minClus<n;minClus++) if(ED*choose(minClus,2)>=e) break;
+		    for(minClus=2;minClus<n;minClus++) if('$edgeDensity'*choose(minClus,2)>=e) break;
 		    if('$VERBOSE') printf "minClus %d (%d edges = pVal %g < %g for ED %g)\n", minClus, e, eps^e, pVal, eps >"/dev/stderr"
 		}
 		ASSERT(minClus>=1,"minClus "minClus" must be >=1");
 	    }
 	    ARGIND==1{ # get the edge list [and weights if present]
 		if(NF==2)weight=1; else if(NF==3)weight=$3; else ASSERT(0, "expecting either 2 or 3 columns");
-		if(NF==3)weighted=1; # unweighted networks use edgesIntoS as the weight
 		degree[$1]+=weight;degree[$2]+=weight;edge[$1][$2]=edge[$2][$1]=weight
 	    }
 	    ARGIND==2 { # && !($2 in count) # uncomment to take only first occurence--faster but worse result
-		count[$2]+=$1; node[FNR]=$2; line[$2]=FNR; nLines=FNR;
-		if(FNR==1) while((getline unLine < "'$UNION_SIZES'") > 0) { split(unLine, unF, " "); unionSize[unF[1]]=unF[2]; }
-		# only the first sighting of (u,v) matters, so skip u once all its neighbors have been seen
-		u=$2; ASSERT(NF<4 || (u in unionSize), "no union size for node "u);
-		if(seenN[u] < unionSize[u]) for(i=4; i<=NF; i++) if(!((u SUBSEP $i) in seenUV)) { # flat: per-u subarrays cost GBs
-		    seenUV[u, $i]=1; ++seenN[u];
-		    if((u in edge) && ($i in edge[u]) && edge[u][$i] > halfEdgeMean) # heuristic: avoid too-weak edges
-			graphletNeighbors[u][$i]=graphletNeighbors[$i][u]=1;
-		}
+		item=$3; count[$2]+=$1; node[FNR]=$2; line[$2]=FNR;
+		for(i=4; i<=NF; i++) if(($2 in edge) && ($i in edge[$2]) && edge[$2][$i] > '$minEdgeMean'/2) # heuristic: avoid too-weak edges
+		    graphletNeighbors[$2][$i]=graphletNeighbors[$i][$2]=1;
 	    }
 
 	    # insert degreeInS keys in the order InducedEdges() would, since a sorted for-in breaks ties by insertion order
@@ -284,90 +267,99 @@ for edgeDensity in "${EDs[@]}"; do
 		}
 		PROCINFO["sorted_in"]=oldOrder;
 	    }
-	    # Append the not-yet-visited neighbors of u that come after the origin in the stream, in random order.
-	    function AppendNeighbors(u,    v,uCnt) {
-		if(!(u in graphletNeighbors)) return;
-		# uCnt==0 means u is uncounted (accept all v), else require count[v]/uCnt>=thr
-		uCnt = ((u in count) && count[u]>0) ? count[u] : 0;
-		# The default is to append them in random order... no significant difference on small networks
-		PROCINFO["sorted_in"]="randsort"; # same rand() sequence as master
-		for(v in graphletNeighbors[u]) {
-		    if(!(v in visitedQ) && (!(v in line) || line[v] > originLine) &&
-			(uCnt==0 || ((v in count) && count[v]>0 && count[v]/uCnt>=thr))) {
-			Q[++qT]=v; visitedQ[v]=1;
-		    }
-		}
-		PROCINFO["sorted_in"]="";
-	    }
-	    # d=+1 when u joins S, -1 when it leaves
+	    # d=+1 when u joins S, -1 when it leaves; edgesIntoS/wgtIntoS are never iterated, so skip sorting edge[u]
 	    function IntoS(u,d,    w) {
 		if(!(u in edge)) return;
-		if(weighted) for(w in edge[u]) { edgesIntoS[w]+=d; wgtIntoS[w]+=d*edge[u][w]; }
-		else         for(w in edge[u])   edgesIntoS[w]+=d;
+		for(w in edge[u]) { edgesIntoS[w]+=d; wgtIntoS[w]+=d*edge[u][w]; }
 	    }
 	    function RemoveFromS(v) {
 		delete S[v];
 		edgeCount -= edgesIntoS[v]+0;
-		wgtEdgeCount -= (weighted ? wgtIntoS[v]+0 : edgesIntoS[v]+0);
+		wgtEdgeCount -= wgtIntoS[v]+0;
 		IntoS(v,-1);
 	    }
+	    function highRelClusCount(u, v) { # Heuristic
+		if(!(u in count) || count[u]==0) return 1;
+		if(!(v in count) || count[v]==0) return 0;
+		if (v in count) return count[v]/count[u]>=sqrt('$edgeDensity')*0.9; # 0.7 seems about optimal, but 0.5 to 0.9 also work well
+		else return 1/count[u]>=0.5;
+	    }
+	    function AppendNeighbors(u,origin,    v,oldOrder) {
+		oldOrder=PROCINFO["sorted_in"];
+		if(u in graphletNeighbors) {
+		    # The default is to append them in random order... no significant difference on small networks
+		    PROCINFO["sorted_in"]="randsort";
+		    for (v in graphletNeighbors[u]) {
+			if(!(v in visitedQ) && (!(v in line) || line[v] > line[origin]) && highRelClusCount(u, v)) {
+			    QueueAdd("Q", v);
+			    visitedQ[v]=1;
+			}
+		    }
+		    PROCINFO["sorted_in"]=oldOrder;
+		}
+	    }
 	    END{n=length(degree); # number of nodes in the input network
-		if(ED==1) density_leeway=1;
+		if('$edgeDensity'==1) density_leeway=1;
 		else density_leeway = '$DENSITY_LEEWAY';
-		minAccept = ED*density_leeway;
-		maxMisses = n/100; # 1% of number of nodes is a heuristic...
 		# make cluster and started empty sets; started is a list of nodes we should NOT start a new BFS on
 		delete cluster; cluster[0]=1; delete cluster[0];
 		delete started; started[0]=1; delete started[0];
 		numClus=0;
-		PROCINFO["sorted_in"]="";
-		for(start=1; start<=int(nLines*ED); start++) { # look for a cluster starting on line "start".
+		QueueAlloc("Q");
+		for(start=1; start<=int(FNR*'$edgeDensity'); start++) { # look for a cluster starting on line "start".
 		    origin=node[start];
-		    if(origin in started) continue;
+		    if(started[origin]) continue;
 		    started[origin]=1;
-		    originLine=line[origin];
 		    MakeEmptySet(S);
 		    MakeEmptySet(visitedQ);
-		    delete edgesIntoS; delete wgtIntoS; # maintained: number [weight] of edges from each node into S
-		    delete Q; qH=1; qT=0; # the BFS queue is Q[qH..qT]
 		    misses=0; # how many nodes have been skipped because they did not work?
-		    Q[++qT]=origin; visitedQ[origin]=1;
-		    wgtEdgeCount = edgeCount = Slen = 0;
-		    while(qH<=qT){
-			u = Q[qH]; delete Q[qH++];
+		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");}
+		    QueueAdd("Q", origin);
+		    visitedQ[origin] = 1;
+		    wgtEdgeCount = edgeCount = 0;
+		    delete edgesIntoS; delete wgtIntoS; # maintained: number [weight] of edges from each node into S
+		    while(QueueLength("Q")>0){
+			u = QueueNext("Q");
+			ASSERT(!(u in S),"u in S error");
 			newEdgeHits = edgesIntoS[u]+0;
-			wgtEdgeHits = (weighted ? wgtIntoS[u]+0 : newEdgeHits); # unweighted: all weights are 1
+			wgtEdgeHits = wgtIntoS[u]+0;
 			edgeCount += newEdgeHits;
 			wgtEdgeCount += wgtEdgeHits;
+			S[u]=1;
+			Slen = length(S);
+			ASSERT(Slen > 0, "Slen must be > 0 but is "Slen);
+			if(Slen >= '$maxClus') { IntoS(u,1); break; }
 			# CAREFUL: calling InducedEdges(S) every QueueNext() is VERY expensive; uncommenting the line below
 			# slows the program by more than 100x (NOT an exaggeration)
 			# WARN(edgeCount == InducedEdges(edge,S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(edge,S));
-			S[u]=1; ++Slen;
-			if(Slen >= maxClus) { IntoS(u,1); break; }
 			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
-			if(Slen>1 && edgeCount/(Slen*(Slen-1)/2) < minAccept) {
-			    maxEdges = Slen*(Slen-1)/2;
-			    delete S[u]; --Slen; # u drops the edge density too low, so nuke it
-			    if(edgePredict) {
-				if((edgeCount+edgePredict)/maxEdges >= ED) {
-				    # just ONE edge would put us over the threshold; predict it should exist
-				    numPredict=0;
-				    for(uu in S)if((!(uu in edge)) || !(u in edge[uu]))
-					#printf "predictEdge-%d\t%s\t%s\n",++numPredict, u,uu > "/dev/stderr"
-				    WARN(numPredict<=edgePredict,"should only get "edgePredict" new edge predictions but got "numPredict);
-				}
-			    }
-			    edgeCount -= newEdgeHits;
-			    wgtEdgeCount -= wgtEdgeHits; # u was never added to edgesIntoS
-			    if(++misses > MAX(Slen+1, maxMisses)) break;
-			    # keep going until count decreases significantly; remove duplicate clusters in next awk
-			} else {
-			    misses=0;
+			if (Slen==1) {
 			    IntoS(u,1);
-			    AppendNeighbors(u);
+			    AppendNeighbors(u, origin);
+			} else {
+			    maxEdges = choose(Slen,2);
+			    if(edgeCount/maxEdges < '$edgeDensity' * density_leeway) {
+				delete S[u]; # u drops the edge density too low, so nuke it
+				if(edgePredict) {
+				    if((edgeCount+edgePredict)/maxEdges >= '$edgeDensity') {
+					# just ONE edge would put us over the threshold; predict it should exist
+					numPredict=0;
+					for(uu in S)if((!(uu in edge)) || !(u in edge[uu]))
+					WARN(numPredict<=edgePredict,"should only get "edgePredict" new edge predictions but got "numPredict);
+				    }
+				}
+				edgeCount -= newEdgeHits;
+				wgtEdgeCount -= wgtEdgeHits;
+				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
+				# keep going until count decreases significantly; remove duplicate clusters in next awk
+			    } else {
+				misses=0;
+				IntoS(u,1);
+				AppendNeighbors(u, origin);
+			    }
 			}
 		    }
-		    if(qH>qT && Slen > 1) {
+		    if(QueueLength("Q")==0 && length(S) > 1) {
 			# post-process to remove nodes with too low in-cluster degree---quite relevant for lower density
 			# communities where a node may be added because it does not
 			# reduce the *mean* degree of the cluster, but it does not really have sufficiently strong
@@ -376,39 +368,44 @@ for edgeDensity in "${EDs[@]}"; do
 			# 2) the in-cluster degree is less than 1/3 the mode of the in-cluster degree distribution.
 			# The latter was added in response to our performance on the LFR graphs, but it does not appear
 			# to hurt performance anywhere else.
-			StatReset(""); delete degFreq; delete degreeInS;
-			for(v in S) { d=edgesIntoS[v]+0; degreeInS[v]=d; StatAddSample("", d); ++degFreq[d];}
+			StatReset(""); delete degFreq;
+			DegreeInSKeys(); # snapshot of in-cluster degrees, which equal the maintained edgesIntoS
+			for(v in S) { degreeInS[v]=edgesIntoS[v]+0; StatAddSample("", degreeInS[v]); ++degFreq[degreeInS[v]];}
 			maxFreq=degMode=0;
 			for(d=StatMax("");d>=StatMin("");d--)
 			    if(d in degFreq && degFreq[d] >= maxFreq) { # use >= to extract SMALLEST mode
 				maxFreq=degFreq[d]; degMode=d
 			}
-			lowDeg = StatMean("") - 3*StatStdDev("");
-			for(v in degreeInS) if(degreeInS[v] < lowDeg || degreeInS[v] < degMode/3) RemoveFromS(v);
-			Slen=length(S);
-		    }
-		    if(Slen>1 && edgeCount/(Slen*(Slen-1)/2) < ED) {
-			# remove nodes by increasing in-cluster degree until the density is reached
-			DegreeInSKeys(); # snapshot; a sorted for-in fixes its key list at loop start
-			for(v in S) degreeInS[v]=edgesIntoS[v]+0;
 			PROCINFO["sorted_in"] = "@val_num_asc"; # for loop through in-degrees, smallest first
 			for(v in degreeInS) {
-			    if(Slen<2) break;
-			    if(edgeCount/(Slen*(Slen-1)/2) >= ED) break; # break once ED is above threshsold
-			    RemoveFromS(v); --Slen;
+			    if(degreeInS[v] < StatMean("") - 3*StatStdDev("") || degreeInS[v] < degMode/3) {
+				RemoveFromS(v);
+			    }
 			}
-			PROCINFO["sorted_in"]="";
 		    }
-		    if(Slen>1) {
-			ed = edgeCount/(Slen*(Slen-1)/2);
-			WARN(ed >= ED,"hmmm, ed is "ed);
+		    DegreeInSKeys(); # snapshot; a sorted for-in fixes its key list at loop start
+		    for(v in S) degreeInS[v]=edgesIntoS[v]+0;
+		    PROCINFO["sorted_in"] = "@val_num_asc"; # for loop through in-degrees, smallest first
+		    for(v in degreeInS) {
+			if(length(S)<2) break;
+			if(edgeCount / choose(length(S),2) >= '$edgeDensity') break; # break once ED is above threshsold
+			RemoveFromS(v);
 		    }
+		    if(length(S)>1) {
+			ed = edgeCount / choose(length(S),2);
+			WARN(ed >= '$edgeDensity',"hmmm, ed is "ed);
+		    }
+		    Slen=length(S);
 		    if(Slen>=minClus && wgtEdgeCount/edgeCount>='$minEdgeMean') {
+			maxEdges=choose(Slen,2);
 			++numClus; printf "%d %d %g", Slen, edgeCount, wgtEdgeCount
+			StatReset("");
 			# Print nodes in deterministic order so that duplicate clusters can easily be removed later
-			PROCINFO["sorted_in"]="@ind_str_asc";
-			for(u in S) { cluster[numClus][u]=1; printf " %s", u; }
-			PROCINFO["sorted_in"]="";
+			oldOrder=PROCINFO["sorted_in"]; PROCINFO["sorted_in"]="@ind_str_asc";
+			for(u in S) {
+			    cluster[numClus][u]=1; printf " %s", u;
+			}
+			PROCINFO["sorted_in"]=oldOrder;
 			print "";
 			# now mark as "started" the first half of S that was filled... or more generally, some fraction.
 			# We choose the top (1-OVERLAP) fraction because OVERLAP is meant to be less stringent as it
@@ -448,9 +445,14 @@ sort -T $TMPDIR --merge $SUBFINAL_SORT $TMPDIR/subfinal*.out |
 	    WARN(length(S)==numNodes,"mismatch(2) in numNodes and length(S)");
 	    add=1;
 	    delete cand;
-	    # cand[c] counts |S n cluster[c]| directly; we check ONLY if $OVERLAP fraction of the NEW cluster
-	    # overlaps any one old cluster (it is TOTALLY ALLOWED to completely overlap an old cluster that is lower density)
-	    for(u in S) if(add && (u in nodeClus)) for(c in nodeClus[u]) if(++cand[c] > length(S)*'$OVERLAP') { add=0; break; }
+	    for(u in S) if(u in nodeClus) for(c in nodeClus[u]) cand[c]=1;
+	    for(c in cand) {
+		same=0;
+		for(u in S) if(u in cluster[c])++same;
+		if(same > length(S)*'$OVERLAP'){ add=0; break;} # we check ONLY if $OVERLAP fraction of the NEW cluster
+		# overlaps any one old cluster... it is TOTALLY ALLOWED to completely overlap the old cluster if it is
+		# lower density, for example.
+	    }
 	    # Skipping an entire cluster with overlap sucks, but merging does not work either. Here is a better way:
 	    # The idea is to provide ALTERNATES.  So for example if 2 clusters of size k overlap in all but one node,
 	    # and have the same total number of edges, then the 2 nodes that are OUTSIDE the overlap form "alternate"
