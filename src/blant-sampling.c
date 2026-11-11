@@ -286,13 +286,11 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #endif
 #if !DYNAMIC_CANON_MAP
     if(!_window) {
-#endif
 	TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
 	TINY_GRAPH *gd = TinyGraphAlloc(k, SELF_LOOPS, _directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	gd = TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
 	Gint_type Gint = TinyGraph2Int(g, k),Gdint = TinyGraph2Int(gd, k);
-	#if !DYNAMIC_CANON_MAP
 	unsigned char perm[k];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint,false),GintOrdinalD = ExtractPerm(perm, Gdint,_directed);
@@ -644,14 +642,12 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #endif
 #if !DYNAMIC_CANON_MAP
     if(!_window) {
-#endif
 	TINY_GRAPH *g = TinyGraphAlloc(k,G->selfAllowed,false);
 	TINY_GRAPH *gd = TinyGraphAlloc(k,G->selfAllowed,_directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	Gint_type Gdint = TinyGraph2Int(gd, k);
-	#if !DYNAMIC_CANON_MAP
 	unsigned char perm[k];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);

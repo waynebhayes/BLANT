@@ -5,9 +5,30 @@
 #include "blant-fundamentals.h"
 #include "sets.h"
 #include "graph.h"
+#include "tree.h"
+#include <stddef.h>
 
 // Define cache line size (typical value for most modern processors)
 #define CACHE_LINE_SIZE 64
+
+#if DYNAMIC_CANON_MAP
+// Pruning thresholds for the dynamic canonical-map graphlet list. "For now"
+// these are fixed: retain the 2,000,000 most frequent graphlets while sampling,
+// and report only the top 1,000,000 in the output. Graphlets are ranked by
+// count (descending); exact ties are broken by a hash of the canonical ID, so
+// the choice among equal-frequency graphlets is not biased by ID magnitude.
+#ifndef BLANT_DYNAMIC_PRUNE_KEEP
+#define BLANT_DYNAMIC_PRUNE_KEEP 2000000UL
+#endif
+#ifndef BLANT_DYNAMIC_REPORT_MAX
+#define BLANT_DYNAMIC_REPORT_MAX 1000000UL
+#endif
+
+// Keep exactly the `keep` most frequent graphlets in *tree and discard the
+// rest. This is used twice: during sampling to bound memory, and again at
+// output to reduce the survivors to the report size.
+void PruneGraphletTree(TREETYPE **tree, size_t keep);
+#endif
 
 
 typedef struct {
@@ -20,6 +41,12 @@ typedef struct {
     double *canonNumStarMotifs;
     unsigned long *batchRawCount;
     unsigned long batchRawTotalSamples;
+    #else
+    TREETYPE *graphletCount;
+    // Total weight of every sample accumulated into graphletCount, including
+    // graphlets that have since been pruned. Used as the concentration
+    // denominator so pruning does not distort -F c.
+    double graphletTotalWeight;
     #endif
 } Accumulators;
 
