@@ -286,13 +286,11 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #endif
 #if !DYNAMIC_CANON_MAP
     if(!_window) {
-#endif
 	TINY_GRAPH *g = TinyGraphAlloc(k, SELF_LOOPS, false);
 	TINY_GRAPH *gd = TinyGraphAlloc(k, SELF_LOOPS, _directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	gd = TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
 	Gint_type Gint = TinyGraph2Int(g, k),Gdint = TinyGraph2Int(gd, k);
-	#if !DYNAMIC_CANON_MAP
 	unsigned char perm[k];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint,false),GintOrdinalD = ExtractPerm(perm, Gdint,_directed);
@@ -317,7 +315,8 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     }
     #endif
     SetFree(outSet);
-    return 1.0;
+    // Dynamic builds have no alpha table, so weight by the multiplier alone.
+    return DYNAMIC_CANON_MAP ? multiplier : 1.0;
 }
 
 // modelled after faye by Tuong Do
@@ -578,9 +577,9 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
         // static _Thread_local allows each thread to have their own copy of this depth, otherwise there'd be no way to share a static variable for this function
 	    depth++;
 	    assert(depth < MAX_TRIES);
-	    SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
+	    double w = SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
 	    depth--;
-	    return 1.0;
+	    return w;
 #endif
 	}
 	for(i=0; cumulative[i] <= whichVedge; i++) ; // figure out whose neighbor it is
@@ -621,9 +620,9 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
         static _Thread_local int depth;
         depth++;
         assert(depth < MAX_TRIES);
-        SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
+        double w = SampleGraphletEdgeBasedExpansion(G, V, Varray, k, whichCC, accums);
         depth--;
-		return 1.0;
+		return w;
 #endif
 	    }
 	}
@@ -644,14 +643,12 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 #endif
 #if !DYNAMIC_CANON_MAP
     if(!_window) {
-#endif
 	TINY_GRAPH *g = TinyGraphAlloc(k,G->selfAllowed,false);
 	TINY_GRAPH *gd = TinyGraphAlloc(k,G->selfAllowed,_directed);
 	TinyGraphInducedFromGraph(g, G, Varray);
 	TinyGraphInducedFromGraph(gd, (_directed ? (G+1) : G), Varray);
 	Gint_type Gint = TinyGraph2Int(g, k);
 	Gint_type Gdint = TinyGraph2Int(gd, k);
-	#if !DYNAMIC_CANON_MAP
 	unsigned char perm[k];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint, false);
@@ -678,7 +675,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     }
 #endif
 
-    return 1.0;
+    // Dynamic builds have no alpha table, so weight by the multiplier alone.
+    return DYNAMIC_CANON_MAP ? multiplier : 1.0;
 }
 
 // From the paper: ``Sampling Connected Induced Subgraphs Uniformly at Random''
@@ -1385,12 +1383,14 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
 	if(_cumulativeProb[cc] > randomComponent)
 	    break;
     //printf("choosing from CC %d\n", cc);
+    // Only NBE/EBE return a weight (their expansion multiplier) in dynamic builds.
+    double weight = 1.0;
     switch (_sampleMethod) {
     case SAMPLE_ACCEPT_REJECT:
 	SampleGraphletAcceptReject(G, V, Varray, k);	// REALLY REALLY SLOW and doesn't need to use cc
 	break;
     case SAMPLE_NODE_EXPANSION:
-	SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc, accums);
+	weight = SampleGraphletNodeBasedExpansion(G, V, Varray, k, cc, accums);
 	break;
     // case SAMPLE_SEQUENTIAL_CHAINING: Apology("SEC is no longer supported due to fundamentally unfixable problems with the method"); break;
     case SAMPLE_FAYE:
@@ -1400,7 +1400,7 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
 	SampleGraphletLuBressanReservoir(G, V, Varray, k, cc); // pretty slow but not as bad as unbiased
 	break;
     case SAMPLE_EDGE_EXPANSION:
-	SampleGraphletEdgeBasedExpansion(G, V, Varray, k, cc, accums); // Faster than NBE but less well tested and understood.
+	weight = SampleGraphletEdgeBasedExpansion(G, V, Varray, k, cc, accums); // Faster than NBE but less well tested and understood.
 	break;
     case SAMPLE_MCMC:
         #if DYNAMIC_CANON_MAP
@@ -1432,5 +1432,5 @@ double SampleGraphlet(GRAPH *G, SET *V, unsigned Varray[], int k, int cc, Accumu
 	return total;
     }
     else
-	return 1.0;
+	return weight;
 }

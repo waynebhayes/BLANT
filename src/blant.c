@@ -641,6 +641,15 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
         }
       }
     }
+    #if DYNAMIC_CANON_MAP
+    // Bound memory: once the accumulated graphlet list reaches twice the
+    // retention threshold, discard everything below the top
+    // BLANT_DYNAMIC_PRUNE_KEEP most frequent graphlets.
+    if ((_outputMode & graphletFrequency) && accums &&
+        accums->graphletCount &&
+        accums->graphletCount->n > 2 * BLANT_DYNAMIC_PRUNE_KEEP)
+      PruneGraphletTree(&accums->graphletCount, BLANT_DYNAMIC_PRUNE_KEEP);
+    #endif
   }
 
   // Clean up loop-local variables
@@ -649,6 +658,25 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
   SetFree(V);
   TinyGraphFree(empty_g);
 }
+#if DYNAMIC_CANON_MAP
+// Print one graphlet count. denom.d is the total weight of every sample ever
+// accumulated into the tree (including graphlets that were pruned along the
+// way), so concentrations are not distorted by pruning.
+static int _freqPrintCallback(foint denom, foint key, foint data) {
+  char buf[BUFSIZ];
+  if (_freqDisplayMode == freq_display_mode_concentration)
+    printf("%lf %s\n", denom.d > 0 ? data.d / denom.d : 0.0,
+           PrintGraphletID(buf, *(Gint_type *)key.v));
+  else
+    // Weights are the EBE/NBE expansion multiplier, so denom is scaled by
+    // numSamples to keep -F n in "count out of numSamples" units (and to avoid
+    // overflowing the 64-bit count with multipliers for large k).
+    printf("%llu %s\n",
+           (unsigned long long)llround(denom.d > 0 ? data.d / denom.d : 0.0),
+           PrintGraphletID(buf, *(Gint_type *)key.v));
+  return 1;
+}
+#endif
 
 // This is the single-threaded BLANT function. YOU PROBABLY SHOULD NOT CALL
 // THIS. Call RunBlantInForks (or RunBlantInThread) instead, it's the top-level
@@ -657,6 +685,8 @@ static void RunBlantLoopInMainThread(int k, unsigned long numSamples, GRAPH *G,
 // numSamples == 0, because we may be the parent of many threads that finished
 // and we have nothing to do except output their accumulated results.
 static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
+  if(DYNAMIC_CANON_MAP) _numThreads = 1;
+  Accumulators *singleThreadAccums = NULL;
   unsigned i, j;
   assert(k <= G->n);
   assert(k == _k);
@@ -901,7 +931,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         sTotal[i] = StatAlloc(0, 0, 0, false, false);
     #endif
     // Accumulators for single threaded mode
-    Accumulators *singleThreadAccums = NULL;
+    singleThreadAccums = NULL;
     if (_numThreads == 1) {
       singleThreadAccums = InitializeAccumulatorStruct(G);
     }
@@ -1119,6 +1149,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
       // Finally, free the single accumulator
       FreeAccumulatorStruct(singleThreadAccums);
     }
+    #endif
     clock_gettime(CLOCK_MONOTONIC, &end);
     double elapsed_time =
         (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
@@ -1261,7 +1292,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 #endif
 
   // Sampling done. Now generate output for output modes that require it.
-
+  #if !DYNAMIC_CANON_MAP
   if (_window) {
     for (i = 0; i < _numWindowRepArrSize; i++)
       Free(_windowReps[i]);
@@ -1304,6 +1335,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
       }
     }
   }
+
   if (_outputMode & predict_merge)
     assert(false); // shouldn't get here
   if (_outputMode & predict) {
@@ -1433,8 +1465,27 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
   if (_outputMode & predict) {
     Predict_Flush(G);
     Predict_Shutdown(G);
-  #endif
   }
+#else
+  // Dynamic canonical map: counts are keyed by canonical graphlet ID rather
+  // than an ordinal. Reduce to the graphlets actually reported, then walk the
+  // surviving tree, which visits them in ascending canonical-ID order just like
+  // the non-dynamic output.
+  if ((_outputMode & graphletFrequency) && singleThreadAccums &&
+      singleThreadAccums->graphletCount) {
+    PruneGraphletTree(&singleThreadAccums->graphletCount,
+                      BLANT_DYNAMIC_REPORT_MAX);
+    // denom is the divisor for the callback. Concentrations divide by the
+    // total weight; counts additionally scale by numSamples so the weighted
+    // samples still read as "count out of numSamples".
+    double denom = singleThreadAccums->graphletTotalWeight;
+    if (_freqDisplayMode != freq_display_mode_concentration)
+      denom /= numSamples;
+    TreeTraverse((foint){.d = denom}, singleThreadAccums->graphletCount,
+                 _freqPrintCallback);
+  }
+  if (singleThreadAccums) FreeAccumulatorStruct(singleThreadAccums);
+#endif
   if (!_outputMode)
     Abort("RunBlantFromGraph: unknown or un-implemented outputMode");
 
@@ -2424,6 +2475,19 @@ int main(int argc, char *argv[]) {
   if (_sampleMethod == -1) {
     _sampleMethod = SAMPLE_EDGE_EXPANSION;
   }
+  #if DYNAMIC_CANON_MAP
+  // The -[Pp] precision loop is compiled out of dynamic builds, so there is no
+  // way to pick a stopping point other than an explicit -n.
+  if (!numSamples)
+    Fatal("DYNAMIC_CANON_MAP requires -n (number of samples): the -[Pp] "
+          "precision loop is not available in this build");
+  // MCMC needs per-graphlet overcount weights indexed by canonical ordinal
+  // (_alphaList) and the canon-map-dependent chain initialization, neither of
+  // which exists in a dynamic canonical map build.
+  if (_sampleMethod == SAMPLE_MCMC)
+    Fatal("MCMC sampling is not supported with DYNAMIC_CANON_MAP; use the "
+          "default edge-based expansion (EBE)");
+  #endif
   if (!_quiet && !(_outputMode & predict_merge))
     Note("Sampling method is %s", SampleMethodStr());
 

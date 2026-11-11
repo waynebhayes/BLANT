@@ -8,6 +8,7 @@
 #include "sorts.h"
 #include "combin.h"
 #include "tinygraph.h"
+#include "tree.h"
 
 #define SORT_INDEX_MODE 0 // Note this destroys the columns-are-identical property, don't use by default.
 
@@ -457,6 +458,14 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	char buf[BUFSIZ];
 	if(NodeSetSeenRecently(G,Varray,k)) processed=false;
 	else puts(PrintIndexOrbitsEntry(buf, res, Varray, k, weight, perm, orbits));
+    }
+    if(processed && (_outputMode & graphletFrequency) && accums->graphletCount){
+	Gint_type kid = res;
+	foint key = {.v = &kid}, cnt;
+	if(!TreeLookup(accums->graphletCount,key,&cnt)) cnt.d = 0;
+	cnt.d += weight;
+	TreeInsert(accums->graphletCount,key,cnt);
+	accums->graphletTotalWeight += weight;
     }
 #else
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
