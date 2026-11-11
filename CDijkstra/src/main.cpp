@@ -30,19 +30,22 @@ int main(int argc, char* argv[])
     std::string Graph1 = "";
     std::string Graph2 = "";
 
-    if(argc!= 7){
-        std::cerr<<"try again: delta ECthresh simFile seedFile g1.el g2.el\n";
+    if (argc != 7 && argc != 8) {
+        std::cerr << "try again: delta ECthresh simFile seedFile g1.el g2.el [rngSeed]\n";
         return 1;
     }
-    else{
-        delta = std::stod(argv[1]);
-        ECthresh = std::stod(argv[2]);
-        Sim = argv[3];
-        Seed = argv[4];
-        Graph1 = argv[5];
-        Graph2 = argv[6];
-    }
-    srand48(GetFancySeed(false));
+    delta = std::stod(argv[1]);
+    ECthresh = std::stod(argv[2]);
+    Sim = argv[3];
+    Seed = argv[4];
+    Graph1 = argv[5];
+    Graph2 = argv[6];
+
+    // RNG seed: use the 7th argument if given (to replay a run), otherwise a fresh one
+    long rngSeed = (argc == 8) ? std::stol(argv[7]) : (long) GetFancySeed(false);
+    std::cerr << "RNG seed: " << rngSeed << "\n";
+    srand48(rngSeed);
+    
     auto start_total = std::chrono::high_resolution_clock::now();
     // Input file names
     //./build/cdijkstra 0.1 0.5 ../../SANA/sequence/graphlet+seq.1/RNorvegicus-SPombe.sim test/RNorvegicus-SPombe-Seed.txt ../../SANA/networks/RNorvegicus.el ../../SANA/networks/SPombe.el
