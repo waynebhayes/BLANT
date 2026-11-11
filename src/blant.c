@@ -668,7 +668,11 @@ static int _freqPrintCallback(foint denom, foint key, foint data) {
     printf("%lf %s\n", denom.d > 0 ? data.d / denom.d : 0.0,
            PrintGraphletID(buf, *(Gint_type *)key.v));
   else
-    printf("%llu %s\n", (unsigned long long)llround(data.d),
+    // Weights are the EBE/NBE expansion multiplier, so denom is scaled by
+    // numSamples to keep -F n in "count out of numSamples" units (and to avoid
+    // overflowing the 64-bit count with multipliers for large k).
+    printf("%llu %s\n",
+           (unsigned long long)llround(denom.d > 0 ? data.d / denom.d : 0.0),
            PrintGraphletID(buf, *(Gint_type *)key.v));
   return 1;
 }
@@ -1471,8 +1475,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
       singleThreadAccums->graphletCount) {
     PruneGraphletTree(&singleThreadAccums->graphletCount,
                       BLANT_DYNAMIC_REPORT_MAX);
-    TreeTraverse((foint){.d = singleThreadAccums->graphletTotalWeight},
-                 singleThreadAccums->graphletCount, _freqPrintCallback);
+    // denom is the divisor for the callback. Concentrations divide by the
+    // total weight; counts additionally scale by numSamples so the weighted
+    // samples still read as "count out of numSamples".
+    double denom = singleThreadAccums->graphletTotalWeight;
+    if (_freqDisplayMode != freq_display_mode_concentration)
+      denom /= numSamples;
+    TreeTraverse((foint){.d = denom}, singleThreadAccums->graphletCount,
+                 _freqPrintCallback);
   }
   if (singleThreadAccums) FreeAccumulatorStruct(singleThreadAccums);
 #endif
