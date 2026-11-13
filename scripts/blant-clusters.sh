@@ -350,7 +350,13 @@ for edgeDensity in "${EDs[@]}"; do
 				}
 				edgeCount -= newEdgeHits;
 				wgtEdgeCount -= wgtEdgeHits;
-				if(++misses > MAX(Slen, n/100)) break; # 1% of number of nodes is a heuristic...
+				if(++misses > MAX(Slen, n/100)) { # 1% of number of nodes is a heuristic...
+				    # _instead_ of giving up, maybe here try CORE REGION EXPLORATION
+				    # { do actual region exploration } # this will probably slow things down...
+				    # if(++CoreExplorationAttempts > 20) break;
+				    # ... but maybe we can improve the results even more than post-processing?
+				    break;
+				}
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else {
 				misses=0;
