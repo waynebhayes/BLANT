@@ -64,6 +64,8 @@ unsigned short *seed48(unsigned short seed16v[3]) {
 
 /************************** Community routines *******************/
 
+static unsigned _iterFactor = 400; // will run for _iterFactor * G->numEdges iterations
+
 double (*pCommunityScore)(PARTITION * P, COMMUNITY * C, int fakeN) = NULL;  
 //static int num_threads; 
 
@@ -1206,7 +1208,7 @@ static void RunAnneal(PARTITION *P, int dir, int parRead)
     foint f;
     f.v = P;
                                                                                                 // Set num iters here
-    SIM_ANNEAL *sa = SimAnnealAlloc(dir, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, 400*G->numEdges /*100*/, 0,0,SAR);
+    SIM_ANNEAL *sa = SimAnnealAlloc(dir, f, PerturbPartition, ScorePartition, MaybeAcceptPerturb, _iterFactor*G->numEdges, 0,0,SAR);
     if(parRead == 0){
 	// If user didn't provide partition run actual sim anneal
 	if(G->n==2390 && G->numEdges==16127) {
@@ -1371,8 +1373,11 @@ int main(int argc, char *argv[])
 
     int opt, parRead = 0, dir = 1, eval = 0, numRuns = 1, seedGiven = 0;
     unsigned seed = 0;
-    while((opt = getopt(argc, argv, "p:s:e:r:t:")) != -1){
+    while((opt = getopt(argc, argv, "p:s:e:r:t:n:")) != -1){
 	switch(opt){
+	    case('n'):
+		_iterFactor = atoi(optarg);
+		break;
 	    case('p'):
 		// -p means user is giving partition to start from
 		// start hillclimbing immediately
