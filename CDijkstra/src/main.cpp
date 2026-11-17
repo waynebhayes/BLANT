@@ -17,6 +17,7 @@
 #define SKIPLIST_MAX_LEVEL 20 //define the max level of skip list
 #define SKIPLIST_PROB 0.5 //define the probability of promote to upper level for a node
 #define MAX_DISCARD_TIMES 10 //define the how many times we can discard bad pairs if they have bad EC scores until we stop
+#define MIN_ITERATIONS 500   // iterations before the discard-based stop rule applies
 
 #include "GetFancySeed.c"
 
@@ -247,7 +248,7 @@ int main(int argc, char* argv[])
                 discardedNodes2.push_back(second);
                 discardCount++;
                 alignCount = 0;
-                if(iterationCount > 500 && discardCount >=MAX_DISCARD_TIMES && alignCount == 0){
+                if(iterationCount > MIN_ITERATIONS && discardCount >=MAX_DISCARD_TIMES && alignCount == 0){
                     alignmentInProgress = false;
                 }
             }
