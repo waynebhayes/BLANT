@@ -32,6 +32,11 @@ OPTIONS (added BEFORE the blant.exe name)
     -o OVERLAP: (default 0.5); the maximum allowed fractional overlap between a new cluster and any one previously discovered
 	cluster (though it can overlap by more than this with MULTIPLE previous clusters). If it overlaps more than this with
 	any ONE previous cluster, it is discarded.
+    -X N: run up to N CORE 'region explorations' (pieterhv.nl/project_max_clique.html) per cluster build, each time
+	the greedy build gets stuck, hoping to find larger clusters; 0 (the default) disables it. Each exploration
+	adds a connected region of REGION_MIN..REGION_MAX (10..200) random nodes outside the cluster, then evicts
+	the same number of worst-connected nodes. EXPENSIVE: measured 2x-60x slower for clusters up to ~7% larger;
+	many starts then converge on the same biggest cluster, so fewer distinct clusters survive the -o filter.
 PREDICTION
     -PN: perform edge prediction of up to N edges for each node on the 'periphery' of a communty because it has
 	as many as N too few edges into the community to be added; prediction seems to work better with larger
@@ -79,6 +84,9 @@ QUIET=-q
 PRECISION=-p0.9L
 PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
+CORE_EXPLORE=0 # -X: how many CORE region explorations to allow per cluster build; 0 disables
+REGION_MIN=10 # smallest random region size for region exploration
+REGION_MAX=200 # largest random region size for region exploration
 
 # ensure the subfinal sort is always the same... we sort by size since the edge density is (roughly) constant
 SUBFINAL_SORT="-k 2nr -k 5n"
@@ -111,6 +119,8 @@ while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     -o) OVERLAP="$2"; shift 2;;
     -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
     -P[0-9]*) EDGE_PREDICT="`echo $1|sed 's/^-P//'`"; shift 1;;
+    -X) CORE_EXPLORE="$2"; shift 2;;
+    -X[0-9]*) CORE_EXPLORE="`echo $1|sed 's/^-X//'`"; shift 1;;
     -*) die "unknown option '$1'";;
     esac
 done
@@ -227,6 +237,7 @@ for edgeDensity in "${EDs[@]}"; do
 	sort -T $TMPDIR -gr | # > $BLANT_FILES/clus$k.sorted  # sorted [weighted] cluster-counts of all the nodes, largest-to-smallest
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
+		coreAttempts=0; CORE_ATTEMPTS_MAX='$CORE_EXPLORE'; REGION_MIN='$REGION_MIN'; REGION_MAX='$REGION_MAX';
 		M=1*'$minClusArg'; if(M>=1) minClus=M;
 		else {
 		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
@@ -298,7 +309,60 @@ for edgeDensity in "${EDs[@]}"; do
 		    PROCINFO["sorted_in"]=oldOrder;
 		}
 	    }
+	    function RandomNodeNotInS(   i,off,u) {
+		if(numAllNodes<=0) return "";
+		off = int(rand()*numAllNodes);
+		for(i=1;i<=numAllNodes;i++) {
+		    u = allNodes[((off+i-1) % numAllNodes)+1];
+		    if(!(u in S)) return u;
+		}
+		return ""; # every node is already in S
+	    }
+	    function CoreRegionExplore(   target,rn,i,u,v,w,d,best,bestDeg,cnt,added,oldOrder) {
+		if(coreAttempts >= CORE_ATTEMPTS_MAX) return 0;
+		target = REGION_MIN + int(rand()*(REGION_MAX-REGION_MIN+1));
+		if(target > numAllNodes-length(S)) target = numAllNodes-length(S);
+		if(target < 1) return 0;
+		++coreAttempts;
+		delete R; delete Rorder; delete degIntoR; rn=0; u=RandomNodeNotInS();
+		oldOrder=PROCINFO["sorted_in"]; PROCINFO["sorted_in"]=""; # plain for-in is much faster here
+		while(rn < target) {
+		    if(u=="") { u=RandomNodeNotInS(); if(u=="") break; } # no region neighbor left: new island
+		    R[u]=1; Rorder[++rn]=u;
+		    for(w in edge[u]) if(!(w in R)) ++degIntoR[w];
+		    best=""; bestDeg=-1; cnt=0;
+		    for(i=1; i<=3 && i<=rn; i++) {
+			v = Rorder[1+int(rand()*rn)];
+			if(!(v in edge)) continue;
+			for(w in edge[v]) {
+			    if((w in R) || (w in S)) continue;
+			    d = degIntoR[w]+0;
+			    if(d > bestDeg) { bestDeg=d; best=w; cnt=1; }
+			    else if(d==bestDeg && int(rand()*++cnt)==0) best=w;
+			}
+		    }
+		    u=best;
+		}
+		if(rn==0) { PROCINFO["sorted_in"]=oldOrder; return 0; }
+		added=0;
+		for(i=1;i<=rn;i++) {
+		    v=Rorder[i]; if(v in S) continue;
+		    edgeCount += edgesIntoS[v]+0; wgtEdgeCount += wgtIntoS[v]+0;
+		    S[v]=1; IntoS(v,1); ++added;
+		    AppendNeighbors(v, origin); # continue the build from the new region
+		}
+		delete Sorder; i=0; for(v in S) Sorder[++i]=v;
+		if(added>length(S)) added=length(S);
+		delete inDeg; for(v in S) inDeg[v]=edgesIntoS[v]+0;
+		PROCINFO["sorted_in"]="@val_num_asc"; # evict the nodes with the fewest edges into S
+		i=0; for(v in inDeg) Evict[++i]=v;
+		for(i=1; i<=added; i++) RemoveFromS(Evict[i]);
+		delete Evict;
+		PROCINFO["sorted_in"]=oldOrder;
+		return 1;
+	    }
 	    END{n=length(degree); # number of nodes in the input network
+		if('$CORE_EXPLORE'>0) for(u in degree) allNodes[++numAllNodes]=u; # for random region starts
 		if('$edgeDensity'==1) density_leeway=1;
 		else density_leeway = '$DENSITY_LEEWAY';
 		# make cluster and started empty sets; started is a list of nodes we should NOT start a new BFS on
@@ -313,13 +377,20 @@ for edgeDensity in "${EDs[@]}"; do
 		    MakeEmptySet(S);
 		    MakeEmptySet(visitedQ);
 		    misses=0; # how many nodes have been skipped because they did not work?
+		    coreAttempts=0;
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");}
 		    QueueAdd("Q", origin);
 		    visitedQ[origin] = 1;
 		    wgtEdgeCount = edgeCount = 0;
 		    delete edgesIntoS; delete wgtIntoS; # maintained: number [weight] of edges from each node into S
-		    while(QueueLength("Q")>0){
+		    while(1){
+			if(QueueLength("Q")==0) { # nothing left to try: explore a region of nodes outside S, or stop
+			    if(!CoreRegionExplore()) break;
+			    misses=0;
+			    continue;
+			}
 			u = QueueNext("Q");
+			if(u in S) continue; # region exploration can pull a queued node into S
 			ASSERT(!(u in S),"u in S error");
 			newEdgeHits = edgesIntoS[u]+0;
 			wgtEdgeHits = wgtIntoS[u]+0;
@@ -351,11 +422,9 @@ for edgeDensity in "${EDs[@]}"; do
 				edgeCount -= newEdgeHits;
 				wgtEdgeCount -= wgtEdgeHits;
 				if(++misses > MAX(Slen, n/100)) { # 1% of number of nodes is a heuristic...
-				    # _instead_ of giving up, maybe here try CORE REGION EXPLORATION
-				    # { do actual region exploration } # this will probably slow things down...
-				    # if(++CoreExplorationAttempts > 20) break;
-				    # ... but maybe we can improve the results even more than post-processing?
-				    break;
+				    # rather than giving up, jump into a new region of the graph with CORE region exploration
+				    if(!CoreRegionExplore()) break;
+				    misses=0;
 				}
 				# keep going until count decreases significantly; remove duplicate clusters in next awk
 			    } else {
