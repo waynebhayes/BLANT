@@ -466,6 +466,10 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 	cnt.d += weight;
 	TreeInsert(accums->graphletCount,key,cnt);
 	accums->graphletTotalWeight += weight;
+	// F_j for the -S fallback only. The default k-star path does no extra
+	// work here.
+	if (_starSize > 0 && _starSize < k)
+	    accums->foundStarWeight += weight * StarCountInTinyGraph(ug, k, _starSize);
     }
 #else
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;
@@ -474,9 +478,12 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
 #endif
     // _canonNumStarMotifs was previously computed during sampling rather than pre-computed
     if(accums->canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
-	int i;
-	accums->canonNumStarMotifs[GintOrdinal] = 0;
-	for(i=0; i<_k; i++) if(TinyGraphDegree(ug,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
+	if(_starSize == _k) {
+	    int i;
+	    accums->canonNumStarMotifs[GintOrdinal] = 0;
+	    for(i=0; i<_k; i++) if(TinyGraphDegree(ug,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
+	} else
+	    accums->canonNumStarMotifs[GintOrdinal] = StarCountInTinyGraph(ug, k, _starSize);
     }
     // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
     accums->graphletCount[GintOrdinal]+=weight;

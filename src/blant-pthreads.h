@@ -47,6 +47,9 @@ typedef struct {
     // graphlets that have since been pruned. Used as the concentration
     // denominator so pruning does not distort -F c.
     double graphletTotalWeight;
+    // F_j: total weight of _starSize-stars seen in the sample, used by the
+    // -S expansion-adjusted absolute-count fallback.
+    double foundStarWeight;
     #endif
 } Accumulators;
 
