@@ -92,9 +92,18 @@ extern unsigned long _known_orbit_count[2][13];
 #if !DYNAMIC_CANON_MAP
 extern Gordinal_type _numCanon, _numConnectedCanon;
 extern char *_canonNumEdges;
-extern double _totalStarMotifs;
 extern Gint_type *_canonList;
 #endif
+// Star total used to scale absolute counts. It is T_k by default; with the -S
+// fallback it is D_j, the expansion-adjusted total.
+extern double _totalStarMotifs;
+// -S: when the network has no k-star motifs, fall back to smaller star
+// motifs for the absolute-count estimate.
+extern Boolean _starFallback;
+// Star size j used for the absolute-count estimate (k normally).
+extern int _starSize;
+// Number of j-stars contained in the k-node graphlet g.
+int StarCountInTinyGraph(TINY_GRAPH *g, int k, int j);
 void SetBlantDirs(void);
 double GetCPUseconds(void);
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);

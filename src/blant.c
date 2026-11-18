@@ -97,12 +97,12 @@ unsigned long _known_orbit_count[2][13] = {
     { 0, 1, 0,40,815,46881,9174824} // unknown for k>6 directed
     // directed
 };
+double _totalStarMotifs; // This is a double because the value can *way*
+                         // overflow even a 128-bit integer on large graphs.
 #if !DYNAMIC_CANON_MAP
 Gint_type *_alphaList = NULL;
 Gordinal_type _numCanon;
 char *_canonNumEdges = NULL;
-double _totalStarMotifs; // This is a double because the value can *way*
-                         // overflow even a 128-bit integer on large graphs.
 int *_canonNumStarMotifs = NULL; // However, the per-canonical values
                                           // are integers
 Gint_type *_canonList = NULL; // map ordinals to integer representation
@@ -116,6 +116,8 @@ Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER
 Boolean _weighted;      // input network is weighted
 Boolean _directed;      // input network is directed
 Boolean _rawCounts;
+Boolean _starFallback;      // -S: fall back to smaller star motifs
+int _starSize = -1;         // star size used for absolute counts (j)
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -285,21 +287,171 @@ static int InitializeConnectedComponents(GRAPH *G) {
   Free(Varray); // but do NOT set it to NULL, as a flag not to run this again
   return _numConnectedComponents;
 }
-#if !DYNAMIC_CANON_MAP
+// Number of j-stars inside the k-node graphlet g: sum over nodes of
+// C(degree, j-1). For j == k this is the number of nodes of degree k-1.
+int StarCountInTinyGraph(TINY_GRAPH *g, int k, int j) {
+  int i, count = 0;
+  if (j < 2 || j > k) return 0;
+  for (i = 0; i < k; i++) {
+    int d = TinyGraphDegree(g, i);
+    if (d >= j - 1) count += (int)CombinChooseDouble(d, j - 1);
+  }
+  return count;
+}
+
+// State used to expand one j-star into connected k-node supersets.
+typedef struct {
+  GRAPH *G;
+  unsigned char *state; // 0 = free, 1 = in the set, 2 = excluded
+  int *set;             // current node set, starting with the j-star
+  int *frontier;        // unique one-node extensions when j == k-1
+  int k, j;
+  double total;
+} StarExpansion;
+
+#ifndef BLANT_STAR_FALLBACK_MAX_EXPANSIONS
+#define BLANT_STAR_FALLBACK_MAX_EXPANSIONS 100000000.0
+#endif
+
+// Expand the current connected set. The include/exclude branches visit each
+// connected superset of this star exactly once.
+static void GrowStarExtension(StarExpansion *cx, int m) {
+  if (m == cx->k) {
+    if (++cx->total > BLANT_STAR_FALLBACK_MAX_EXPANSIONS)
+      Fatal("star fallback exceeded %.0f expansions; recompile with a "
+            "larger BLANT_STAR_FALLBACK_MAX_EXPANSIONS or disable -S",
+            BLANT_STAR_FALLBACK_MAX_EXPANSIONS);
+    return;
+  }
+  // With one node left, count the star's unique outside neighbors directly.
+  if (m == cx->j && cx->j == cx->k - 1) {
+    int n = 0, i;
+    for (i = 0; i < m; i++) {
+      int buf = 0, u;
+      while ((u = GraphNextNeighbor(cx->G, cx->set[i], &buf)) != -1)
+        if (cx->state[u] == 0) {
+          cx->state[u] = 2;
+          cx->frontier[n++] = u;
+        }
+    }
+    cx->total += n;
+    if (cx->total > BLANT_STAR_FALLBACK_MAX_EXPANSIONS)
+      Fatal("star fallback exceeded %.0f expansions; recompile with a "
+            "larger BLANT_STAR_FALLBACK_MAX_EXPANSIONS or disable -S",
+            BLANT_STAR_FALLBACK_MAX_EXPANSIONS);
+    for (i = 0; i < n; i++) cx->state[cx->frontier[i]] = 0;
+    return;
+  }
+  int best = -1, i;
+  for (i = 0; i < m; i++) {
+    int buf = 0, u;
+    while ((u = GraphNextNeighbor(cx->G, cx->set[i], &buf)) != -1)
+      if (cx->state[u] == 0 && (best < 0 || u < best))
+        best = u;
+  }
+  if (best < 0) return;
+  // Branch 1: include the smallest frontier node.
+  cx->state[best] = 1;
+  cx->set[m] = best;
+  GrowStarExtension(cx, m + 1);
+  cx->set[m] = -1;
+  cx->state[best] = 0;
+  // Branch 2: exclude it from the rest of this subtree.
+  cx->state[best] = 2;
+  GrowStarExtension(cx, m);
+  cx->state[best] = 0;
+}
+
+// D_j = sum over every j-star of its connected k-node supersets.
+static double ComputeStarExpansionTotal(GRAPH *G, int k, int j) {
+  StarExpansion cx;
+  int v, *neighbors;
+  unsigned *comb;
+  cx.G = G;
+  cx.k = k;
+  cx.j = j;
+  cx.total = 0.0;
+  cx.state = Calloc(G->n, sizeof(unsigned char));
+  cx.set = Malloc(k * sizeof(int));
+  cx.frontier = Malloc(G->n * sizeof(int));
+  neighbors = Malloc(G->n * sizeof(int));
+  comb = Malloc(j * sizeof(unsigned));
+  for (v = 0; v < G->n; v++) {
+    int degree = GraphDegree(G, v), buf = 0, u, n = 0, i;
+    if (degree < j - 1) continue;
+    while ((u = GraphNextNeighbor(G, v, &buf)) != -1)
+      neighbors[n++] = u;
+    assert(n == degree);
+    COMBIN *stars = CombinZeroth(degree, j - 1, comb);
+    do {
+      cx.set[0] = v;
+      cx.state[v] = 1;
+      for (i = 0; i < j - 1; i++) {
+        cx.set[i + 1] = neighbors[comb[i]];
+        cx.state[cx.set[i + 1]] = 1;
+      }
+      GrowStarExtension(&cx, j);
+      cx.state[v] = 0;
+      for (i = 1; i < j; i++) cx.state[cx.set[i]] = 0;
+    } while (CombinNext(stars));
+    CombinFree(stars);
+  }
+  Free(comb);
+  Free(neighbors);
+  Free(cx.frontier);
+  Free(cx.state);
+  Free(cx.set);
+  return cx.total;
+}
+
+// T_j = sum over nodes of C(degree, j-1).
+static double StarMotifTotal(GRAPH *G, int j) {
+  int i;
+  double total = 0.0;
+  for (i = 0; i < G->n; i++)
+    total += CombinChooseDouble(GraphDegree(G, i), j - 1);
+  return total;
+}
+
+// Do we need the absolute-count multiplier in this run?
+static Boolean NeedAbsoluteCounts(void) {
+  return _freqDisplayMode == freq_display_mode_estimate_absolute ||
+         (_outputMode & outputGDV) || (_outputMode & outputODV);
+}
+
 static void InitializeStarMotifs(GRAPH *G) {
   int i;
+  _starSize = _k;
   _totalStarMotifs = 0.0;
   for (i = 0; i < G->n; i++)
     _totalStarMotifs += CombinChooseDouble(GraphDegree(G, i), _k - 1);
+  // Use the existing k-star mechanism whenever it has a k-star to work with.
+  // Only a network with no k-star at all can enter the -S fallback.
+  if (_totalStarMotifs == 0 && _starFallback && NeedAbsoluteCounts()) {
+    for (i = _k - 1; i >= 2; --i) {
+      if (StarMotifTotal(G, i) > 0) {
+        double expansionTotal = ComputeStarExpansionTotal(G, _k, i);
+        if (expansionTotal > 0) {
+          _starSize = i;
+          _totalStarMotifs = expansionTotal;
+          break;
+        }
+      }
+    }
+  }
   if (_totalStarMotifs == 0)
     Warning("cannot estimate absolute graphlet count because this network has "
             "no star motifs");
-  // Note("totStarMotifs is %g", _totalStarMotifs);
+  else if (_starSize < _k && _quiet < 2)
+    Note("no %d-star motifs: using %d-star fallback "
+         "(expansion-adjusted total %.15g)",
+         _k, _starSize, _totalStarMotifs);
+  #if !DYNAMIC_CANON_MAP
   for (i = 0; i < _numCanon; i++)
     _canonNumStarMotifs[i] =
         -1; // 0 is a valid value so use -1 to mean "not yet initialized"
+  #endif
 }
-#endif
 const char *SampleMethodStr(void) {
   switch (_sampleMethod) {
   case SAMPLE_NODE_EXPANSION:
@@ -707,7 +859,11 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
   InitializeConnectedComponents(G);
   #if !DYNAMIC_CANON_MAP
   InitializeStarMotifs(G);
+  #else
+  if (_starFallback && NeedAbsoluteCounts()) InitializeStarMotifs(G);
+  #endif
 
+  #if !DYNAMIC_CANON_MAP
   // these initialize the global accumulators, which are the ones being outputed
   // each thread also has it's own copy of accumulators, which are then "summed
   // up" into this global copy we initialize below initialize GDV vectors if
@@ -1475,12 +1631,20 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
       singleThreadAccums->graphletCount) {
     PruneGraphletTree(&singleThreadAccums->graphletCount,
                       BLANT_DYNAMIC_REPORT_MAX);
-    // denom is the divisor for the callback. Concentrations divide by the
-    // total weight; counts additionally scale by numSamples so the weighted
-    // samples still read as "count out of numSamples".
-    double denom = singleThreadAccums->graphletTotalWeight;
-    if (_freqDisplayMode != freq_display_mode_concentration)
-      denom /= numSamples;
+    // denom is the divisor for the callback:
+    //   -F c: the total weight, so the output is a concentration;
+    //   -F n: additionally scale by numSamples;
+    //   -F a with -S and no k-stars: F_j/D_j, so the output is absolute.
+    double denom;
+    if (_freqDisplayMode == freq_display_mode_estimate_absolute &&
+        _starSize > 0 && _starSize < k && _totalStarMotifs > 0 &&
+        singleThreadAccums->foundStarWeight > 0)
+      denom = singleThreadAccums->foundStarWeight / _totalStarMotifs;
+    else {
+      denom = singleThreadAccums->graphletTotalWeight;
+      if (_freqDisplayMode != freq_display_mode_concentration)
+        denom /= numSamples;
+    }
     TreeTraverse((foint){.d = denom}, singleThreadAccums->graphletCount,
                  _freqPrintCallback);
   }
@@ -1813,6 +1977,8 @@ const char *const USAGE_SHORT =
     "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, "
     "j=Jesse, b=binary, d=decimal, n=noncanonical)\n"
     "    -r seed (integer)\n"
+    "    -S: fall back to smaller star motifs for -F a absolute counts when "
+    "no k-star exists\n"
     "    -F frequency display mode (default a=absolute count (estimated); "
     "c=concentration; n=raw count out of numSamples)\n"
     "    -t N[:M]: (CURRENTLY BROKEN): use threading (parallelism); break the "
@@ -1951,7 +2117,10 @@ const char *const USAGE_LONG =
     "possible value (MAX_POSSIBLE_THREADS in blant.h),\n"
     "       but defaults to 4 to be conservative.\n"
     "    -r seed: pick your own random seed\n"
-    "    -S is for SANITY TESTING ONLY! It turns off the de-biasing alpha "
+    "    -S: if the network has no k-star motifs, fall back to (k-1)-, "
+    "(k-2)-, ... star motifs for the absolute-count estimate (-F a) and use "
+    "expansion-adjusted totals\n"
+    "    -R is for SANITY TESTING ONLY! It turns off the de-biasing alpha "
     "multipliers and produces BIASED samples\n"
     "    -i FILENAME: file containing \"nodes of interest\"; every graphlet "
     "sampled will have at least one of these nodes\n"
@@ -2015,7 +2184,7 @@ int main(int argc, char *argv[]) {
   // no colon appended.
   while ((opt = getopt(
               argc, argv,
-              "2:a:b:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:Qqr:Rs:t:T:wW:x:X")) != -1) {
+              "2:a:b:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:QqRSr:s:t:T:wW:x:X")) != -1) {
     switch (opt) {
       unsigned long nSampArg;
     // -q decreases verboseness; -v increases it
@@ -2166,6 +2335,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'R':
       _rawCounts = true;
+      break;
+    case 'S':
+      _starFallback = true;
       break;
     case 's':
       if (_sampleMethod != -1)
