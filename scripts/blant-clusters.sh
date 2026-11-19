@@ -33,10 +33,15 @@ OPTIONS (added BEFORE the blant.exe name)
 	cluster (though it can overlap by more than this with MULTIPLE previous clusters). If it overlaps more than this with
 	any ONE previous cluster, it is discarded.
     -X N: run up to N CORE 'region explorations' (pieterhv.nl/project_max_clique.html) per cluster build, each time
-	the greedy build gets stuck, hoping to find larger clusters; 0 (the default) disables it. Each exploration
-	adds a connected region of REGION_MIN..REGION_MAX (10..200) random nodes outside the cluster, then evicts
-	the same number of worst-connected nodes. EXPENSIVE: measured 2x-60x slower for clusters up to ~7% larger;
-	many starts then converge on the same biggest cluster, so fewer distinct clusters survive the -o filter.
+	the greedy build gets stuck; 0 (the default) disables it. Each exploration adds a connected region of
+	REGION_MIN..REGION_MAX (10..200) random nodes outside the cluster, then evicts the same number of
+	worst-connected nodes. EXPENSIVE: measured 1x-29x slower for clusters up to 3% larger, often 0% larger, and
+	it costs distinct communities, so it is only worth it on a big network where the top community is the point.
+	A build whose frontier simply runs dry is NOT stuck and is left alone unless -XD is also given.
+    -XD: with -X N, also run region explorations when the frontier drains (the build ran out of candidates), not only
+	when it is stuck on density failures. This is what helps huge sparse networks, where almost nothing fails the
+	density test (FlyWire, ED 0.001, -M 3000: 49585 -> 56568 edges at the same size), but on small networks it
+	replaces finished short communities with near-copies of the biggest one; best used with -o 1 or -1.
 PREDICTION
     -PN: perform edge prediction of up to N edges for each node on the 'periphery' of a communty because it has
 	as many as N too few edges into the community to be added; prediction seems to work better with larger
@@ -85,6 +90,7 @@ PRECISION=-p0.9L
 PRINT_MEMBERS=1
 DENSITY_LEEWAY=0.95 # factor by which we can _initially_ keep a node in the cluster even though it lowers the density
 CORE_EXPLORE=0 # -X: how many CORE region explorations to allow per cluster build; 0 disables
+EXPLORE_DRAINED=0 # -XD: also allow region exploration when the frontier drains, not only when the build is stuck
 REGION_MIN=10 # smallest random region size for region exploration
 REGION_MAX=200 # largest random region size for region exploration
 
@@ -119,6 +125,7 @@ while echo "X$1" | grep '^X-' >/dev/null; do # first argument is an option
     -o) OVERLAP="$2"; shift 2;;
     -o[0-9]*) OVERLAP="`echo $1|sed 's/^-o//'`"; shift 1;;
     -P[0-9]*) EDGE_PREDICT="`echo $1|sed 's/^-P//'`"; shift 1;;
+    -XD) EXPLORE_DRAINED=1; shift;;
     -X) CORE_EXPLORE="$2"; shift 2;;
     -X[0-9]*) CORE_EXPLORE="`echo $1|sed 's/^-X//'`"; shift 1;;
     -*) die "unknown option '$1'";;
@@ -238,6 +245,7 @@ for edgeDensity in "${EDs[@]}"; do
 	hawk ' # build the actual communities; may require huge amounts of RAM and CPU, eg 10GB and 12-24h for 9wiki-topcats
 	    BEGIN{if("'$RANDOM_SEED'") srand('$RANDOM_SEED');else Srand();OFS="\t"; ID=0; edgePredict='"$EDGE_PREDICT"';
 		coreAttempts=0; CORE_ATTEMPTS_MAX='$CORE_EXPLORE'; REGION_MIN='$REGION_MIN'; REGION_MAX='$REGION_MAX';
+		exploreDrained='$EXPLORE_DRAINED';
 		M=1*'$minClusArg'; if(M>=1) minClus=M;
 		else {
 		    m='$numEdges'; n='$numNodes'; eps=m/choose(n,2);
@@ -288,6 +296,14 @@ for edgeDensity in "${EDs[@]}"; do
 		edgeCount -= edgesIntoS[v]+0;
 		wgtEdgeCount -= wgtIntoS[v]+0;
 		IntoS(v,-1);
+	    }
+	    function RebuildSorder(   i,v,n,newOrder,kept) {
+		n=0;
+		for(i=1;i<=SordN;i++) { v=Sorder[i]; if((v in S) && !(v in kept)) { kept[v]=1; newOrder[++n]=v; } }
+		for(v in S) if(!(v in kept)) { kept[v]=1; newOrder[++n]=v; }
+		delete Sorder;
+		for(i=1;i<=n;i++) Sorder[i]=newOrder[i];
+		SordN=n;
 	    }
 	    function highRelClusCount(u, v) { # Heuristic
 		if(!(u in count) || count[u]==0) return 1;
@@ -351,13 +367,13 @@ for edgeDensity in "${EDs[@]}"; do
 		    S[v]=1; IntoS(v,1); ++added;
 		    AppendNeighbors(v, origin); # continue the build from the new region
 		}
-		delete Sorder; i=0; for(v in S) Sorder[++i]=v;
 		if(added>length(S)) added=length(S);
 		delete inDeg; for(v in S) inDeg[v]=edgesIntoS[v]+0;
 		PROCINFO["sorted_in"]="@val_num_asc"; # evict the nodes with the fewest edges into S
 		i=0; for(v in inDeg) Evict[++i]=v;
 		for(i=1; i<=added; i++) RemoveFromS(Evict[i]);
 		delete Evict;
+		RebuildSorder();
 		PROCINFO["sorted_in"]=oldOrder;
 		return 1;
 	    }
@@ -378,14 +394,15 @@ for edgeDensity in "${EDs[@]}"; do
 		    MakeEmptySet(visitedQ);
 		    misses=0; # how many nodes have been skipped because they did not work?
 		    coreAttempts=0;
+		    SordN=0;
 		    if(QueueLength("Q")>0){QueueDelloc("Q");QueueAlloc("Q");}
 		    QueueAdd("Q", origin);
 		    visitedQ[origin] = 1;
 		    wgtEdgeCount = edgeCount = 0;
 		    delete edgesIntoS; delete wgtIntoS; # maintained: number [weight] of edges from each node into S
 		    while(1){
-			if(QueueLength("Q")==0) { # nothing left to try: explore a region of nodes outside S, or stop
-			    if(!CoreRegionExplore()) break;
+			if(QueueLength("Q")==0) {
+			    if(!exploreDrained || !CoreRegionExplore()) break;
 			    misses=0;
 			    continue;
 			}
@@ -404,6 +421,7 @@ for edgeDensity in "${EDs[@]}"; do
 			# slows the program by more than 100x (NOT an exaggeration)
 			# WARN(edgeCount == InducedEdges(edge,S),"Slen "Slen" edgeCount "edgeCount" Induced(S) "InducedEdges(edge,S));
 			Sorder[Slen]=u; # no need to delete this element if u fails because Slen will go down by 1
+			if(Slen>SordN) SordN=Slen;
 			if (Slen==1) {
 			    IntoS(u,1);
 			    AppendNeighbors(u, origin);
