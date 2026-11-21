@@ -133,11 +133,8 @@ void getprops(const string &input_file_name, int evalues = -1) {
     ifstream infile(input_file_name.c_str());
     int a, b;
     while (infile >> a >> b) {
-        if (adj_list_graph[a].find(b) == adj_list_graph[a].end()) {
-            edges++;
-        }
-        adj_list_graph[a].insert(b);
-        adj_list_graph[b].insert(a);
+        adj_list_graph[idmap[a]].insert(idmap[b]);
+        adj_list_graph[idmap[b]].insert(idmap[a]);
     }
     infile.close();
 
