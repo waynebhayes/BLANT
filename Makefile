@@ -7,6 +7,12 @@
 # deletes the directed ones, which are quick), which matters because the k=8 tables can take
 # an hour.
 
+# undirected up to K = 6, directed up to K = 8
+CHECKSUM_K := $(filter 6 7 8,$(K))
+CHECKSUM_K_DIR := $(filter 8,$(K_DIR))
+
+guard = $(if $(filter $(2),$(3)),$(STAMPS)/$(1).sum,$(1))
+
 # Number of cores to use when invoking parallelism
 # (temporarily set to 1 since I broke threading. :-( )
 CORES ?= 2
@@ -209,28 +215,20 @@ FORCE:
 
 ### libwayne ###
 
-# BLANT only ever runs make in libwayne. The libwayne pinned here has no incremental build:
-# its 'make all' deletes every .a file, remakes them all and runs its tests. So it is run once,
-# and again only when the contents of a libwayne source file change or one of the .a files is missing.
-LW = libwayne
 LIBWAYNE_LIBS = $(addprefix $(LW)/,libwayne.a libwayne-g.a libwayne-pg.a libwayne-pg-g.a libwayne-nd.a)
 # Dot files, so 'make clean' (rm -rf $(OBJDIR)/*) keeps them.
 LIBWAYNE_STAMP = $(OBJDIR)/.libwayne-built
-LIBWAYNE_SUM = $(OBJDIR)/.libwayne.sum
+LIBWAYNE_SRCS = $(filter-out %/intSizes.h,$(wildcard $(LW)/src/*.c $(LW)/include/*.h))
 
 libwayne: $(LIBWAYNE_STAMP)
 
-# Checksum of libwayne's sources. intSizes.h is left out, because libwayne makes it.
-# LC_ALL=C keeps the file order the same everywhere.
 libwayne_files = ls $(LW)/Makefile $(LW)/src/*.c $(LW)/include/*.h | grep -v intSizes.h | LC_ALL=C sort
-$(LIBWAYNE_SUM): $(LW)/Makefile FORCE
-	mkdir -p $(OBJDIR)
-	$(libwayne_files) | xargs cat | cksum > $@.new
-	$(call install_sum,$@,$(LIBWAYNE_STAMP))
+
 
 # This calls plain 'make', not $$(MAKE), on purpose: with $$(MAKE), even 'make -n' would really
 # run libwayne's 'make all', which starts by deleting its .a files.
-$(LIBWAYNE_STAMP): $(LIBWAYNE_SUM) $(if $(filter-out $(wildcard $(LIBWAYNE_LIBS)),$(LIBWAYNE_LIBS)),FORCE)
+$(LIBWAYNE_STAMP): $(LW)/Makefile $(LIBWAYNE_SRCS) $(if $(filter-out $(wildcard $(LIBWAYNE_LIBS)),$(LIBWAYNES_LIBS)),FORCE)
+	mkdir -p $(OBJDIR)
 	cd $(LW) && make all
 	touch $@
 
@@ -242,33 +240,15 @@ $(LW)/Makefile:
 	git submodule update libwayne
 	(cd libwayne && git checkout master && git pull)
 
-### How each file is compiled ###
 
-# Every compiler call is one "unit". A unit is named by the file it makes, relative to
-# $(OBJDIR) for an object (eg blant.o) or to the top for a program (eg Draw/graphette2dot).
-# For a unit U:
-#   unit_src_U    its source files      (default for an object X.o: $(SRCDIR)/X.c)
-#   unit_cc_U     its compiler          (default: $(CC))
-#   unit_flags_U  its extra flags       (default: none)
 unit_src = $(or $(unit_src_$(1)),$(SRCDIR)/$(patsubst %.o,%.c,$(1)))
 unit_cmd = $(or $(unit_cc_$(1)),$(CC)) $(unit_flags_$(1)) $(LIBWAYNE_COMP)
-# $(call unit_files,U): every file U is built from, one per line: its sources and every
-# header they read, as the compiler finds them (-MM only lists them; it compiles nothing).
+
 unit_files = $(call unit_cmd,$(1)) -MM $(call unit_src,$(1)) | sed -e 's/^[^:]*://' -e 's/\\$$//' | tr ' ' '\n' | grep .
 
-# Each unit U has a checksum file, $(OBJDIR)/U.sum, of its compile command and the contents of
-# every file it is built from. It is rewritten only when that checksum changes, and U depends
-# on it instead of on its source files. So U is remade when its code really changes, and a
-# 'touch' or a 'git checkout' that leaves the contents alone remakes nothing.
-#
-# $(call install_sum,SUM,OUT): move SUM.new over SUM, but only if it is different.
-# make 3.81 (the macOS one) only sees whole seconds. So if SUM changes in the same second as SUM
-# or OUT last did, make would not see the change, and OUT would wrongly be kept. In that rare
-# case this first waits for the next second (never more than 3), so the new SUM is surely newer.
 install_sum = if cmp -s $(1).new $(1); then rm -f $(1).new; else \
 	perl -e '$$m = 0; for (@ARGV) { my $$t = (stat)[9]; $$m = $$t if defined $$t && $$t > $$m } for (1..3) { last if time > $$m; sleep 1 }' $(1) $(2); \
 	mv -f $(1).new $(1); touch $(1); fi
-unit_out = $(if $(filter %.o,$(1)),$(OBJDIR)/$(1),$(1))
 
 # blant's objects. blant-predict.o has its own recipe, further down.
 BLANT_OBJ_UNITS := $(BLANT_SRCS:.c=.o)
@@ -321,27 +301,22 @@ unit_flags_cluster-similarity-graph := $(SPEED) -Wall
 OBJ_UNITS := $(BLANT_OBJ_UNITS) blant-predict.o libblant.o mt19937.o $(PROGS:=.o) $(CREATE_BIN_DATA:=.o) \
 	magictable.o makeEHD.o blant-sanity.o synthetic.o syntheticDS.o
 PROG_UNITS := l-k-func-sort-test l-k-perm-test Draw/graphette2dot cluster-similarity-graph
-UNIT_SUMS := $(addprefix $(OBJDIR)/,$(addsuffix .sum,$(OBJ_UNITS) $(PROG_UNITS)))
-# Never delete a checksum file as a throwaway in-between file.
-.SECONDARY: $(UNIT_SUMS) $(LIBWAYNE_SUM)
-
-# libwayne makes intSizes.h, which -MM has to find, so it comes first.
-$(UNIT_SUMS): $(OBJDIR)/%.sum: FORCE | $(LIBWAYNE_STAMP)
-	mkdir -p $(dir $@)
-	{ echo '$(subst $(LIBWAYNE_HOME),LIBWAYNE_HOME,$(call unit_cmd,$*) $(call unit_src,$*))'; \
-	  $(call unit_files,$*) | LC_ALL=C sort -u | xargs cat; } | cksum > $@.new
-	$(call install_sum,$@,$(call unit_out,$*))
 
 ### Object Files ###
+.SECONDEXPANSION:
 
 OBJS = $(addprefix $(OBJDIR)/,$(BLANT_OBJ_UNITS) blant-predict.o)
 
-$(addprefix $(OBJDIR)/,$(filter-out blant-predict.o,$(OBJ_UNITS))): $(OBJDIR)/%: $(OBJDIR)/%.sum
-	$(call unit_cmd,$*) -c -o $@ $(call unit_src,$*)
+$(addprefix $(OBJDIR)/,$(filter-out blant-predict.o,$(OBJ_UNITS))): $(OBJDIR)/%: $$(call unit_src,$$*) | $(LIBWAYNE_STAMP)
+	mkdir -p $(dir $@)
+	$(call unit_cmd,$*) -MMD -MP -c -o$@ $(call unit_src,$*)
 
-$(OBJDIR)/blant-predict.o: $(OBJDIR)/blant-predict.o.sum
-	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(call unit_cmd,blant-predict.o) -c -o $@ $(call unit_src,blant-predict.o); fi
+$(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC) | $(LIBWAYNE_STAMP)
+	mkdir -p $(dir $@)
+	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(call unit_cmd,blant-predict.o) -MMD -MP-c -o $@ $(call unit_src,blant-predict.o); fi
 
+
+-include $(wildcard $(OBJDIR)/*.d)
 ### Executables ###
 
 # A program is linked again only when one of its objects or libwayne is really remade.
@@ -357,20 +332,11 @@ $(CREATE_BIN_DATA): create-bin-data%: $(OBJDIR)/create-bin-data%.o $(OBJDIR)/lib
 make-orca-jesse-blant-table: $(OBJDIR)/magictable.o $(OBJDIR)/libblant.o $(LIBWAYNE_STAMP)
 	$(CXX) $(PROG_FLAGS_make-orca-jesse-blant-table) -o $@ $(OBJDIR)/magictable.o $(OBJDIR)/libblant.o $(LIBWAYNE_LINK)
 
-# Programs compiled in one call, plus libblant.o:
-#   l-k-func-sort-test  debug harness: runs L_K_Func_Sort over the canonicals read from a canon
-#                       list file (default canon_maps/canon_list{<k>}.txt) and does nothing else.
-#   l-k-perm-test       debug harness: for each canonical given on the command line, runs
-#                       L_K_Func_Sort on every decimal in its isomorphism class (all k! relabelings)
-#                       and reports whether the per-call attempt count varies across the class.
-#   Draw/graphette2dot  draws a graphlet for graphviz.
-# The two debug harnesses are NOT part of the normal build (base/most/all); build them only on
-# explicit request, eg 'make l-k-func-sort-test'.
-$(filter-out cluster-similarity-graph,$(PROG_UNITS)): %: $(OBJDIR)/%.sum $(OBJDIR)/libblant.o $(LIBWAYNE_STAMP)
-	$(call unit_cmd,$@) -o $@ $(call unit_src,$@) $(OBJDIR)/libblant.o $(LIBWAYNE_LINK)
+$(filter-out cluster-similarity-graph,$(PROG_UNITS)): %: $$(call unit_src,$$*) $(wildcard $(SRCDIR)/*.h Draw/*.h)
+  $(OBJDIR)/libblant.o $(LIBWAYNE_STAMP)
 
 # Uses only libwayne's headers, so it links nothing in.
-cluster-similarity-graph: $(OBJDIR)/cluster-similarity-graph.sum $(LIBWAYNE_STAMP)
+cluster-similarity-graph: $(SRCDIR)/cluster-similarity-graph.c $(LIBWAYNE_STAMP)
 	$(call unit_cmd,$@) -o $@ $(call unit_src,$@)
 
 synthetic: $(OBJDIR)/synthetic.o $(OBJDIR)/syntheticDS.o $(OBJDIR)/libblant.o $(LIBWAYNE_STAMP)
@@ -384,20 +350,6 @@ Draw: Draw/graphette2dot
 blant-sanity: $(OBJDIR)/blant-sanity.o $(LIBWAYNE_STAMP)
 	$(CC) -o $@ $(OBJDIR)/blant-sanity.o $(LIBWAYNE_LINK)
 
-### Generated File Recipes ###
-
-# How the tables stay correct without being remade for nothing:
-# 1. Each program that makes tables has a checksum file, $(STAMPS)/<program>.sum, of everything
-#    it is built from: its source files and the headers they read, libwayne's source files,
-#    and the compile flags. It is rewritten only when that checksum changes, so a table that
-#    depends on it is remade only when that code really changed. Like the unit checksums (see
-#    "How each file is compiled"), it never goes by the program's date, so a 'make clean' that
-#    relinks the program remakes no table.
-# 2. Each step, e.g. "make the k=5 canon maps", writes its tables to *.new files and moves each
-#    one over the old table only if it is different. So an unchanged table keeps its old date,
-#    and the steps after it are not remade. The step then touches its own stamp,
-#    $(STAMPS)/<step>.done, which is what the tables themselves depend on.
-# 3. If any table of a step is missing, that step runs again.
 STAMPS = $(UND_CANON_DIR)/.stamps
 DSTAMPS = $(DIR_CANON_DIR)/.stamps
 
@@ -414,18 +366,14 @@ $(TABLE_PROGS:%=$(STAMPS)/%.sum): $(STAMPS)/%.sum: % FORCE
 	  $(libwayne_files) | xargs cat; } | cksum > $@.new
 	$(call install_sum,$@,$(STAMPS)/*.done $(DSTAMPS)/*.done)
 
-# $(call install_new,FILES): move each FILE.new over FILE, but only if it is different.
 install_new = for f in $(1); do if cmp -s $$f.new $$f; then rm -f $$f.new; else mv -f $$f.new $$f; fi; done
-# For programs that write their tables in place: save each old table first, then put it back
-# (with its old date) if the new one is the same, or if the program failed.
+
 save_old = for f in $(1); do if [ -f $$f ]; then cp -p $$f $$f.old; fi; done
 keep_old_if_same = for f in $(1); do if [ -f $$f.old ] && cmp -s $$f $$f.old; then mv -f $$f.old $$f; else rm -f $$f.old; fi; done
 put_back_old = for f in $(1); do if [ -f $$f.old ]; then mv -f $$f.old $$f; fi; done
 
-# canon_map, canon_list, and canon-...-signature are all made together, because they all come from fast-canon-map.
-# If there are several lines for the same canonical, canon_list keeps the one with the most fields.
 canon_list_awk = '{if(!($$1 in seen)){seen[$$1]=$$0}else if(NF>split(seen[$$1],tmp,"\t")){seen[$$1]=$$0}}END{n=asorti(seen,sorted,"@ind_num_asc");print n;for(i=1;i<=n;i++)print seen[sorted[i]]}'
-# $(call make_canon,DIR,k,ARGS)
+
 define make_canon
 	mkdir -p $(1)
 	./fast-canon-map $(2) $(3) > $(1)/canon_map$(2).txt.new
@@ -436,13 +384,13 @@ define make_canon
 	$(call install_new,$(1)/canon_map$(2).txt $(1)/canon_list$(2).txt $(1)/canon-ordinal-to-signature$(2).txt)
 endef
 
-$(STAMPS)/canon%.done: $(STAMPS)/fast-canon-map.sum | fast-canon-map
+$(STAMPS)/canon%.done
 	$(call make_canon,$(UND_CANON_DIR),$*,)
 	touch $@
 $(UND_CANON_DIR)/canon_map%.txt $(UND_CANON_DIR)/canon_list%.txt $(UND_CANON_DIR)/canon-ordinal-to-signature%.txt: $(STAMPS)/canon%.done ;
 
 # directed counterpart (only k values listed in K_DIR)
-$(DSTAMPS)/canon%.done: $(STAMPS)/fast-canon-map.sum | fast-canon-map
+$(DSTAMPS)/canon%.done
 	$(call make_canon,$(DIR_CANON_DIR),$*,directed)
 	mkdir -p $(DSTAMPS)
 	touch $@
@@ -472,15 +420,12 @@ $(STAMPS)/orbit%.done: $(STAMPS)/make-orbit-maps.sum $(UND_CANON_DIR)/canon_map%
 	touch $@
 $(UND_CANON_DIR)/orbit_map%.txt: $(STAMPS)/orbit%.done ;
 
-# directed orbit maps
 $(DSTAMPS)/orbit%.done: $(STAMPS)/make-orbit-maps.sum $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon_map%.bin | make-orbit-maps
 	./make-orbit-maps $* directed > $(DIR_CANON_DIR)/orbit_map$*.txt.new
 	$(call install_new,$(DIR_CANON_DIR)/orbit_map$*.txt)
 	touch $@
 $(DIR_CANON_DIR)/orbit_map%.txt: $(DSTAMPS)/orbit%.done ;
 
-# canon-upper.sh adds lower-case names (eg alpha_list_nbe5.txt) for the alpha lists.
-# $(call make_alpha,METHOD,k)
 define make_alpha
 	./compute-alphas-$(1) $(2) > $(UND_CANON_DIR)/alpha_list_$(1)$(2).txt.new
 	$(call install_new,$(UND_CANON_DIR)/alpha_list_$(1)$(2).txt)
@@ -502,7 +447,6 @@ $(UND_CANON_DIR)/alpha_list_MCMC%.txt: $(STAMPS)/alpha-MCMC%.done ;
 
 sub$(BLANT_CANON_DIR): $(subcanon_txts) $(subcanon_txts_dir)
 
-# undirected and directed subcanon maps, all in one step
 $(STAMPS)/subcanon.done: $(STAMPS)/make-subcanon-maps.sum $(canon_all) | make-subcanon-maps
 	for k in $(filter-out 3,$(K)); do ./make-subcanon-maps $$k > $(UND_CANON_DIR)/subcanon_map$$k-$$(($$k-1)).txt.new || exit 1; done
 	for k in $(filter-out 3,$(K_DIR)); do ./make-subcanon-maps $$k directed > $(DIR_CANON_DIR)/subcanon_map$$k-$$(($$k-1)).txt.new || exit 1; done
@@ -510,7 +454,6 @@ $(STAMPS)/subcanon.done: $(STAMPS)/make-subcanon-maps.sum $(canon_all) | make-su
 	touch $@
 $(subcanon_txts) $(subcanon_txts_dir): $(STAMPS)/subcanon.done ;
 
-# make-orca-jesse-blant-table writes every UpperToLower<k>.txt in place, in one run.
 magic_table: $(magic_table_txts)
 $(STAMPS)/magic.done: $(STAMPS)/make-orca-jesse-blant-table.sum $(canon_all) $(magic_table_inputs) | make-orca-jesse-blant-table
 	$(call save_old,$(magic_table_txts))
@@ -520,15 +463,12 @@ $(STAMPS)/magic.done: $(STAMPS)/make-orca-jesse-blant-table.sum $(canon_all) $(m
 	touch $@
 $(magic_table_txts): $(STAMPS)/magic.done ;
 
-# Every step's stamp, by name, so make never treats one as a throwaway in-between file.
 TABLE_STAMPS := \
 	$(foreach k,$(K),$(addprefix $(STAMPS)/,canon$(k).done bin$(k).done orbit$(k).done alpha-NBE$(k).done alpha-EBE$(k).done alpha-MCMC$(k).done)) \
 	$(foreach k,$(K_DIR),$(addprefix $(DSTAMPS)/,canon$(k).done bin$(k).done orbit$(k).done)) \
 	$(STAMPS)/subcanon.done $(if $(K),$(STAMPS)/magic.done)
 tables: $(TABLE_STAMPS)
 
-# A step must run again if any of its tables is missing, even when its stamp looks up to date.
-# $(call rerun_if_missing,STAMP,TABLES)
 rerun_if_missing = $(if $(filter-out $(wildcard $(2)),$(2)),$(eval $(1): FORCE))
 $(foreach k,$(K), \
 	$(call rerun_if_missing,$(STAMPS)/canon$(k).done,$(addsuffix $(k).txt,$(addprefix $(UND_CANON_DIR)/,canon_map canon_list canon-ordinal-to-signature))) \
@@ -542,14 +482,10 @@ $(foreach k,$(K_DIR), \
 $(call rerun_if_missing,$(STAMPS)/subcanon.done,$(subcanon_txts) $(subcanon_txts_dir))
 $(call rerun_if_missing,$(STAMPS)/magic.done,$(magic_table_txts))
 
-# Currently unused target
 $(BLANT_CANON_DIR)/EdgeHammingDistance%.txt: makeEHD | $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.bin
 	if [ ! -f $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt.xz ]; then ./makeEHD $* > $@; cmp $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt $@; else echo "EdgeHammingDistance8.txt takes weeks to generate; uncompressing instead"; unxz < $(BLANT_CANON_DIR).correct/EdgeHammingDistance$*.txt.xz > $@ && touch $@; fi
 	#(cd $(BLANT_CANON_DIR).correct && ls EdgeHammingDistance$*.txt*) | awk '{printf "cmp $(BLANT_CANON_DIR).correct/%s $(BLANT_CANON_DIR)/%s\n",$$1,$$1}' | sh
 
-### Testing ###
-
-# Each test below fails if any one of its checks fails, not just the last one.
 test_stamp: blant blant-sanity $(canon_all) $(subcanon_txts)
 	@echo Touching test_stamp so $(BLANT_CANON_DIR)/check_maps and $(BLANT_CANON_DIR)/test_index_mode tests only occur if the $(BLANT_CANON_DIR) are changed.
 	touch test_stamp
@@ -558,14 +494,11 @@ test_fast: blant blant-sanity
 	# Run blant sanity test only for MCMC tables. If this fails, chances are EVERYTHING ELSE is wrong. These tests will run every time base is made
 	for k in $(K); do if [ -f $(BLANT_CANON_DIR)/canon_map$$k.bin ]; then echo FAST basic sanity for ONLY MCMC with k=$$k; ./blant -q -s MCMC -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el || exit 1; fi; done
 
-# The stamp is touched only after every check passes, so a failed test runs again next time.
 $(BLANT_CANON_DIR)/test_index_mode: test_stamp
 	# First run blant-sanity for various values of k
 	for S in NBE MCMC EBE; do for k in $(K); do if [ -f $(BLANT_CANON_DIR)/canon_map$$k.bin ]; then echo basic sanity check sampling method $$S indexing k=$$k; ./blant -q -s $$S -mi -n 100000 -k $$k networks/syeast.el | sort -n | ./blant-sanity $$k 100000 networks/syeast.el || exit 1; fi; done; done
 	touch $@
 
-# Compares every table that has a copy in $(BLANT_CANON_DIR).correct/. A difference only warns,
-# because some of those copies are known to be out of date; the check then runs again next time.
 $(BLANT_CANON_DIR)/check_maps: test_stamp
 	differ=; for f in `ls $(BLANT_CANON_DIR).correct/ | egrep -v 'canon_list2|$(if $(SEVEN),,7|)$(if $(EIGHT),,8|)README|\.[gx]z|EdgeHamming'`; do \
 	    [ -d $(BLANT_CANON_DIR).correct/$$f ] && continue; \
@@ -573,9 +506,6 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 	done; \
 	if [ -n "$$differ" ]; then echo "WARNING: check_maps: these differ from $(BLANT_CANON_DIR).correct/:$$differ" >&2; else touch $@; fi
 
-### Cleaning ###
-
-# On a disk that ignores case (macOS), 'synthetic' is the Synthetic/ folder; leave that alone.
 clean:
 	/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map slow-canon-maps make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps makeEHD cluster-similarity-graph test_stamp l-k-func-sort-test l-k-perm-test $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
 	[ ! -f synthetic ] || /bin/rm -f synthetic
