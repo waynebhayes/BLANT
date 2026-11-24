@@ -87,6 +87,8 @@ BLANT_SRCS = blant.c \
 			 blant-pthreads.c
 
 OBJDIR = _objs
+LIBWAYNE_STAMP = $(OBJDIR)/.libwayne-built
+LIBWAYNE_SRCS = $(filter-out %/intSizes.h,$(wildcard libwayne/src/*.c libwayne/include/*.h))
 BLANT_CANON_DIR = canon_maps
 UND_CANON_DIR := $(BLANT_CANON_DIR)
 DIR_CANON_DIR := $(BLANT_CANON_DIR)/directed
@@ -208,20 +210,20 @@ $(BLANT_CANON_DIR): base $(canon_all) sub$(BLANT_CANON_DIR)
 
 ### Executables ###
 
-fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+fast-canon-map: $(LIBWAYNE_STAMP) $(SRCDIR)/fast-canon-map.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) '-std=gnu11' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
 
-slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+slow-canon-maps: $(LIBWAYNE_STAMP) $(SRCDIR)/slow-canon-maps.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_BOTH)
 
-make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+make-orbit-maps: $(LIBWAYNE_STAMP) $(SRCDIR)/make-orbit-maps.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
 
 # Debug harness: runs L_K_Func_Sort over the canonicals read from a canon list
 # file (default canon_maps/canon_list{<k>}.txt) and does nothing else. NOT part
 # of the normal build (base/most/all); build it only on explicit request, e.g.
 # make l-k-func-sort-test
-l-k-func-sort-test: libwayne $(SRCDIR)/l-k-func-sort-test.c $(SRCDIR)/blant-utils.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+l-k-func-sort-test: $(LIBWAYNE_STAMP) $(SRCDIR)/l-k-func-sort-test.c $(SRCDIR)/blant-utils.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) '-std=gnu11' -DDEBUG_ATTEMPTS -o $@ $(SRCDIR)/l-k-func-sort-test.c $(SRCDIR)/blant-utils.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 # Debug harness: for each canonical given on the command line, run L_K_Func_Sort
@@ -229,10 +231,10 @@ l-k-func-sort-test: libwayne $(SRCDIR)/l-k-func-sort-test.c $(SRCDIR)/blant-util
 # whether the per-call attempt count varies across the class. Also NOT part of
 # the normal build; explicit request only:
 # make l-k-perm-test
-l-k-perm-test: libwayne $(SRCDIR)/l-k-perm-test.c $(SRCDIR)/blant-utils.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+l-k-perm-test: $(LIBWAYNE_STAMP) $(SRCDIR)/l-k-perm-test.c $(SRCDIR)/blant-utils.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) '-std=gnu11' -DDEBUG_ATTEMPTS -o $@ $(SRCDIR)/l-k-perm-test.c $(SRCDIR)/blant-utils.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
-blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
+blant: $(LIBWAYNE_STAMP) $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	./canon-upper.sh
 
@@ -240,38 +242,38 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) -c -o $@ $< $(LIBWAYNE_COMP) -D"DYNAMIC_CANON_MAP=$(DYNAMIC_CANON_MAP)"
 
-synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
+synthetic: $(LIBWAYNE_STAMP) $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_COMP)
 	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE_LINK)
 
 makeEHD: $(OBJDIR)/makeEHD.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_LINK)
 
-compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
+compute-alphas-NBE: $(LIBWAYNE_STAMP) $(SRCDIR)/compute-alphas-NBE.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
-compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant.o
+compute-alphas-EBE: $(LIBWAYNE_STAMP) $(SRCDIR)/compute-alphas-EBE.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-EBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 # Currently unused target, was the old method for calculating MCMC
-compute-alphas-MCMC-slow: libwayne $(SRCDIR)/compute-alphas-MCMC-slow.c | $(OBJDIR)/libblant.o
+compute-alphas-MCMC-slow: $(LIBWAYNE_STAMP) $(SRCDIR)/compute-alphas-MCMC-slow.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-slow.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
-compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
+compute-alphas-MCMC: $(LIBWAYNE_STAMP) $(SRCDIR)/compute-alphas-MCMC.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 Draw: Draw/graphette2dot
 
-Draw/graphette2dot: libwayne Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+Draw/graphette2dot: $(LIBWAYNE_STAMP) Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CXX) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ -std=gnu++11 $(LIBWAYNE_BOTH)
 
-make-subcanon-maps: libwayne $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
+make-subcanon-maps: $(LIBWAYNE_STAMP) $(SRCDIR)/make-subcanon-maps.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
-make-orca-jesse-blant-table: libwayne $(SRCDIR)/blant-fundamentals.h $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
+make-orca-jesse-blant-table: $(LIBWAYNE_STAMP) $(SRCDIR)/blant-fundamentals.h $(SRCDIR)/magictable.cpp $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=gnu++11 $(LIBWAYNE_BOTH)
 
-cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
+cluster-similarity-graph: $(LIBWAYNE_STAMP) src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
 $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
@@ -283,15 +285,15 @@ $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 	mkdir -p $(dir $@)
 	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=gnu++11
 
-$(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
+$(LIBWAYNE_HOME)/C++/mt19937.o: $(LIBWAYNE_STAMP) # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	cd $(LIBWAYNE_HOME)/C++ && $(MAKE)
 
-$(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c $(BLANT_HEADERS)
+$(OBJDIR)/libblant.o: $(LIBWAYNE_STAMP) $(SRCDIR)/libblant.c $(BLANT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
 
 
-$(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
+$(OBJDIR)/makeEHD.o: $(LIBWAYNE_STAMP) $(SRCDIR)/makeEHD.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o
 	mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/makeEHD.c -o $@ $(LIBWAYNE_COMP)
 
@@ -302,11 +304,12 @@ $(LIBWAYNE_HOME)/Makefile:
 	git submodule update libwayne
 	(cd libwayne && git checkout master && git pull)
 
-libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a
-
-libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
+.PHONY: libwayne
+libwayne: $(LIBWAYNE_STAMP)
+$(LIBWAYNE_STAMP): $(LIBWAYNE_HOME)/Makefile $(LIBWAYNE_SRCS)
+	mkdir -p $(OBJDIR)
 	(cd libwayne && make all)
-
+	touch $@
 
 ### Generated File Recipes
 
@@ -340,19 +343,15 @@ $(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(BLANT_CANON_DIR)/canon_map%
 $(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon_map%.bin
 	./make-orbit-maps $* directed > $(DIR_CANON_DIR)/orbit_map$*.txt
 
-# future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
-$(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: $(SRCDIR)/create-bin-data.c $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.txt
-	# compile create-bin-data.c to create-bin-data[k] executables
-	$(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
-	[ -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
+CREATE_BIN_DATA := $(addprefix create-bin-data,$(sort $(K) $(K_DIR)))
+$(CREATE_BIN_DATA): create-bin-data%: $(SRCDIR)/create-bin-data.c $(SRCDIR)/libblant.c $(BLANT_HEADERS) $(LIBWAYNE_STAMP)
+	$(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
 
-# and copy bin versions for directed k<=6
-$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
-	$(SRCDIR)/create-bin-data.c \
-	$(DIR_CANON_DIR)/canon_list%.txt \
-	$(DIR_CANON_DIR)/canon_map%.txt
-	[ -f create-bin-data$* ] || $(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
-	[ -f $(DIR_CANON_DIR)/canon_map$*.bin -a -f $(DIR_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$* directed
+$(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: create-bin-data% $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.txt
+	[ $* -eq 8 -a -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
+
+$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: create-bin-data% $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon_map%.txt
+	./create-bin-data$* directed
 
 # Currently unused target
 $(BLANT_CANON_DIR)/EdgeHammingDistance%.txt: makeEHD | $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.bin
@@ -374,7 +373,7 @@ $(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_tx
 
 ### Testing ###
 
-blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
+blant-sanity: $(LIBWAYNE_STAMP) $(SRCDIR)/blant-sanity.c
 	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
 
 test_stamp: blant blant-sanity $(canon_all) $(subcanon_txts)
@@ -413,6 +412,7 @@ realclean:
 pristine: clean clean_$(BLANT_CANON_DIR)
 ifndef NO_CLEAN_LIBWAYNE
 	cd $(LIBWAYNE_HOME); $(MAKE) clean
+	/bin/rm -f $(LIBWAYNE_STAMP)
 endif
 	find $(BLANT_CANON_DIR) -mindepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
