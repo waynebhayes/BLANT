@@ -13,6 +13,7 @@ DYNAMIC_CANON_MAP ?= 0
 MAX_K := 8
 EIGHT := 8
 SEVEN := 7
+ALLOW_D6 := 1
 ifdef NO8
     MAX_K := 7
     EIGHT := 
@@ -62,7 +63,7 @@ UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm
 STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x20000000"}')
 # 32-bit machine
 BITS=$(shell (uname -a) | awk '/i686/{print 32}/x86_64/||[Ll]inux{print 64}')
-CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
+CC=$(GCC) $(SPEED) $(NDEBUG) -DALLOW_D6=$(ALLOW_D6) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED) $(STATIC_LINK)
 LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
@@ -102,6 +103,7 @@ ifdef NO8
 	K_DIR := $(filter-out 6,$(K_DIR))
 endif
 ifdef NO_D6
+	ALLOW_D6 := 0
 	K_DIR := $(filter-out 6,$(K_DIR))
 endif
 

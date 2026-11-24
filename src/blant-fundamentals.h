@@ -23,14 +23,16 @@
 #define DYNAMIC_CANON_MAP 0 // off by default, but can be changed in Makefile
 #endif
 
-#define DIRECTED_K6 (long_width>32) //disallow k=6 for directed graphs on 32-bit machines
+#ifndef ALLOW_D6
+#define ALLOW_D6 (long_width>32) //disallow k=6 for directed graphs on 32-bit machines
+#endif
 
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
 #ifndef MAX_K
   #if DYNAMIC_CANON_MAP
     #define MAX_K 15 // and there shall be no lookup tables...
-  #elif DIRECTED_K6
+  #elif ALLOW_D6
     #define MAX_K 8
     #define MAX_CANONICALS 1540944 // for k=6, directed
     #define MAX_ORBITS 9174824
@@ -40,9 +42,9 @@
   // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
   #define maxBk (1U << (MAX_K*(MAX_K-1)/2 + MAX_K*SELF_LOOPS))
 #endif // MAX_K
-#define MAX_KD (5+DIRECTED_K6-SELF_LOOPS-(SYNTHETIC*2))
+#define MAX_KD (5+ALLOW_D6-SELF_LOOPS-(SYNTHETIC*2))
 
-#if DIRECTED_K6==0
+#if ALLOW_D6==0
   #if MAX_K <= 6
     #define MAX_CANONICALS 156
     #define MAX_ORBITS	 544
@@ -76,10 +78,10 @@
   #elif !DYNAMIC_CANON_MAP
     #error "MAX_K too big"
   #endif
-#endif // DIRECTED_K6
+#endif // ALLOW_D6
 
-#if MAX_K>10 && DIRECTED_K6 && !DYNAMIC_CANON_MAP
-#error "Sorry, current logic can't handle both MAX_K>10 and DIRECTED_K6"
+#if MAX_K>10 && ALLOW_D6 && !DYNAMIC_CANON_MAP
+#error "Sorry, current logic can't handle both MAX_K>10 and ALLOW_D6"
 #endif
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
