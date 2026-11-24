@@ -302,11 +302,12 @@ $(LIBWAYNE_HOME)/Makefile:
 	git submodule update libwayne
 	(cd libwayne && git checkout master && git pull)
 
-libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a
-
-libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
+.PHONY: libwayne
+libwayne: $(LIBWAYNE_STAMP)
+$(LIBWAYNE_STAMP): $(LIBWAYNE_HOME)/Makefile $(LIBWAYNE_SRCS)
+	mkdir -p $(OBJDIR)
 	(cd libwayne && make all)
-
+	touch $@
 
 ### Generated File Recipes
 
@@ -340,19 +341,19 @@ $(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(BLANT_CANON_DIR)/canon_map%
 $(DIR_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(DIR_CANON_DIR)/canon_map%.txt $(DIR_CANON_DIR)/canon_list%.txt $(DIR_CANON_DIR)/canon_map%.bin
 	./make-orbit-maps $* directed > $(DIR_CANON_DIR)/orbit_map$*.txt
 
-# future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
-$(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: $(SRCDIR)/create-bin-data.c $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.txt
-	# compile create-bin-data.c to create-bin-data[k] executables
-	$(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
-	[ -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
+CREATE_BIN_DATA := $(addprefix create-bin-data,$(sort $(K) $(K_DIR)))
+$(CREATE_BIN_DATA): create-bin-data%: $(SRCDIR)/create-bin-data.c $(SRCDIR)/libblant.c $(BLANT_HEADERS)
+$(LIBWAYNE_STAMP)
+	$(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o $@ $(SRCDIR)/libblant.c $(BLANT_HEADERS)
+$(LIBWAYNE_BOTH)
 
-# and copy bin versions for directed k<=6
-$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: \
-	$(SRCDIR)/create-bin-data.c \
-	$(DIR_CANON_DIR)/canon_list%.txt \
-	$(DIR_CANON_DIR)/canon_map%.txt
-	[ -f create-bin-data$* ] || $(CC) '-std=gnu11' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
-	[ -f $(DIR_CANON_DIR)/canon_map$*.bin -a -f $(DIR_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$* directed
+$(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: create-bin-data% $(BLANT_CANON_DIR)/canon_list%.txt
+$(BLANT_CANON_DIR)/canon_map%.txt
+	[ $* -eq 8 -a -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
+
+$(DIR_CANON_DIR)/canon_map%.bin $(DIR_CANON_DIR)/perm_map%.bin: create-bin-data% $(DIR_CANON_DIR)/canon_list%.txt
+$(DIR_CANON_DIR)/canon_map%.txt
+	./create-bin-data$* directed
 
 # Currently unused target
 $(BLANT_CANON_DIR)/EdgeHammingDistance%.txt: makeEHD | $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.bin
@@ -374,7 +375,7 @@ $(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_tx
 
 ### Testing ###
 
-blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
+blant-sanity: $(LIBWAYNE_STAMP) $(SRCDIR)/blant-sanity.c
 	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
 
 test_stamp: blant blant-sanity $(canon_all) $(subcanon_txts)
@@ -413,6 +414,7 @@ realclean:
 pristine: clean clean_$(BLANT_CANON_DIR)
 ifndef NO_CLEAN_LIBWAYNE
 	cd $(LIBWAYNE_HOME); $(MAKE) clean
+	/bin/rm -f $(LIBWAYNE_STAMP)
 endif
 	find $(BLANT_CANON_DIR) -mindepth 1 -not -type d -delete; /bin/rm -f .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
