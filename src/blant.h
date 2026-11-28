@@ -108,6 +108,8 @@ void SetBlantDirs(void);
 double GetCPUseconds(void);
 void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint);
 Gint_type TinyGraph2Int(TINY_GRAPH *g, int numNodes);
+// Count NBE or EBE expansion paths for one undirected graphlet.
+Gint_type ComputeExpansionAlpha(TINY_GRAPH *g, int k, Boolean edgeBased);
 #if !DYNAMIC_CANON_MAP
 Gordinal_type * mapCanonMap(char* BUF, Gordinal_type *K, int k, Boolean directed);
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges, Boolean directed); // returns a SET containing list of connected ordinals
@@ -196,6 +198,7 @@ extern SET *_startNodeSet;
 extern double *_cumulativeProb;
 extern Boolean _child, _weighted, _directed;
 extern Boolean _rawCounts;
+extern Boolean _skipAlphas;
 extern int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 #define SPARSE true // do not try false at the moment, it's broken

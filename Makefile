@@ -279,7 +279,7 @@ cluster-similarity-graph: $(LIBWAYNE_STAMP) src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
 $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
-	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_BOTH); fi
+	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -D"DYNAMIC_CANON_MAP=$(DYNAMIC_CANON_MAP)" -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_BOTH); fi
 
 ### Object Files/Prereqs ###
 
@@ -292,7 +292,7 @@ $(LIBWAYNE_HOME)/C++/mt19937.o: $(LIBWAYNE_STAMP) # $(LIBWAYNE_HOME)/C++/FutureA
 
 $(OBJDIR)/libblant.o: $(LIBWAYNE_STAMP) $(SRCDIR)/libblant.c $(BLANT_HEADERS)
 	mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
+	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP) -D"DYNAMIC_CANON_MAP=$(DYNAMIC_CANON_MAP)"
 
 
 $(OBJDIR)/makeEHD.o: $(LIBWAYNE_STAMP) $(SRCDIR)/makeEHD.c $(BLANT_HEADERS) $(OBJDIR)/libblant.o

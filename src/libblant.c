@@ -46,6 +46,49 @@ Gint_type TinyGraph2Int(TINY_GRAPH *g, int k)
     return Gint;
 }
 
+// Count NBE or EBE expansion paths with subset DP. EBE weights an addition
+// by the number of edges from the added node to the current set.
+Gint_type ComputeExpansionAlpha(TINY_GRAPH *g, int k, Boolean edgeBased)
+{
+    size_t numSubsets = (size_t)1 << k;
+    Gint_type *dp = Calloc(numSubsets, sizeof(*dp)); // dp[mask] counts ways to finish from the selected node set.
+    TSET adjacent[k];
+    int i, j;
+
+    for (i = 0; i < k; i++) {
+        adjacent[i] = TSET_NULLSET;
+        for (j = 0; j < k; j++)
+            if (TinyGraphAreConnected(g, i, j)) TSetAdd(adjacent[i], j);
+    }
+
+    size_t full = numSubsets - 1;
+    dp[full] = 1;
+    for (size_t subset = full; subset-- > 0;) {
+        TSET seen = (TSET)subset, frontier = TSET_NULLSET;
+        for (i = 0; i < k; i++)
+            if (TSetIn(seen, i)) frontier |= adjacent[i];
+        frontier &= (TSET)~seen; // Nodes adjacent to the current set but not yet selected.
+        for (i = 0; i < k; i++) {
+            if (!TSetIn(frontier, i)) continue;
+            size_t next = subset | ((size_t)1 << i);
+            if (edgeBased) // EBE counts each edge from the added node into seen as a choice.
+                dp[subset] +=
+                    TSetCardinality(TSetIntersect(adjacent[i], seen)) *
+                    dp[next];
+            else
+                dp[subset] += dp[next];
+        }
+    }
+
+    Gint_type total = 0;
+    for (i = 0; i < k; i++)
+        for (j = i + 1; j < k; j++)
+            if (TSetIn(adjacent[i], j))
+                total += dp[((size_t)1 << i) | ((size_t)1 << j)]; // Sum over all starting edges.
+    Free(dp);
+    return total;
+}
+
 /*
 ** Decode an integer into a TinyGraph.
 ** Respects G->directed (directed vs. undirected) and SELF_LOOPS for self-loop handling.
