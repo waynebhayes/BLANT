@@ -247,10 +247,10 @@ synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/synt
 makeEHD: $(OBJDIR)/makeEHD.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_LINK)
 
-compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
+compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
-compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant.o
+compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c $(OBJDIR)/libblant.o
 	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-EBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
 
 # Currently unused target, was the old method for calculating MCMC
@@ -275,7 +275,7 @@ cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
 $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
-	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_BOTH); fi
+	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -D"DYNAMIC_CANON_MAP=$(DYNAMIC_CANON_MAP)" -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_BOTH); fi
 
 ### Object Files/Prereqs ###
 
@@ -288,7 +288,7 @@ $(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 
 $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c $(BLANT_HEADERS)
 	mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
+	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP) -D"DYNAMIC_CANON_MAP=$(DYNAMIC_CANON_MAP)"
 
 
 $(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
