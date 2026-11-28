@@ -8,7 +8,9 @@
 
 #include "blant.h"
 
-#define ALLOW_DIRECTED 0
+#ifndef ALLOW_D6
+#define ALLOW_D6 1
+#endif
 
 #define udGraphSize 14 //undirected graph size; k=8
 #define dGraphSize 30 //directed graph size; k=6
@@ -69,7 +71,7 @@ void decimalToBitArray(int bitMatrix[k][k], unsigned long D){
 
 #endif
 
-#if ALLOW_DIRECTED
+#if ALLOW_D6
 // 64 bits for the index of canonical decimal plus permutation:
 // 30 bits to store the graph, largest numCanon is 1540944 (for k=6)
 #define XCHAR_SIZE 8
@@ -232,16 +234,17 @@ static char USAGE[] = "USAGE: $0 k [directed (the word, as a string); default is
 
 int main(int argc, char* argv[]){
     if(argc == 3) {
-	if(strcmp(argv[2], "directed")!=0) {
-	    fprintf(stderr, "if given two arguments, the second must be the word \"directed\"\n");
-	    exit(1);
-	}
+	if(strcmp(argv[2], "directed")!=0)
+	    Fatal("if given two arguments, the second must be the word \"directed\"");
 	directed=true;
-    } else assert(argc==2);
+    } else
+	assert(argc==2);
     k = atoi(argv[1]); assert(2<=k && k<=8);
-    if(directed && k > 6) {
-	fprintf(stderr, "Error: directed graphs are only supported for k<=6 (got k=%d)\n", k);
-	exit(1);
+    if(directed) {
+	if(k>6)
+	    Fatal("directed graphs only supported for k<=6 (got k=%d)\n", k);
+	if(k>5 && !ALLOW_D6)
+	    Fatal("directed graphs only supported for k<6 (set ALLOW_D6 in fast-canon-map.c to allow k=6)");
     }
     numBitValues = (1UL << (k*(k-1)/(2-directed)));
     assert(numBitValues>0);

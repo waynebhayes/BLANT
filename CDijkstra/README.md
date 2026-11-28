@@ -1,6 +1,12 @@
-# BLANT-Dijkstra (C++)
+# DijSLA (C++)
 
-BLANT-Dijkstra is a local network alignment algorithm that aligns protein interaction networks from different species and can be used to predict Gene Ontology (GO) annotations. It works in a seed-and-extend manner: it first reads a set of “seeds,” or node pairs, and then grows the alignment outward from them. At each step, a Dijkstra-inspired greedy strategy picks the candidate pair with the best similarity score, while making sure that adding this pair does not violate an edge correctness (EC) threshold, in order to maintain alignment quality. The parameter delta deliberately adds randomness to the choice of candidate, which lets us assess how confident we can be in each aligned pair. The algorithm terminates when there are no more candidate pairs, or when the number of node pairs discarded due to EC violations exceeds a threshold, indicating that no more good pairs exist. Finally, the aligned node pairs (1 to 1) are written to an output file.
+DijSLA (Dijkstra-inspired Stochastic Local Alignment) is a local network alignment algorithm for protein–protein interaction (PPI) networks of different species. It is designed to use network topology alone, and its alignments can be used to predict Gene Ontology (GO) annotations across species.
+
+DijSLA works in a seed-and-extend manner. It starts from one or more seed node pairs and grows the alignment outward, one node pair at a time. Each candidate pair consists of two unaligned nodes, one from each network, that are neighbors of an already-aligned pair.
+
+Unlike Dijkstra's algorithm, which grows deterministically, DijSLA adds controlled randomness. At each step, let `Smax` be the highest similarity score among the candidates. DijSLA draws a target score `St` uniformly at random from `[Smax - delta, Smax]` and selects the candidate whose score is closest to `St`. The pair is accepted only if the alignment's edge correctness (EC₁ and EC₂) stays at or above the EC threshold; otherwise it is discarded. This lets us sample multiple different high-quality alignments with multiple runs, even from the same seed. Across many runs, node pairs that are aligned more often than expected by chance (high Network Alignment Frequency, NAF) are more likely to be "correct".
+
+The algorithm stops when no candidate pairs remain, or when too many consecutive candidates have been discarded for violating the EC threshold. The resulting one-to-one alignment is written to the output.
 
 ---
 
@@ -45,6 +51,17 @@ Example:
 ```bash
 ./build/cdijkstra 0.05 0.1 data/sim.txt data/seed.txt data/g1.el data/g2.el > alignment.txt 2> log.txt
 ```
+
+---
+
+## Predefined constants
+
+These are set as macros in `src/main.cpp`. Edit them there, or override them at compile time (for example `make CXXFLAGS+=-DMIN_ITERATIONS=1000`).
+
+| Macro | Default | Description |
+|---|---|---|
+| `MAX_DISCARD_TIMES` | `10` | Number of consecutive EC-violating candidates after which extension stops. |
+| `MIN_ITERATIONS` | `500` | Minimum number of iterations before the `MAX_DISCARD_TIMES` stop rule applies. |
 
 ---
 
