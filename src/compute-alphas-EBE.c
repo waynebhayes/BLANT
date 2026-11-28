@@ -9,57 +9,9 @@
 Gint_type *_canonList, *_alphaList;
 char *_canonNumEdges;
 
-Gint_type CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
-    seen = TSetUnion(seen, candidates);
-
-    Gint_type outbound[((int)(k+1)/2)*((int)k/2)], outboundSize = 0;
-    if (TSetCardinality(seen) == k) return 1;
-
-    //Fill outbound for seen set
-    int i, j;
-    for (i = 0; i < k; i++) {
-        if (!TSetIn(seen, i)) continue;
-
-        for (j = 0; j < k; j++) {
-            if (i != j && !TSetIn(seen, j) && TinyGraphAreConnected(g, i, j)) {
-                outbound[outboundSize++] = j;
-            }
-        }
-    }
-
-    Gint_type calculatedValue[k];
-    for (i = 0; i < k; i++) calculatedValue[i] = 0;
-
-    //Recurse through neighbors in outbound
-    Gint_type total = 0;
-    for (i = 0; i < outboundSize; i++) {
-        if (!calculatedValue[outbound[i]]) {
-            TSetEmpty(candidates);
-            TSetAdd(candidates, outbound[i]);
-            calculatedValue[outbound[i]] = CountPath(g, seen, candidates, k);
-        }
-        total += calculatedValue[outbound[i]];
-    }
-    return total;
-}
-
+// EBE counts one choice for each edge from the added node to the current set.
 Gint_type ComputeAlphaNode(TINY_GRAPH* g, int k) {
-    Gint_type total = 0, i, j;
-    TSET seen = 0, candidates;
-    for (i = 0; i < k; i++) {
-        for (j = i+1; j < k; j++) {
-            if (!TinyGraphAreConnected(g, i, j))
-                continue;
-
-            TSetEmpty(candidates);
-            TSetAdd(candidates, i);
-            TSetAdd(candidates, j);
-
-            total += CountPath(g, seen, candidates, k);
-            TSetEmpty(candidates);
-        }
-    }
-    return total;
+    return ComputeExpansionAlpha(g, k, true);
 }
 
 SET* _connectedCanonicals;

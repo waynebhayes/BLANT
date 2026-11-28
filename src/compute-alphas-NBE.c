@@ -9,51 +9,9 @@
 Gint_type *_canonList, *_alphaList;
 char *_canonNumEdges;
 
-Gint_type CountPath(TINY_GRAPH* g, TSET seen, TSET candidates, int k) {
-    seen = TSetUnion(seen, candidates);
-    TSET outset = 0;
-    int outbound[k], outsetSize = 0;
-    if (TSetCardinality(seen) == k) return 1;
-
-    //Fill outset for seen set
-    int i, j;
-    for (i = 0; i < k; i++) {
-        if (!TSetIn(seen, i)) continue;
-        for (j = 0; j < k; j++) {
-            if (i != j && !TSetIn(seen, j) && !TSetIn(outset, j) && TinyGraphAreConnected(g, i, j)) {
-                outbound[outsetSize++] = j;
-                TSetAdd(outset, j);
-            }
-        }
-    }
-
-    //Recurse through neighbors in outset
-    int total = 0;
-    for (i = 0; i < outsetSize; i++) {
-        TSetEmpty(candidates);
-        TSetAdd(candidates, outbound[i]);
-        total += CountPath(g, seen, candidates, k);
-    }
-    return total;
-}
-
-int ComputeAlphaNode(TINY_GRAPH* g, int k) {
-    int total = 0, i, j;
-    TSET seen = 0, candidates;
-    for (i = 0; i < k; i++) {
-        for (j = i+1; j < k; j++) {
-            if (!TinyGraphAreConnected(g, i, j))
-                continue;
-
-            TSetEmpty(candidates);
-            TSetAdd(candidates, i);
-            TSetAdd(candidates, j);
-
-            total += CountPath(g, seen, candidates, k);
-            TSetEmpty(candidates);
-        }
-    }
-    return total;
+// NBE counts each distinct frontier node once.
+Gint_type ComputeAlphaNode(TINY_GRAPH* g, int k) {
+    return ComputeExpansionAlpha(g, k, false);
 }
 
 SET* _connectedCanonicals;

@@ -462,14 +462,31 @@ Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_G
     if(processed && (_outputMode & graphletFrequency) && accums->graphletCount){
 	Gint_type kid = res;
 	foint key = {.v = &kid}, cnt;
+	double countWeight = weight;
+	// Dynamic builds compute alpha per sample for now
+	if (!_rawCounts && !_skipAlphas &&
+	    (_sampleMethod == SAMPLE_NODE_EXPANSION ||
+	     _sampleMethod == SAMPLE_EDGE_EXPANSION)) {
+	    TINY_GRAPH *alphaGraph = ug;
+	    if (_directed) {
+		alphaGraph = TinyGraphAlloc(k, SELF_LOOPS, false);
+		TinyGraphInducedFromGraph(alphaGraph, G, Varray);
+	    }
+	    Gint_type alpha = ComputeExpansionAlpha(
+		alphaGraph, k, _sampleMethod == SAMPLE_EDGE_EXPANSION);
+	    if (alphaGraph != ug) TinyGraphFree(alphaGraph);
+	    if (!alpha) Fatal("zero NBE/EBE alpha for a sampled graphlet");
+	    countWeight /= (double)alpha;
+	}
 	if(!TreeLookup(accums->graphletCount,key,&cnt)) cnt.d = 0;
-	cnt.d += weight;
+	cnt.d += countWeight;
 	TreeInsert(accums->graphletCount,key,cnt);
-	accums->graphletTotalWeight += weight;
+	accums->graphletTotalWeight += countWeight;
 	// F_j for the -S fallback only. The default k-star path does no extra
 	// work here.
 	if (_starSize > 0 && _starSize < k)
-	    accums->foundStarWeight += weight * StarCountInTinyGraph(ug, k, _starSize);
+	    accums->foundStarWeight +=
+		countWeight * StarCountInTinyGraph(ug, k, _starSize);
     }
 #else
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint, _directed), j;

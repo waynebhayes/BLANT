@@ -116,6 +116,7 @@ Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER
 Boolean _weighted;      // input network is weighted
 Boolean _directed;      // input network is directed
 Boolean _rawCounts;
+Boolean _skipAlphas;    // -A: skip NBE/EBE alpha correction in dynamic builds
 Boolean _starFallback;      // -S: fall back to smaller star motifs
 int _starSize = -1;         // star size used for absolute counts (j)
 Gordinal_type _numConnectedCanon;
@@ -1977,6 +1978,8 @@ const char *const USAGE_SHORT =
     "    -d{displayModeForCanonicalIDs} (default i=integerOrdinal, o=ORCA, "
     "j=Jesse, b=binary, d=decimal, n=noncanonical)\n"
     "    -r seed (integer)\n"
+    "    -A: in dynamic builds, skip NBE/EBE alpha correction but keep "
+    "expansion multipliers\n"
     "    -S: fall back to smaller star motifs for -F a absolute counts when "
     "no k-star exists\n"
     "    -F frequency display mode (default a=absolute count (estimated); "
@@ -2117,6 +2120,8 @@ const char *const USAGE_LONG =
     "possible value (MAX_POSSIBLE_THREADS in blant.h),\n"
     "       but defaults to 4 to be conservative.\n"
     "    -r seed: pick your own random seed\n"
+    "    -A: in dynamic builds, skip NBE/EBE alpha correction but keep "
+    "expansion multipliers\n"
     "    -S: if the network has no k-star motifs, fall back to (k-1)-, "
     "(k-2)-, ... star motifs for the absolute-count estimate (-F a) and use "
     "expansion-adjusted totals\n"
@@ -2184,7 +2189,7 @@ int main(int argc, char *argv[]) {
   // no colon appended.
   while ((opt = getopt(
               argc, argv,
-              "2:a:b:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:QqRSr:s:t:T:wW:x:X")) != -1) {
+              "2:Aa:b:Dd:c:e:f:F:g:hi:k:K:l:M:m:n:o:P:p:QqRSr:s:t:T:wW:x:X")) != -1) {
     switch (opt) {
       unsigned long nSampArg;
     // -q decreases verboseness; -v increases it
@@ -2332,6 +2337,13 @@ int main(int argc, char *argv[]) {
       _seed = atoi(optarg);
       if (_seed == -1)
         Apology("seed -1 ('-r -1' is reserved to mean 'uninitialized'");
+      break;
+    case 'A':
+#if DYNAMIC_CANON_MAP
+      _skipAlphas = true;
+#else
+      Warning("-A only applies to dynamic canonical-map builds");
+#endif
       break;
     case 'R':
       _rawCounts = true;
